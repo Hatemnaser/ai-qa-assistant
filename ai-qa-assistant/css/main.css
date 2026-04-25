@@ -1,0 +1,94 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10px;
+}
+
+.bot-app .content .bot-info {
+    background-color: #0984e3;
+    overflow: hidden;
+    padding: 10px;
+    position: fixed;
+    width: 100%;
+    top: 0;
+}
+
+.bot-app .content .bot-info .bot-img {
+    width: 15%;
+    text-align: center;
+}
+
+.bot-app .content .bot-info .bot-img img {
+    width: 50px;
+    border-radius: 50%;
+}
+
+.bot-app .content .bot-info .bot-name {
+    font-size: 2rem;
+    color: #fff;
+    padding-top: 14px;
+    width: 85%;
+}
+
+.bot-app .content .bot-info .bot-name,
+.bot-app .content .bot-info .bot-img {
+    float: left;
+}
+
+.bot-app #chat-area {
+    margin-top: 73px;
+}
+
+.bot-app #chat-area .msg {
+    background-color: #74b9ff;
+}
+
+.bot-app #chat-area .answer {
+    background-color: #cccccc;
+    color: #fff;
+}
+
+.bot-app #chat-area .msg,
+.bot-app #chat-area .answer {
+    font-size: 2rem;
+    padding: 10px;
+}
+
+form {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    /* Add desired styles */
+}
+
+form input {
+    border: none;
+    outline: none;
+    background: none;
+}
+
+form #message::placeholder {
+    color: #fff;
+}
+
+form #message {
+    width: 80%;
+    background-color: #2d3436;
+    color: #fff;
+}
+
+form #send {
+    width: 20%;
+    background-color: #0984e3;
+    color: #fff;
+    cursor: pointer;
+}
+
+form #message,
+form #send {
+    float: left;
+    font-size: 2rem;
+    padding: 10px;
+}
