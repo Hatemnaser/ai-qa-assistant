@@ -1,111 +1,60 @@
-let form = document.querySelector("form");
-let chatArea = document.querySelector("#chat-area");
-let inputMessage = document.querySelector("#message");
+const form = document.querySelector("form");
+const chatArea = document.querySelector("#chat-area");
+const inputMessage = document.querySelector("#message");
 
-async function getBotAnswers() {
-  const response = await fetch("ans.json");
-  const data = await response.json();
+const API_URL = "http://localhost:5000/api/chat";
 
-  form.onsubmit = (e) => {
-    e.preventDefault();
-
-    let inputMessageS = inputMessage.value.trim().toLowerCase();
-
-    if (inputMessageS === "") {
-      alert("Please insert a value");
-    } else {
-      let found = false;
-      let i = 0;
-
-      while (i < data.intents.length && !found) {
-        const intent = data.intents[i];
-        let j = 0;
-
-        while (j < intent.patterns.length && !found) {
-          const pattern = intent.patterns[j];
-
-          if (inputMessageS.includes(pattern.toLowerCase())) {
-            chatArea.innerHTML += `<p class="msg">${inputMessageS}</p>`;
-
-            const response = intent.responses[Math.floor(Math.random() * intent.responses.length)];
-
-            setTimeout(() => {
-              chatArea.innerHTML += `<p class="answer">${response}</p>`;
-            }, Math.floor(Math.random() * 1000));
-
-            found = true;
-          }
-
-          j++;
-        }
-
-        i++;
-      }
-
-      if (!found) {
-        chatArea.innerHTML += `<p class="msg">${inputMessageS}</p>`;
-        setTimeout(() => {
-          chatArea.innerHTML += `<p class="answer">I'm sorry, but I didn't understand that or Contact our support.</p>`;
-        }, Math.floor(Math.random() * 1000));
-      }
-    }
-
-    inputMessage.value = "";
-  };
+function addMessage(className, text) {
+  const message = document.createElement("p");
+  message.className = className;
+  message.innerText = text;
+  chatArea.appendChild(message);
+  chatArea.scrollTop = chatArea.scrollHeight;
 }
 
-getBotAnswers();
+async function sendMessageToAI(userMessage) {
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message: userMessage,
+    }),
+  });
 
+  if (!response.ok) {
+    throw new Error("Failed to get response from backend");
+  }
 
-
-/*
-let form = document.querySelector("form");
-let chatArea = document.querySelector("#chat-area");
-let inputMessage = document.querySelector("#message");
-
-async function getBotAnswers() {
-  const response = await fetch("ans.json");
   const data = await response.json();
-
-  form.onsubmit = (e) => {
-    e.preventDefault();
-
-    let inputMessageS = inputMessage.value.trim().toLowerCase();
-
-    if (inputMessageS === "") {
-      alert("Please insert a value");
-    } else {
-
-      let found = false;
-      data.intents.forEach((intent) => {
-        intent.patterns.forEach((pattern) => {
-
-          if (inputMessageS.includes(pattern.toLowerCase())) {
-
-            chatArea.innerHTML += `<p class="msg">${inputMessageS}</p>`;
-
-            const response = intent.responses[Math.floor(Math.random() * intent.responses.length)];
-
-            setTimeout(() => {
-              chatArea.innerHTML += `<p class="answer">${response}</p>`;
-            },
-              Math.floor(Math.random() * 1000));
-            found = true;
-          }
-        });
-      });
-
-      if (!found) {
-        chatArea.innerHTML += `<p class="msg">${inputMessageS}</p>`;
-        setTimeout(() => {
-          chatArea.innerHTML += `<p class="answer">I'm sorry, but I didn't understand that.</p>`;
-        }, Math.floor(Math.random() * 1000));
-      }
-    }
-
-    inputMessage.value = "";
-  };
+  return data.reply;
 }
 
-getBotAnswers()
-*/
+form.onsubmit = async (e) => {
+  e.preventDefault();
+
+  const userMessage = inputMessage.value.trim();
+
+  if (userMessage === "") {
+    alert("Please insert a value");
+    return;
+  }
+
+  addMessage("msg", userMessage);
+  inputMessage.value = "";
+
+  addMessage("answer", "Thinking...");
+
+  try {
+    const botReply = await sendMessageToAI(userMessage);
+
+    const thinkingMessage = chatArea.lastElementChild;
+    thinkingMessage.innerText = botReply;
+  } catch (error) {
+    const thinkingMessage = chatArea.lastElementChild;
+    thinkingMessage.innerText =
+      "Sorry, something went wrong. Please make sure the backend server is running.";
+    console.error(error);
+  }
+};
