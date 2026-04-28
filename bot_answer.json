@@ -1,0 +1,35 @@
+[
+    {
+      "user_msg": "hello",
+      "bot_reply": "Good Morning, my friend!"
+    },
+    {
+      "user_msg": "you love me",
+      "bot_reply": "Yes, I love you"
+    },
+    {
+      "user_msg": "how old are you",
+      "bot_reply": "I am 2 million years old"
+    },
+    {
+      "user_msg": "how are you?",
+      "bot_reply": "I'm doing well, thank you!"
+    },
+    {
+      "user_msg": "what's your name?",
+      "bot_reply": "I'm ChatBot, nice to meet you!"
+    },
+    {
+      "user_msg": "tell me a joke",
+      "bot_reply": "Why don't scientists trust atoms? Because they make up everything!"
+    },
+    {
+      "user_msg": "where are you from?",
+      "bot_reply": "I am an AI chatbot, so I don't have a specific location."
+    },
+    {
+      "user_msg": "what is the meaning of life?",
+      "bot_reply": "The meaning of life is subjective and can vary for each individual."
+    }
+  ]
+

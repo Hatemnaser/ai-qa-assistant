@@ -1,0 +1,116 @@
+{
+  "intents": [
+    {
+      "tag": "greeting",
+      "patterns": ["Hi", "Hello", "Hey"],
+      "responses": ["Hello! How can I assist you?", "Hi there! How can I help you today?"]
+    },
+    {
+      "tag": "farewell",
+      "patterns": ["Goodbye", "Bye", "See you later"],
+      "responses": ["Goodbye! Have a great day!", "Bye! Take care!"]
+    },
+    {
+      "tag": "age",
+      "patterns": ["How old are you?", "What's your age?"],
+      "responses": ["I am an AI and I don't have an age."]
+    },
+    {
+      "tag": "weather",
+      "patterns": ["What's the weather like today?", "Tell me about the weather"],
+      "responses": ["I'm sorry, I am not able to provide real-time weather information."]
+    },
+    {
+      "tag": "help",
+      "patterns": ["Help me", "I need assistance", "Can you help?"],
+      "responses": ["Of course! What do you need help with?"]
+    },
+    {
+      "tag": "support",
+      "patterns": ["I need support", "Help me with a problem", "I have a technical issue"],
+      "responses": ["Of course! I'm here to help. Please provide more details about the issue you're facing.", "I'm sorry to hear that. Please describe the problem in more detail so that I can assist you better."]
+    },
+    {
+      "tag": "technical_issue",
+      "patterns": ["Software not working", "Error message", "Bug"],
+      "responses": ["I understand. Let's troubleshoot the issue. Have you tried restarting the software?", "I'm sorry for the inconvenience. Please provide any error messages you received so that I can assist you further."]
+    },
+    {
+      "tag": "restart_software",
+      "patterns": ["Yes, I restarted", "No, I haven't"],
+      "responses": ["Great! Let's move on to the next step.", "Alright. Please try restarting the software and let me know if the issue persists."]
+
+    },
+    {
+      "tag": "provide_error_message",
+      "patterns": ["The error message says", "Here is the error message"],
+      "responses": ["Thank you for providing the error message. Please give me a moment to analyze it.", "I appreciate the error message. Let me check our knowledge base for a solution."]
+    },
+    {
+      "tag": "account_related",
+      "patterns": ["Problem with my account", "Forgot password", "Account settings"],
+      "responses": ["I can help you with account-related issues. What specific problem are you facing?", "No worries. Let's sort out the account-related problem. Please provide more details."]
+    },
+    {
+      "tag": "forgot_password",
+      "patterns": ["I forgot my password", "Reset password"],
+      "responses": ["No problem. I can assist you with resetting your password. Do you have access to the email associated with your account?", "Alright. Let's start the password reset process. Can you confirm your email address?"]
+    },
+    {
+      "tag": "update_account_settings",
+      "patterns": ["Update account information", "Change email address", "Modify profile"],
+      "responses": ["Sure. To update your account settings, please provide the specific changes you'd like to make.", "I understand. Let's proceed with updating your account settings. What information needs to be changed?"]
+    },
+    {
+      "tag": "programming",
+      "patterns": ["What is programming?", "Tell me about programming"],
+      "responses": ["Programming is the process of writing instructions for a computer to perform specific tasks.", "Programming involves using programming languages to create software and applications."]
+    },
+    {
+      "tag": "database",
+      "patterns": ["What is a database?", "Tell me about databases"],
+      "responses": ["A database is a structured collection of data that is organized and stored for easy access and management.", "Databases are commonly used for storing and retrieving large amounts of information in various applications."]
+    },
+    {
+      "tag": "networking",
+      "patterns": ["What is networking?", "Tell me about computer networking"],
+      "responses": ["Networking refers to the practice of connecting computers and other devices to share resources and communicate with each other.", "Computer networking enables data transmission, resource sharing, and communication between devices in a network."]
+    },
+    {
+      "tag": "security",
+      "patterns": ["What is cybersecurity?", "Tell me about computer security"],
+      "responses": ["Cybersecurity focuses on protecting computer systems, networks, and data from unauthorized access, damage, or theft.", "Computer security measures include technologies, processes, and practices designed to safeguard information and prevent security breaches."]
+    },
+    {
+      "tag": "web",
+      "patterns": ["What is web development?", "Tell me about building websites"],
+      "responses": ["Web development involves creating websites and web applications using programming languages, frameworks, and other tools.", "Web developers design, code, and deploy websites to meet the needs of businesses, organizations, and individuals."]
+    },
+    {
+      "tag": "AI",
+      "patterns": ["What is artificial intelligence?", "Tell me about AI"],
+      "responses": ["Artificial intelligence is a field of computer science that focuses on creating intelligent machines capable of performing tasks that typically require human intelligence.", "AI technologies include machine learning, natural language processing, computer vision, and robotics."]
+    },
+    {
+      "tag": "cloud",
+      "patterns": ["What is cloud computing?", "Tell me about the cloud"],
+      "responses": ["Cloud computing refers to the delivery of computing services, including servers, storage, databases, networking, software, and analytics, over the internet.", "Cloud computing enables businesses and individuals to access and use resources on-demand without the need for extensive infrastructure."]
+    },
+    {
+      "tag": "mobile",
+      "patterns": ["What is mobile app development?", "Tell me about building mobile apps"],
+      "responses": ["Mobile app development involves creating applications specifically designed to run on mobile devices such as smartphones and tablets.", "Mobile app developers use programming languages, frameworks, and development tools to build apps for platforms like iOS and Android."]
+    },
+    {
+      "tag": "data",
+      "patterns": ["What is data analysis?", "Tell me about analyzing data"],
+      "responses": ["Data analysis is the process of inspecting, cleaning, transforming, and modeling data to discover useful information, draw conclusions, and support decision-making.", "Data analysts use statistical techniques, data visualization tools, and programming languages to analyze and interpret data."]
+    },
+    {
+      "tag": "default",
+      "patterns": ["", "I don't know", "Maybe"],
+      "responses": ["I'm sorry, but I didn't understand. Can you please rephrase or Contact our support?"]
+    }
+  ]
+}
+
