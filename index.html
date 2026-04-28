@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>AI QA Assistant</title>
 
   <link rel="stylesheet" href="css/bootstrap.min.css" />
@@ -10,25 +11,26 @@
 </head>
 <body>
   <div class="app d-flex">
-    <aside class="sidebar d-none d-lg-flex flex-column">
-      <div>
+    <aside class="sidebar d-flex flex-column">
+      <div class="brand">
         <span class="badge text-bg-primary mb-3">AI QA Tool</span>
-        <h1 class="h3 fw-bold">AI QA Assistant</h1>
-        <p class="text-secondary">
-          Generate test cases, bug reports, edge cases, and QA checklists with Gemini AI.
-        </p>
+        <h1>AI QA Assistant</h1>
+        <p>QA workspace for test cases, bug reports, edge cases, and checklists.</p>
       </div>
 
-      <div class="mt-4 small text-secondary">
-        <p class="fw-semibold text-dark mb-2">Features</p>
-        <div class="mb-2">✓ Test case generation</div>
-        <div class="mb-2">✓ Bug report formatting</div>
-        <div class="mb-2">✓ Edge case suggestions</div>
-        <div>✓ QA checklist support</div>
+      <button id="new-chat-btn" class="btn btn-primary w-100 mt-3">
+        + New Chat
+      </button>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">Recent Chats</div>
+        <div id="chat-list" class="chat-list"></div>
       </div>
 
-      <div class="mt-auto small text-secondary">
-        Built with JavaScript, Node.js, Express & Gemini API.
+      <div class="sidebar-footer">
+        <button id="theme-toggle" class="btn btn-outline-secondary w-100">
+          Toggle Dark Mode
+        </button>
       </div>
     </aside>
 
@@ -38,41 +40,48 @@
           <h2 class="h5 fw-bold mb-1">QA Chat</h2>
           <p class="small text-secondary mb-0">Describe a feature, bug, or user story.</p>
         </div>
-        <span class="status">Online</span>
+
+        <div class="d-flex align-items-center gap-2">
+          <select id="qa-mode" class="form-select form-select-sm">
+            <option value="general">General QA</option>
+            <option value="test_cases">Test Cases</option>
+            <option value="bug_report">Bug Report</option>
+            <option value="edge_cases">Edge Cases</option>
+            <option value="checklist">QA Checklist</option>
+          </select>
+          <span class="status">Online</span>
+        </div>
       </header>
 
       <section class="quick-actions d-flex gap-2 flex-wrap">
         <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
+          data-mode="test_cases"
           data-prompt="Generate test cases for a login page">
           Test Cases
         </button>
 
         <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
+          data-mode="bug_report"
           data-prompt="Create a structured bug report for: login button does not work">
           Bug Report
         </button>
 
         <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
+          data-mode="edge_cases"
           data-prompt="Suggest edge cases for a checkout page">
           Edge Cases
         </button>
 
         <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
+          data-mode="checklist"
           data-prompt="Create a QA checklist for a web application">
           QA Checklist
         </button>
       </section>
 
-      <section id="chat-area" class="chat-area flex-grow-1">
-        <div class="welcome-message text-center">
-          <h3 class="h5 fw-bold">How can I help with QA today?</h3>
-          <p class="text-secondary mb-0">
-            Try asking for test cases, bug reports, edge cases, or QA checklists.
-          </p>
-        </div>
-      </section>
+      <section id="chat-area" class="chat-area flex-grow-1"></section>
 
-      <form class="chat-form">
+      <form id="chat-form" class="chat-form">
         <div class="input-group input-group-lg">
           <input
             id="message"
@@ -90,6 +99,6 @@
   </div>
 
   <script src="js/bootstrap.bundle.min.js"></script>
-  <script src="js/main.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
