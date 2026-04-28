@@ -76,9 +76,9 @@ async function handleSubmit(event) {
     });
 
     const thinkingMessage = document.querySelector("#chat-area").lastElementChild;
-    thinkingMessage.innerHTML = window.marked
-  ? marked.parse(aiReply)
-  : aiReply.replace(/\n/g, "<br>");
+    thinkingMessage.remove();
+    
+    addMessage("answer", aiReply);
 
     addMessageToChat(activeChat.id, {
       role: "assistant",

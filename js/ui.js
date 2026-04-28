@@ -43,17 +43,82 @@ export function addMessage(className, text) {
     welcomeMessage.remove();
   }
 
-  const message = document.createElement("div");
-  message.className = className;
+  const messageWrapper = document.createElement("div");
+  messageWrapper.className = className;
 
-  if (className === "answer" && window.marked) {
-    message.innerHTML = marked.parse(text);
+  if (className === "answer") {
+    const actions = document.createElement("div");
+    actions.className = "message-actions";
+
+    const copyButton = document.createElement("button");
+    copyButton.type = "button";
+    copyButton.className = "message-action-btn";
+    copyButton.textContent = "Copy";
+
+    const downloadButton = document.createElement("button");
+    downloadButton.type = "button";
+    downloadButton.className = "message-action-btn";
+    downloadButton.textContent = "Download .md";
+
+    copyButton.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+        copyButton.textContent = "Copied!";
+        setTimeout(() => {
+          copyButton.textContent = "Copy";
+        }, 1500);
+      } catch (error) {
+        copyButton.textContent = "Failed";
+        setTimeout(() => {
+          copyButton.textContent = "Copy";
+        }, 1500);
+      }
+    });
+
+    downloadButton.addEventListener("click", () => {
+      downloadMarkdown(text);
+    });
+
+    actions.appendChild(copyButton);
+    actions.appendChild(downloadButton);
+
+    const content = document.createElement("div");
+    content.className = "message-content";
+    content.innerHTML = window.marked
+      ? marked.parse(text)
+      : text.replace(/\n/g, "<br>");
+
+    messageWrapper.appendChild(actions);
+    messageWrapper.appendChild(content);
   } else {
-    message.textContent = text;
+    messageWrapper.textContent = text;
   }
 
-  chatArea.appendChild(message);
+  chatArea.appendChild(messageWrapper);
   chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function downloadMarkdown(content) {
+  const blob = new Blob([content], {
+    type: "text/markdown;charset=utf-8",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/[:.]/g, "-")
+    .slice(0, 19);
+
+  link.href = url;
+  link.download = `qa-report-${timestamp}.md`;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
 }
 
 export function setInputValue(value) {
