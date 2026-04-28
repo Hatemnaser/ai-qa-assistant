@@ -76,7 +76,9 @@ async function handleSubmit(event) {
     });
 
     const thinkingMessage = document.querySelector("#chat-area").lastElementChild;
-    thinkingMessage.innerHTML = aiReply.replace(/\n/g, "<br>");
+    thinkingMessage.innerHTML = window.marked
+  ? marked.parse(aiReply)
+  : aiReply.replace(/\n/g, "<br>");
 
     addMessageToChat(activeChat.id, {
       role: "assistant",
@@ -113,15 +115,21 @@ document.querySelectorAll(".quick-btn").forEach((button) => {
   });
 });
 
+function updateThemeButton(theme) {
+  themeToggle.textContent = theme === "dark" ? "Light" : "Dark";
+}
+
 themeToggle.addEventListener("click", () => {
   const currentTheme = document.documentElement.dataset.theme;
   const nextTheme = currentTheme === "dark" ? "light" : "dark";
 
   document.documentElement.dataset.theme = nextTheme;
   localStorage.setItem(STORAGE_KEYS.THEME, nextTheme);
+  updateThemeButton(nextTheme);
 });
 
 const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME) || "light";
 document.documentElement.dataset.theme = savedTheme;
+updateThemeButton(savedTheme);
 
 renderApp();

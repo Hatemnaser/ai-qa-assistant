@@ -45,7 +45,12 @@ export function addMessage(className, text) {
 
   const message = document.createElement("div");
   message.className = className;
-  message.innerHTML = text.replace(/\n/g, "<br>");
+
+  if (className === "answer" && window.marked) {
+    message.innerHTML = marked.parse(text);
+  } else {
+    message.textContent = text;
+  }
 
   chatArea.appendChild(message);
   chatArea.scrollTop = chatArea.scrollHeight;
