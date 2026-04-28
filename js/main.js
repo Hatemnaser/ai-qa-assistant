@@ -6,6 +6,8 @@ import {
   getActiveChatId,
   setActiveChatId,
   addMessageToChat,
+  renameChat,
+  deleteChat,
 } from "./store.js";
 import {
   renderChatList,
@@ -31,14 +33,22 @@ function renderApp() {
 
   modeSelect.value = activeChat.mode || "general";
 
-  renderChatList({
-    chats: getChats(),
-    activeChatId: getActiveChatId(),
-    onSelectChat: (chatId) => {
-      setActiveChatId(chatId);
-      renderApp();
-    },
-  });
+renderChatList({
+  chats: getChats(),
+  activeChatId: getActiveChatId(),
+  onSelectChat: (chatId) => {
+    setActiveChatId(chatId);
+    renderApp();
+  },
+  onRenameChat: (chatId, newTitle) => {
+    renameChat(chatId, newTitle);
+    renderApp();
+  },
+  onDeleteChat: (chatId) => {
+    deleteChat(chatId);
+    renderApp();
+  },
+});
 
   renderMessages(activeChat);
 }

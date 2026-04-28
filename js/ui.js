@@ -1,18 +1,66 @@
-export function renderChatList({ chats, activeChatId, onSelectChat }) {
+export function renderChatList({
+  chats,
+  activeChatId,
+  onSelectChat,
+  onRenameChat,
+  onDeleteChat,
+}) {
   const chatList = document.querySelector("#chat-list");
   chatList.innerHTML = "";
 
   chats.forEach((chat) => {
-    const button = document.createElement("button");
-    button.className =
+    const item = document.createElement("div");
+    item.className =
       chat.id === activeChatId
         ? "chat-list-item active"
         : "chat-list-item";
 
-    button.textContent = chat.title;
-    button.addEventListener("click", () => onSelectChat(chat.id));
+    const title = document.createElement("button");
+    title.type = "button";
+    title.className = "chat-title-btn";
+    title.textContent = chat.title;
+    title.addEventListener("click", () => onSelectChat(chat.id));
 
-    chatList.appendChild(button);
+    const actions = document.createElement("div");
+    actions.className = "chat-item-actions";
+
+    const renameButton = document.createElement("button");
+    renameButton.type = "button";
+    renameButton.className = "chat-icon-btn";
+    renameButton.textContent = "✎";
+    renameButton.title = "Rename chat";
+    renameButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+
+      const newTitle = prompt("Rename chat:", chat.title);
+
+      if (newTitle) {
+        onRenameChat(chat.id, newTitle);
+      }
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "chat-icon-btn danger";
+    deleteButton.textContent = "×";
+    deleteButton.title = "Delete chat";
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+
+      const confirmed = confirm(`Delete "${chat.title}"?`);
+
+      if (confirmed) {
+        onDeleteChat(chat.id);
+      }
+    });
+
+    actions.appendChild(renameButton);
+    actions.appendChild(deleteButton);
+
+    item.appendChild(title);
+    item.appendChild(actions);
+
+    chatList.appendChild(item);
   });
 }
 

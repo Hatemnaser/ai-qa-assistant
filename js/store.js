@@ -72,3 +72,36 @@ export function addMessageToChat(chatId, message) {
 
   saveChats(updatedChats);
 }
+
+export function renameChat(chatId, newTitle) {
+  const cleanTitle = newTitle.trim();
+
+  if (!cleanTitle) return;
+
+  const chats = getChats().map((chat) =>
+    chat.id === chatId
+      ? {
+          ...chat,
+          title: cleanTitle.slice(0, 50),
+          updatedAt: new Date().toISOString(),
+        }
+      : chat
+  );
+
+  saveChats(chats);
+}
+
+export function deleteChat(chatId) {
+  const chats = getChats().filter((chat) => chat.id !== chatId);
+  saveChats(chats);
+
+  const activeChatId = getActiveChatId();
+
+  if (activeChatId === chatId) {
+    if (chats.length > 0) {
+      setActiveChatId(chats[0].id);
+    } else {
+      createChat();
+    }
+  }
+}
