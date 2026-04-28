@@ -1,41 +1,104 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bot Application</title>
-  <link rel="icon" href="imgs/andrea.jpg">
-  <link rel="stylesheet" href="css/bootstrap.min.css">
-  <link rel="stylesheet" href="css/main.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>AI QA Assistant</title>
+
+  <link rel="stylesheet" href="css/bootstrap.min.css" />
+  <link rel="stylesheet" href="css/main.css" />
 </head>
 <body>
-<div class="card text-center">
-  <div class="card-header">
-    Featured
-  </div>
-</div>
-
-<div class="card-body">
-  <div class="bot-app">
-    <div class="content">
-      <div class="bot-info">
-        <div class="bot-img">
-          <img src="imgs/andrea.jpg" alt="robot image">
-        </div>
-        <h2 class="bot-name">AI QA Assistant</h2>
+  <div class="app d-flex">
+    <aside class="sidebar d-flex flex-column">
+      <div class="brand">
+        <span class="badge text-bg-primary mb-3">AI QA Tool</span>
+        <h1>AI QA Assistant</h1>
+        <p>QA workspace for test cases, bug reports, edge cases, and checklists.</p>
       </div>
 
-      <div id="chat-area"></div>
+      <button id="new-chat-btn" class="btn btn-primary w-100 mt-3">
+        + New Chat
+      </button>
 
-      <form autocomplete="off">
-        <input id="message" type="text" placeholder="Describe a feature or bug...">
-        <input id="send" type="submit" value="Send">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Recent Chats</div>
+        <div id="chat-list" class="chat-list"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="theme-toggle" class="btn btn-outline-secondary w-100">
+          Toggle Dark Mode
+        </button>
+      </div>
+    </aside>
+
+    <main class="chat-layout flex-grow-1 d-flex flex-column">
+      <header class="chat-topbar d-flex align-items-center justify-content-between">
+        <div>
+          <h2 class="h5 fw-bold mb-1">QA Chat</h2>
+          <p class="small text-secondary mb-0">Describe a feature, bug, or user story.</p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+          <select id="qa-mode" class="form-select form-select-sm">
+            <option value="general">General QA</option>
+            <option value="test_cases">Test Cases</option>
+            <option value="bug_report">Bug Report</option>
+            <option value="edge_cases">Edge Cases</option>
+            <option value="checklist">QA Checklist</option>
+          </select>
+          <span class="status">Online</span>
+        </div>
+      </header>
+
+      <section class="quick-actions d-flex gap-2 flex-wrap">
+        <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
+          data-mode="test_cases"
+          data-prompt="Generate test cases for a login page">
+          Test Cases
+        </button>
+
+        <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
+          data-mode="bug_report"
+          data-prompt="Create a structured bug report for: login button does not work">
+          Bug Report
+        </button>
+
+        <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
+          data-mode="edge_cases"
+          data-prompt="Suggest edge cases for a checkout page">
+          Edge Cases
+        </button>
+
+        <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
+          data-mode="checklist"
+          data-prompt="Create a QA checklist for a web application">
+          QA Checklist
+        </button>
+      </section>
+
+      <section id="chat-area" class="chat-area flex-grow-1"></section>
+
+      <form id="chat-form" class="chat-form">
+        <div class="input-group input-group-lg">
+          <input
+            id="message"
+            type="text"
+            class="form-control"
+            placeholder="Ask about QA testing..."
+            autocomplete="off"
+          />
+          <button id="send" class="btn btn-primary px-4" type="submit">
+            Send
+          </button>
+        </div>
       </form>
-    </div>
+    </main>
   </div>
-</div>
 
-<script src="js/bootstrap.bundle.min.js"></script>
-<script src="js/main.js"></script>
+  <script src="js/bootstrap.bundle.min.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

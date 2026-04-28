@@ -1,60 +1,127 @@
-const form = document.querySelector("form");
-const chatArea = document.querySelector("#chat-area");
-const inputMessage = document.querySelector("#message");
+import { sendMessageToAI } from "./api.js";
+import {
+  getChats,
+  createChat,
+  getActiveChat,
+  getActiveChatId,
+  setActiveChatId,
+  addMessageToChat,
+} from "./store.js";
+import {
+  renderChatList,
+  renderMessages,
+  addMessage,
+  setInputValue,
+  getInputValue,
+  clearInput,
+} from "./ui.js";
+import { STORAGE_KEYS } from "./constants.js";
 
-const API_URL = "http://localhost:5000/api/chat";
+const form = document.querySelector("#chat-form");
+const newChatBtn = document.querySelector("#new-chat-btn");
+const modeSelect = document.querySelector("#qa-mode");
+const themeToggle = document.querySelector("#theme-toggle");
 
-function addMessage(className, text) {
-  const message = document.createElement("p");
-  message.className = className;
-  message.innerText = text;
-  chatArea.appendChild(message);
-  chatArea.scrollTop = chatArea.scrollHeight;
-}
+function renderApp() {
+  let activeChat = getActiveChat();
 
-async function sendMessageToAI(userMessage) {
-  const response = await fetch(API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  if (!activeChat) {
+    activeChat = createChat();
+  }
+
+  modeSelect.value = activeChat.mode || "general";
+
+  renderChatList({
+    chats: getChats(),
+    activeChatId: getActiveChatId(),
+    onSelectChat: (chatId) => {
+      setActiveChatId(chatId);
+      renderApp();
     },
-    body: JSON.stringify({
-      message: userMessage,
-    }),
   });
 
-  if (!response.ok) {
-    throw new Error("Failed to get response from backend");
-  }
-
-  const data = await response.json();
-  return data.reply;
+  renderMessages(activeChat);
 }
 
-form.onsubmit = async (e) => {
-  e.preventDefault();
+async function handleSubmit(event) {
+  event.preventDefault();
 
-  const userMessage = inputMessage.value.trim();
+  const userMessage = getInputValue();
+  if (!userMessage) return;
 
-  if (userMessage === "") {
-    alert("Please insert a value");
-    return;
+  let activeChat = getActiveChat();
+
+  if (!activeChat) {
+    activeChat = createChat();
   }
 
+  const mode = modeSelect.value;
+
   addMessage("msg", userMessage);
-  inputMessage.value = "";
+  addMessageToChat(activeChat.id, {
+    role: "user",
+    content: userMessage,
+    mode,
+    createdAt: new Date().toISOString(),
+  });
+
+  clearInput();
 
   addMessage("answer", "Thinking...");
 
   try {
-    const botReply = await sendMessageToAI(userMessage);
+    const aiReply = await sendMessageToAI({
+      message: userMessage,
+      mode,
+    });
 
-    const thinkingMessage = chatArea.lastElementChild;
-    thinkingMessage.innerText = botReply;
+    const thinkingMessage = document.querySelector("#chat-area").lastElementChild;
+    thinkingMessage.innerHTML = aiReply.replace(/\n/g, "<br>");
+
+    addMessageToChat(activeChat.id, {
+      role: "assistant",
+      content: aiReply,
+      mode,
+      createdAt: new Date().toISOString(),
+    });
+
+    renderApp();
   } catch (error) {
-    const thinkingMessage = chatArea.lastElementChild;
-    thinkingMessage.innerText =
+    const thinkingMessage = document.querySelector("#chat-area").lastElementChild;
+    thinkingMessage.textContent =
       "Sorry, something went wrong. Please make sure the backend server is running.";
+
     console.error(error);
   }
-};
+}
+
+newChatBtn.addEventListener("click", () => {
+  createChat();
+  renderApp();
+});
+
+form.addEventListener("submit", handleSubmit);
+
+document.querySelectorAll(".quick-btn").forEach((button) => {
+  button.addEventListener("click", () => {
+    const prompt = button.dataset.prompt;
+    const mode = button.dataset.mode;
+
+    setInputValue(prompt);
+    modeSelect.value = mode;
+    document.querySelector("#message").focus();
+  });
+});
+
+themeToggle.addEventListener("click", () => {
+  const currentTheme = document.documentElement.dataset.theme;
+  const nextTheme = currentTheme === "dark" ? "light" : "dark";
+
+  document.documentElement.dataset.theme = nextTheme;
+  localStorage.setItem(STORAGE_KEYS.THEME, nextTheme);
+});
+
+const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME) || "light";
+document.documentElement.dataset.theme = savedTheme;
+
+renderApp();
