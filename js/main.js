@@ -5,9 +5,16 @@ const inputMessage = document.querySelector("#message");
 const API_URL = "http://localhost:5000/api/chat";
 
 function addMessage(className, text) {
-  const message = document.createElement("p");
+  const welcomeMessage = document.querySelector(".welcome-message");
+
+  if (welcomeMessage) {
+    welcomeMessage.remove();
+  }
+
+  const message = document.createElement("div");
   message.className = className;
-  message.innerText = text;
+  message.innerHTML = text.replace(/\n/g, "<br>");
+
   chatArea.appendChild(message);
   chatArea.scrollTop = chatArea.scrollHeight;
 }
@@ -58,3 +65,10 @@ form.onsubmit = async (e) => {
     console.error(error);
   }
 };
+
+document.querySelectorAll(".quick-btn").forEach((button) => {
+  button.addEventListener("click", () => {
+    inputMessage.value = button.dataset.prompt;
+    inputMessage.focus();
+  });
+});
