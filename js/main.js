@@ -24,6 +24,13 @@ const newChatBtn = document.querySelector("#new-chat-btn");
 const modeSelect = document.querySelector("#qa-mode");
 const themeToggle = document.querySelector("#theme-toggle");
 
+const deleteChatModalElement = document.querySelector("#deleteChatModal");
+const confirmDeleteChatBtn = document.querySelector("#confirm-delete-chat");
+
+const deleteChatModal = new bootstrap.Modal(deleteChatModalElement);
+
+let chatIdToDelete = null;
+
 function renderApp() {
   let activeChat = getActiveChat();
 
@@ -44,9 +51,9 @@ renderChatList({
     renameChat(chatId, newTitle);
     renderApp();
   },
-  onDeleteChat: (chatId) => {
-    deleteChat(chatId);
-    renderApp();
+  onDeleteChatRequest: (chatId) => {
+    chatIdToDelete = chatId;
+    deleteChatModal.show();
   },
 });
 
@@ -113,6 +120,16 @@ newChatBtn.addEventListener("click", () => {
 });
 
 form.addEventListener("submit", handleSubmit);
+
+confirmDeleteChatBtn.addEventListener("click", () => {
+  if (!chatIdToDelete) return;
+
+  deleteChat(chatIdToDelete);
+  chatIdToDelete = null;
+
+  deleteChatModal.hide();
+  renderApp();
+});
 
 document.querySelectorAll(".quick-btn").forEach((button) => {
   button.addEventListener("click", () => {
