@@ -531,3 +531,40 @@ body {
 html[data-theme="dark"] .app-modal .btn-close {
   filter: invert(1);
 }
+
+
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.upload-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-muted);
+  color: var(--text-main);
+  border-radius: 999px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.upload-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.upload-file-name {
+  color: var(--text-muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.upload-clear {
+  border: 0;
+  background: transparent;
+  color: #dc2626;
+  cursor: pointer;
+}

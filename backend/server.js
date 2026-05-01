@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "25mb" }));
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -170,6 +170,38 @@ Format the answer as:
 
 Make the checklist practical and useful for a real QA process.
 `,
+
+screenshot_review: (message) => `
+You are a Senior QA Engineer reviewing a UI screenshot.
+
+Analyze the attached screenshot and the user note:
+
+${message}
+
+Format the answer as:
+
+# Screenshot QA Review
+
+## Summary
+Briefly describe what the screen appears to show.
+
+## UI / UX Issues
+List visible usability, layout, spacing, alignment, contrast, text, or interaction issues.
+
+## Accessibility Concerns
+Mention possible accessibility problems such as contrast, labels, readability, keyboard usage, or visual hierarchy.
+
+## Possible Bugs
+List anything that could be a functional or visual bug.
+
+## Suggested Test Cases
+Provide practical test cases based on the screenshot.
+
+## Severity Notes
+Classify the most important issues as Low / Medium / High.
+
+Be practical and specific. Do not invent backend behavior that cannot be seen from the screenshot.
+`,
 };
 
 function buildPrompt(mode, message) {
@@ -183,7 +215,12 @@ app.get("/", (req, res) => {
 
 app.post("/api/chat", async (req, res) => {
   try {
-    const { message, mode = "general" } = req.body;
+    const { message, mode = "general", image } = req.body;
+
+    console.log("Mode:", mode);
+    console.log("Has image:", Boolean(image && image.data && image.mimeType));
+    console.log("Image mime:", image?.mimeType);
+    console.log("Image size:", image?.data?.length);
 
     if (!message || typeof message !== "string") {
       return res.status(400).json({
@@ -193,9 +230,24 @@ app.post("/api/chat", async (req, res) => {
 
     const prompt = buildPrompt(mode, message);
 
+    const contents =
+      image && image.data && image.mimeType
+        ? [
+            {
+              inlineData: {
+                mimeType: image.mimeType,
+                data: image.data,
+              },
+            },
+            {
+              text: prompt,
+            },
+          ]
+        : prompt;
+
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
-      contents: prompt,
+      model: "gemini-2.5-flash",
+      contents,
     });
 
     res.json({
@@ -203,10 +255,19 @@ app.post("/api/chat", async (req, res) => {
       mode,
     });
   } catch (error) {
-    console.error("Gemini API Error:", error);
 
-    res.status(500).json({
-      error: "Something went wrong while generating the response.",
+    app.use((error, req, res, next) => {
+      console.error("Express Error:", error);
+
+      if (error.type === "entity.too.large") {
+        return res.status(413).json({
+          error: "Uploaded image is too large. Please use a smaller screenshot.",
+        });
+      }
+
+      res.status(500).json({
+        error: "Server error while processing the request.",
+      });
     });
   }
 });

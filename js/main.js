@@ -31,6 +31,12 @@ const deleteChatModal = new bootstrap.Modal(deleteChatModalElement);
 
 let chatIdToDelete = null;
 
+const screenshotInput = document.querySelector("#screenshot-input");
+const attachedFileName = document.querySelector("#attached-file-name");
+const clearScreenshotBtn = document.querySelector("#clear-screenshot");
+
+let selectedImage = null;
+
 function renderApp() {
   let activeChat = getActiveChat();
 
@@ -64,7 +70,11 @@ async function handleSubmit(event) {
   event.preventDefault();
 
   const userMessage = getInputValue();
-  if (!userMessage) return;
+
+  const messageForAI =
+    userMessage || (selectedImage ? "Analyze this screenshot as a QA engineer." : "");
+
+  if (!messageForAI) return;
 
   let activeChat = getActiveChat();
 
@@ -72,29 +82,43 @@ async function handleSubmit(event) {
     activeChat = createChat();
   }
 
-  const mode = modeSelect.value;
+  const mode = selectedImage ? "screenshot_review" : modeSelect.value;
 
-  addMessage("msg", userMessage);
+  const imageForRequest = selectedImage
+    ? {
+        mimeType: selectedImage.mimeType,
+        data: selectedImage.data,
+      }
+    : null;
+
+  const displayMessage = selectedImage
+    ? `${messageForAI}\n[Attached screenshot: ${selectedImage.name}]`
+    : messageForAI;
+
+  addMessage("msg", displayMessage);
+
   addMessageToChat(activeChat.id, {
     role: "user",
-    content: userMessage,
+    content: displayMessage,
     mode,
     createdAt: new Date().toISOString(),
   });
 
   clearInput();
+  clearSelectedImage();
 
   addMessage("answer", "Thinking...");
 
   try {
     const aiReply = await sendMessageToAI({
-      message: userMessage,
+      message: messageForAI,
       mode,
+      image: imageForRequest,
     });
 
     const thinkingMessage = document.querySelector("#chat-area").lastElementChild;
     thinkingMessage.remove();
-    
+
     addMessage("answer", aiReply);
 
     addMessageToChat(activeChat.id, {
@@ -112,6 +136,8 @@ async function handleSubmit(event) {
 
     console.error(error);
   }
+  
+  
 }
 
 newChatBtn.addEventListener("click", () => {
@@ -120,6 +146,28 @@ newChatBtn.addEventListener("click", () => {
 });
 
 form.addEventListener("submit", handleSubmit);
+
+screenshotInput.addEventListener("change", async () => {
+  const file = screenshotInput.files[0];
+
+  if (!file) return;
+
+  const maxSizeInMB = 4;
+  const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
+
+  if (file.size > maxSizeInBytes) {
+    alert(`Image is too large. Please upload an image smaller than ${maxSizeInMB}MB.`);
+    clearSelectedImage();
+    return;
+  }
+
+  selectedImage = await fileToBase64(file);
+  attachedFileName.textContent = file.name;
+  clearScreenshotBtn.classList.remove("d-none");
+  modeSelect.value = "screenshot_review";
+});
+
+clearScreenshotBtn.addEventListener("click", clearSelectedImage);
 
 confirmDeleteChatBtn.addEventListener("click", () => {
   if (!chatIdToDelete) return;
@@ -160,3 +208,32 @@ document.documentElement.dataset.theme = savedTheme;
 updateThemeButton(savedTheme);
 
 renderApp();
+
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = reader.result;
+      const base64Data = result.split(",")[1];
+
+      resolve({
+        name: file.name,
+        mimeType: file.type,
+        data: base64Data,
+      });
+    };
+
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function clearSelectedImage() {
+  selectedImage = null;
+  screenshotInput.value = "";
+  attachedFileName.textContent = "No file attached";
+  clearScreenshotBtn.classList.add("d-none");
+}
+

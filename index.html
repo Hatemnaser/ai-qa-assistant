@@ -9,24 +9,25 @@
   <link rel="stylesheet" href="css/bootstrap.min.css" />
   <link rel="stylesheet" href="css/main.css" />
 </head>
+
 <body>
   <div class="app d-flex">
-<aside class="sidebar d-flex flex-column">
-  <div class="brand">
-    <span class="badge text-bg-primary mb-3">AI QA Tool</span>
-    <h1>AI QA Assistant</h1>
-    <p>QA workspace for test cases, bug reports, edge cases, and checklists.</p>
-  </div>
+    <aside class="sidebar d-flex flex-column">
+      <div class="brand">
+        <span class="badge text-bg-primary mb-3">AI QA Tool</span>
+        <h1>AI QA Assistant</h1>
+        <p>QA workspace for test cases, bug reports, edge cases, and checklists.</p>
+      </div>
 
-  <button id="new-chat-btn" class="btn btn-primary w-100 mt-3">
-    + New Chat
-  </button>
+      <button id="new-chat-btn" class="btn btn-primary w-100 mt-3">
+        + New Chat
+      </button>
 
-  <div class="sidebar-section">
-    <div class="sidebar-title">Recent Chats</div>
-    <div id="chat-list" class="chat-list"></div>
-  </div>
-</aside>
+      <div class="sidebar-section">
+        <div class="sidebar-title">Recent Chats</div>
+        <div id="chat-list" class="chat-list"></div>
+      </div>
+    </aside>
 
     <main class="chat-layout flex-grow-1 d-flex flex-column">
       <header class="chat-topbar d-flex align-items-center justify-content-between">
@@ -45,6 +46,7 @@
             <option value="bug_report">Bug Report</option>
             <option value="edge_cases">Edge Cases</option>
             <option value="checklist">QA Checklist</option>
+            <option value="screenshot_review">Screenshot Review</option>
           </select>
           <span class="status">Online</span>
         </div>
@@ -64,6 +66,27 @@
           />
           <button id="send" class="btn btn-primary px-4" type="submit">
             Send
+          </button>
+        </div>
+
+        <div class="upload-row">
+          <label class="upload-btn" for="screenshot-input">
+            Attach screenshot
+          </label>
+
+          <input
+            id="screenshot-input"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            hidden
+          />
+
+          <span id="attached-file-name" class="upload-file-name">
+            No file attached
+          </span>
+
+          <button id="clear-screenshot" type="button" class="upload-clear d-none">
+            Remove
           </button>
         </div>
 
@@ -90,6 +113,12 @@
             data-mode="checklist"
             data-prompt="Create a QA checklist for a web application">
             QA Checklist
+          </button>
+
+          <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
+            data-mode="screenshot_review"
+            data-prompt="Analyze this screenshot as a QA engineer">
+            Screenshot Review
           </button>
         </div>
       </form>
