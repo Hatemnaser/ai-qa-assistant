@@ -56,23 +56,48 @@
       <section id="chat-area" class="chat-area flex-grow-1"></section>
 
       <form id="chat-form" class="chat-form">
-        <div class="input-group input-group-lg">
-          <input
-            id="message"
-            type="text"
-            class="form-control"
-            placeholder="Ask about QA testing..."
-            autocomplete="off"
-          />
-          <button id="send" class="btn btn-primary px-4" type="submit">
-            Send
-          </button>
-        </div>
+        <div id="composer" class="composer">
+          <div id="attachment-preview" class="attachment-preview d-none"></div>
 
-        <div class="upload-row">
-          <label class="upload-btn" for="screenshot-input">
-            Attach screenshot
-          </label>
+          <div class="composer-row">
+            <div class="dropup">
+              <button
+                id="attach-menu-btn"
+                class="composer-icon-btn"
+                type="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+                aria-label="Attach file"
+              >
+                +
+              </button>
+
+              <ul class="dropdown-menu composer-menu">
+                <li>
+                  <label class="dropdown-item" for="screenshot-input">
+                    Upload image
+                  </label>
+                </li>
+                <li>
+                  <button class="dropdown-item disabled" type="button" disabled>
+                    Upload document soon
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <textarea
+              id="message"
+              class="composer-textarea"
+              rows="1"
+              placeholder="Ask about QA testing..."
+              autocomplete="off"
+            ></textarea>
+
+            <button id="send" class="composer-send-btn" type="submit" aria-label="Send message">
+              ↑
+            </button>
+          </div>
 
           <input
             id="screenshot-input"
@@ -80,46 +105,6 @@
             accept="image/png,image/jpeg,image/webp"
             hidden
           />
-
-          <span id="attached-file-name" class="upload-file-name">
-            No file attached
-          </span>
-
-          <button id="clear-screenshot" type="button" class="upload-clear d-none">
-            Remove
-          </button>
-        </div>
-
-        <div class="quick-actions d-flex gap-2 flex-wrap mt-3">
-          <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
-            data-mode="test_cases"
-            data-prompt="Generate test cases for a login page">
-            Test Cases
-          </button>
-
-          <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
-            data-mode="bug_report"
-            data-prompt="Create a structured bug report for: login button does not work">
-            Bug Report
-          </button>
-
-          <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
-            data-mode="edge_cases"
-            data-prompt="Suggest edge cases for a checkout page">
-            Edge Cases
-          </button>
-
-          <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
-            data-mode="checklist"
-            data-prompt="Create a QA checklist for a web application">
-            QA Checklist
-          </button>
-
-          <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
-            data-mode="screenshot_review"
-            data-prompt="Analyze this screenshot as a QA engineer">
-            Screenshot Review
-          </button>
         </div>
       </form>
 

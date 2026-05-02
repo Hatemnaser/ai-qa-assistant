@@ -532,7 +532,6 @@ html[data-theme="dark"] .app-modal .btn-close {
   filter: invert(1);
 }
 
-
 .upload-row {
   display: flex;
   align-items: center;
@@ -567,4 +566,199 @@ html[data-theme="dark"] .app-modal .btn-close {
   background: transparent;
   color: #dc2626;
   cursor: pointer;
+}
+
+.composer {
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  border-radius: 18px;
+  padding: 10px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.composer.drag-over {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.composer-icon-btn,
+.composer-send-btn {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  background: var(--bg-muted);
+  color: var(--text-main);
+  border-radius: 50%;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.composer-icon-btn:hover,
+.composer-send-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.composer-send-btn {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+  font-size: 20px;
+}
+
+.composer-send-btn:hover {
+  background: var(--primary-hover);
+  color: #ffffff;
+}
+
+.composer-textarea {
+  flex: 1;
+  min-height: 38px;
+  max-height: 180px;
+  resize: none;
+  overflow-y: auto;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 16px;
+  line-height: 1.5;
+  padding: 7px 0;
+}
+
+.composer-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.composer-menu {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+}
+
+.composer-menu .dropdown-item {
+  color: var(--text-main);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.composer-menu .dropdown-item:hover {
+  background: var(--bg-muted);
+}
+
+.attachment-preview {
+  margin-bottom: 10px;
+}
+
+.attachment-preview-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 360px;
+  border: 1px solid var(--border);
+  background: var(--bg-muted);
+  border-radius: 14px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.attachment-preview-card img {
+  width: 58px;
+  height: 58px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.attachment-preview-info {
+  min-width: 0;
+}
+
+.attachment-preview-name {
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 14px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.attachment-preview-type {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.attachment-remove-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-main);
+  border-radius: 50%;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.attachment-remove-btn:hover {
+  color: #dc2626;
+  border-color: #dc2626;
+}
+
+.chat-attachment-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 360px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-radius: 14px;
+  padding: 10px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.chat-attachment-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.chat-attachment-meta {
+  min-width: 0;
+}
+
+.chat-attachment-name {
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chat-attachment-type {
+  font-size: 13px;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+.message-text {
+  white-space: pre-wrap;
 }
