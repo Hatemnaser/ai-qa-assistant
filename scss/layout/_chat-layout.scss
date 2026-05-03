@@ -1,0 +1,151 @@
+/* Main layout */
+
+.chat-layout {
+  width: 100%;
+  max-width: 1100px;
+  min-width: 0;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.chat-topbar {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.chat-topbar h2 {
+  color: var(--text-main);
+}
+
+.chat-topbar p,
+.text-secondary {
+  color: var(--text-muted) !important;
+}
+
+.status {
+  font-size: 13px;
+  color: var(--success-text);
+  background: var(--success-bg);
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+/* Chat */
+
+.chat-area {
+  background: var(--bg-app);
+  flex: 1 1 auto;
+}
+
+.welcome-message {
+  margin-top: 22vh;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.msg,
+.answer {
+  max-width: 780px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  border-radius: 18px;
+  line-height: 1.7;
+}
+
+.msg {
+  margin-left: auto;
+  background: var(--primary);
+  color: #ffffff;
+  border-bottom-right-radius: 6px;
+}
+
+.answer {
+  margin-right: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  border-bottom-left-radius: 6px;
+}
+
+.chat-form {
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+}
+
+.quick-actions {
+  max-width: 820px;
+}
+
+/* Mobile */
+
+@media (max-width: 991px) {
+  .app {
+    display: block !important;
+  }
+
+  .sidebar {
+    display: none !important;
+  }
+
+  .chat-topbar,
+  .chat-area,
+  .chat-form,
+  .quick-actions,
+  .chat-layout.empty-chat .chat-form {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .chat-topbar > div:last-child {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .chat-topbar {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 12px;
+  }
+
+  .msg,
+  .answer {
+    max-width: 94%;
+  }
+}
+
+/* Empty chat center composer */
+.chat-layout.empty-chat {
+  min-height: 100vh;
+  justify-content: flex-start;
+}
+
+.chat-layout.empty-chat .chat-area {
+  flex: 0 0 auto;
+  padding-top: 18vh;
+  padding-bottom: 32px;
+}
+
+.chat-layout.empty-chat .welcome-message {
+  margin-top: 0;
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.chat-layout.empty-chat .chat-form {
+  padding-top: 0;
+  position: static;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 0 28px 20px;
+  border-top: 0;
+  background: transparent;
+}
+
+.chat-layout.empty-chat .quick-actions {
+  position: static;
+  max-width: 820px;
+  width: 100%;
+  margin: 0 auto;
+  background: transparent;
+}

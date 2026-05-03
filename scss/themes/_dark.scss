@@ -1,0 +1,16 @@
+html[data-theme="dark"] {
+  --bg-app: #0f172a;
+  --bg-panel: #111827;
+  --bg-muted: #1e293b;
+  --text-main: #f9fafb;
+  --text-muted: #9ca3af;
+  --border: #334155;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --success-bg: #064e3b;
+  --success-text: #86efac;
+}
+
+html[data-theme="dark"] .app-modal .btn-close {
+  filter: invert(1);
+}

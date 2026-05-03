@@ -1,0 +1,61 @@
+/* Markdown response styling */
+
+.answer :is(h1, h2, h3) {
+  margin: 16px 0 10px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-main);
+}
+
+.answer h1 {
+  font-size: 26px;
+}
+
+.answer h2 {
+  font-size: 22px;
+}
+
+.answer h3 {
+  font-size: 18px;
+}
+
+.answer :is(p, li, td, th) {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.7;
+  color: var(--text-main);
+}
+
+.answer strong {
+  font-weight: 700;
+}
+
+.answer code {
+  color: #e11d48;
+  background: var(--bg-muted);
+  padding: 2px 5px;
+  border-radius: 6px;
+}
+
+.answer table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.answer :is(th, td) {
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  vertical-align: top;
+}
+
+.answer th {
+  background: var(--bg-muted);
+  font-weight: 700;
+}
+
+.answer :is(ul, ol) {
+  padding-left: 24px;
+}

@@ -1,0 +1,17 @@
+.modal-content.app-modal {
+  background: var(--bg-panel) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.app-modal .modal-header,
+.app-modal .modal-footer {
+  border-color: var(--border);
+}
+
+.app-modal .modal-title,
+.app-modal .modal-body,
+.app-modal p {
+  color: var(--text-main) !important;
+}

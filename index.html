@@ -11,8 +11,8 @@
 </head>
 
 <body>
-  <div class="app d-flex">
-    <aside class="sidebar d-flex flex-column">
+<div class="app d-flex align-items-start">
+      <aside class="sidebar d-flex flex-column">
       <div class="brand">
         <span class="badge text-bg-primary mb-3">AI QA Tool</span>
         <h1>AI QA Assistant</h1>
@@ -30,14 +30,22 @@
     </aside>
 
     <main class="chat-layout flex-grow-1 d-flex flex-column">
-      <header class="chat-topbar d-flex align-items-center justify-content-between">
+      <header class="chat-topbar 
+                      d-flex align-items-center 
+                      justify-content-between 
+                      position-sticky top-0 z-3 
+                      px-4 
+                      py-3"
+                  >
         <div>
           <h2 class="h5 fw-bold mb-1">QA Chat</h2>
           <p class="small text-secondary mb-0">Describe a feature, bug, or user story.</p>
         </div>
 
         <div class="d-flex align-items-center gap-2">
-          <button id="theme-toggle" class="theme-btn" type="button">
+          <button id="theme-toggle" 
+                  class="btn btn-sm btn-outline-secondary"
+                   type="button">
             Dark
           </button>
           <select id="qa-mode" class="form-select form-select-sm">
@@ -48,39 +56,13 @@
             <option value="checklist">QA Checklist</option>
             <option value="screenshot_review">Screenshot Review</option>
           </select>
-          <span class="status">Online</span>
+          <span class="badge rounded-pill status">Online</span>
         </div>
       </header>
 
-      <div class="alert alert-success mt-3" role="alert">
-  Bootstrap 5.3.8 is working ✅
-</div>
+      <section id="chat-area" class="chat-area flex-grow-1 p-4"></section>
 
-<div class="d-flex gap-2 mt-3">
-  <button class="btn btn-primary">Primary</button>
-  <button class="btn btn-outline-secondary">Secondary</button>
-  <button class="btn btn-danger btn-sm">Small Danger</button>
-</div>
-
-
-<button
-  class="btn btn-primary mt-3"
-  type="button"
-  data-bs-toggle="collapse"
-  data-bs-target="#bootstrapTest"
->
-  Test Bootstrap JS
-</button>
-
-<div class="collapse mt-2" id="bootstrapTest">
-  <div class="card card-body">
-    Bootstrap JavaScript is working ✅
-  </div>
-</div>
-
-      <section id="chat-area" class="chat-area flex-grow-1"></section>
-
-      <form id="chat-form" class="chat-form">
+      <form id="chat-form" class="chat-form position-sticky bottom-0 z-3 w-100 px-4 pt-3 pb-4">
         <div id="composer" class="composer">
           <div id="attachment-preview" class="attachment-preview d-none"></div>
 
@@ -131,7 +113,7 @@
           />
         </div>
 
-          <section class="quick-actions d-flex gap-2 flex-wrap">
+          <section class="quick-actions d-flex gap-2 flex-wrap w-100 mx-auto mt-2 p-0">
             <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
               data-mode="test_cases"
               data-prompt="Generate test cases for a login page">
@@ -189,14 +171,11 @@
           </div>
         </div>
       </div>
-
     </main>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="js/bootstrap.bundle.min.js"></script>
-  <script type="module" src="js/main.js"></script>
-  <script src="js/bootstrap.bundle.min.js"></script>
-  <script type="module" src="js/main.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="js/bootstrap.bundle.min.js"></script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>
