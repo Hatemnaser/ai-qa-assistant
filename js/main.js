@@ -29,6 +29,10 @@ const confirmDeleteChatBtn = document.querySelector("#confirm-delete-chat");
 
 const deleteChatModal = new bootstrap.Modal(deleteChatModalElement);
 
+const attachMenuBtn = document.querySelector("#attach-menu-btn");
+const composerMenu = document.querySelector(".composer-menu");
+const chatLayout = document.querySelector(".chat-layout");
+
 let chatIdToDelete = null;
 
 const messageInput = document.querySelector("#message");
@@ -63,6 +67,11 @@ renderChatList({
     deleteChatModal.show();
   },
 });
+
+chatLayout.classList.toggle(
+  "empty-chat",
+  !activeChat || activeChat.messages.length === 0
+);
 
   renderMessages(activeChat);
 }
@@ -111,6 +120,8 @@ async function handleSubmit(event) {
     createdAt: new Date().toISOString(),
   });
 
+  chatLayout.classList.remove("empty-chat");
+
   clearInput();
   clearSelectedImage();
   autoResizeTextarea();
@@ -154,6 +165,21 @@ newChatBtn.addEventListener("click", () => {
 });
 
 form.addEventListener("submit", handleSubmit);
+
+attachMenuBtn.addEventListener("click", (event) => {
+  event.stopPropagation();
+  composerMenu.classList.toggle("show");
+});
+
+document.addEventListener("click", (event) => {
+  if (!composer.contains(event.target)) {
+    composerMenu.classList.remove("show");
+  }
+});
+
+composerMenu.addEventListener("click", () => {
+  composerMenu.classList.remove("show");
+});
 
 messageInput.addEventListener("input", autoResizeTextarea);
 
@@ -228,6 +254,7 @@ document.documentElement.dataset.theme = savedTheme;
 updateThemeButton(savedTheme);
 
 renderApp();
+autoResizeTextarea();
 
 
 function fileToBase64(file) {

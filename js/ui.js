@@ -152,7 +152,7 @@ export function renderMessages(chat) {
   if (!chat || chat.messages.length === 0) {
     chatArea.innerHTML = `
       <div class="welcome-message">
-        <h3 class="h5 fw-bold">How can I help with QA today?</h3>
+        <h3 class="h4 fw-bold">How can I help with QA today?</h3>
         <p>Try asking for test cases, bug reports, edge cases, screenshots, or QA checklists.</p>
       </div>
     `;

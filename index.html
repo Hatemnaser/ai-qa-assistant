@@ -65,8 +65,6 @@
                 id="attach-menu-btn"
                 class="composer-icon-btn"
                 type="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
                 aria-label="Attach file"
               >
                 +
@@ -78,6 +76,7 @@
                     Upload image
                   </label>
                 </li>
+
                 <li>
                   <button class="dropdown-item disabled" type="button" disabled>
                     Upload document soon
@@ -106,6 +105,38 @@
             hidden
           />
         </div>
+
+          <section class="quick-actions d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
+              data-mode="test_cases"
+              data-prompt="Generate test cases for a login page">
+              Test Cases
+            </button>
+
+            <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
+              data-mode="bug_report"
+              data-prompt="Create a structured bug report for: login button does not work">
+              Bug Report
+            </button>
+
+            <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
+              data-mode="edge_cases"
+              data-prompt="Suggest edge cases for a checkout page">
+              Edge Cases
+            </button>
+
+            <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
+              data-mode="checklist"
+              data-prompt="Create a QA checklist for a web application">
+              QA Checklist
+            </button>
+
+            <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
+              data-mode="screenshot_review"
+              data-prompt="Analyze this screenshot as a QA engineer">
+              Screenshot Review
+            </button>
+          </section>
       </form>
 
       <div class="modal fade" id="deleteChatModal" tabindex="-1" aria-hidden="true">

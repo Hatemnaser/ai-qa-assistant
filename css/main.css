@@ -213,11 +213,17 @@ body {
   padding: 18px 28px 10px;
   background: var(--bg-panel);
   border-top: 1px solid var(--border);
+  position: sticky;
+  bottom: 0;
+  z-index: 50;
 }
 
 .quick-actions {
   padding: 0 28px 24px;
   background: var(--bg-panel);
+  position: sticky;
+  bottom: 0;
+  z-index: 49;
 }
 
 .form-control,
@@ -339,6 +345,9 @@ body {
     flex-direction: column;
     align-items: flex-start !important;
     gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
   }
 
   .chat-topbar > div:last-child {
@@ -639,16 +648,27 @@ html[data-theme="dark"] .app-modal .btn-close {
 }
 
 .composer-menu {
+  display: none !important;
+  position: absolute;
+  left: 0;
+  bottom: 48px;
+  min-width: 190px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 6px;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+  z-index: 9999;
+}
+
+.composer-menu.show {
+  display: block !important;
 }
 
 .composer-menu .dropdown-item {
   color: var(--text-main);
-  border-radius: 8px;
+  border-radius: 10px;
+  padding: 9px 10px;
   cursor: pointer;
 }
 
@@ -761,4 +781,238 @@ html[data-theme="dark"] .app-modal .btn-close {
 
 .message-text {
   white-space: pre-wrap;
+}
+
+/* Empty chat center composer */
+
+.chat-layout.empty-chat {
+  min-height: 100vh;
+}
+
+.chat-layout.empty-chat .chat-area {
+  flex: 0 0 auto;
+  padding-top: 16vh;
+  padding-bottom: 20px;
+}
+
+.chat-layout.empty-chat .welcome-message {
+  margin-top: 0;
+}
+
+.chat-layout.empty-chat .chat-form {
+  position: static;
+  max-width: 820px;
+  width: 100%;
+  margin: 0 auto;
+  border-top: 0;
+  background: transparent;
+  padding-top: 0;
+}
+
+.chat-layout.empty-chat .quick-actions {
+  position: static;
+  max-width: 820px;
+  width: 100%;
+  margin: 0 auto;
+  background: transparent;
+}
+
+/* ================================
+   FINAL LAYOUT OVERRIDES
+   ChatGPT-like composer behavior
+================================ */
+
+.chat-layout {
+  width: 100%;
+  max-width: 1100px;
+  min-width: 0;
+  min-height: 100vh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sticky top navbar */
+.chat-topbar {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 100 !important;
+  background: var(--bg-panel) !important;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Normal chat area */
+.chat-area {
+  flex: 1;
+  padding: 28px;
+}
+
+/* Sticky composer at bottom when chat has messages */
+.chat-form {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 100 !important;
+  background: var(--bg-panel) !important;
+  border-top: 1px solid var(--border);
+  padding: 16px 28px 20px;
+}
+
+/* Quick actions should not be separately sticky */
+.quick-actions {
+  position: static !important;
+  z-index: auto !important;
+  padding: 10px 0 0 !important;
+  background: transparent !important;
+}
+
+/* Empty chat layout: composer moves to center */
+.chat-layout.empty-chat {
+  justify-content: flex-start;
+}
+
+.chat-layout.empty-chat .chat-area {
+  flex: 0;
+  padding-top: 18vh;
+  padding-bottom: 24px;
+}
+
+.chat-layout.empty-chat .welcome-message {
+  margin-top: 0 !important;
+}
+
+.chat-layout.empty-chat .chat-form {
+  position: static !important;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 0 28px 20px;
+  border-top: 0;
+  background: transparent !important;
+}
+
+/* Keep composer width clean */
+.composer {
+  width: 100%;
+}
+
+/* Composer menu opens upward */
+.dropup {
+  position: relative;
+}
+
+.composer-menu {
+  display: none !important;
+  position: absolute !important;
+  left: 0 !important;
+  bottom: 48px !important;
+  min-width: 190px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+  z-index: 9999;
+}
+
+.composer-menu.show {
+  display: block !important;
+}
+
+/* Mobile safety */
+@media (max-width: 991px) {
+  .chat-form {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .chat-layout.empty-chat .chat-form {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* ================================
+   FINAL EMPTY CHAT + COMPOSER FIX
+================================ */
+
+.chat-layout {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 100vh !important;
+}
+
+.chat-area {
+  flex: 1 1 auto !important;
+}
+
+/* Normal state: composer sticky bottom */
+.chat-form {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 100 !important;
+  width: 100% !important;
+  background: var(--bg-panel) !important;
+  border-top: 1px solid var(--border) !important;
+  padding: 16px 28px 20px !important;
+}
+
+/* Composer always same size */
+.composer {
+  width: 100% !important;
+  max-width: 820px !important;
+  margin: 0 auto !important;
+  min-height: 58px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+}
+
+.quick-actions {
+  width: 100% !important;
+  max-width: 820px !important;
+  margin: 10px auto 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+/* Empty state: center welcome + composer together */
+.chat-layout.empty-chat {
+  min-height: 100vh !important;
+}
+
+.chat-layout.empty-chat .chat-area {
+  flex: 0 0 auto !important;
+  padding-top: 18vh !important;
+  padding-bottom: 32px !important;
+}
+
+.chat-layout.empty-chat .welcome-message {
+  margin-top: 0 !important;
+  margin-bottom: 32px !important;
+  text-align: center !important;
+}
+
+.chat-layout.empty-chat .chat-form {
+  position: static !important;
+  width: 100% !important;
+  max-width: 820px !important;
+  margin: 0 auto !important;
+  padding: 0 28px 20px !important;
+  border-top: 0 !important;
+  background: transparent !important;
+}
+
+/* keep input height consistent before/after first message */
+.composer-row {
+  min-height: 42px !important;
+}
+
+.composer-textarea {
+  min-height: 38px !important;
+  height: 38px;
+}
+
+/* when textarea grows, JS can override height */
+.composer-textarea:focus {
+  height: auto;
 }
