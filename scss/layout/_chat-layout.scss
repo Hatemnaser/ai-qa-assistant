@@ -35,6 +35,7 @@
 .chat-area {
   background: var(--bg-app);
   flex: 1 1 auto;
+  padding: 24px;
 }
 
 .welcome-message {
@@ -121,13 +122,13 @@
 
 .chat-layout.empty-chat .chat-area {
   flex: 0 0 auto;
-  padding-top: 18vh;
-  padding-bottom: 32px;
+  padding-top: clamp(160px, 26vh, 260px);
+  padding-bottom: 28px;
 }
 
 .chat-layout.empty-chat .welcome-message {
   margin-top: 0;
-  margin-bottom: 32px;
+  margin-bottom: 28px;
   text-align: center;
 }
 

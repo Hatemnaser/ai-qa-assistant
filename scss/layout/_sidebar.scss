@@ -80,9 +80,6 @@
 
 
 .chat-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   overflow: visible;
   padding-right: 8px;
 }
@@ -102,10 +99,6 @@
 .chat-list-item:hover,
 .chat-list-item.active {
   border-color: var(--primary);
-}
-
-.chat-list-item:has(.chat-dropdown-menu.show) {
-  z-index: 100;
 }
 
 .chat-title-btn {

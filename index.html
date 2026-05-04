@@ -25,7 +25,7 @@
 
       <div class="sidebar-section">
         <div class="sidebar-title">Recent Chats</div>
-        <div id="chat-list" class="chat-list"></div>
+        <div id="chat-list" class="chat-list d-flex flex-column gap-2"></div>
       </div>
     </aside>
 
@@ -60,7 +60,7 @@
         </div>
       </header>
 
-      <section id="chat-area" class="chat-area flex-grow-1 p-4"></section>
+      <section id="chat-area" class="chat-area"></section>
 
       <form id="chat-form" class="chat-form position-sticky bottom-0 z-3 w-100 px-4 pt-3 pb-4">
         <div id="composer" class="composer">
@@ -73,6 +73,8 @@
                 class="composer-icon-btn"
                 type="button"
                 aria-label="Attach file"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
               >
                 +
               </button>

@@ -1,5 +1,4 @@
 @use "abstracts/variables";
-@use "abstracts/mixins";
 
 @use "base/reset";
 @use "base/typography";
@@ -11,10 +10,8 @@
 @use "components/buttons";
 @use "components/composer";
 @use "components/messages";
-@use "components/dropdowns";
 @use "components/modals";
 @use "components/attachments";
-@use "components/quick-actions";
 @use "components/markdown";
 
 @use "themes/dark";

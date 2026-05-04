@@ -78,10 +78,6 @@
 }
 
 .composer-menu {
-  display: none;
-  position: absolute;
-  left: 0;
-  bottom: 48px;
   min-width: 190px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
@@ -89,10 +85,6 @@
   padding: 6px;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
   z-index: 9999;
-}
-
-.composer-menu.show {
-  display: block;
 }
 
 .composer-menu .dropdown-item {
@@ -104,11 +96,6 @@
 
 .composer-menu .dropdown-item:hover {
   background: var(--bg-muted);
-}
-
-/* Composer menu opens upward */
-.dropup {
-  position: relative;
 }
 
 /* when textarea grows, JS can override height */
