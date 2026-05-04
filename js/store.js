@@ -65,12 +65,31 @@ export function addMessageToChat(chatId, message) {
         chat.title === "New QA Chat" && message.role === "user"
           ? message.content.slice(0, 35)
           : chat.title,
+      mode: message.mode || chat.mode,
       messages,
       updatedAt: new Date().toISOString(),
     };
   });
 
   saveChats(updatedChats);
+}
+
+export function importChat(chat) {
+  const importedChat = {
+    ...chat,
+    id: crypto.randomUUID(),
+    title: chat.title || "Imported QA Chat",
+    mode: chat.mode || DEFAULT_MODE,
+    messages: Array.isArray(chat.messages) ? chat.messages : [],
+    createdAt: chat.createdAt || new Date().toISOString(),
+    updatedAt: chat.updatedAt || new Date().toISOString(),
+  };
+
+  const chats = [importedChat, ...getChats()];
+  saveChats(chats);
+  setActiveChatId(importedChat.id);
+
+  return importedChat;
 }
 
 export function renameChat(chatId, newTitle) {

@@ -202,6 +202,17 @@
   background: var(--bg-muted);
 }
 
+.chat-export-item .dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.chat-export-submenu {
+  min-width: 110px;
+}
+
 .chat-dropdown-menu .dropdown-item.text-danger {
   color: #dc2626 !important;
 }

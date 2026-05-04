@@ -42,7 +42,20 @@
           <p class="small text-secondary mb-0">Describe a feature, bug, or user story.</p>
         </div>
 
-        <div class="d-flex align-items-center gap-2">
+        <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+          <button id="export-chat-btn"
+                  class="btn btn-sm btn-outline-secondary"
+                  type="button">
+            Export Chat
+          </button>
+          <label class="btn btn-sm btn-outline-secondary mb-0"
+                 for="import-chat-input">
+            Import Chat
+          </label>
+          <input id="import-chat-input"
+                 type="file"
+                 accept="application/json,.json"
+                 hidden>
           <button id="theme-toggle" 
                   class="btn btn-sm btn-outline-secondary"
                    type="button">

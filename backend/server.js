@@ -14,6 +14,9 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
+const MODEL_NAME = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const AI_TIMEOUT_MS = 55000;
+
 const promptTemplates = {
   general: (message) => `
 You are an AI QA Assistant.
@@ -209,6 +212,17 @@ function buildPrompt(mode, message) {
   return selectedTemplate(message);
 }
 
+function withTimeout(promise, timeoutMs) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error("AI response timed out. Please try again."));
+      }, timeoutMs);
+    }),
+  ]);
+}
+
 app.get("/", (req, res) => {
   res.send("AI QA Assistant backend is running");
 });
@@ -245,31 +259,56 @@ app.post("/api/chat", async (req, res) => {
           ]
         : prompt;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents,
-    });
+    const response = await withTimeout(
+      ai.models.generateContent({
+        model: MODEL_NAME,
+        contents,
+        config: {
+          maxOutputTokens: 2048,
+          temperature: 0.3,
+          thinkingConfig: {
+            thinkingBudget: 0,
+          },
+        },
+      }),
+      AI_TIMEOUT_MS
+    );
 
     res.json({
       reply: response.text,
       mode,
     });
   } catch (error) {
+    console.error("Chat API Error:", error);
 
-    app.use((error, req, res, next) => {
-      console.error("Express Error:", error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Server error while processing the request.";
+    const statusCode = error.status || (errorMessage.includes("timed out") ? 504 : 500);
+    const clientMessage =
+      statusCode === 429
+        ? "Gemini quota exceeded for the current API key. Please wait for the quota reset, enable billing, or use another API key."
+        : errorMessage;
 
-      if (error.type === "entity.too.large") {
-        return res.status(413).json({
-          error: "Uploaded image is too large. Please use a smaller screenshot.",
-        });
-      }
-
-      res.status(500).json({
-        error: "Server error while processing the request.",
-      });
+    res.status(statusCode).json({
+      error: clientMessage,
     });
   }
+});
+
+app.use((error, req, res, next) => {
+  console.error("Express Error:", error);
+
+  if (error.type === "entity.too.large") {
+    return res.status(413).json({
+      error: "Uploaded image is too large. Please use a smaller screenshot.",
+    });
+  }
+
+  res.status(500).json({
+    error: "Server error while processing the request.",
+  });
 });
 
 app.listen(PORT, () => {

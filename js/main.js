@@ -6,6 +6,7 @@ import {
   getActiveChatId,
   setActiveChatId,
   addMessageToChat,
+  importChat,
   renameChat,
   deleteChat,
 } from "./store.js";
@@ -14,10 +15,19 @@ import { renderChatList } from "./sidebar.js";
 import { initThemeToggle } from "./theme.js";
 import { initQuickActions } from "./quickActions.js";
 import { initComposer } from "./composer.js";
+import {
+  exportChatCsv,
+  exportChatJson,
+  exportChatMarkdown,
+  exportChatText,
+  parseImportedChatJson,
+} from "./export.js";
 
 const form = document.querySelector("#chat-form");
 const newChatBtn = document.querySelector("#new-chat-btn");
 const modeSelect = document.querySelector("#qa-mode");
+const exportChatBtn = document.querySelector("#export-chat-btn");
+const importChatInput = document.querySelector("#import-chat-input");
 
 const deleteChatModalElement = document.querySelector("#deleteChatModal");
 const confirmDeleteChatBtn = document.querySelector("#confirm-delete-chat");
@@ -50,6 +60,9 @@ function renderApp() {
       renameChat(chatId, newTitle);
       renderApp();
     },
+    onExportChat: (chat, format) => {
+      exportSidebarChat(chat, format);
+    },
     onDeleteChatRequest: (chatId) => {
       chatIdToDelete = chatId;
       deleteChatModal.show();
@@ -62,6 +75,21 @@ function renderApp() {
   );
 
   renderMessages(activeChat);
+}
+
+function exportSidebarChat(chat, format) {
+  const exporters = {
+    md: exportChatMarkdown,
+    txt: exportChatText,
+    csv: exportChatCsv,
+    json: exportChatJson,
+  };
+
+  const exporter = exporters[format];
+
+  if (exporter) {
+    exporter(chat);
+  }
 }
 
 async function handleSubmit(event) {
@@ -118,7 +146,7 @@ async function handleSubmit(event) {
     const thinkingMessage = document.querySelector("#chat-area").lastElementChild;
     thinkingMessage.remove();
 
-    addMessage("answer", aiReply);
+    addMessage("answer", aiReply, null, mode);
 
     addMessageToChat(activeChat.id, {
       role: "assistant",
@@ -131,6 +159,7 @@ async function handleSubmit(event) {
   } catch (error) {
     const thinkingMessage = document.querySelector("#chat-area").lastElementChild;
     thinkingMessage.textContent =
+      error.message ||
       "Sorry, something went wrong. Please make sure the backend server is running.";
 
     console.error(error);
@@ -140,6 +169,39 @@ async function handleSubmit(event) {
 newChatBtn.addEventListener("click", () => {
   createChat();
   renderApp();
+});
+
+exportChatBtn.addEventListener("click", () => {
+  const activeChat = getActiveChat();
+
+  if (!activeChat) {
+    alert("There is no active chat to export.");
+    return;
+  }
+
+  exportChatJson(activeChat);
+});
+
+importChatInput.addEventListener("change", async () => {
+  const file = importChatInput.files[0];
+  importChatInput.value = "";
+
+  if (!file) return;
+
+  if (!file.name.toLowerCase().endsWith(".json")) {
+    alert("Please choose a JSON chat export file.");
+    return;
+  }
+
+  try {
+    const rawJson = await file.text();
+    const chat = parseImportedChatJson(rawJson);
+
+    importChat(chat);
+    renderApp();
+  } catch (error) {
+    alert(error.message || "Could not import this chat JSON file.");
+  }
 });
 
 form.addEventListener("submit", handleSubmit);

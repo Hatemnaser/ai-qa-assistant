@@ -1,5 +1,5 @@
 .message-actions {
-  margin-bottom: 12px;
+  margin-top: 12px;
 }
 
 .message-action-btn {
@@ -12,9 +12,57 @@
   cursor: pointer;
 }
 
+.message-action-icon-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.message-action-icon-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .message-action-btn:hover {
   border-color: var(--primary);
   color: var(--primary);
+}
+
+.answer .answer-export-menu {
+  min-width: 150px;
+  padding: 6px;
+  margin: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+}
+
+.answer .answer-export-menu .dropdown-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 400;
+  text-align: left;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.answer .answer-export-menu .dropdown-item:hover {
+  background: var(--bg-muted);
+  color: var(--text-main);
 }
 
 .message-text {
