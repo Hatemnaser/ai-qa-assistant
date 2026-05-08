@@ -175,6 +175,7 @@ export function initComposer({ form, modeSelect }) {
 
     selectedImage = await fileToBase64(file);
     modeSelect.value = "screenshot_review";
+    modeSelect.dispatchEvent(new Event("change"));
     renderAttachmentPreview();
   }
 

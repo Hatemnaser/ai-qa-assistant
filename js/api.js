@@ -1,7 +1,13 @@
 const API_URL = "http://127.0.0.1:5000/api/chat";
 const REQUEST_TIMEOUT_MS = 60000;
 
-export async function sendMessageToAI({ message, mode, image = null }) {
+export async function sendMessageToAI({
+  message,
+  mode,
+  model,
+  history = [],
+  image = null,
+}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -17,6 +23,8 @@ export async function sendMessageToAI({ message, mode, image = null }) {
       body: JSON.stringify({
         message,
         mode,
+        model,
+        history,
         image,
       }),
     });
@@ -39,14 +47,27 @@ export async function sendMessageToAI({ message, mode, image = null }) {
 
     try {
       const errorData = JSON.parse(errorText);
-      errorMessage = errorData.error || errorMessage;
+      errorMessage = normalizeBackendError(errorData.error || errorData.message || errorMessage);
     } catch (error) {
-      errorMessage = errorText || errorMessage;
+      errorMessage = normalizeBackendError(errorText || errorMessage);
     }
 
     throw new Error(errorMessage);
   }
 
   const data = await response.json();
-  return data.reply;
+  return data;
+}
+
+function normalizeBackendError(errorMessage) {
+  if (typeof errorMessage !== "string") return errorMessage;
+
+  try {
+    const parsed = JSON.parse(errorMessage);
+    const nestedError = parsed.error || parsed;
+
+    return nestedError.message || errorMessage;
+  } catch (error) {
+    return errorMessage;
+  }
 }

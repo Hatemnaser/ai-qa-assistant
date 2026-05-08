@@ -1,11 +1,22 @@
 import { sendMessageToAI } from "./api.js";
 import {
+  DEFAULT_MODE,
+  DEFAULT_MODEL,
+  GEMINI_MODELS,
+  SCREENSHOT_REVIEW_MODEL,
+  getModelConfig,
+  normalizeModel,
+  supportsImages,
+} from "./constants.js";
+import {
   getChats,
   createChat,
   getActiveChat,
   getActiveChatId,
   setActiveChatId,
+  clearActiveChatId,
   addMessageToChat,
+  updateChat,
   importChat,
   renameChat,
   deleteChat,
@@ -26,6 +37,7 @@ import {
 const form = document.querySelector("#chat-form");
 const newChatBtn = document.querySelector("#new-chat-btn");
 const modeSelect = document.querySelector("#qa-mode");
+const modelSelect = document.querySelector("#model-select");
 const exportChatBtn = document.querySelector("#export-chat-btn");
 const importChatInput = document.querySelector("#import-chat-input");
 
@@ -37,22 +49,89 @@ const deleteChatModal = new bootstrap.Modal(deleteChatModalElement);
 const chatLayout = document.querySelector(".chat-layout");
 
 let chatIdToDelete = null;
+let draftChat = createDraftChat();
 
 const composerController = initComposer({ form, modeSelect });
+const placeholdersByMode = {
+  general: "Ask about QA strategy, risks, or testing ideas...",
+  test_cases: "Describe the feature or requirement to test...",
+  bug_report: "Describe the issue, actual result, and expected result...",
+  edge_cases: "Describe the feature and I will look for edge cases...",
+  checklist: "Describe the product, feature, or release scope...",
+  screenshot_review: "Add notes about what to inspect in the screenshot...",
+};
+
+function createDraftChat(settings = {}) {
+  const now = new Date().toISOString();
+
+  return {
+    id: crypto.randomUUID(),
+    title: "New QA Chat",
+    mode: DEFAULT_MODE,
+    model: DEFAULT_MODEL,
+    messages: [],
+    createdAt: now,
+    updatedAt: now,
+    ...settings,
+  };
+}
+
+function getActiveViewChat() {
+  if (draftChat) return draftChat;
+
+  const activeChat = getActiveChat();
+
+  if (activeChat) return activeChat;
+
+  draftChat = createDraftChat();
+  return draftChat;
+}
+
+function renderModelOptions(selectedModel) {
+  modelSelect.innerHTML = "";
+
+  GEMINI_MODELS.forEach((model) => {
+    const option = document.createElement("option");
+    option.value = model.value;
+    option.textContent = model.label;
+    option.title = model.recommendedFor;
+    modelSelect.appendChild(option);
+  });
+
+  modelSelect.value = normalizeModel(selectedModel);
+  updateModelHint();
+}
+
+function updateModelHint() {
+  const selectedModel = normalizeModel(modelSelect.value);
+  const selectedConfig = getModelConfig(selectedModel);
+  const screenshotRecommendation =
+    modeSelect.value === "screenshot_review"
+      ? ` Screenshot review is best with ${SCREENSHOT_REVIEW_MODEL}.`
+      : "";
+
+  modelSelect.title = `${selectedConfig.label}: ${selectedConfig.recommendedFor}.${screenshotRecommendation}`;
+}
+
+function updateComposerPlaceholder() {
+  composerController.messageInput.placeholder =
+    placeholdersByMode[modeSelect.value] || placeholdersByMode.general;
+}
 
 function renderApp() {
-  let activeChat = getActiveChat();
+  const activeChat = getActiveViewChat();
 
-  if (!activeChat) {
-    activeChat = createChat();
-  }
+  const model = normalizeModel(activeChat.model);
 
-  modeSelect.value = activeChat.mode || "general";
+  modeSelect.value = activeChat.mode || DEFAULT_MODE;
+  renderModelOptions(model);
+  updateComposerPlaceholder();
 
   renderChatList({
     chats: getChats(),
-    activeChatId: getActiveChatId(),
+    activeChatId: draftChat ? null : getActiveChatId(),
     onSelectChat: (chatId) => {
+      draftChat = null;
       setActiveChatId(chatId);
       renderApp();
     },
@@ -75,6 +154,26 @@ function renderApp() {
   );
 
   renderMessages(activeChat);
+}
+
+function updateActiveChatSettings(settings) {
+  const activeChat = getActiveViewChat();
+
+  if (!activeChat) return;
+
+  if (draftChat && activeChat.id === draftChat.id) {
+    draftChat = {
+      ...draftChat,
+      ...settings,
+      updatedAt: new Date().toISOString(),
+    };
+    return;
+  }
+
+  updateChat({
+    ...activeChat,
+    ...settings,
+  });
 }
 
 function exportSidebarChat(chat, format) {
@@ -105,18 +204,30 @@ async function handleSubmit(event) {
 
   if (!messageForAI) return;
 
-  let activeChat = getActiveChat();
-
-  if (!activeChat) {
-    activeChat = createChat();
-  }
+  let activeChat = getActiveViewChat();
 
   const mode = composerController.hasSelectedImage()
     ? "screenshot_review"
     : modeSelect.value;
+  const requestedModel = normalizeModel(modelSelect.value);
+  const model =
+    composerController.hasSelectedImage() && !supportsImages(requestedModel)
+      ? SCREENSHOT_REVIEW_MODEL
+      : requestedModel;
+  const history = buildRequestHistory(activeChat);
 
   const imageForRequest = composerController.getRequestImage();
   const attachmentForDisplay = composerController.getDisplayAttachment();
+  const isDraftChat = draftChat && activeChat.id === draftChat.id;
+
+  if (isDraftChat) {
+    activeChat = createChat({
+      ...activeChat,
+      mode,
+      model,
+    });
+    draftChat = null;
+  }
 
   addMessage("msg", messageForAI, attachmentForDisplay);
 
@@ -125,6 +236,7 @@ async function handleSubmit(event) {
     content: messageForAI,
     attachment: attachmentForDisplay,
     mode,
+    model,
     createdAt: new Date().toISOString(),
   });
 
@@ -140,18 +252,21 @@ async function handleSubmit(event) {
     const aiReply = await sendMessageToAI({
       message: messageForAI,
       mode,
+      model,
+      history,
       image: imageForRequest,
     });
 
     const thinkingMessage = document.querySelector("#chat-area").lastElementChild;
     thinkingMessage.remove();
 
-    addMessage("answer", aiReply, null, mode);
+    addMessage("answer", aiReply.reply, null, aiReply.mode || mode);
 
     addMessageToChat(activeChat.id, {
       role: "assistant",
-      content: aiReply,
-      mode,
+      content: aiReply.reply,
+      mode: aiReply.mode || mode,
+      model: aiReply.model || model,
       createdAt: new Date().toISOString(),
     });
 
@@ -166,15 +281,33 @@ async function handleSubmit(event) {
   }
 }
 
+function buildRequestHistory(chat) {
+  const messages = Array.isArray(chat?.messages) ? chat.messages : [];
+  const chatModel = normalizeModel(chat?.model);
+
+  return messages
+    .filter((message) => typeof message.content === "string" && message.content.trim())
+    .slice(-8)
+    .map((message) => {
+      return {
+        role: message.role === "assistant" ? "assistant" : "user",
+        content: message.content,
+        mode: message.mode || chat.mode || DEFAULT_MODE,
+        model: normalizeModel(message.model || chatModel),
+      };
+    });
+}
+
 newChatBtn.addEventListener("click", () => {
-  createChat();
+  draftChat = createDraftChat();
+  clearActiveChatId();
   renderApp();
 });
 
 exportChatBtn.addEventListener("click", () => {
-  const activeChat = getActiveChat();
+  const activeChat = getActiveViewChat();
 
-  if (!activeChat) {
+  if (!activeChat || (draftChat && activeChat.id === draftChat.id)) {
     alert("There is no active chat to export.");
     return;
   }
@@ -198,6 +331,7 @@ importChatInput.addEventListener("change", async () => {
     const chat = parseImportedChatJson(rawJson);
 
     importChat(chat);
+    draftChat = null;
     renderApp();
   } catch (error) {
     alert(error.message || "Could not import this chat JSON file.");
@@ -206,11 +340,27 @@ importChatInput.addEventListener("change", async () => {
 
 form.addEventListener("submit", handleSubmit);
 
+modeSelect.addEventListener("change", () => {
+  updateModelHint();
+  updateComposerPlaceholder();
+  updateActiveChatSettings({
+    mode: modeSelect.value,
+  });
+});
+
+modelSelect.addEventListener("change", () => {
+  updateActiveChatSettings({
+    model: normalizeModel(modelSelect.value),
+  });
+  updateModelHint();
+});
+
 confirmDeleteChatBtn.addEventListener("click", () => {
   if (!chatIdToDelete) return;
 
   deleteChat(chatIdToDelete);
   chatIdToDelete = null;
+  draftChat = getActiveChat() ? null : createDraftChat();
 
   deleteChatModal.hide();
   renderApp();

@@ -4,15 +4,18 @@ export function initQuickActions({
   setInputValue,
   autoResizeTextarea,
 }) {
-  document.querySelectorAll(".quick-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      const prompt = button.dataset.prompt;
-      const mode = button.dataset.mode;
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest(".quick-btn");
 
-      setInputValue(prompt);
-      modeSelect.value = mode;
-      messageInput.focus();
-      autoResizeTextarea();
-    });
+    if (!button) return;
+
+    const prompt = button.dataset.prompt;
+    const mode = button.dataset.mode;
+
+    setInputValue(prompt);
+    modeSelect.value = mode;
+    modeSelect.dispatchEvent(new Event("change"));
+    messageInput.focus();
+    autoResizeTextarea();
   });
 }

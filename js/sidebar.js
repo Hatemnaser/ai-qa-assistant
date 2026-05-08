@@ -25,6 +25,7 @@ export function renderChatList({
     titleButton.type = "button";
     titleButton.className = "chat-title-btn";
     titleButton.textContent = chat.title;
+    titleButton.title = formatChatTooltip(chat);
     titleButton.addEventListener("click", () => onSelectChat(chat.id));
 
     const renameInput = document.createElement("input");
@@ -200,6 +201,19 @@ function closeChatMenus() {
   document.querySelectorAll(".chat-dropdown-menu.show").forEach((menu) => {
     menu.classList.remove("show");
   });
+}
+
+function formatChatTooltip(chat) {
+  const modeLabel = String(chat.mode || "general")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const updatedAt = chat.updatedAt ? new Date(chat.updatedAt) : null;
+  const timeLabel =
+    updatedAt && !Number.isNaN(updatedAt.getTime())
+      ? updatedAt.toLocaleDateString([], { month: "short", day: "numeric" })
+      : "";
+
+  return [chat.title, modeLabel, timeLabel].filter(Boolean).join(" · ");
 }
 
 document.addEventListener("click", closeChatMenus);

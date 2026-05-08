@@ -42,33 +42,62 @@
           <p class="small text-secondary mb-0">Describe a feature, bug, or user story.</p>
         </div>
 
-        <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
-          <button id="export-chat-btn"
-                  class="btn btn-sm btn-outline-secondary"
-                  type="button">
-            Export Chat
-          </button>
-          <label class="btn btn-sm btn-outline-secondary mb-0"
-                 for="import-chat-input">
-            Import Chat
-          </label>
-          <input id="import-chat-input"
-                 type="file"
-                 accept="application/json,.json"
-                 hidden>
-          <button id="theme-toggle" 
-                  class="btn btn-sm btn-outline-secondary"
-                   type="button">
-            Dark
-          </button>
-          <select id="qa-mode" class="form-select form-select-sm">
+        <div class="topbar-controls d-flex align-items-center gap-2 flex-wrap justify-content-end">
+          <div class="topbar-field">
+            <span class="topbar-field-label">Model</span>
+            <select id="model-select" class="form-select form-select-sm topbar-select" aria-label="AI model"></select>
+          </div>
+
+          <div class="topbar-field">
+            <span class="topbar-field-label">Mode</span>
+            <select id="qa-mode" class="form-select form-select-sm">
             <option value="general">General QA</option>
             <option value="test_cases">Test Cases</option>
             <option value="bug_report">Bug Report</option>
             <option value="edge_cases">Edge Cases</option>
             <option value="checklist">QA Checklist</option>
             <option value="screenshot_review">Screenshot Review</option>
-          </select>
+            </select>
+          </div>
+
+          <div class="dropdown">
+            <button id="topbar-actions-btn"
+                    class="btn btn-sm btn-outline-secondary topbar-icon-btn"
+                    type="button"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false"
+                    aria-label="Chat actions">
+              ⋯
+            </button>
+
+            <ul class="dropdown-menu dropdown-menu-end topbar-actions-menu">
+              <li>
+                <button id="export-chat-btn"
+                        class="dropdown-item"
+                        type="button">
+                  Export Chat
+                </button>
+              </li>
+              <li>
+                <label class="dropdown-item mb-0"
+                       for="import-chat-input">
+                  Import Chat
+                </label>
+              </li>
+              <li>
+                <button id="theme-toggle"
+                        class="dropdown-item"
+                        type="button">
+                  Dark
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <input id="import-chat-input"
+                 type="file"
+                 accept="application/json,.json"
+                 hidden>
           <span class="badge rounded-pill status">Online</span>
         </div>
       </header>

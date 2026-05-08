@@ -1,4 +1,9 @@
-import { DEFAULT_MODE } from "./constants.js";
+import { DEFAULT_MODE, DEFAULT_MODEL, normalizeModel } from "./constants.js";
+import {
+  isValidDate,
+  normalizeImportedMessage,
+  sanitizeAttachment,
+} from "./chatSchema.js";
 
 const ANSWER_TYPE = "qa-answer";
 const CHAT_TYPE = "qa-chat";
@@ -129,10 +134,19 @@ export function exportChatCsv(chat) {
   if (!chat) return;
 
   const rows = [
-    ["role", "mode", "createdAt", "attachmentName", "attachmentType", "content"],
+    [
+      "role",
+      "mode",
+      "model",
+      "createdAt",
+      "attachmentName",
+      "attachmentType",
+      "content",
+    ],
     ...getChatMessages(chat).map((message) => [
       message.role || "",
       message.mode || chat.mode || DEFAULT_MODE,
+      message.model || chat.model || DEFAULT_MODEL,
       message.createdAt || "",
       message.attachment?.name || "",
       message.attachment?.type || "",
@@ -174,6 +188,7 @@ export function parseImportedChatJson(rawJson) {
     mode: typeof chat.mode === "string" && chat.mode.trim()
       ? chat.mode
       : DEFAULT_MODE,
+    model: normalizeModel(chat.model),
     createdAt: isValidDate(chat.createdAt) ? chat.createdAt : new Date().toISOString(),
     updatedAt: isValidDate(chat.updatedAt) ? chat.updatedAt : new Date().toISOString(),
     messages: chat.messages.map(normalizeImportedMessage),
@@ -261,6 +276,7 @@ function formatChatAsMarkdown(chat) {
     "",
     `- Chat ID: ${chat.id || ""}`,
     `- Mode: ${chat.mode || DEFAULT_MODE}`,
+    `- Model: ${chat.model || DEFAULT_MODEL}`,
     `- Created At: ${chat.createdAt || ""}`,
     `- Updated At: ${chat.updatedAt || ""}`,
     "",
@@ -270,6 +286,7 @@ function formatChatAsMarkdown(chat) {
     lines.push(`## ${index + 1}. ${formatRole(message.role)}`);
     lines.push("");
     lines.push(`- Mode: ${message.mode || chat.mode || DEFAULT_MODE}`);
+    lines.push(`- Model: ${message.model || chat.model || DEFAULT_MODEL}`);
     lines.push(`- Created At: ${message.createdAt || ""}`);
 
     if (message.attachment) {
@@ -302,6 +319,7 @@ function sanitizeChatForExport(chat) {
     id: chat.id,
     title: chat.title,
     mode: chat.mode || DEFAULT_MODE,
+    model: chat.model || DEFAULT_MODEL,
     createdAt: chat.createdAt,
     updatedAt: chat.updatedAt,
     messages: Array.isArray(chat.messages)
@@ -315,6 +333,7 @@ function sanitizeMessageForExport(message) {
     role: message.role,
     content: message.content || "",
     mode: message.mode || DEFAULT_MODE,
+    model: message.model || DEFAULT_MODEL,
     createdAt: message.createdAt,
   };
 
@@ -323,40 +342,4 @@ function sanitizeMessageForExport(message) {
   }
 
   return sanitizedMessage;
-}
-
-function normalizeImportedMessage(message) {
-  if (!message || typeof message !== "object" || Array.isArray(message)) {
-    throw new Error("Invalid chat file. Every message must be an object.");
-  }
-
-  if (!["user", "assistant"].includes(message.role)) {
-    throw new Error("Invalid chat file. Every message must have a user or assistant role.");
-  }
-
-  return {
-    role: message.role,
-    content: typeof message.content === "string" ? message.content : "",
-    mode: typeof message.mode === "string" && message.mode.trim()
-      ? message.mode
-      : DEFAULT_MODE,
-    createdAt: isValidDate(message.createdAt)
-      ? message.createdAt
-      : new Date().toISOString(),
-    ...(message.attachment
-      ? { attachment: sanitizeAttachment(message.attachment) }
-      : {}),
-  };
-}
-
-function sanitizeAttachment(attachment) {
-  return {
-    type: attachment.type || "file",
-    name: attachment.name || "Attachment",
-    mimeType: attachment.mimeType || attachment.type || "",
-  };
-}
-
-function isValidDate(value) {
-  return typeof value === "string" && !Number.isNaN(Date.parse(value));
 }

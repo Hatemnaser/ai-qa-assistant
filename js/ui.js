@@ -13,7 +13,29 @@ export function renderMessages(chat) {
     chatArea.innerHTML = `
       <div class="welcome-message">
         <h3 class="h4 fw-bold">How can I help with QA today?</h3>
-        <p>Try asking for test cases, bug reports, edge cases, screenshots, or QA checklists.</p>
+        <p>Choose a starting point or write your own QA request.</p>
+        <div class="welcome-actions">
+          <button type="button" class="quick-btn welcome-action"
+            data-mode="test_cases"
+            data-prompt="Generate test cases for a login page">
+            Test Cases
+          </button>
+          <button type="button" class="quick-btn welcome-action"
+            data-mode="bug_report"
+            data-prompt="Create a structured bug report for: login button does not work">
+            Bug Report
+          </button>
+          <button type="button" class="quick-btn welcome-action"
+            data-mode="edge_cases"
+            data-prompt="Suggest edge cases for a checkout page">
+            Edge Cases
+          </button>
+          <button type="button" class="quick-btn welcome-action"
+            data-mode="checklist"
+            data-prompt="Create a QA checklist for a web application">
+            Checklist
+          </button>
+        </div>
       </div>
     `;
     return;

@@ -1,5 +1,12 @@
 .message-actions {
   margin-top: 12px;
+  opacity: 0.72;
+  transition: opacity 0.15s ease;
+}
+
+.answer:hover .message-actions,
+.message-actions:focus-within {
+  opacity: 1;
 }
 
 .message-action-btn {
@@ -10,6 +17,7 @@
   padding: 6px 10px;
   font-size: 13px;
   cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 .message-action-icon-btn {
