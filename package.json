@@ -1,0 +1,27 @@
+{
+  "name": "ai-qa-assistant",
+  "version": "1.0.0",
+  "description": "AI QA Assistant is an AI-powered workspace for QA engineers. It helps generate test cases, bug reports, edge cases, and QA checklists using Gemini API.",
+  "main": "index.js",
+  "scripts": {
+    "sass": "sass scss/main.scss css/main.css --watch",
+    "sass:build": "sass scss/main.scss css/main.css --style=compressed"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hatemnaser/ai-qa-assistant.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Hatemnaser/ai-qa-assistant/issues"
+  },
+  "homepage": "https://github.com/Hatemnaser/ai-qa-assistant#readme",
+  "devDependencies": {
+    "sass": "^1.99.0"
+  }
+
+  
+}

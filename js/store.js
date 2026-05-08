@@ -1,22 +1,28 @@
-import { STORAGE_KEYS, DEFAULT_MODE } from "./constants.js";
+import { STORAGE_KEYS, DEFAULT_MODE, DEFAULT_MODEL } from "./constants.js";
+import { normalizeChat } from "./chatSchema.js";
 
 export function getChats() {
   const savedChats = localStorage.getItem(STORAGE_KEYS.CHATS);
-  return savedChats ? JSON.parse(savedChats) : [];
+  const chats = savedChats ? JSON.parse(savedChats) : [];
+
+  return Array.isArray(chats) ? chats.map(normalizeChat) : [];
 }
 
 export function saveChats(chats) {
   localStorage.setItem(STORAGE_KEYS.CHATS, JSON.stringify(chats));
 }
 
-export function createChat() {
+export function createChat(chatData = {}) {
+  const now = new Date().toISOString();
   const chat = {
-    id: crypto.randomUUID(),
-    title: "New QA Chat",
-    mode: DEFAULT_MODE,
-    messages: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    ...chatData,
+    id: chatData.id || crypto.randomUUID(),
+    title: chatData.title || "New QA Chat",
+    mode: chatData.mode || DEFAULT_MODE,
+    model: chatData.model || DEFAULT_MODEL,
+    messages: Array.isArray(chatData.messages) ? chatData.messages : [],
+    createdAt: chatData.createdAt || now,
+    updatedAt: chatData.updatedAt || now,
   };
 
   const chats = [chat, ...getChats()];
@@ -34,6 +40,10 @@ export function setActiveChatId(chatId) {
   localStorage.setItem(STORAGE_KEYS.ACTIVE_CHAT_ID, chatId);
 }
 
+export function clearActiveChatId() {
+  localStorage.removeItem(STORAGE_KEYS.ACTIVE_CHAT_ID);
+}
+
 export function getActiveChat() {
   const chats = getChats();
   const activeChatId = getActiveChatId();
@@ -44,7 +54,7 @@ export function getActiveChat() {
 export function updateChat(updatedChat) {
   const chats = getChats().map((chat) =>
     chat.id === updatedChat.id
-      ? { ...updatedChat, updatedAt: new Date().toISOString() }
+      ? normalizeChat({ ...updatedChat, updatedAt: new Date().toISOString() })
       : chat
   );
 
@@ -65,12 +75,35 @@ export function addMessageToChat(chatId, message) {
         chat.title === "New QA Chat" && message.role === "user"
           ? message.content.slice(0, 35)
           : chat.title,
+      mode: message.mode || chat.mode,
+      model: message.model || chat.model,
       messages,
       updatedAt: new Date().toISOString(),
     };
   });
 
   saveChats(updatedChats);
+}
+
+export function importChat(chat) {
+  const importedChat = normalizeChat(
+    {
+      ...chat,
+      id: crypto.randomUUID(),
+      title: chat.title || "Imported QA Chat",
+      mode: chat.mode || DEFAULT_MODE,
+      messages: Array.isArray(chat.messages) ? chat.messages : [],
+      createdAt: chat.createdAt || new Date().toISOString(),
+      updatedAt: chat.updatedAt || new Date().toISOString(),
+    },
+    "Imported QA Chat"
+  );
+
+  const chats = [importedChat, ...getChats()];
+  saveChats(chats);
+  setActiveChatId(importedChat.id);
+
+  return importedChat;
 }
 
 export function renameChat(chatId, newTitle) {
@@ -101,7 +134,7 @@ export function deleteChat(chatId) {
     if (chats.length > 0) {
       setActiveChatId(chats[0].id);
     } else {
-      createChat();
+      clearActiveChatId();
     }
   }
 }

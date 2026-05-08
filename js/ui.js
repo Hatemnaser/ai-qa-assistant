@@ -1,149 +1,9 @@
-export function renderChatList({
-  chats,
-  activeChatId,
-  onSelectChat,
-  onRenameChat,
-  onDeleteChatRequest,
-}) {
-  const chatList = document.querySelector("#chat-list");
-
-  document.querySelectorAll(".chat-dropdown-menu").forEach((menu) => {
-    menu.remove();
-  });
-
-  chatList.innerHTML = "";
-
-  chats.forEach((chat) => {
-    const item = document.createElement("div");
-    item.className =
-      chat.id === activeChatId
-        ? "chat-list-item active"
-        : "chat-list-item";
-
-    const titleButton = document.createElement("button");
-    titleButton.type = "button";
-    titleButton.className = "chat-title-btn";
-    titleButton.textContent = chat.title;
-    titleButton.addEventListener("click", () => onSelectChat(chat.id));
-
-    const renameInput = document.createElement("input");
-    renameInput.type = "text";
-    renameInput.className = "chat-rename-input d-none";
-    renameInput.value = chat.title;
-
-    function saveRename() {
-      const newTitle = renameInput.value.trim();
-
-      titleButton.classList.remove("d-none");
-      renameInput.classList.add("d-none");
-
-      if (newTitle && newTitle !== chat.title) {
-        onRenameChat(chat.id, newTitle);
-      }
-    }
-
-    renameInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        saveRename();
-      }
-
-      if (event.key === "Escape") {
-        renameInput.value = chat.title;
-        titleButton.classList.remove("d-none");
-        renameInput.classList.add("d-none");
-      }
-    });
-
-    renameInput.addEventListener("blur", saveRename);
-
-    const dropdown = document.createElement("div");
-    dropdown.className = "chat-menu";
-
-    const menuButton = document.createElement("button");
-    menuButton.type = "button";
-    menuButton.className = "chat-menu-btn";
-    menuButton.innerHTML = "⋯";
-    menuButton.setAttribute("aria-label", "Chat options");
-
-    const menu = document.createElement("ul");
-    menu.className = "chat-dropdown-menu";
-
-    const renameItem = document.createElement("li");
-    const renameButton = document.createElement("button");
-    renameButton.type = "button";
-    renameButton.className = "dropdown-item";
-    renameButton.textContent = "Rename";
-
-    renameButton.addEventListener("click", () => {
-      menu.classList.remove("show");
-
-      titleButton.classList.add("d-none");
-      renameInput.classList.remove("d-none");
-      renameInput.focus();
-      renameInput.select();
-    });
-
-    renameItem.appendChild(renameButton);
-
-    const deleteItem = document.createElement("li");
-    const deleteButton = document.createElement("button");
-    deleteButton.type = "button";
-    deleteButton.className = "dropdown-item text-danger";
-    deleteButton.textContent = "Delete";
-
-    deleteButton.addEventListener("click", () => {
-      menu.classList.remove("show");
-      onDeleteChatRequest(chat.id);
-    });
-
-    deleteItem.appendChild(deleteButton);
-
-    menu.appendChild(renameItem);
-    menu.appendChild(deleteItem);
-
-    menuButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-
-      document.querySelectorAll(".chat-dropdown-menu.show").forEach((openMenu) => {
-        if (openMenu !== menu) {
-          openMenu.classList.remove("show");
-        }
-      });
-
-      const buttonRect = menuButton.getBoundingClientRect();
-
-      menu.style.left = `${buttonRect.right + 8}px`;
-      menu.style.top = `${buttonRect.top}px`;
-
-      menu.classList.toggle("show");
-    });
-
-    dropdown.appendChild(menuButton);
-
-    item.appendChild(titleButton);
-    item.appendChild(renameInput);
-    item.appendChild(dropdown);
-
-    document.body.appendChild(menu);
-    chatList.appendChild(item);
-  });
-}
-
-function closeChatMenus() {
-  document.querySelectorAll(".chat-dropdown-menu.show").forEach((menu) => {
-    menu.classList.remove("show");
-  });
-}
-
-document.addEventListener("click", closeChatMenus);
-
-document.addEventListener(
-  "scroll",
-  () => {
-    closeChatMenus();
-  },
-  true
-);
+import {
+  exportAnswerJson,
+  exportCsvFromMarkdownTable,
+  exportMarkdown,
+  exportText,
+} from "./export.js";
 
 export function renderMessages(chat) {
   const chatArea = document.querySelector("#chat-area");
@@ -153,7 +13,29 @@ export function renderMessages(chat) {
     chatArea.innerHTML = `
       <div class="welcome-message">
         <h3 class="h4 fw-bold">How can I help with QA today?</h3>
-        <p>Try asking for test cases, bug reports, edge cases, screenshots, or QA checklists.</p>
+        <p>Choose a starting point or write your own QA request.</p>
+        <div class="welcome-actions">
+          <button type="button" class="quick-btn welcome-action"
+            data-mode="test_cases"
+            data-prompt="Generate test cases for a login page">
+            Test Cases
+          </button>
+          <button type="button" class="quick-btn welcome-action"
+            data-mode="bug_report"
+            data-prompt="Create a structured bug report for: login button does not work">
+            Bug Report
+          </button>
+          <button type="button" class="quick-btn welcome-action"
+            data-mode="edge_cases"
+            data-prompt="Suggest edge cases for a checkout page">
+            Edge Cases
+          </button>
+          <button type="button" class="quick-btn welcome-action"
+            data-mode="checklist"
+            data-prompt="Create a QA checklist for a web application">
+            Checklist
+          </button>
+        </div>
       </div>
     `;
     return;
@@ -163,12 +45,13 @@ export function renderMessages(chat) {
     addMessage(
       message.role === "user" ? "msg" : "answer",
       message.content,
-      message.attachment || null
+      message.attachment || null,
+      message.mode || chat.mode
     );
   });
 }
 
-export function addMessage(className, text, attachment = null) {
+export function addMessage(className, text, attachment = null, mode = "general") {
   const chatArea = document.querySelector("#chat-area");
 
   const welcomeMessage = document.querySelector(".welcome-message");
@@ -180,44 +63,6 @@ export function addMessage(className, text, attachment = null) {
   messageWrapper.className = className;
 
   if (className === "answer") {
-    if (text !== "Thinking...") {
-      const actions = document.createElement("div");
-      actions.className = "message-actions";
-
-      const copyButton = document.createElement("button");
-      copyButton.type = "button";
-      copyButton.className = "message-action-btn";
-      copyButton.textContent = "Copy";
-
-      const downloadButton = document.createElement("button");
-      downloadButton.type = "button";
-      downloadButton.className = "message-action-btn";
-      downloadButton.textContent = "Download .md";
-
-      copyButton.addEventListener("click", async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          copyButton.textContent = "Copied!";
-          setTimeout(() => {
-            copyButton.textContent = "Copy";
-          }, 1500);
-        } catch (error) {
-          copyButton.textContent = "Failed";
-          setTimeout(() => {
-            copyButton.textContent = "Copy";
-          }, 1500);
-        }
-      });
-
-      downloadButton.addEventListener("click", () => {
-        downloadMarkdown(text);
-      });
-
-      actions.appendChild(copyButton);
-      actions.appendChild(downloadButton);
-      messageWrapper.appendChild(actions);
-    }
-
     const content = document.createElement("div");
     content.className = "message-content";
     content.innerHTML = window.marked
@@ -225,6 +70,10 @@ export function addMessage(className, text, attachment = null) {
       : text.replace(/\n/g, "<br>");
 
     messageWrapper.appendChild(content);
+
+    if (text !== "Thinking...") {
+      messageWrapper.appendChild(createAnswerActions(text, mode));
+    }
   } else {
     if (attachment) {
       messageWrapper.appendChild(createAttachmentBubble(attachment));
@@ -249,10 +98,13 @@ function createAttachmentBubble(attachment) {
   card.title = "Open attachment";
 
   if (attachment.type === "image") {
-    const image = document.createElement("img");
-    image.src = attachment.previewUrl;
-    image.alt = attachment.name;
-    image.className = "chat-attachment-thumb";
+    if (attachment.previewUrl) {
+      const image = document.createElement("img");
+      image.src = attachment.previewUrl;
+      image.alt = attachment.name;
+      image.className = "chat-attachment-thumb";
+      card.appendChild(image);
+    }
 
     const meta = document.createElement("div");
     meta.className = "chat-attachment-meta";
@@ -263,53 +115,122 @@ function createAttachmentBubble(attachment) {
 
     const type = document.createElement("div");
     type.className = "chat-attachment-type";
-    type.textContent = "Image";
+    type.textContent = attachment.previewUrl ? "Image" : "Image attachment";
 
     meta.appendChild(name);
     meta.appendChild(type);
 
-    card.appendChild(image);
     card.appendChild(meta);
 
-    card.addEventListener("click", () => {
-      window.open(attachment.previewUrl, "_blank");
-    });
+    if (attachment.previewUrl) {
+      card.addEventListener("click", () => {
+        window.open(attachment.previewUrl, "_blank");
+      });
+    }
   }
 
   return card;
 }
 
-function downloadMarkdown(content) {
-  const blob = new Blob([content], {
-    type: "text/markdown;charset=utf-8",
+function createAnswerActions(text, mode) {
+  const actions = document.createElement("div");
+  actions.className = "message-actions d-flex justify-content-end gap-2";
+
+  const copyButton = createMessageActionButton("Copy", async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      copyButton.title = "Copied";
+      setTimeout(() => {
+        copyButton.title = "Copy";
+      }, 1500);
+    } catch (error) {
+      copyButton.title = "Copy failed";
+      setTimeout(() => {
+        copyButton.title = "Copy";
+      }, 1500);
+    }
   });
 
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  copyButton.classList.add("message-action-icon-btn");
+  copyButton.setAttribute("aria-label", "Copy answer");
+  copyButton.title = "Copy";
+  copyButton.innerHTML = copyIconSvg();
 
-  const timestamp = new Date()
-    .toISOString()
-    .replace(/[:.]/g, "-")
-    .slice(0, 19);
+  actions.appendChild(copyButton);
 
-  link.href = url;
-  link.download = `qa-report-${timestamp}.md`;
+  actions.appendChild(createExportDropdown(text, mode));
 
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-
-  URL.revokeObjectURL(url);
+  return actions;
 }
 
-export function setInputValue(value) {
-  document.querySelector("#message").value = value;
+function createExportDropdown(text, mode) {
+  const dropdown = document.createElement("div");
+  dropdown.className = "dropdown";
+
+  const exportButton = createMessageActionButton("Export", () => {});
+  exportButton.classList.add("message-action-icon-btn");
+  exportButton.setAttribute("aria-label", "Export answer");
+  exportButton.setAttribute("aria-expanded", "false");
+  exportButton.setAttribute("data-bs-toggle", "dropdown");
+  exportButton.title = "Export";
+  exportButton.innerHTML = exportIconSvg();
+
+  const menu = document.createElement("ul");
+  menu.className = "dropdown-menu dropdown-menu-end answer-export-menu";
+
+  menu.appendChild(createExportMenuItem("MD", () => exportMarkdown(text)));
+  menu.appendChild(createExportMenuItem("TXT", () => exportText(text)));
+  menu.appendChild(createExportMenuItem("CSV", () => exportCsvFromMarkdownTable(text)));
+  menu.appendChild(
+    createExportMenuItem("JSON", () => exportAnswerJson({ content: text, mode }))
+  );
+
+  dropdown.appendChild(exportButton);
+  dropdown.appendChild(menu);
+
+  return dropdown;
 }
 
-export function getInputValue() {
-  return document.querySelector("#message").value.trim();
+function createExportMenuItem(label, onClick) {
+  const item = document.createElement("li");
+  const button = document.createElement("button");
+
+  button.type = "button";
+  button.className = "dropdown-item";
+  button.textContent = label;
+  button.addEventListener("click", onClick);
+
+  item.appendChild(button);
+
+  return item;
 }
 
-export function clearInput() {
-  document.querySelector("#message").value = "";
+function createMessageActionButton(label, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "message-action-btn";
+  button.textContent = label;
+  button.addEventListener("click", onClick);
+
+  return button;
 }
+
+function copyIconSvg() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>
+  `;
+}
+
+function exportIconSvg() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+      <path d="M7 10l5 5 5-5"></path>
+      <path d="M12 15V3"></path>
+    </svg>
+  `;
+}
+

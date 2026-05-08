@@ -11,8 +11,8 @@
 </head>
 
 <body>
-  <div class="app d-flex">
-    <aside class="sidebar d-flex flex-column">
+<div class="app d-flex align-items-start">
+      <aside class="sidebar d-flex flex-column">
       <div class="brand">
         <span class="badge text-bg-primary mb-3">AI QA Tool</span>
         <h1>AI QA Assistant</h1>
@@ -25,62 +25,86 @@
 
       <div class="sidebar-section">
         <div class="sidebar-title">Recent Chats</div>
-        <div id="chat-list" class="chat-list"></div>
+        <div id="chat-list" class="chat-list d-flex flex-column gap-2"></div>
       </div>
     </aside>
 
     <main class="chat-layout flex-grow-1 d-flex flex-column">
-      <header class="chat-topbar d-flex align-items-center justify-content-between">
+      <header class="chat-topbar 
+                      d-flex align-items-center 
+                      justify-content-between 
+                      position-sticky top-0 z-3 
+                      px-4 
+                      py-3"
+                  >
         <div>
           <h2 class="h5 fw-bold mb-1">QA Chat</h2>
           <p class="small text-secondary mb-0">Describe a feature, bug, or user story.</p>
         </div>
 
-        <div class="d-flex align-items-center gap-2">
-          <button id="theme-toggle" class="theme-btn" type="button">
-            Dark
-          </button>
-          <select id="qa-mode" class="form-select form-select-sm">
+        <div class="topbar-controls d-flex align-items-center gap-2 flex-wrap justify-content-end">
+          <div class="topbar-field">
+            <span class="topbar-field-label">Model</span>
+            <select id="model-select" class="form-select form-select-sm topbar-select" aria-label="AI model"></select>
+          </div>
+
+          <div class="topbar-field">
+            <span class="topbar-field-label">Mode</span>
+            <select id="qa-mode" class="form-select form-select-sm">
             <option value="general">General QA</option>
             <option value="test_cases">Test Cases</option>
             <option value="bug_report">Bug Report</option>
             <option value="edge_cases">Edge Cases</option>
             <option value="checklist">QA Checklist</option>
             <option value="screenshot_review">Screenshot Review</option>
-          </select>
-          <span class="status">Online</span>
+            </select>
+          </div>
+
+          <div class="dropdown">
+            <button id="topbar-actions-btn"
+                    class="btn btn-sm btn-outline-secondary topbar-icon-btn"
+                    type="button"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false"
+                    aria-label="Chat actions">
+              ⋯
+            </button>
+
+            <ul class="dropdown-menu dropdown-menu-end topbar-actions-menu">
+              <li>
+                <button id="export-chat-btn"
+                        class="dropdown-item"
+                        type="button">
+                  Export Chat
+                </button>
+              </li>
+              <li>
+                <label class="dropdown-item mb-0"
+                       for="import-chat-input">
+                  Import Chat
+                </label>
+              </li>
+              <li>
+                <button id="theme-toggle"
+                        class="dropdown-item"
+                        type="button">
+                  Dark
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <input id="import-chat-input"
+                 type="file"
+                 accept="application/json,.json"
+                 hidden>
+          <span class="badge rounded-pill status">Online</span>
         </div>
       </header>
 
-      <div class="alert alert-success mt-3" role="alert">
-  Bootstrap 5.3.8 is working ✅
-</div>
+      <section id="chat-area" class="chat-area"></section>
 
-<div class="d-flex gap-2 mt-3">
-  <button class="btn btn-primary">Primary</button>
-  <button class="btn btn-outline-secondary">Secondary</button>
-  <button class="btn btn-danger btn-sm">Small Danger</button>
-</div>
-
-
-<button
-  class="btn btn-primary mt-3"
-  type="button"
-  data-bs-toggle="collapse"
-  data-bs-target="#bootstrapTest"
->
-  Test Bootstrap JS
-</button>
-
-<div class="collapse mt-2" id="bootstrapTest">
-  <div class="card card-body">
-    Bootstrap JavaScript is working ✅
-  </div>
-</div>
-
-      <section id="chat-area" class="chat-area flex-grow-1"></section>
-
-      <form id="chat-form" class="chat-form">
+      <form id="chat-form" class="chat-form position-sticky bottom-0 z-3 w-100 px-4 pt-3 pb-4">
         <div id="composer" class="composer">
           <div id="attachment-preview" class="attachment-preview d-none"></div>
 
@@ -91,6 +115,8 @@
                 class="composer-icon-btn"
                 type="button"
                 aria-label="Attach file"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
               >
                 +
               </button>
@@ -131,7 +157,7 @@
           />
         </div>
 
-          <section class="quick-actions d-flex gap-2 flex-wrap">
+          <section class="quick-actions d-flex gap-2 flex-wrap w-100 mx-auto mt-2 p-0">
             <button type="button" class="btn btn-sm btn-outline-primary quick-btn"
               data-mode="test_cases"
               data-prompt="Generate test cases for a login page">
@@ -189,14 +215,11 @@
           </div>
         </div>
       </div>
-
     </main>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="js/bootstrap.bundle.min.js"></script>
-  <script type="module" src="js/main.js"></script>
-  <script src="js/bootstrap.bundle.min.js"></script>
-  <script type="module" src="js/main.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="js/bootstrap.bundle.min.js"></script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

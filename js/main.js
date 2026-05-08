@@ -1,114 +1,233 @@
 import { sendMessageToAI } from "./api.js";
 import {
+  DEFAULT_MODE,
+  DEFAULT_MODEL,
+  GEMINI_MODELS,
+  SCREENSHOT_REVIEW_MODEL,
+  getModelConfig,
+  normalizeModel,
+  supportsImages,
+} from "./constants.js";
+import {
   getChats,
   createChat,
   getActiveChat,
   getActiveChatId,
   setActiveChatId,
+  clearActiveChatId,
   addMessageToChat,
+  updateChat,
+  importChat,
   renameChat,
   deleteChat,
 } from "./store.js";
+import { renderMessages, addMessage } from "./ui.js";
+import { renderChatList } from "./sidebar.js";
+import { initThemeToggle } from "./theme.js";
+import { initQuickActions } from "./quickActions.js";
+import { initComposer } from "./composer.js";
 import {
-  renderChatList,
-  renderMessages,
-  addMessage,
-  setInputValue,
-  getInputValue,
-  clearInput,
-} from "./ui.js";
-import { STORAGE_KEYS } from "./constants.js";
+  exportChatCsv,
+  exportChatJson,
+  exportChatMarkdown,
+  exportChatText,
+  parseImportedChatJson,
+} from "./export.js";
 
 const form = document.querySelector("#chat-form");
 const newChatBtn = document.querySelector("#new-chat-btn");
 const modeSelect = document.querySelector("#qa-mode");
-const themeToggle = document.querySelector("#theme-toggle");
+const modelSelect = document.querySelector("#model-select");
+const exportChatBtn = document.querySelector("#export-chat-btn");
+const importChatInput = document.querySelector("#import-chat-input");
 
 const deleteChatModalElement = document.querySelector("#deleteChatModal");
 const confirmDeleteChatBtn = document.querySelector("#confirm-delete-chat");
 
 const deleteChatModal = new bootstrap.Modal(deleteChatModalElement);
 
-const attachMenuBtn = document.querySelector("#attach-menu-btn");
-const composerMenu = document.querySelector(".composer-menu");
 const chatLayout = document.querySelector(".chat-layout");
 
 let chatIdToDelete = null;
+let draftChat = createDraftChat();
 
-const messageInput = document.querySelector("#message");
-const composer = document.querySelector("#composer");
-const screenshotInput = document.querySelector("#screenshot-input");
-const attachmentPreview = document.querySelector("#attachment-preview");
+const composerController = initComposer({ form, modeSelect });
+const placeholdersByMode = {
+  general: "Ask about QA strategy, risks, or testing ideas...",
+  test_cases: "Describe the feature or requirement to test...",
+  bug_report: "Describe the issue, actual result, and expected result...",
+  edge_cases: "Describe the feature and I will look for edge cases...",
+  checklist: "Describe the product, feature, or release scope...",
+  screenshot_review: "Add notes about what to inspect in the screenshot...",
+};
 
-let selectedImage = null;
+function createDraftChat(settings = {}) {
+  const now = new Date().toISOString();
+
+  return {
+    id: crypto.randomUUID(),
+    title: "New QA Chat",
+    mode: DEFAULT_MODE,
+    model: DEFAULT_MODEL,
+    messages: [],
+    createdAt: now,
+    updatedAt: now,
+    ...settings,
+  };
+}
+
+function getActiveViewChat() {
+  if (draftChat) return draftChat;
+
+  const activeChat = getActiveChat();
+
+  if (activeChat) return activeChat;
+
+  draftChat = createDraftChat();
+  return draftChat;
+}
+
+function renderModelOptions(selectedModel) {
+  modelSelect.innerHTML = "";
+
+  GEMINI_MODELS.forEach((model) => {
+    const option = document.createElement("option");
+    option.value = model.value;
+    option.textContent = model.label;
+    option.title = model.recommendedFor;
+    modelSelect.appendChild(option);
+  });
+
+  modelSelect.value = normalizeModel(selectedModel);
+  updateModelHint();
+}
+
+function updateModelHint() {
+  const selectedModel = normalizeModel(modelSelect.value);
+  const selectedConfig = getModelConfig(selectedModel);
+  const screenshotRecommendation =
+    modeSelect.value === "screenshot_review"
+      ? ` Screenshot review is best with ${SCREENSHOT_REVIEW_MODEL}.`
+      : "";
+
+  modelSelect.title = `${selectedConfig.label}: ${selectedConfig.recommendedFor}.${screenshotRecommendation}`;
+}
+
+function updateComposerPlaceholder() {
+  composerController.messageInput.placeholder =
+    placeholdersByMode[modeSelect.value] || placeholdersByMode.general;
+}
 
 function renderApp() {
-  let activeChat = getActiveChat();
+  const activeChat = getActiveViewChat();
 
-  if (!activeChat) {
-    activeChat = createChat();
-  }
+  const model = normalizeModel(activeChat.model);
 
-  modeSelect.value = activeChat.mode || "general";
+  modeSelect.value = activeChat.mode || DEFAULT_MODE;
+  renderModelOptions(model);
+  updateComposerPlaceholder();
 
-renderChatList({
-  chats: getChats(),
-  activeChatId: getActiveChatId(),
-  onSelectChat: (chatId) => {
-    setActiveChatId(chatId);
-    renderApp();
-  },
-  onRenameChat: (chatId, newTitle) => {
-    renameChat(chatId, newTitle);
-    renderApp();
-  },
-  onDeleteChatRequest: (chatId) => {
-    chatIdToDelete = chatId;
-    deleteChatModal.show();
-  },
-});
+  renderChatList({
+    chats: getChats(),
+    activeChatId: draftChat ? null : getActiveChatId(),
+    onSelectChat: (chatId) => {
+      draftChat = null;
+      setActiveChatId(chatId);
+      renderApp();
+    },
+    onRenameChat: (chatId, newTitle) => {
+      renameChat(chatId, newTitle);
+      renderApp();
+    },
+    onExportChat: (chat, format) => {
+      exportSidebarChat(chat, format);
+    },
+    onDeleteChatRequest: (chatId) => {
+      chatIdToDelete = chatId;
+      deleteChatModal.show();
+    },
+  });
 
-chatLayout.classList.toggle(
-  "empty-chat",
-  !activeChat || activeChat.messages.length === 0
-);
+  chatLayout.classList.toggle(
+    "empty-chat",
+    !activeChat || activeChat.messages.length === 0
+  );
 
   renderMessages(activeChat);
+}
+
+function updateActiveChatSettings(settings) {
+  const activeChat = getActiveViewChat();
+
+  if (!activeChat) return;
+
+  if (draftChat && activeChat.id === draftChat.id) {
+    draftChat = {
+      ...draftChat,
+      ...settings,
+      updatedAt: new Date().toISOString(),
+    };
+    return;
+  }
+
+  updateChat({
+    ...activeChat,
+    ...settings,
+  });
+}
+
+function exportSidebarChat(chat, format) {
+  const exporters = {
+    md: exportChatMarkdown,
+    txt: exportChatText,
+    csv: exportChatCsv,
+    json: exportChatJson,
+  };
+
+  const exporter = exporters[format];
+
+  if (exporter) {
+    exporter(chat);
+  }
 }
 
 async function handleSubmit(event) {
   event.preventDefault();
 
-  const userMessage = getInputValue();
+  const userMessage = composerController.getInputValue();
 
   const messageForAI =
-    userMessage || (selectedImage ? "Analyze this screenshot as a QA engineer." : "");
+    userMessage ||
+    (composerController.hasSelectedImage()
+      ? "Analyze this screenshot as a QA engineer."
+      : "");
 
   if (!messageForAI) return;
 
-  let activeChat = getActiveChat();
+  let activeChat = getActiveViewChat();
 
-  if (!activeChat) {
-    activeChat = createChat();
+  const mode = composerController.hasSelectedImage()
+    ? "screenshot_review"
+    : modeSelect.value;
+  const requestedModel = normalizeModel(modelSelect.value);
+  const model =
+    composerController.hasSelectedImage() && !supportsImages(requestedModel)
+      ? SCREENSHOT_REVIEW_MODEL
+      : requestedModel;
+  const history = buildRequestHistory(activeChat);
+
+  const imageForRequest = composerController.getRequestImage();
+  const attachmentForDisplay = composerController.getDisplayAttachment();
+  const isDraftChat = draftChat && activeChat.id === draftChat.id;
+
+  if (isDraftChat) {
+    activeChat = createChat({
+      ...activeChat,
+      mode,
+      model,
+    });
+    draftChat = null;
   }
-
-  const mode = selectedImage ? "screenshot_review" : modeSelect.value;
-
-  const imageForRequest = selectedImage
-    ? {
-        mimeType: selectedImage.mimeType,
-        data: selectedImage.data,
-      }
-    : null;
-
-  const attachmentForDisplay = selectedImage
-    ? {
-        type: "image",
-        name: selectedImage.name,
-        mimeType: selectedImage.mimeType,
-        previewUrl: selectedImage.previewUrl,
-      }
-    : null;
 
   addMessage("msg", messageForAI, attachmentForDisplay);
 
@@ -117,14 +236,15 @@ async function handleSubmit(event) {
     content: messageForAI,
     attachment: attachmentForDisplay,
     mode,
+    model,
     createdAt: new Date().toISOString(),
   });
 
   chatLayout.classList.remove("empty-chat");
 
-  clearInput();
-  clearSelectedImage();
-  autoResizeTextarea();
+  composerController.clearInput();
+  composerController.clearSelectedImage();
+  composerController.autoResizeTextarea();
 
   addMessage("answer", "Thinking...");
 
@@ -132,18 +252,21 @@ async function handleSubmit(event) {
     const aiReply = await sendMessageToAI({
       message: messageForAI,
       mode,
+      model,
+      history,
       image: imageForRequest,
     });
 
     const thinkingMessage = document.querySelector("#chat-area").lastElementChild;
     thinkingMessage.remove();
 
-    addMessage("answer", aiReply);
+    addMessage("answer", aiReply.reply, null, aiReply.mode || mode);
 
     addMessageToChat(activeChat.id, {
       role: "assistant",
-      content: aiReply,
-      mode,
+      content: aiReply.reply,
+      mode: aiReply.mode || mode,
+      model: aiReply.model || model,
       createdAt: new Date().toISOString(),
     });
 
@@ -151,67 +274,85 @@ async function handleSubmit(event) {
   } catch (error) {
     const thinkingMessage = document.querySelector("#chat-area").lastElementChild;
     thinkingMessage.textContent =
+      error.message ||
       "Sorry, something went wrong. Please make sure the backend server is running.";
 
     console.error(error);
   }
-  
-  
+}
+
+function buildRequestHistory(chat) {
+  const messages = Array.isArray(chat?.messages) ? chat.messages : [];
+  const chatModel = normalizeModel(chat?.model);
+
+  return messages
+    .filter((message) => typeof message.content === "string" && message.content.trim())
+    .slice(-8)
+    .map((message) => {
+      return {
+        role: message.role === "assistant" ? "assistant" : "user",
+        content: message.content,
+        mode: message.mode || chat.mode || DEFAULT_MODE,
+        model: normalizeModel(message.model || chatModel),
+      };
+    });
 }
 
 newChatBtn.addEventListener("click", () => {
-  createChat();
+  draftChat = createDraftChat();
+  clearActiveChatId();
   renderApp();
+});
+
+exportChatBtn.addEventListener("click", () => {
+  const activeChat = getActiveViewChat();
+
+  if (!activeChat || (draftChat && activeChat.id === draftChat.id)) {
+    alert("There is no active chat to export.");
+    return;
+  }
+
+  exportChatJson(activeChat);
+});
+
+importChatInput.addEventListener("change", async () => {
+  const file = importChatInput.files[0];
+  importChatInput.value = "";
+
+  if (!file) return;
+
+  if (!file.name.toLowerCase().endsWith(".json")) {
+    alert("Please choose a JSON chat export file.");
+    return;
+  }
+
+  try {
+    const rawJson = await file.text();
+    const chat = parseImportedChatJson(rawJson);
+
+    importChat(chat);
+    draftChat = null;
+    renderApp();
+  } catch (error) {
+    alert(error.message || "Could not import this chat JSON file.");
+  }
 });
 
 form.addEventListener("submit", handleSubmit);
 
-attachMenuBtn.addEventListener("click", (event) => {
-  event.stopPropagation();
-  composerMenu.classList.toggle("show");
-});
-
-document.addEventListener("click", (event) => {
-  if (!composer.contains(event.target)) {
-    composerMenu.classList.remove("show");
-  }
-});
-
-composerMenu.addEventListener("click", () => {
-  composerMenu.classList.remove("show");
-});
-
-messageInput.addEventListener("input", autoResizeTextarea);
-
-messageInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
-    form.requestSubmit();
-  }
-});
-
-screenshotInput.addEventListener("change", async () => {
-  const file = screenshotInput.files[0];
-  await handleImageFile(file);
-});
-
-["dragenter", "dragover"].forEach((eventName) => {
-  composer.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    composer.classList.add("drag-over");
+modeSelect.addEventListener("change", () => {
+  updateModelHint();
+  updateComposerPlaceholder();
+  updateActiveChatSettings({
+    mode: modeSelect.value,
   });
 });
 
-["dragleave", "drop"].forEach((eventName) => {
-  composer.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    composer.classList.remove("drag-over");
+modelSelect.addEventListener("change", () => {
+  updateActiveChatSettings({
+    model: normalizeModel(modelSelect.value),
   });
-});
-
-composer.addEventListener("drop", async (event) => {
-  const file = event.dataTransfer.files[0];
-  await handleImageFile(file);
+  updateModelHint();
 });
 
 confirmDeleteChatBtn.addEventListener("click", () => {
@@ -219,144 +360,21 @@ confirmDeleteChatBtn.addEventListener("click", () => {
 
   deleteChat(chatIdToDelete);
   chatIdToDelete = null;
+  draftChat = getActiveChat() ? null : createDraftChat();
 
   deleteChatModal.hide();
   renderApp();
 });
 
-document.querySelectorAll(".quick-btn").forEach((button) => {
-  button.addEventListener("click", () => {
-    const prompt = button.dataset.prompt;
-    const mode = button.dataset.mode;
-
-    setInputValue(prompt);
-    modeSelect.value = mode;
-    messageInput.focus();
-    autoResizeTextarea();
-  });
+initQuickActions({
+  modeSelect,
+  messageInput: composerController.messageInput,
+  setInputValue: composerController.setInputValue,
+  autoResizeTextarea: composerController.autoResizeTextarea,
 });
 
-function updateThemeButton(theme) {
-  themeToggle.textContent = theme === "dark" ? "Light" : "Dark";
-}
-
-themeToggle.addEventListener("click", () => {
-  const currentTheme = document.documentElement.dataset.theme;
-  const nextTheme = currentTheme === "dark" ? "light" : "dark";
-
-  document.documentElement.dataset.theme = nextTheme;
-  localStorage.setItem(STORAGE_KEYS.THEME, nextTheme);
-  updateThemeButton(nextTheme);
-});
-
-const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME) || "light";
-document.documentElement.dataset.theme = savedTheme;
-updateThemeButton(savedTheme);
+initThemeToggle();
 
 renderApp();
-autoResizeTextarea();
-
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      const result = reader.result;
-      const base64Data = result.split(",")[1];
-
-      resolve({
-        name: file.name,
-        mimeType: file.type,
-        data: base64Data,
-        previewUrl: result,
-      });
-    };
-
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-function autoResizeTextarea() {
-  messageInput.style.height = "auto";
-  messageInput.style.height = `${messageInput.scrollHeight}px`;
-}
-
-function renderAttachmentPreview() {
-  attachmentPreview.innerHTML = "";
-
-  if (!selectedImage) {
-    attachmentPreview.classList.add("d-none");
-    return;
-  }
-
-  attachmentPreview.classList.remove("d-none");
-
-  const card = document.createElement("div");
-  card.className = "attachment-preview-card";
-
-  const image = document.createElement("img");
-  image.src = selectedImage.previewUrl;
-  image.alt = selectedImage.name;
-
-  const info = document.createElement("div");
-  info.className = "attachment-preview-info";
-
-  const name = document.createElement("div");
-  name.className = "attachment-preview-name";
-  name.textContent = selectedImage.name;
-
-  const type = document.createElement("div");
-  type.className = "attachment-preview-type";
-  type.textContent = "Image";
-
-  const removeButton = document.createElement("button");
-  removeButton.type = "button";
-  removeButton.className = "attachment-remove-btn";
-  removeButton.textContent = "×";
-  removeButton.setAttribute("aria-label", "Remove attachment");
-  removeButton.addEventListener("click", clearSelectedImage);
-
-  info.appendChild(name);
-  info.appendChild(type);
-
-  card.appendChild(image);
-  card.appendChild(info);
-  card.appendChild(removeButton);
-
-  card.addEventListener("click", (event) => {
-    if (event.target === removeButton) return;
-    window.open(selectedImage.previewUrl, "_blank");
-  });
-
-  attachmentPreview.appendChild(card);
-}
-
-function clearSelectedImage() {
-  selectedImage = null;
-  screenshotInput.value = "";
-  renderAttachmentPreview();
-}
-
-async function handleImageFile(file) {
-  if (!file) return;
-
-  if (!file.type.startsWith("image/")) {
-    alert("Please upload an image file.");
-    return;
-  }
-
-  const maxSizeInMB = 4;
-  const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
-
-  if (file.size > maxSizeInBytes) {
-    alert(`Image is too large. Please upload an image smaller than ${maxSizeInMB}MB.`);
-    return;
-  }
-
-  selectedImage = await fileToBase64(file);
-  modeSelect.value = "screenshot_review";
-  renderAttachmentPreview();
-}
+composerController.autoResizeTextarea();
 
