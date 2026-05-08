@@ -113,6 +113,23 @@ function updateModelHint() {
   modelSelect.title = `${selectedConfig.label}: ${selectedConfig.recommendedFor}.${screenshotRecommendation}`;
 }
 
+function getModelForMode(mode, requestedModel) {
+  const selectedModel = normalizeModel(requestedModel);
+
+  if (mode === "screenshot_review" && !supportsImages(selectedModel)) {
+    return SCREENSHOT_REVIEW_MODEL;
+  }
+
+  return selectedModel;
+}
+
+function syncModelForMode(mode) {
+  const model = getModelForMode(mode, modelSelect.value);
+  modelSelect.value = model;
+
+  return model;
+}
+
 function updateComposerPlaceholder() {
   composerController.messageInput.placeholder =
     placeholdersByMode[modeSelect.value] || placeholdersByMode.general;
@@ -209,11 +226,7 @@ async function handleSubmit(event) {
   const mode = composerController.hasSelectedImage()
     ? "screenshot_review"
     : modeSelect.value;
-  const requestedModel = normalizeModel(modelSelect.value);
-  const model =
-    composerController.hasSelectedImage() && !supportsImages(requestedModel)
-      ? SCREENSHOT_REVIEW_MODEL
-      : requestedModel;
+  const model = getModelForMode(mode, modelSelect.value);
   const history = buildRequestHistory(activeChat);
 
   const imageForRequest = composerController.getRequestImage();
@@ -341,16 +354,21 @@ importChatInput.addEventListener("change", async () => {
 form.addEventListener("submit", handleSubmit);
 
 modeSelect.addEventListener("change", () => {
+  const model = syncModelForMode(modeSelect.value);
+
   updateModelHint();
   updateComposerPlaceholder();
   updateActiveChatSettings({
     mode: modeSelect.value,
+    model,
   });
 });
 
 modelSelect.addEventListener("change", () => {
+  const model = syncModelForMode(modeSelect.value);
+
   updateActiveChatSettings({
-    model: normalizeModel(modelSelect.value),
+    model,
   });
   updateModelHint();
 });
