@@ -33,7 +33,9 @@ export async function sendMessageToAI({
       throw new Error("The backend took too long to respond. Please try again.");
     }
 
-    throw error;
+    throw new Error(
+      `Could not connect to the backend at ${API_URL}. Make sure the backend server is running.`
+    );
   } finally {
     clearTimeout(timeoutId);
   }
