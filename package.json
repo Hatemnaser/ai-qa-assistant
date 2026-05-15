@@ -4,6 +4,7 @@
   "description": "AI QA Assistant is an AI-powered workspace for QA engineers. It helps generate test cases, bug reports, edge cases, and QA checklists using Gemini API.",
   "main": "index.js",
   "scripts": {
+    "dev": "npm --prefix backend run dev",
     "sass": "sass scss/main.scss css/main.css --watch",
     "sass:build": "sass scss/main.scss css/main.css --style=compressed"
   },
