@@ -23,9 +23,10 @@ app.post("/api/chat", async (req, res) => {
       history = [],
       image,
     } = req.body;
+    const requestedModel = typeof model === "string" ? model.trim() : model;
 
     console.log("Mode:", mode);
-    console.log("Model:", model);
+    console.log("Model:", requestedModel);
     console.log("History count:", Array.isArray(history) ? history.length : 0);
     console.log("Has image:", Boolean(image && image.data && image.mimeType));
     console.log("Image mime:", image?.mimeType);
@@ -43,16 +44,16 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    if (model && !geminiClient.ALLOWED_MODELS.includes(model)) {
+    if (requestedModel && !geminiClient.ALLOWED_MODELS.includes(requestedModel)) {
       return res.status(400).json({
-        error: `Unsupported Gemini model: ${model}. Allowed models: ${geminiClient.ALLOWED_MODELS.join(", ")}.`,
+        error: `Unsupported Gemini model: ${requestedModel}. Allowed models: ${geminiClient.ALLOWED_MODELS.join(", ")}.`,
       });
     }
 
     const response = await geminiClient.chat({
       message,
       mode,
-      model,
+      model: requestedModel,
       history,
       image,
     });
@@ -69,7 +70,7 @@ app.post("/api/chat", async (req, res) => {
       error instanceof Error
         ? error.message
         : "Server error while processing the request.";
-    const statusCode = error.status || (errorMessage.includes("timed out") ? 504 : 500);
+    const statusCode = getResponseStatus(error, errorMessage);
 
     res.status(statusCode).json({
       error: errorMessage,
@@ -90,6 +91,20 @@ app.use((error, req, res, next) => {
     error: "Server error while processing the request.",
   });
 });
+
+function getResponseStatus(error, message) {
+  const status = Number(error?.status || error?.httpStatus || error?.code);
+
+  if (Number.isInteger(status) && status >= 400 && status <= 599) {
+    return status;
+  }
+
+  if (String(message || "").includes("timed out")) {
+    return 504;
+  }
+
+  return 500;
+}
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

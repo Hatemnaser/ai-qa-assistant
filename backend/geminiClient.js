@@ -1,7 +1,7 @@
 const { GoogleGenAI } = require("@google/genai");
 const { buildPrompt } = require("./prompts");
 
-const DEFAULT_MODEL = "gemini-3.1-flash-lite";
+const DEFAULT_MODEL = "gemini-2.5-flash";
 const AI_TIMEOUT_MS = 55000;
 const ALLOWED_MODELS = [
   "gemini-2.5-flash",
@@ -67,14 +67,18 @@ function getGeminiErrorDetails(error) {
 function isQuotaError(error) {
   const details = getGeminiErrorDetails(error);
   const status = getErrorStatus(error);
+  const numericStatus = Number(status);
   const message = details.message.toLowerCase();
   const errorStatus = String(details.status || "").toLowerCase();
+  const code = String(details.code || status || "").toLowerCase();
 
   return (
-    status === 429 ||
+    numericStatus === 429 ||
+    code.includes("429") ||
     message.includes("429") ||
     message.includes("quota") ||
     errorStatus.includes("resource_exhausted") ||
+    code.includes("resource_exhausted") ||
     message.includes("rate limit")
   );
 }
@@ -82,11 +86,12 @@ function isQuotaError(error) {
 function isTemporaryUnavailableError(error) {
   const details = getGeminiErrorDetails(error);
   const status = getErrorStatus(error);
+  const numericStatus = Number(status);
   const message = details.message.toLowerCase();
   const errorStatus = String(details.status || "").toLowerCase();
 
   return (
-    status === 503 ||
+    numericStatus === 503 ||
     message.includes("503") ||
     errorStatus.includes("unavailable") ||
     message.includes("high demand") ||
@@ -99,6 +104,21 @@ function createGeminiError(message, status, code) {
   error.status = status;
   error.code = code;
   return error;
+}
+
+function getHttpStatus(error, fallbackStatus = 500) {
+  const status = Number(getErrorStatus(error));
+  const fallback = Number(fallbackStatus);
+
+  if (Number.isInteger(status) && status >= 400 && status <= 599) {
+    return status;
+  }
+
+  if (Number.isInteger(fallback) && fallback >= 400 && fallback <= 599) {
+    return fallback;
+  }
+
+  return 500;
 }
 
 function normalizeModel(model) {
@@ -175,6 +195,18 @@ async function chat({ message, mode, model, history, image }) {
 
     if (String(error?.message || "").includes("timed out")) {
       error.status = 504;
+    }
+
+    const status = getHttpStatus(error);
+
+    if (status >= 400 && status <= 499) {
+      const details = getGeminiErrorDetails(error);
+
+      throw createGeminiError(
+        `Gemini request failed for ${selectedModel}: ${details.message}`,
+        status,
+        details.status || details.code || "GEMINI_REQUEST_FAILED"
+      );
     }
 
     throw error;

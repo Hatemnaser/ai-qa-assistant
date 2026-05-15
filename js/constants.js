@@ -5,16 +5,10 @@ export const STORAGE_KEYS = {
 };
 
 export const DEFAULT_MODE = "general";
-export const DEFAULT_MODEL = "gemini-3.1-flash-lite";
+export const DEFAULT_MODEL = "gemini-2.5-flash";
 export const SCREENSHOT_REVIEW_MODEL = "gemini-2.5-flash";
 
 export const GEMINI_MODELS = [
-  {
-    label: "Gemini 3.1 Flash Lite",
-    value: "gemini-3.1-flash-lite",
-    supportsImages: true,
-    recommendedFor: "High-volume text tasks",
-  },
   {
     label: "Gemini 2.5 Flash",
     value: "gemini-2.5-flash",
@@ -26,6 +20,12 @@ export const GEMINI_MODELS = [
     value: "gemini-2.5-flash-lite",
     supportsImages: true,
     recommendedFor: "Fast text tasks",
+  },
+  {
+    label: "Gemini 3.1 Flash Lite",
+    value: "gemini-3.1-flash-lite",
+    supportsImages: true,
+    recommendedFor: "High-volume text tasks",
   },
 ];
 
