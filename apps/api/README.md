@@ -1,0 +1,55 @@
+# AI QA Assistant API
+
+This is the TypeScript API for AI QA Assistant. The legacy backend source has been removed after parity migration.
+
+## Commands
+
+```bash
+npm --prefix apps/api run dev
+npm --prefix apps/api run check
+npm --prefix apps/api run build
+npm --prefix apps/api run db:validate
+npm --prefix apps/api run db:generate
+npm --prefix apps/api run db:migrate
+npm --prefix apps/api run db:studio
+```
+
+From the repository root, these shortcuts are also available:
+
+```bash
+npm run dev:api
+npm run dev:web
+npm run check:api
+npm run check:web
+npm run build:api
+npm run build:web
+npm run db:up
+npm run db:down
+npm run db:migrate
+npm run db:studio
+```
+
+## Environment
+
+Create `apps/api/.env` from `apps/api/.env.example`.
+
+Required later for real database work:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ai_qa_assistant?schema=public
+```
+
+Start the local database from the repository root:
+
+```bash
+npm run db:up
+npm run db:migrate
+```
+
+Required for live AI requests:
+
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+Keep local secrets in ignored `apps/api/.env`.

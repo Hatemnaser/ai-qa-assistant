@@ -1,0 +1,8 @@
+{
+  "files.exclude": {
+    "**/node_modules": true,
+    "apps/**/dist": true,
+    "apps/api/src/generated": true,
+    "**/*.tsbuildinfo": true
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev:web",
+      "type": "shell",
+      "command": "npm run dev:web",
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "dev:api",
+      "type": "shell",
+      "command": "npm run dev:api",
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "verify",
+      "type": "shell",
+      "command": "npm run verify",
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "build:web",
+      "type": "shell",
+      "command": "npm run build:web",
+      "problemMatcher": [],
+      "group": "build"
+    }
+  ]
+}

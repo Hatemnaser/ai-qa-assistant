@@ -1,0 +1,199 @@
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  moduleFormat           = "esm"
+  generatedFileExtension = "ts"
+  importFileExtension    = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ProjectRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum MemoryScope {
+  USER
+  PROJECT
+  CHAT
+}
+
+enum MemorySource {
+  USER_PROVIDED
+  AI_EXTRACTED
+  CHAT_SUMMARY
+  IMPORTED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String?
+  locale       String   @default("en")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions            Session[]
+  settings            UserSettings?
+  ownedProjects       Project[]            @relation("ProjectOwner")
+  projectMemberships  ProjectMember[]
+  chats               Chat[]
+  memories            Memory[]
+  aiUsageLogs         AiUsageLog[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model UserSettings {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  language      String   @default("en")
+  theme         String   @default("system")
+  defaultModel  String   @default("gemini-2.5-flash")
+  aiPreferences Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  ownerId     String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner    User            @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members  ProjectMember[]
+  chats    Chat[]
+  memories Memory[]
+
+  @@index([ownerId])
+}
+
+model ProjectMember {
+  id        String      @id @default(cuid())
+  projectId String
+  userId    String
+  role      ProjectRole @default(MEMBER)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+}
+
+model Chat {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String?
+  title     String   @default("New QA Chat")
+  mode      String   @default("general")
+  model     String   @default("gemini-2.5-flash")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  messages    Message[]
+  memories    Memory[]
+  aiUsageLogs AiUsageLog[]
+
+  @@index([userId, updatedAt])
+  @@index([projectId, updatedAt])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  chatId     String
+  role       ChatRole
+  content    String
+  mode       String   @default("general")
+  model      String?
+  attachment Json?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  chat        Chat         @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  aiUsageLogs AiUsageLog[]
+
+  @@index([chatId, createdAt])
+}
+
+model Memory {
+  id         String       @id @default(cuid())
+  userId     String?
+  projectId  String?
+  chatId     String?
+  scope      MemoryScope
+  content    String
+  source     MemorySource @default(USER_PROVIDED)
+  confidence Float        @default(0.8)
+  metadata   Json?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  chat    Chat?    @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([userId, scope])
+  @@index([projectId, scope])
+  @@index([chatId, scope])
+}
+
+model AiUsageLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  chatId       String?
+  messageId    String?
+  provider     String
+  model        String
+  mode         String?
+  status       String
+  promptTokens Int?
+  outputTokens Int?
+  latencyMs    Int?
+  costCents    Int?
+  errorCode    String?
+  createdAt    DateTime @default(now())
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  chat    Chat?    @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  message Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([chatId, createdAt])
+  @@index([provider, model])
+}

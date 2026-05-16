@@ -1,13 +1,31 @@
 {
   "name": "ai-qa-assistant",
   "version": "1.0.0",
+  "private": true,
   "description": "AI QA Assistant is an AI-powered workspace for QA engineers. It helps generate test cases, bug reports, edge cases, and QA checklists using Gemini API.",
-  "main": "index.js",
   "scripts": {
-    "dev": "npm --prefix backend run dev",
-    "sass": "sass scss/main.scss css/main.css --watch",
-    "sass:build": "sass scss/main.scss css/main.css --style=compressed"
+    "dev": "npm run dev:web",
+    "dev:api": "npm --prefix apps/api run dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "build:api": "npm --prefix apps/api run build",
+    "build:web": "npm --prefix apps/web run build",
+    "check:api": "npm --prefix apps/api run check",
+    "check:web": "npm --prefix apps/web run check",
+    "test:api": "npm --prefix apps/api run test",
+    "test:web": "npm --prefix apps/web run test",
+    "verify": "npm run test:api && npm run test:web && npm run check:api && npm run check:web",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "db:validate": "npm --prefix apps/api run db:validate",
+    "db:generate": "npm --prefix apps/api run db:generate",
+    "db:migrate": "npm --prefix apps/api run db:migrate",
+    "db:studio": "npm --prefix apps/api run db:studio"
   },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Hatemnaser/ai-qa-assistant.git"
@@ -19,10 +37,5 @@
   "bugs": {
     "url": "https://github.com/Hatemnaser/ai-qa-assistant/issues"
   },
-  "homepage": "https://github.com/Hatemnaser/ai-qa-assistant#readme",
-  "devDependencies": {
-    "sass": "^1.99.0"
-  }
-
-  
+  "homepage": "https://github.com/Hatemnaser/ai-qa-assistant#readme"
 }
