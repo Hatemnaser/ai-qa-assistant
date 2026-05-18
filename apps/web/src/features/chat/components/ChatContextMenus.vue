@@ -35,7 +35,7 @@ const emit = defineEmits<{
         </button>
       </li>
       <li>
-        <button class="dropdown-item text-danger" type="button" @click="emit('delete-chat', menuChat.id)">
+        <button class="dropdown-item dropdown-item-danger" type="button" @click="emit('delete-chat', menuChat.id)">
           Delete
         </button>
       </li>

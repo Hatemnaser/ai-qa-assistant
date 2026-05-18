@@ -50,7 +50,7 @@ const { themeToggleLabel, toggleTheme } = useTheme();
 </script>
 
 <template>
-  <div class="app d-flex align-items-start min-vh-100">
+  <div class="app">
     <ChatSidebar
       :active-chat-id="activeChatId"
       :chats="chats"
@@ -62,7 +62,7 @@ const { themeToggleLabel, toggleTheme } = useTheme();
       @rename-chat="submitRenameChat"
     />
 
-    <main class="chat-layout flex-grow-1 d-flex flex-column" :class="{ 'empty-chat': activeMessages.length === 0 }">
+    <main class="chat-layout" :class="{ 'empty-chat': activeMessages.length === 0 }">
       <ChatTopbar
         v-model:mode="selectedMode"
         v-model:model="selectedModel"

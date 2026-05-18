@@ -31,8 +31,8 @@
 }
 
 .answer code {
-  color: #e11d48;
-  background: var(--bg-muted);
+  color: var(--text-code);
+  background: var(--surface-code);
   padding: 2px 5px;
   border-radius: 6px;
 }
@@ -52,7 +52,7 @@
 }
 
 .answer th {
-  background: var(--bg-muted);
+  background: var(--surface-table-header);
   font-weight: 700;
 }
 

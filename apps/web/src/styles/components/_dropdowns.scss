@@ -1,0 +1,122 @@
+.dropdown-menu,
+.chat-dropdown-menu {
+  --dropdown-surface: var(--surface-dropdown);
+  --dropdown-surface-hover: var(--surface-dropdown-hover);
+  --dropdown-text: var(--text-on-dropdown);
+  --dropdown-border: var(--border-floating);
+  --bs-dropdown-bg: var(--surface-dropdown);
+  --bs-dropdown-color: var(--text-on-dropdown);
+  --bs-dropdown-border-color: var(--border-floating);
+  --bs-dropdown-link-color: var(--text-on-dropdown);
+  --bs-dropdown-link-hover-bg: var(--surface-dropdown-hover);
+  --bs-dropdown-link-hover-color: var(--text-on-dropdown);
+  --bs-dropdown-link-active-bg: var(--surface-dropdown-hover);
+  --bs-dropdown-link-active-color: var(--text-on-dropdown);
+  --bs-dropdown-link-disabled-color: var(--text-muted);
+
+  padding: 6px;
+  margin: 0;
+  list-style: none;
+  background: var(--dropdown-surface);
+  background-color: var(--dropdown-surface);
+  background-clip: padding-box;
+  border: 1px solid var(--dropdown-border);
+  box-shadow: var(--shadow-soft);
+  color: var(--dropdown-text);
+}
+
+.topbar-actions-menu {
+  min-width: 170px;
+  border-radius: var(--radius-lg);
+}
+
+.topbar-select-menu {
+  min-width: 100%;
+  border-radius: var(--radius-lg);
+}
+
+.composer-menu {
+  min-width: 190px;
+  border-radius: var(--radius-xl);
+  z-index: 9999;
+}
+
+.answer .answer-export-menu {
+  min-width: 150px;
+  border-radius: var(--radius-lg);
+}
+
+.chat-dropdown-menu {
+  display: none;
+  position: fixed;
+  min-width: 150px;
+  border-radius: var(--radius-lg);
+  z-index: 9999;
+}
+
+.chat-dropdown-menu.show {
+  display: block;
+}
+
+.chat-export-submenu {
+  min-width: 110px;
+}
+
+.dropdown-menu .dropdown-item,
+.chat-dropdown-menu .dropdown-item {
+  width: 100%;
+  border: 0;
+  background-color: transparent;
+  color: var(--dropdown-text);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) 10px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dropdown-menu .dropdown-item:hover,
+.dropdown-menu .dropdown-item:focus,
+.dropdown-menu .dropdown-item:active,
+.dropdown-menu .dropdown-item.active,
+.chat-dropdown-menu .dropdown-item:hover,
+.chat-dropdown-menu .dropdown-item:focus,
+.chat-dropdown-menu .dropdown-item:active,
+.chat-dropdown-menu .dropdown-item.active {
+  background-color: var(--dropdown-surface-hover);
+  color: var(--dropdown-text);
+}
+
+.dropdown-menu .dropdown-item.disabled,
+.dropdown-menu .dropdown-item:disabled,
+.chat-dropdown-menu .dropdown-item.disabled,
+.chat-dropdown-menu .dropdown-item:disabled {
+  background-color: transparent;
+  color: var(--text-muted);
+  opacity: 0.62;
+  pointer-events: none;
+}
+
+.dropdown-menu .dropdown-item-danger,
+.chat-dropdown-menu .dropdown-item-danger {
+  color: var(--status-danger-text);
+}
+
+.dropdown-menu .dropdown-item-danger:hover,
+.dropdown-menu .dropdown-item-danger:focus,
+.dropdown-menu .dropdown-item-danger:active,
+.chat-dropdown-menu .dropdown-item-danger:hover,
+.chat-dropdown-menu .dropdown-item-danger:focus,
+.chat-dropdown-menu .dropdown-item-danger:active {
+  background-color: var(--status-danger-bg);
+  color: var(--status-danger-text);
+}
+
+.chat-export-item .dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}

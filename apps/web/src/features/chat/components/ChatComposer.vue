@@ -73,9 +73,8 @@ function handleDrop(event: DragEvent) {
 </script>
 
 <template>
-  <form class="chat-form position-sticky bottom-0 z-3 w-100 px-4 pt-3 pb-4" @submit.prevent="emit('submit')">
+  <form class="chat-form" @submit.prevent="emit('submit')">
     <div
-      id="composer"
       class="composer"
       :class="{ 'drag-over': isDraggingOver }"
       @dragenter.prevent="showDragOver"
@@ -104,8 +103,7 @@ function handleDrop(event: DragEvent) {
       <div class="composer-row">
         <div class="dropup">
           <button
-            id="attach-menu-btn"
-            class="composer-icon-btn"
+            class="ui-icon-btn composer-icon-btn"
             type="button"
             aria-label="Attach file"
             data-bs-toggle="dropdown"
@@ -136,7 +134,7 @@ function handleDrop(event: DragEvent) {
           @keydown.enter.exact.prevent="emit('submit')"
         />
 
-        <button class="composer-send-btn" type="submit" :disabled="isSending">
+        <button class="ui-icon-btn ui-icon-btn--send composer-send-btn" type="submit" :disabled="isSending">
           &uarr;
         </button>
       </div>
@@ -150,7 +148,7 @@ function handleDrop(event: DragEvent) {
       />
     </div>
 
-    <section class="quick-actions d-flex gap-2 flex-wrap w-100 mx-auto mt-2 p-0">
+    <section class="quick-actions">
       <button
         v-for="action in QUICK_ACTIONS"
         :key="action.label"
