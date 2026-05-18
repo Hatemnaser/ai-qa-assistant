@@ -1,5 +1,9 @@
 .dropdown-menu,
 .chat-dropdown-menu {
+  --dropdown-surface: var(--surface-dropdown);
+  --dropdown-surface-hover: var(--surface-dropdown-hover);
+  --dropdown-text: var(--text-on-dropdown);
+  --dropdown-border: var(--border-floating);
   --bs-dropdown-bg: var(--surface-dropdown);
   --bs-dropdown-color: var(--text-on-dropdown);
   --bs-dropdown-border-color: var(--border-floating);
@@ -13,10 +17,12 @@
   padding: 6px;
   margin: 0;
   list-style: none;
-  background-color: var(--surface-dropdown);
-  border: 1px solid var(--border-floating);
+  background: var(--dropdown-surface);
+  background-color: var(--dropdown-surface);
+  background-clip: padding-box;
+  border: 1px solid var(--dropdown-border);
   box-shadow: var(--shadow-soft);
-  color: var(--text-on-dropdown);
+  color: var(--dropdown-text);
 }
 
 .topbar-actions-menu {
@@ -61,7 +67,7 @@
   width: 100%;
   border: 0;
   background-color: transparent;
-  color: var(--text-on-dropdown);
+  color: var(--dropdown-text);
   border-radius: var(--radius-sm);
   padding: var(--space-2) 10px;
   font-size: 14px;
@@ -79,8 +85,8 @@
 .chat-dropdown-menu .dropdown-item:focus,
 .chat-dropdown-menu .dropdown-item:active,
 .chat-dropdown-menu .dropdown-item.active {
-  background-color: var(--surface-dropdown-hover);
-  color: var(--text-on-dropdown);
+  background-color: var(--dropdown-surface-hover);
+  color: var(--dropdown-text);
 }
 
 .dropdown-menu .dropdown-item.disabled,
