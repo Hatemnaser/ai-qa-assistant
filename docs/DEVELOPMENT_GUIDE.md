@@ -9,6 +9,8 @@ This project is currently in foundation and migration mode. Do not add new produ
 - Use Bootstrap utilities first for generic layout and controls.
 - Keep custom styling in `apps/web/src/styles`. Vite compiles SCSS directly; there is no root CSS build step.
 - Do not create new ad hoc CSS files such as `apps/web/src/styles.css`.
+- For sidebar work, keep workspace navigation outside the history scroll area and keep recent chats as compact rows.
+- For repeated controls, prefer the existing tokens and shared classes such as `.ui-icon-btn` before adding component-only CSS.
 - Legacy files have been removed after parity. Use the docs and tests as the migration reference.
 
 ## Before Changing Code

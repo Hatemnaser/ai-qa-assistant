@@ -1,12 +1,102 @@
 :root {
-  --bg-app: #f6f8fb;
-  --bg-panel: #ffffff;
-  --bg-muted: #f1f5f9;
-  --text-main: #111827;
-  --text-muted: #6b7280;
-  --border: #e5e7eb;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --success-bg: #dcfce7;
-  --success-text: #16a34a;
+  color-scheme: light;
+
+  --brand-primary: #2f3542;
+  --brand-primary-hover: #1f252e;
+  --brand-primary-contrast: #ffffff;
+
+  --tone-0: #ffffff;
+  --tone-50: #fffcf7;
+  --tone-100: #f7f3ea;
+  --tone-200: #efe8da;
+  --tone-300: #e4dac9;
+  --tone-400: #d8cec0;
+  --tone-500: #b9ac9a;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-2xl: 16px;
+  --radius-bubble: 18px;
+  --radius-pill: 999px;
+
+  --control-height-sm: 34px;
+  --control-height-md: 36px;
+  --control-height-lg: 40px;
+  --sidebar-row-height: 34px;
+  --motion-fast: 0.15s ease;
+
+  --surface-app: var(--tone-100);
+  --surface-panel: var(--tone-50);
+  --surface-floating: var(--tone-100);
+  --surface-floating-hover: var(--tone-300);
+  --surface-dropdown: var(--surface-floating);
+  --surface-dropdown-hover: var(--surface-floating-hover);
+  --surface-user-message: var(--tone-200);
+  --surface-send: var(--brand-primary);
+  --surface-send-hover: var(--brand-primary-hover);
+  --surface-input: var(--tone-50);
+  --surface-interactive: var(--tone-200);
+  --surface-interactive-hover: var(--tone-300);
+  --surface-attachment: var(--surface-floating);
+  --surface-attachment-hover: var(--surface-floating-hover);
+  --surface-code: var(--tone-200);
+  --surface-table-header: var(--tone-200);
+
+  --text-main: #1f2933;
+  --text-muted: #667085;
+  --text-on-user-message: #1f2933;
+  --text-on-dropdown: #1f2933;
+  --text-on-send: #ffffff;
+  --text-on-interactive: var(--text-main);
+  --text-on-interactive-hover: var(--text-main);
+  --text-on-attachment: var(--text-main);
+  --text-code: #5f5145;
+  --border: var(--tone-400);
+  --border-strong: var(--tone-500);
+  --border-interactive: var(--border);
+  --border-interactive-hover: var(--border-strong);
+  --interactive-border-active: var(--brand-primary);
+  --border-attachment: var(--border);
+  --border-floating: var(--border);
+
+  --status-success-bg: #dcfce7;
+  --status-success-text: #15803d;
+  --status-danger-bg: #fee4e2;
+  --status-danger-text: #b42318;
+  --status-danger: #b42318;
+  --status-danger-hover: #912018;
+  --status-danger-contrast: #ffffff;
+
+  --shadow-soft: 0 14px 34px rgba(31, 41, 51, 0.12);
+  --shadow-hover: 0 8px 18px rgba(31, 41, 51, 0.14);
+  --focus-ring: rgba(47, 53, 66, 0.16);
+  --focus-ring-soft: rgba(47, 53, 66, 0.1);
+
+  --bs-body-bg: var(--surface-app);
+  --bs-body-color: var(--text-main);
+  --bs-primary: var(--brand-primary);
+  --bs-primary-rgb: 47, 53, 66;
+  --bs-danger: var(--status-danger);
+  --bs-danger-rgb: 180, 35, 24;
+  --bs-border-color: var(--border);
+  --bs-dropdown-bg: var(--surface-dropdown);
+  --bs-dropdown-color: var(--text-on-dropdown);
+  --bs-dropdown-border-color: var(--border-floating);
+  --bs-dropdown-link-color: var(--text-on-dropdown);
+  --bs-dropdown-link-hover-bg: var(--surface-dropdown-hover);
+  --bs-dropdown-link-hover-color: var(--text-on-dropdown);
+  --bs-dropdown-link-active-bg: var(--surface-dropdown-hover);
+  --bs-dropdown-link-active-color: var(--text-on-dropdown);
+  --bs-dropdown-link-disabled-color: var(--text-muted);
 }

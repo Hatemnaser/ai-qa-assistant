@@ -45,13 +45,13 @@ function copyLabel(message: ChatMessage) {
 <template>
   <section class="chat-area">
     <div v-if="messages.length === 0" class="welcome-message">
-      <h3 class="h4 fw-bold">How can I help with QA today?</h3>
+      <h3 class="welcome-title">How can I help with QA today?</h3>
       <p>Choose a starting point or write your own QA request.</p>
       <div class="welcome-actions">
         <button
           v-for="action in welcomeActions"
           :key="action.label"
-          class="quick-btn welcome-action"
+          class="welcome-action"
           type="button"
           @click="emit('quick-action', action)"
         >
@@ -63,9 +63,9 @@ function copyLabel(message: ChatMessage) {
     <div v-for="message in messages" :key="message.id">
       <div v-if="message.role === 'assistant'" class="answer">
         <div class="message-content" v-html="renderMarkdown(message.content)" />
-        <div class="message-actions d-flex justify-content-end gap-2">
+        <div class="message-actions">
           <button
-            class="message-action-btn message-action-icon-btn"
+            class="ui-icon-btn ui-icon-btn--sm message-action-btn"
             type="button"
             :title="copyLabel(message)"
             aria-label="Copy answer"
@@ -79,7 +79,7 @@ function copyLabel(message: ChatMessage) {
 
           <div class="dropdown">
             <button
-              class="message-action-btn message-action-icon-btn"
+              class="ui-icon-btn ui-icon-btn--sm message-action-btn"
               type="button"
               title="Export"
               aria-label="Export answer"

@@ -68,16 +68,33 @@ function handleRenameBlur(chat: Chat) {
 </script>
 
 <template>
-  <aside class="sidebar d-flex flex-column">
+  <aside class="sidebar">
     <div class="brand">
-      <span class="badge text-bg-primary mb-3">AI QA Tool</span>
       <h1>AI QA Assistant</h1>
       <p>QA workspace for test cases, bug reports, edge cases, and checklists.</p>
     </div>
 
-    <button id="new-chat-btn" class="btn btn-primary w-100 mt-3" type="button" @click="emit('new-chat')">
-      + New Chat
-    </button>
+    <nav class="sidebar-nav" aria-label="Workspace">
+      <button
+        class="sidebar-nav-item"
+        :class="{ active: activeChatId === null }"
+        type="button"
+        @click="emit('new-chat')"
+      >
+        <span class="sidebar-nav-icon" aria-hidden="true">+</span>
+        <span>New Chat</span>
+      </button>
+
+      <button class="sidebar-nav-item" type="button">
+        <span class="sidebar-nav-icon sidebar-nav-icon-search" aria-hidden="true"></span>
+        <span>Search</span>
+      </button>
+
+      <button class="sidebar-nav-item" type="button">
+        <span class="sidebar-nav-icon sidebar-nav-icon-project" aria-hidden="true"></span>
+        <span>Projects</span>
+      </button>
+    </nav>
 
     <div class="sidebar-section">
       <div class="sidebar-title">Recent Chats</div>
@@ -95,7 +112,7 @@ function handleRenameBlur(chat: Chat) {
             type="button"
             @click="emit('select-chat', chat.id)"
           >
-            {{ chat.title }}
+            <span class="chat-title-text">{{ chat.title }}</span>
           </button>
           <input
             v-else

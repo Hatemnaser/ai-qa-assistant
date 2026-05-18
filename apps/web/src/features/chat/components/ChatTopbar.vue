@@ -20,56 +20,91 @@ const emit = defineEmits<{
 
 const importChatInput = ref<HTMLInputElement | null>(null);
 
-const selectedMode = computed({
-  get: () => props.mode,
-  set: (value: string) => emit("update:mode", value),
-});
-
-const selectedModel = computed({
-  get: () => props.model,
-  set: (value: string) => emit("update:model", value),
-});
+const selectedModeOption = computed(() => QA_MODES.find((option) => option.value === props.mode) || QA_MODES[0]);
+const selectedModelOption = computed(
+  () => GEMINI_MODELS.find((option) => option.value === props.model) || GEMINI_MODELS[0]
+);
 const modelHint = computed(() => getModelHint(props.model, props.mode));
 
 function openImportChatPicker() {
   importChatInput.value?.click();
 }
+
+function selectModel(value: string) {
+  emit("update:model", value);
+}
+
+function selectMode(value: string) {
+  emit("update:mode", value);
+}
 </script>
 
 <template>
-  <header class="chat-topbar d-flex align-items-center justify-content-between position-sticky top-0 z-3 px-4 py-3">
+  <header class="chat-topbar">
     <div>
-      <h2 class="h5 fw-bold mb-1">QA Chat</h2>
-      <p class="small text-secondary mb-0">Describe a feature, bug, or user story.</p>
+      <h2 class="topbar-title">QA Chat</h2>
+      <p class="topbar-subtitle">Describe a feature, bug, or user story.</p>
     </div>
 
-    <div class="topbar-controls d-flex align-items-center gap-2 flex-wrap justify-content-end">
-      <label class="topbar-field">
+    <div class="topbar-controls">
+      <div class="topbar-field">
         <span class="topbar-field-label">Model</span>
-        <select v-model="selectedModel" class="form-select form-select-sm topbar-select" :title="modelHint">
-          <option
-            v-for="modelOption in GEMINI_MODELS"
-            :key="modelOption.value"
-            :title="modelOption.recommendedFor"
-            :value="modelOption.value"
+        <div class="dropdown topbar-select-dropdown">
+          <button
+            class="btn btn-sm btn-outline-secondary topbar-select-btn"
+            type="button"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+            :title="modelHint"
           >
-            {{ modelOption.label }}
-          </option>
-        </select>
-      </label>
+            {{ selectedModelOption.label }}
+          </button>
 
-      <label class="topbar-field">
+          <ul class="dropdown-menu dropdown-menu-end topbar-select-menu">
+            <li v-for="modelOption in GEMINI_MODELS" :key="modelOption.value">
+              <button
+                class="dropdown-item"
+                :class="{ active: modelOption.value === props.model }"
+                type="button"
+                :title="modelOption.recommendedFor"
+                @click="selectModel(modelOption.value)"
+              >
+                {{ modelOption.label }}
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="topbar-field">
         <span class="topbar-field-label">Mode</span>
-        <select id="qa-mode" v-model="selectedMode" class="form-select form-select-sm">
-          <option v-for="modeOption in QA_MODES" :key="modeOption.value" :value="modeOption.value">
-            {{ modeOption.label }}
-          </option>
-        </select>
-      </label>
+        <div class="dropdown topbar-select-dropdown">
+          <button
+            class="btn btn-sm btn-outline-secondary topbar-select-btn topbar-select-btn--mode"
+            type="button"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+          >
+            {{ selectedModeOption.label }}
+          </button>
+
+          <ul class="dropdown-menu dropdown-menu-end topbar-select-menu">
+            <li v-for="modeOption in QA_MODES" :key="modeOption.value">
+              <button
+                class="dropdown-item"
+                :class="{ active: modeOption.value === props.mode }"
+                type="button"
+                @click="selectMode(modeOption.value)"
+              >
+                {{ modeOption.label }}
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
 
       <div class="dropdown">
         <button
-          id="topbar-actions-btn"
           class="btn btn-sm btn-outline-secondary topbar-icon-btn"
           type="button"
           data-bs-toggle="dropdown"
@@ -98,7 +133,7 @@ function openImportChatPicker() {
         </ul>
       </div>
 
-      <span class="badge rounded-pill status">Online</span>
+      <span class="topbar-status">Online</span>
 
       <input
         ref="importChatInput"
