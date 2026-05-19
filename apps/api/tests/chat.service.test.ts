@@ -82,10 +82,16 @@ describe("chat service", () => {
           ipAddress: "127.0.0.1",
           userId: undefined,
         });
+
+        return {
+          limit: 3,
+          remaining: 2,
+          used: 1,
+        };
       },
     });
 
-    await service.createChatReply(
+    const response = await service.createChatReply(
       {
         history: [],
         message: "hello",
@@ -99,5 +105,10 @@ describe("chat service", () => {
     );
 
     assert.deepEqual(calls, ["usage", "ai"]);
+    assert.deepEqual(response.usage, {
+      limit: 3,
+      remaining: 2,
+      used: 1,
+    });
   });
 });

@@ -23,5 +23,5 @@ export const chatRequestSchema = z.object({
   mode: z.string().default("general"),
   model: z.string().trim().optional(),
   history: z.array(chatHistoryMessageSchema).max(env.maxHistoryMessages).default([]),
-  image: chatImageSchema.optional(),
+  image: z.preprocess((value) => (value === null ? undefined : value), chatImageSchema.optional()),
 });

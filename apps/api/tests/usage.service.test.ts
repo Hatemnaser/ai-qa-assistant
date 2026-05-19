@@ -83,7 +83,7 @@ describe("usage service", () => {
   });
 });
 
-function setupUsageService(initialEvents: FakeUsageEvent[] = []) {
+function setupUsageService(initialEvents: FakeUsageEvent[] = []): UsageServiceTestContext {
   const repository = createFakeUsageRepository(initialEvents);
   const service = createUsageService({
     now: () => NOW,
@@ -96,12 +96,17 @@ function setupUsageService(initialEvents: FakeUsageEvent[] = []) {
   };
 }
 
-function createFakeUsageRepository(initialEvents: FakeUsageEvent[] = []) {
-  const repository = {
+interface UsageServiceTestContext {
+  repository: FakeUsageRepository;
+  service: ReturnType<typeof createUsageService>;
+}
+
+function createFakeUsageRepository(initialEvents: FakeUsageEvent[] = []): FakeUsageRepository {
+  const repository: FakeUsageRepository = {
     events: [...initialEvents],
 
-    async countUsage(input: UsageCountInput) {
-      return repository.events.filter((event) => {
+    async countUsage(input: UsageCountInput): Promise<number> {
+      return repository.events.filter((event: FakeUsageEvent) => {
         if (event.action !== input.action) return false;
         if (event.createdAt < input.since) return false;
         if (input.userId !== undefined && event.userId !== input.userId) return false;
@@ -112,14 +117,16 @@ function createFakeUsageRepository(initialEvents: FakeUsageEvent[] = []) {
       }).length;
     },
 
-    async recordUsage(input: UsageRecordInput) {
+    async recordUsage(input: UsageRecordInput): Promise<void> {
       repository.events.push(createUsageEvent(input));
     },
-  } satisfies UsageRepository & {
-    events: FakeUsageEvent[];
   };
 
   return repository;
+}
+
+interface FakeUsageRepository extends UsageRepository {
+  events: FakeUsageEvent[];
 }
 
 interface FakeUsageEvent extends UsageRecordInput {

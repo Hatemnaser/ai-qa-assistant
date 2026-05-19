@@ -16,6 +16,7 @@ import type {
   Chat,
   ChatAttachment,
   ChatMessage,
+  ChatUsageSummary,
   ExportFormat,
   SelectedImage,
 } from "../types";
@@ -27,6 +28,7 @@ export function useChatController() {
   const selectedImage = ref<SelectedImage | null>(null);
   const chatPendingDelete = ref<Chat | null>(null);
   const renamingChatId = ref<string | null>(null);
+  const usageSummary = ref<ChatUsageSummary | null>(null);
   const isSending = ref(false);
 
   function clearSelectedImage() {
@@ -230,6 +232,8 @@ export function useChatController() {
           }),
         ],
       });
+
+      usageSummary.value = response.usage || usageSummary.value;
     } catch (error) {
       const fallback =
         error instanceof Error
@@ -332,6 +336,7 @@ export function useChatController() {
     selectedImage,
     selectedMode,
     selectedModel,
+    usageSummary,
     submitRenameChat,
     startNewChat,
   };

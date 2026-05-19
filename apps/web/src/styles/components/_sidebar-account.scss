@@ -1,0 +1,79 @@
+.sidebar-account {
+  flex: 0 0 auto;
+  margin-top: var(--space-4);
+  padding: var(--space-4) var(--space-3) 0 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sidebar-account-btn {
+  appearance: none;
+  width: 100%;
+  min-height: var(--control-height-xl);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.sidebar-account-btn:hover,
+.sidebar-account-btn:focus-visible,
+.sidebar-account.show .sidebar-account-btn {
+  outline: 0;
+  background: var(--surface-interactive-hover);
+}
+
+.sidebar-account-btn:focus-visible {
+  box-shadow: 0 0 0 3px var(--focus-ring-soft);
+}
+
+.sidebar-account-avatar {
+  width: var(--control-height-lg);
+  height: var(--control-height-lg);
+  flex: 0 0 var(--control-height-lg);
+  border-radius: var(--radius-pill);
+  background: var(--surface-interactive);
+  color: var(--text-on-interactive);
+  display: inline-grid;
+  place-items: center;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-extrabold);
+}
+
+.sidebar-account-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-account-name,
+.sidebar-account-meta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sidebar-account-name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+}
+
+.sidebar-account-meta,
+.sidebar-account-caret {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.sidebar-account-menu {
+  width: calc(100% - var(--space-3));
+  min-width: 0;
+  border-radius: var(--radius-lg);
+}

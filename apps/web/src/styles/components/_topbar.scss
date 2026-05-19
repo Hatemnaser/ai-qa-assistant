@@ -66,14 +66,6 @@
   opacity: 0.72;
 }
 
-.topbar-icon-btn {
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  font-size: var(--icon-size-md);
-  line-height: 1;
-}
-
 .topbar-status {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
@@ -81,6 +73,11 @@
   background: var(--status-success-bg);
   padding: 6px 12px;
   border-radius: var(--radius-pill);
+}
+
+.topbar-status--quota {
+  color: var(--text-muted);
+  background: var(--surface-interactive);
 }
 
 @media (max-width: 991px) {

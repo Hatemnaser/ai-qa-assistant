@@ -28,7 +28,7 @@ This project is currently in foundation and migration mode. Do not add new produ
 3. Auth has a backend module now. Keep password auth, httpOnly session cookies, session records, and reset request contracts there; keep Google OAuth and reset email delivery out until that phase starts.
 4. If it touches UI styling, look for the matching SCSS partial first.
 5. If it touches existing chat behavior, keep localStorage keys and API contracts compatible.
-6. If it touches AI calls, check the `usage` module so guest and user limits keep protecting the Gemini key.
+6. If it touches AI calls, check the `usage` module so guest and user limits keep protecting the Gemini key, and preserve the chat response `usage` summary.
 
 ## Frontend Pattern
 

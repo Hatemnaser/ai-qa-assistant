@@ -1,38 +1,31 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 
-import type { AuthUser } from "../../auth/types";
 import { GEMINI_MODELS, QA_MODES, getModelHint } from "../constants";
-import type { ExportFormat } from "../types";
+import type { ChatUsageSummary } from "../types";
 
 const props = defineProps<{
-  currentUser?: AuthUser | null;
   mode: string;
   model: string;
-  themeToggleLabel: string;
+  usageSummary?: ChatUsageSummary | null;
 }>();
 
 const emit = defineEmits<{
   "update:mode": [value: string];
   "update:model": [value: string];
-  "export-active-chat": [format: ExportFormat];
-  "import-chat": [event: Event];
-  logout: [];
-  "sign-in": [];
-  "toggle-theme": [];
 }>();
-
-const importChatInput = ref<HTMLInputElement | null>(null);
 
 const selectedModeOption = computed(() => QA_MODES.find((option) => option.value === props.mode) || QA_MODES[0]);
 const selectedModelOption = computed(
   () => GEMINI_MODELS.find((option) => option.value === props.model) || GEMINI_MODELS[0]
 );
 const modelHint = computed(() => getModelHint(props.model, props.mode));
+const usageLabel = computed(() => {
+  if (!props.usageSummary) return "";
 
-function openImportChatPicker() {
-  importChatInput.value?.click();
-}
+  const remaining = props.usageSummary.remaining;
+  return `${remaining} messages left today`;
+});
 
 function selectModel(value: string) {
   emit("update:model", value);
@@ -107,59 +100,11 @@ function selectMode(value: string) {
         </div>
       </div>
 
-      <div class="dropdown">
-        <button
-          class="btn btn-sm btn-outline-secondary topbar-icon-btn d-inline-flex align-items-center justify-content-center"
-          type="button"
-          data-bs-toggle="dropdown"
-          aria-expanded="false"
-          aria-label="Chat actions"
-        >
-          ⋯
-        </button>
-
-        <ul class="dropdown-menu dropdown-menu-end topbar-actions-menu">
-          <li>
-            <button class="dropdown-item" type="button" @click="emit('export-active-chat', 'json')">
-              Export Chat
-            </button>
-          </li>
-          <li>
-            <button class="dropdown-item" type="button" @click="openImportChatPicker">
-              Import Chat
-            </button>
-          </li>
-          <li>
-            <button class="dropdown-item" type="button" @click="emit('toggle-theme')">
-              {{ props.themeToggleLabel }}
-            </button>
-          </li>
-          <li v-if="props.currentUser">
-            <hr class="dropdown-divider" />
-          </li>
-          <li v-if="props.currentUser">
-            <button class="dropdown-item disabled text-truncate" type="button" disabled>
-              {{ props.currentUser.name || props.currentUser.email }}
-            </button>
-          </li>
-          <li v-if="props.currentUser">
-            <button class="dropdown-item" type="button" @click="emit('logout')">Sign out</button>
-          </li>
-          <li v-else>
-            <button class="dropdown-item" type="button" @click="emit('sign-in')">Sign in</button>
-          </li>
-        </ul>
-      </div>
+      <span v-if="usageLabel" class="topbar-status topbar-status--quota d-inline-flex align-items-center">
+        {{ usageLabel }}
+      </span>
 
       <span class="topbar-status d-inline-flex align-items-center">Online</span>
-
-      <input
-        ref="importChatInput"
-        type="file"
-        accept="application/json,.json"
-        hidden
-        @change="emit('import-chat', $event)"
-      />
     </div>
   </header>
 </template>

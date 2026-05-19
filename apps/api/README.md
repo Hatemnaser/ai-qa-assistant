@@ -70,7 +70,7 @@ Auth uses password hashes, server-side session rows, and an httpOnly `qa_session
 
 ## Usage Limits
 
-`POST /api/chat` stays available to guests for portfolio demos, but usage is reserved before Gemini is called.
+`POST /api/chat` stays available to guests for portfolio demos, but usage is reserved before Gemini is called. Successful chat responses include a `usage` summary so the frontend can show the remaining daily messages.
 
 Defaults:
 

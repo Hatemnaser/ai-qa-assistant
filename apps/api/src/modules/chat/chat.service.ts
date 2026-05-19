@@ -7,11 +7,11 @@ import {
 import { chatWithGemini } from "../ai/gemini.provider.js";
 import type { AiChatInput, AiChatResponse } from "../ai/ai.types.js";
 import { usageService } from "../usage/usage.service.js";
-import type { UsageIdentity } from "../usage/usage.types.js";
+import type { UsageIdentity, UsageReservation } from "../usage/usage.types.js";
 import type { ChatRequest, ChatRequestContext } from "./chat.types.js";
 
 type ChatAiProvider = (input: AiChatInput) => Promise<AiChatResponse>;
-type ChatUsageGuard = (identity: UsageIdentity) => Promise<unknown>;
+type ChatUsageGuard = (identity: UsageIdentity) => Promise<UsageReservation | undefined>;
 
 export interface ChatServiceDependencies {
   chatWithAi: ChatAiProvider;
@@ -30,7 +30,7 @@ export function createChatService({ chatWithAi, reserveUsage }: ChatServiceDepen
       );
     }
 
-    await reserveUsage?.({
+    const usage = await reserveUsage?.({
       guestId: context.guestId,
       ipAddress: context.ipAddress,
       userId: context.userId,
@@ -45,6 +45,7 @@ export function createChatService({ chatWithAi, reserveUsage }: ChatServiceDepen
       reply: response.reply,
       mode: input.mode,
       model: response.model || GEMINI_DEFAULT_MODEL,
+      ...(usage ? { usage } : {}),
     };
   }
 

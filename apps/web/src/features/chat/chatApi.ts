@@ -13,10 +13,17 @@ export async function sendMessageToAI(input: {
 }): Promise<ChatApiResponse> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const body = {
+    history: input.history,
+    message: input.message,
+    mode: input.mode,
+    model: input.model,
+    ...(input.image ? { image: input.image } : {}),
+  };
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/chat`, {
-      body: JSON.stringify(input),
+      body: JSON.stringify(body),
       credentials: "include",
       headers: {
         "Content-Type": "application/json",

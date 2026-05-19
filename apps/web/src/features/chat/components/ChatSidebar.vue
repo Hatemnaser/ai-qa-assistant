@@ -1,20 +1,29 @@
 <script setup lang="ts">
+import type { AuthUser } from "../../auth/types";
+import SidebarAccountMenu from "./SidebarAccountMenu.vue";
 import SidebarChatItem from "./SidebarChatItem.vue";
 import SidebarNavItem from "./SidebarNavItem.vue";
-import type { Chat } from "../types";
+import type { Chat, ExportFormat } from "../types";
 
 defineProps<{
   activeChatId: string | null;
   chats: Chat[];
+  currentUser?: AuthUser | null;
   renamingChatId: string | null;
+  themeToggleLabel: string;
 }>();
 
 const emit = defineEmits<{
   "cancel-rename": [];
+  "export-active-chat": [format: ExportFormat];
+  "import-chat": [event: Event];
+  logout: [];
   "new-chat": [];
   "select-chat": [chatId: string];
+  "sign-in": [];
   "open-chat-menu": [event: MouseEvent, chatId: string];
   "rename-chat": [chatId: string, title: string];
+  "toggle-theme": [];
 }>();
 </script>
 
@@ -48,5 +57,15 @@ const emit = defineEmits<{
         />
       </div>
     </div>
+
+    <SidebarAccountMenu
+      :current-user="currentUser"
+      :theme-toggle-label="themeToggleLabel"
+      @export-active-chat="emit('export-active-chat', $event)"
+      @import-chat="emit('import-chat', $event)"
+      @logout="emit('logout')"
+      @sign-in="emit('sign-in')"
+      @toggle-theme="emit('toggle-theme')"
+    />
   </aside>
 </template>

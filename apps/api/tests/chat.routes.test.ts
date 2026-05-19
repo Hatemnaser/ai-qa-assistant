@@ -60,6 +60,20 @@ describe("POST /api/chat", () => {
     assert.equal(body.code, "UNSUPPORTED_MODEL");
     assert.match(body.error, /Unsupported Gemini model/);
   });
+
+  it("treats null image payloads as no image", async () => {
+    const response = await postJson("/api/chat", {
+      message: "Generate test cases for login",
+      mode: "test_cases",
+      model: "not-a-real-model",
+      history: [],
+      image: null,
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.code, "UNSUPPORTED_MODEL");
+  });
 });
 
 async function postJson(path: string, body: unknown) {

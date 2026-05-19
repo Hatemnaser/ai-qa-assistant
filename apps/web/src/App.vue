@@ -107,6 +107,7 @@ const {
   selectedModel,
   submitRenameChat,
   startNewChat,
+  usageSummary,
 } = useChatController();
 
 const { themeToggleLabel, toggleTheme } = useTheme();
@@ -143,25 +144,26 @@ const { themeToggleLabel, toggleTheme } = useTheme();
     <ChatSidebar
       :active-chat-id="activeChatId"
       :chats="chats"
+      :current-user="currentUser"
       :renaming-chat-id="renamingChatId"
+      :theme-toggle-label="themeToggleLabel"
       @cancel-rename="cancelRenameChat"
+      @export-active-chat="exportActiveChat"
+      @import-chat="handleImportChat"
+      @logout="handleLogout"
       @new-chat="startNewChat"
       @select-chat="selectChat"
+      @sign-in="navigateToAuth('login')"
       @open-chat-menu="openChatMenuForChat"
       @rename-chat="submitRenameChat"
+      @toggle-theme="toggleTheme"
     />
 
     <main class="chat-layout" :class="{ 'empty-chat': activeMessages.length === 0 }">
       <ChatTopbar
         v-model:mode="selectedMode"
         v-model:model="selectedModel"
-        :current-user="currentUser"
-        :theme-toggle-label="themeToggleLabel"
-        @export-active-chat="exportActiveChat"
-        @import-chat="handleImportChat"
-        @logout="handleLogout"
-        @sign-in="navigateToAuth('login')"
-        @toggle-theme="toggleTheme"
+        :usage-summary="usageSummary"
       />
 
       <ChatMessages

@@ -45,6 +45,13 @@ export interface ChatApiResponse {
   reply: string;
   mode: string;
   model: string;
+  usage?: ChatUsageSummary;
+}
+
+export interface ChatUsageSummary {
+  limit: number;
+  remaining: number;
+  used: number;
 }
 
 export interface RequestImage {
