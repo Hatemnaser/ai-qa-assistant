@@ -7,18 +7,26 @@ This project is currently in foundation and migration mode. Do not add new produ
 - Prefer Vue templates and Bootstrap classes for UI work.
 - Keep TypeScript light and local. Put shared shapes in `types.ts`, but avoid clever generics or type-heavy abstractions.
 - Use Bootstrap utilities first for generic layout and controls.
+- Use shared Bootstrap-compatible classes for repeated UI: `.btn-control`, `.form-control`, `.form-label`, `.form-check`, `.ui-row`, and `.ui-icon-btn`.
+- Treat `apps/web/src/styles/abstracts/_variables.scss` and `apps/web/src/styles/themes/_dark.scss` as the design-system source of truth.
+- Use semantic tokens in component SCSS: `--surface-*`, `--text-*`, `--border-*`, `--action-*`, and `--status-*`.
+- Do not put raw hex colors or one-off button/input colors in component SCSS. Add or adjust a token first.
 - Keep custom styling in `apps/web/src/styles`. Vite compiles SCSS directly; there is no root CSS build step.
 - Do not create new ad hoc CSS files such as `apps/web/src/styles.css`.
+- Keep `styles/layout/*` structural only: app shells, page grids, sticky/scroll regions, and responsive layout.
+- Put reusable component patterns in `styles/components/*`, even when they are used by a page-level feature.
 - For sidebar work, keep workspace navigation outside the history scroll area and keep recent chats as compact rows.
+- Row behavior belongs in shared `.ui-row*` styles; keep `_sidebar.scss` focused on shell layout and scrolling.
 - For repeated controls, prefer the existing tokens and shared classes such as `.ui-icon-btn` before adding component-only CSS.
 - Legacy files have been removed after parity. Use the docs and tests as the migration reference.
 
 ## Before Changing Code
 
 1. Check whether the change is a feature, a migration cleanup, or a bug fix.
-2. If it is a future feature like auth, settings, projects, memory, billing, or integrations, document it instead of adding active code.
-3. If it touches UI styling, look for the matching SCSS partial first.
-4. If it touches existing chat behavior, keep localStorage keys and API contracts compatible.
+2. If it is a future feature like settings, projects, memory, billing, or integrations, document it instead of adding active code unless the task explicitly starts that phase.
+3. Auth is currently allowed as a frontend UI shell only; backend sessions, password reset, and OAuth should wait for the API auth module.
+4. If it touches UI styling, look for the matching SCSS partial first.
+5. If it touches existing chat behavior, keep localStorage keys and API contracts compatible.
 
 ## Frontend Pattern
 
@@ -26,6 +34,7 @@ Use this shape for new or migrated frontend code:
 
 ```text
 apps/web/src/features/<feature>/
+  pages/
   components/
   composables/
   <feature>Api.ts
@@ -37,6 +46,18 @@ apps/web/src/features/<feature>/
 Do not create every file up front. Add a file only when it removes real weight from another file.
 
 Vue components should stay mostly template + small event handlers. If a component starts carrying business logic, move that logic into a helper or composable.
+Reusable UI primitives that are not tied to one feature live in `apps/web/src/ui`. Keep them thin, Bootstrap-compatible, and backed by shared SCSS classes.
+
+Auth routes currently use a small hash route layer in `App.vue`:
+
+```text
+#/login
+#/register
+#/forgot-password
+```
+
+Do not introduce Vue Router until navigation grows beyond a few shell pages.
+Auth pages should stay split by page, with shared framing in `features/auth/components/AuthLayout.vue`.
 
 ## Backend Pattern
 
@@ -87,4 +108,4 @@ npm run build:api
 2. Keep TypeScript readable for a Bootstrap-first workflow.
 3. Preserve migrated chat behavior with tests and manual checks.
 4. Reduce file weight when a file becomes hard to scan.
-5. Avoid adding future feature code during the migration phase.
+5. Keep auth UI ready for the backend auth module without pretending sessions or Google OAuth are already wired.

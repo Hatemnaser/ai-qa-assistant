@@ -40,18 +40,18 @@ function selectMode(value: string) {
 </script>
 
 <template>
-  <header class="chat-topbar">
+  <header class="chat-topbar d-flex align-items-center justify-content-between">
     <div>
       <h2 class="topbar-title">QA Chat</h2>
       <p class="topbar-subtitle">Describe a feature, bug, or user story.</p>
     </div>
 
-    <div class="topbar-controls">
-      <div class="topbar-field">
+    <div class="topbar-controls d-flex align-items-center justify-content-end flex-wrap gap-2">
+      <div class="topbar-field d-flex align-items-center gap-2">
         <span class="topbar-field-label">Model</span>
         <div class="dropdown topbar-select-dropdown">
           <button
-            class="btn btn-sm btn-outline-secondary topbar-select-btn"
+            class="btn btn-sm btn-outline-secondary topbar-select-btn d-inline-flex align-items-center justify-content-between text-start"
             type="button"
             data-bs-toggle="dropdown"
             aria-expanded="false"
@@ -76,11 +76,11 @@ function selectMode(value: string) {
         </div>
       </div>
 
-      <div class="topbar-field">
+      <div class="topbar-field d-flex align-items-center gap-2">
         <span class="topbar-field-label">Mode</span>
         <div class="dropdown topbar-select-dropdown">
           <button
-            class="btn btn-sm btn-outline-secondary topbar-select-btn topbar-select-btn--mode"
+            class="btn btn-sm btn-outline-secondary topbar-select-btn topbar-select-btn--mode d-inline-flex align-items-center justify-content-between text-start"
             type="button"
             data-bs-toggle="dropdown"
             aria-expanded="false"
@@ -105,7 +105,7 @@ function selectMode(value: string) {
 
       <div class="dropdown">
         <button
-          class="btn btn-sm btn-outline-secondary topbar-icon-btn"
+          class="btn btn-sm btn-outline-secondary topbar-icon-btn d-inline-flex align-items-center justify-content-center"
           type="button"
           data-bs-toggle="dropdown"
           aria-expanded="false"
@@ -133,7 +133,7 @@ function selectMode(value: string) {
         </ul>
       </div>
 
-      <span class="topbar-status">Online</span>
+      <span class="topbar-status d-inline-flex align-items-center">Online</span>
 
       <input
         ref="importChatInput"

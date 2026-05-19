@@ -44,7 +44,7 @@ function copyLabel(message: ChatMessage) {
 
 <template>
   <section class="chat-area">
-    <div v-if="messages.length === 0" class="welcome-message">
+    <div v-if="messages.length === 0" class="welcome-message text-center">
       <h3 class="welcome-title">How can I help with QA today?</h3>
       <p>Choose a starting point or write your own QA request.</p>
       <div class="welcome-actions">
@@ -63,7 +63,7 @@ function copyLabel(message: ChatMessage) {
     <div v-for="message in messages" :key="message.id">
       <div v-if="message.role === 'assistant'" class="answer">
         <div class="message-content" v-html="renderMarkdown(message.content)" />
-        <div class="message-actions">
+        <div class="message-actions d-flex justify-content-end gap-2">
           <button
             class="ui-icon-btn ui-icon-btn--sm message-action-btn"
             type="button"
@@ -122,7 +122,7 @@ function copyLabel(message: ChatMessage) {
       <div v-else class="msg">
         <button
           v-if="message.attachment"
-          class="chat-attachment-card"
+          class="chat-attachment-card d-flex align-items-center"
           type="button"
           @click="emit('open-attachment', message.attachment)"
         >

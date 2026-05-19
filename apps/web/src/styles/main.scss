@@ -5,13 +5,18 @@
 
 @use "layout/sidebar";
 @use "layout/chat-layout";
+@use "layout/auth";
 
 @use "components/buttons";
+@use "components/forms";
+@use "components/rows";
+@use "components/topbar";
 @use "components/dropdowns";
 @use "components/composer";
 @use "components/messages";
 @use "components/modals";
 @use "components/attachments";
 @use "components/markdown";
+@use "components/auth-ui";
 
 @use "themes/dark";

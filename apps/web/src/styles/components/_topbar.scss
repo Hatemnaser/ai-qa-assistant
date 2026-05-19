@@ -1,0 +1,113 @@
+.chat-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 16px 24px;
+  background: var(--surface-panel);
+  border-bottom: 1px solid var(--border);
+  gap: 18px;
+}
+
+.topbar-title {
+  color: var(--text-main);
+  font-size: var(--font-size-title-sm);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-base);
+  margin: 0 0 4px;
+}
+
+.topbar-subtitle {
+  color: var(--text-muted);
+  font-size: var(--font-size-md);
+  margin: 0;
+}
+
+.topbar-controls {
+  min-width: 0;
+}
+
+.topbar-field {
+  min-width: 0;
+}
+
+.topbar-field-label {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+}
+
+.chat-topbar .topbar-select-btn {
+  width: auto;
+  min-width: 190px;
+}
+
+.chat-topbar .topbar-select-btn--mode {
+  min-width: 150px;
+}
+
+.topbar-select-dropdown {
+  min-width: 0;
+}
+
+.topbar-select-btn {
+  gap: 12px;
+  min-height: 32px;
+  font-weight: var(--font-weight-medium);
+}
+
+.topbar-select-btn::after {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  opacity: 0.72;
+}
+
+.topbar-icon-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: var(--icon-size-md);
+  line-height: 1;
+}
+
+.topbar-status {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--status-success-text);
+  background: var(--status-success-bg);
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+}
+
+@media (max-width: 991px) {
+  .chat-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .topbar-controls {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .topbar-field {
+    flex: 1 1 100%;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .chat-topbar .topbar-select-dropdown,
+  .chat-topbar .topbar-select-btn {
+    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}

@@ -29,8 +29,8 @@ const emit = defineEmits<{
           Rename
         </button>
       </li>
-      <li class="chat-export-item" @mouseenter="emit('open-export-submenu', $event, menuChat.id)">
-        <button class="dropdown-item" type="button">
+      <li @mouseenter="emit('open-export-submenu', $event, menuChat.id)">
+        <button class="dropdown-item d-flex align-items-center justify-content-between gap-3" type="button">
           <span>Export</span><span aria-hidden="true">&rsaquo;</span>
         </button>
       </li>

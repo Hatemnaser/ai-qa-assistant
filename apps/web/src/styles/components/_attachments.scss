@@ -4,8 +4,6 @@
 
 .attachment-preview-card {
   position: relative;
-  display: flex;
-  align-items: center;
   gap: var(--space-3);
   max-width: 360px;
   border: 1px solid var(--border-attachment);
@@ -29,8 +27,8 @@
 
 .attachment-preview-name {
   color: var(--text-main);
-  font-weight: 700;
-  font-size: 14px;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-md);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -38,7 +36,7 @@
 
 .attachment-preview-type {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   margin-top: 2px;
 }
 
@@ -63,8 +61,6 @@
 }
 
 .chat-attachment-card {
-  display: flex;
-  align-items: center;
   gap: var(--space-3);
   max-width: 360px;
   border: 1px solid var(--border-attachment);
@@ -93,15 +89,15 @@
 }
 
 .chat-attachment-name {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 .chat-attachment-type {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   opacity: 0.85;
   margin-top: 2px;
 }

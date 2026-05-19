@@ -1,0 +1,100 @@
+.auth-brand {
+  max-width: 430px;
+  margin-top: clamp(36px, 12vh, 112px);
+
+  h1 {
+    color: var(--text-main);
+    font-size: clamp(var(--font-size-display-md), 5vw, var(--font-size-display-lg));
+    font-weight: var(--font-weight-extrabold);
+    letter-spacing: 0;
+    line-height: 0.98;
+    margin: 0;
+  }
+
+  p:last-child {
+    color: var(--text-muted);
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-readable);
+    margin: var(--space-5) 0 0;
+  }
+}
+
+.auth-brand-mark {
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-interactive);
+  color: var(--text-main);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-extrabold);
+}
+
+.auth-kicker {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  margin: 0 0 var(--space-2);
+  text-transform: uppercase;
+}
+
+.auth-card {
+  width: min(100%, var(--layout-auth-card-width));
+  background: var(--surface-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-soft);
+  padding: clamp(24px, 4vw, 36px);
+}
+
+.auth-header {
+  margin-bottom: var(--space-6);
+
+  h2 {
+    color: var(--text-main);
+    font-size: var(--font-size-display-sm);
+    font-weight: var(--font-weight-extrabold);
+    letter-spacing: 0;
+    line-height: var(--line-height-tight);
+    margin: 0;
+  }
+
+  p:last-child {
+    color: var(--text-muted);
+    font-size: var(--font-size-control);
+    line-height: var(--line-height-readable);
+    margin: var(--space-3) 0 0;
+  }
+}
+
+.auth-google-mark {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-panel);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-extrabold);
+}
+
+.auth-divider {
+  color: var(--text-muted);
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+}
+
+.auth-switch {
+  color: var(--text-muted);
+  margin-top: var(--space-6);
+  font-size: var(--font-size-md);
+}

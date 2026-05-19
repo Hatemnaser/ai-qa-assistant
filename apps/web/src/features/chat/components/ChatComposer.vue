@@ -75,7 +75,7 @@ function handleDrop(event: DragEvent) {
 <template>
   <form class="chat-form" @submit.prevent="emit('submit')">
     <div
-      class="composer"
+      class="composer d-flex flex-column justify-content-center"
       :class="{ 'drag-over': isDraggingOver }"
       @dragenter.prevent="showDragOver"
       @dragover.prevent="showDragOver"
@@ -83,7 +83,7 @@ function handleDrop(event: DragEvent) {
       @drop.prevent="handleDrop"
     >
       <div v-if="selectedImage" id="attachment-preview" class="attachment-preview">
-        <div class="attachment-preview-card" @click="emit('open-selected-image')">
+        <div class="attachment-preview-card d-flex align-items-center" @click="emit('open-selected-image')">
           <img :src="selectedImage.previewUrl" :alt="selectedImage.name" />
           <div class="attachment-preview-info">
             <div class="attachment-preview-name">{{ selectedImage.name }}</div>
@@ -100,7 +100,7 @@ function handleDrop(event: DragEvent) {
         </div>
       </div>
 
-      <div class="composer-row">
+      <div class="composer-row d-flex align-items-end">
         <div class="dropup">
           <button
             class="ui-icon-btn composer-icon-btn"
@@ -148,7 +148,7 @@ function handleDrop(event: DragEvent) {
       />
     </div>
 
-    <section class="quick-actions">
+    <section class="quick-actions d-flex flex-wrap gap-2">
       <button
         v-for="action in QUICK_ACTIONS"
         :key="action.label"

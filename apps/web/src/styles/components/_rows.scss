@@ -1,0 +1,121 @@
+.ui-row {
+  --ui-row-height: var(--control-height-md);
+  --ui-row-font-size: var(--font-size-lg);
+  --ui-row-font-weight: var(--font-weight-semibold);
+
+  box-sizing: border-box;
+  min-height: var(--ui-row-height);
+  position: relative;
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  transition: background-color var(--motion-fast), color var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.ui-row--compact {
+  --ui-row-height: var(--row-height-sm);
+  --ui-row-font-size: var(--font-size-md);
+  --ui-row-font-weight: var(--font-weight-medium);
+}
+
+.ui-row--button,
+.ui-row__button {
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--ui-row-height);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  font-family: inherit;
+  font-size: var(--ui-row-font-size);
+  font-weight: var(--ui-row-font-weight);
+  line-height: 1.2;
+  padding: 0 var(--space-3);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-row--button {
+  color: var(--text-muted);
+}
+
+.ui-row--interactive:hover,
+.ui-row--interactive.active,
+.ui-row--interactive:focus-within {
+  background: var(--surface-interactive-hover);
+  color: var(--text-on-interactive-hover);
+}
+
+.ui-row--button:focus-visible,
+.ui-row--interactive:focus-within {
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--focus-ring-soft);
+}
+
+.ui-row__button--with-action {
+  padding-right: 38px;
+}
+
+.ui-row__button:hover,
+.ui-row__button:focus {
+  color: inherit;
+  outline: 0;
+}
+
+.ui-row__title {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ui-row__action {
+  position: absolute;
+  right: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity var(--motion-fast);
+}
+
+.ui-row:hover .ui-row__action,
+.ui-row.active .ui-row__action {
+  opacity: 1;
+}
+
+.ui-row__input {
+  height: var(--ui-row-height);
+  min-height: 0;
+  font-size: var(--font-size-md);
+  padding: 6px 8px;
+}
+
+.ui-row__icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  border-radius: var(--radius-pill);
+  color: currentColor;
+  display: inline-grid;
+  place-items: center;
+}
+
+.ui-row__icon--filled {
+  background: var(--surface-interactive);
+  color: var(--text-on-interactive);
+}
+
+.ui-icon {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

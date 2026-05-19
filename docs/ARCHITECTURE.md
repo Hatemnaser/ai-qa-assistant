@@ -29,6 +29,7 @@ apps/
   web/
     src/
       features/
+      ui/
       styles/
       App.vue
       main.ts
@@ -66,6 +67,15 @@ Small modules can start with fewer files, but should not put business logic dire
 - `health`: service status and deployment checks.
 - `ai`: provider adapters, prompt building, model normalization, AI error mapping.
 - `chat`: chat API contract and orchestration.
+
+## Active Frontend Routes
+
+- `#/`: chat workspace.
+- `#/login`: sign-in UI shell.
+- `#/register`: account creation UI shell.
+- `#/forgot-password`: password reset UI shell.
+
+The auth pages are currently frontend-only. Password login, sessions, password reset email, and Google OAuth should be wired when the backend `auth` module starts.
 
 ## Later Backend Modules
 

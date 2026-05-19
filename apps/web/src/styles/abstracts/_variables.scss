@@ -1,18 +1,47 @@
 :root {
   color-scheme: light;
 
-  --brand-primary: #2f3542;
-  --brand-primary-hover: #1f252e;
-  --brand-primary-contrast: #ffffff;
+  /* Primitive color scales */
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #fffcf7;
+  --color-neutral-100: #f7f3ea;
+  --color-neutral-200: #efe8da;
+  --color-neutral-300: #e4dac9;
+  --color-neutral-400: #d8cec0;
+  --color-neutral-500: #b9ac9a;
+  --color-neutral-600: #8d8171;
+  --color-neutral-700: #5f5145;
+  --color-neutral-800: #2f3542;
+  --color-neutral-900: #1f252e;
 
-  --tone-0: #ffffff;
-  --tone-50: #fffcf7;
-  --tone-100: #f7f3ea;
-  --tone-200: #efe8da;
-  --tone-300: #e4dac9;
-  --tone-400: #d8cec0;
-  --tone-500: #b9ac9a;
+  --color-brand-50: var(--color-neutral-100);
+  --color-brand-100: var(--color-neutral-200);
+  --color-brand-200: var(--color-neutral-300);
+  --color-brand-300: var(--color-neutral-400);
+  --color-brand-400: var(--color-neutral-500);
+  --color-brand-500: var(--color-neutral-800);
+  --color-brand-600: var(--color-neutral-900);
+  --color-brand-700: #161b22;
+  --color-brand-contrast: #ffffff;
 
+  --color-success-50: #dcfce7;
+  --color-success-500: #15803d;
+  --color-success-700: #166534;
+
+  --color-warning-50: #fef3c7;
+  --color-warning-500: #b45309;
+  --color-warning-700: #92400e;
+
+  --color-danger-50: #fee4e2;
+  --color-danger-500: #b42318;
+  --color-danger-600: #912018;
+  --color-danger-contrast: #ffffff;
+
+  --brand-primary: var(--color-brand-500);
+  --brand-primary-hover: var(--color-brand-600);
+  --brand-primary-contrast: var(--color-brand-contrast);
+
+  /* Layout and sizing scales */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -33,56 +62,132 @@
   --control-height-sm: 34px;
   --control-height-md: 36px;
   --control-height-lg: 40px;
-  --sidebar-row-height: 34px;
+  --control-height-xl: 44px;
+  --row-height-sm: 34px;
+
+  --layout-sidebar-width: 300px;
+  --layout-chat-width: 1100px;
+  --layout-message-width: 780px;
+  --layout-composer-width: 820px;
+  --layout-auth-card-width: 460px;
+  --layout-auth-aside-min: 300px;
+  --layout-auth-content-min: 420px;
+
+  --font-family-base: Arial, sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 15px;
+  --font-size-xl: 16px;
+  --font-size-title-xs: 18px;
+  --font-size-title-sm: 22px;
+  --font-size-title-md: 24px;
+  --font-size-title-lg: 26px;
+  --font-size-display-sm: 28px;
+  --font-size-display-md: 34px;
+  --font-size-display-lg: 56px;
+
+  --font-size-body: var(--font-size-xl);
+  --font-size-control: var(--font-size-lg);
+  --font-size-label: var(--font-size-md);
+  --font-size-output: var(--font-size-xl);
+
+  --icon-size-sm: 16px;
+  --icon-size-md: 18px;
+  --icon-size-lg: 20px;
+  --icon-size-xl: 22px;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  --line-height-tight: 1.1;
+  --line-height-base: 1.2;
+  --line-height-compact: 1.35;
+  --line-height-readable: 1.55;
+  --line-height-output: 1.7;
+
   --motion-fast: 0.15s ease;
 
-  --surface-app: var(--tone-100);
-  --surface-panel: var(--tone-50);
-  --surface-floating: var(--tone-100);
-  --surface-floating-hover: var(--tone-300);
+  /* Semantic application tokens */
+  --surface-app: var(--color-neutral-100);
+  --surface-panel: var(--color-neutral-50);
+  --surface-raised: var(--color-neutral-50);
+  --surface-floating: var(--color-neutral-100);
+  --surface-floating-hover: var(--color-neutral-300);
   --surface-dropdown: var(--surface-floating);
   --surface-dropdown-hover: var(--surface-floating-hover);
-  --surface-user-message: var(--tone-200);
-  --surface-send: var(--brand-primary);
-  --surface-send-hover: var(--brand-primary-hover);
-  --surface-input: var(--tone-50);
-  --surface-interactive: var(--tone-200);
-  --surface-interactive-hover: var(--tone-300);
+  --surface-input: var(--color-neutral-50);
+  --surface-interactive: var(--color-neutral-200);
+  --surface-interactive-hover: var(--color-neutral-300);
+  --surface-primary: var(--brand-primary);
+  --surface-primary-hover: var(--brand-primary-hover);
+  --surface-output: var(--surface-panel);
+  --surface-user-message: var(--color-neutral-200);
+  --surface-assistant-message: var(--surface-output);
   --surface-attachment: var(--surface-floating);
   --surface-attachment-hover: var(--surface-floating-hover);
-  --surface-code: var(--tone-200);
-  --surface-table-header: var(--tone-200);
+  --surface-code: var(--color-neutral-200);
+  --surface-table-header: var(--color-neutral-200);
 
   --text-main: #1f2933;
   --text-muted: #667085;
-  --text-on-user-message: #1f2933;
-  --text-on-dropdown: #1f2933;
-  --text-on-send: #ffffff;
+  --text-subtle: #8d8171;
+  --text-inverse: #ffffff;
+  --text-on-primary: var(--brand-primary-contrast);
+  --text-on-user-message: var(--text-main);
+  --text-on-assistant-message: var(--text-main);
+  --text-on-dropdown: var(--text-main);
   --text-on-interactive: var(--text-main);
   --text-on-interactive-hover: var(--text-main);
   --text-on-attachment: var(--text-main);
-  --text-code: #5f5145;
-  --border: var(--tone-400);
-  --border-strong: var(--tone-500);
+  --text-code: var(--color-neutral-700);
+
+  --border: var(--color-neutral-400);
+  --border-subtle: var(--color-neutral-300);
+  --border-strong: var(--color-neutral-500);
   --border-interactive: var(--border);
   --border-interactive-hover: var(--border-strong);
-  --interactive-border-active: var(--brand-primary);
+  --border-active: var(--brand-primary);
+  --interactive-border-active: var(--border-active);
   --border-attachment: var(--border);
   --border-floating: var(--border);
 
-  --status-success-bg: #dcfce7;
-  --status-success-text: #15803d;
-  --status-danger-bg: #fee4e2;
-  --status-danger-text: #b42318;
-  --status-danger: #b42318;
-  --status-danger-hover: #912018;
-  --status-danger-contrast: #ffffff;
+  --status-success-bg: var(--color-success-50);
+  --status-success-text: var(--color-success-500);
+  --status-warning-bg: var(--color-warning-50);
+  --status-warning-text: var(--color-warning-500);
+  --status-danger-bg: var(--color-danger-50);
+  --status-danger-text: var(--color-danger-500);
+  --status-danger: var(--color-danger-500);
+  --status-danger-hover: var(--color-danger-600);
+  --status-danger-contrast: var(--color-danger-contrast);
+
+  --action-primary-bg: var(--surface-primary);
+  --action-primary-bg-hover: var(--surface-primary-hover);
+  --action-primary-text: var(--text-on-primary);
+  --action-primary-border: var(--surface-primary);
+  --action-primary-border-hover: var(--surface-primary-hover);
+  --action-secondary-bg: var(--surface-interactive);
+  --action-secondary-bg-hover: var(--surface-interactive-hover);
+  --action-secondary-text: var(--text-on-interactive);
+  --action-secondary-text-hover: var(--text-on-interactive-hover);
+  --action-secondary-border: var(--border-interactive);
+  --action-secondary-border-hover: var(--border-interactive-hover);
+  --action-danger-bg: var(--status-danger);
+  --action-danger-bg-hover: var(--status-danger-hover);
+  --action-danger-text: var(--status-danger-contrast);
+  --action-danger-border: var(--status-danger);
+  --action-danger-border-hover: var(--status-danger-hover);
 
   --shadow-soft: 0 4px 12px rgba(95, 81, 69, 0.04);
   --shadow-hover: 0 8px 18px rgba(31, 41, 51, 0.14);
   --focus-ring: rgba(47, 53, 66, 0.16);
   --focus-ring-soft: rgba(47, 53, 66, 0.1);
 
+  /* Bootstrap bridge */
   --bs-body-bg: var(--surface-app);
   --bs-body-color: var(--text-main);
   --bs-primary: var(--brand-primary);

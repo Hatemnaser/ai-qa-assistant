@@ -1,61 +1,68 @@
 html[data-theme="dark"] {
   color-scheme: dark;
 
-  --brand-primary: #a3a3a3;
-  --brand-primary-hover: #c7c7c7;
-  --brand-primary-contrast: #11100f;
+  /* Primitive color scales */
+  --color-neutral-0: #0b0b0a;
+  --color-neutral-50: #151514;
+  --color-neutral-100: #1a1a18;
+  --color-neutral-200: #1f1f1d;
+  --color-neutral-300: #202020;
+  --color-neutral-400: #2b2b2b;
+  --color-neutral-500: #333333;
+  --color-neutral-600: #383838;
+  --color-neutral-700: #46443f;
+  --color-neutral-800: #a3a3a3;
+  --color-neutral-900: #c7c7c7;
 
-  --tone-0: #0b0b0a;
-  --tone-50: #151514;
-  --tone-100: #1a1a18;
-  --tone-200: #1f1f1d;
-  --tone-300: #202020;
-  --tone-400: #2b2b2b;
-  --tone-500: #333333;
-  --tone-600: #383838;
-  --tone-700: #46443f;
+  --color-brand-50: var(--color-neutral-100);
+  --color-brand-100: var(--color-neutral-200);
+  --color-brand-200: var(--color-neutral-300);
+  --color-brand-300: var(--color-neutral-400);
+  --color-brand-400: var(--color-neutral-600);
+  --color-brand-500: var(--color-neutral-800);
+  --color-brand-600: var(--color-neutral-900);
+  --color-brand-700: #dedbd4;
+  --color-brand-contrast: #11100f;
 
-  --surface-app: var(--tone-0);
-  --surface-panel: var(--tone-50);
-  --surface-floating: var(--tone-300);
-  --surface-floating-hover: var(--tone-400);
-  --surface-dropdown: var(--surface-floating);
-  --surface-dropdown-hover: var(--surface-floating-hover);
-  --surface-user-message: var(--tone-400);
-  --surface-send: var(--tone-400);
-  --surface-send-hover: var(--tone-600);
-  --surface-input: var(--tone-50);
-  --surface-interactive: var(--tone-200);
-  --surface-interactive-hover: var(--tone-400);
-  --surface-attachment: var(--surface-floating);
-  --surface-attachment-hover: var(--surface-floating-hover);
-  --surface-code: var(--tone-200);
-  --surface-table-header: var(--tone-200);
+  --color-success-50: #10281e;
+  --color-success-500: #8fd0a7;
+  --color-success-700: #b4e4c4;
+
+  --color-warning-50: #2b2410;
+  --color-warning-500: #f4c96b;
+  --color-warning-700: #f7dc91;
+
+  --color-danger-50: #2d1719;
+  --color-danger-500: #e7a2a6;
+  --color-danger-600: #dc3f45;
+  --color-danger-contrast: #ffffff;
 
   --text-main: #f3f0ea;
   --text-muted: #a7a29a;
-  --text-on-user-message: #f3f0ea;
-  --text-on-dropdown: #f3f0ea;
-  --text-on-send: #ffffff;
-  --text-on-interactive: var(--text-main);
+  --text-subtle: #7e796f;
+  --text-inverse: #11100f;
+  --text-on-primary: #ffffff;
   --text-on-interactive-hover: #ffffff;
-  --text-on-attachment: var(--text-main);
   --text-code: #d8b76a;
-  --border: #2e2e2b;
-  --border-strong: var(--tone-700);
-  --border-interactive: var(--border);
-  --border-interactive-hover: var(--border-strong);
-  --interactive-border-active: var(--brand-primary);
-  --border-attachment: var(--border-strong);
-  --border-floating: var(--border);
 
-  --status-success-bg: #10281e;
-  --status-success-text: #8fd0a7;
-  --status-danger-bg: #2d1719;
-  --status-danger-text: #e7a2a6;
-  --status-danger: #dc3f45;
+  --surface-app: var(--color-neutral-0);
+  --surface-panel: var(--color-neutral-50);
+  --surface-raised: var(--color-neutral-100);
+  --surface-floating: var(--color-neutral-300);
+  --surface-floating-hover: var(--color-neutral-400);
+  --surface-interactive: var(--color-neutral-200);
+  --surface-interactive-hover: var(--color-neutral-400);
+  --surface-primary: var(--color-neutral-400);
+  --surface-primary-hover: var(--color-neutral-600);
+  --surface-user-message: var(--color-neutral-400);
+
+  --border: #2e2e2b;
+  --border-subtle: var(--color-neutral-400);
+  --border-strong: var(--color-neutral-700);
+  --border-attachment: var(--border-strong);
+
+  --status-danger: var(--color-danger-600);
   --status-danger-hover: #b92f35;
-  --status-danger-contrast: #ffffff;
 
   --shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.22);
   --shadow-hover: 0 10px 24px rgba(0, 0, 0, 0.42);
@@ -64,20 +71,8 @@ html[data-theme="dark"] {
 
   --bs-body-bg: var(--surface-app);
   --bs-body-color: var(--text-main);
-  --bs-primary: var(--brand-primary);
   --bs-primary-rgb: 163, 163, 163;
-  --bs-danger: var(--status-danger);
   --bs-danger-rgb: 220, 63, 69;
-  --bs-border-color: var(--border);
-  --bs-dropdown-bg: var(--surface-dropdown);
-  --bs-dropdown-color: var(--text-on-dropdown);
-  --bs-dropdown-border-color: var(--border-floating);
-  --bs-dropdown-link-color: var(--text-on-dropdown);
-  --bs-dropdown-link-hover-bg: var(--surface-dropdown-hover);
-  --bs-dropdown-link-hover-color: var(--text-on-dropdown);
-  --bs-dropdown-link-active-bg: var(--surface-dropdown-hover);
-  --bs-dropdown-link-active-color: var(--text-on-dropdown);
-  --bs-dropdown-link-disabled-color: var(--text-muted);
 }
 
 html[data-theme="dark"] .app-modal .btn-close {

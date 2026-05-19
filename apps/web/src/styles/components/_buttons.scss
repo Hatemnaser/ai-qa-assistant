@@ -1,17 +1,55 @@
 .btn-danger {
-  --bs-btn-bg: var(--status-danger);
-  --bs-btn-border-color: var(--status-danger);
-  --bs-btn-color: var(--status-danger-contrast);
-  --bs-btn-hover-bg: var(--status-danger-hover);
-  --bs-btn-hover-border-color: var(--status-danger-hover);
-  --bs-btn-hover-color: var(--status-danger-contrast);
-  --bs-btn-active-bg: var(--status-danger-hover);
-  --bs-btn-active-border-color: var(--status-danger-hover);
-  --bs-btn-disabled-bg: var(--status-danger);
-  --bs-btn-disabled-border-color: var(--status-danger);
+  --bs-btn-bg: var(--action-danger-bg);
+  --bs-btn-border-color: var(--action-danger-border);
+  --bs-btn-color: var(--action-danger-text);
+  --bs-btn-hover-bg: var(--action-danger-bg-hover);
+  --bs-btn-hover-border-color: var(--action-danger-border-hover);
+  --bs-btn-hover-color: var(--action-danger-text);
+  --bs-btn-active-bg: var(--action-danger-bg-hover);
+  --bs-btn-active-border-color: var(--action-danger-border-hover);
+  --bs-btn-disabled-bg: var(--action-danger-bg);
+  --bs-btn-disabled-border-color: var(--action-danger-border);
   --bs-btn-focus-shadow-rgb: var(--bs-danger-rgb);
 
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--action-primary-bg);
+  --bs-btn-border-color: var(--action-primary-border);
+  --bs-btn-color: var(--action-primary-text);
+  --bs-btn-hover-bg: var(--action-primary-bg-hover);
+  --bs-btn-hover-border-color: var(--action-primary-border-hover);
+  --bs-btn-hover-color: var(--action-primary-text);
+  --bs-btn-active-bg: var(--action-primary-bg-hover);
+  --bs-btn-active-border-color: var(--action-primary-border-hover);
+  --bs-btn-active-color: var(--action-primary-text);
+  --bs-btn-focus-shadow-rgb: var(--bs-primary-rgb);
+
+  font-weight: var(--font-weight-bold);
+}
+
+.btn-link {
+  color: var(--text-muted);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-base);
+  padding: 0;
+  text-decoration: none;
+}
+
+.btn-link:hover,
+.btn-link:focus-visible {
+  color: var(--text-main);
+}
+
+.btn-control {
+  min-height: var(--control-height-xl);
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  font-weight: var(--font-weight-extrabold);
 }
 
 .ui-icon-btn {
@@ -51,33 +89,51 @@
   flex-basis: var(--control-height-sm);
 }
 
+.ui-icon-btn--xs {
+  width: 26px;
+  height: 26px;
+  flex-basis: 26px;
+}
+
+.ui-icon-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.ui-icon-btn--ghost:hover {
+  background: var(--surface-interactive-hover);
+  border-color: var(--border-interactive-hover);
+  color: var(--text-on-interactive-hover);
+}
+
 .ui-icon-btn--send {
-  background: var(--surface-send);
-  border-color: var(--border-strong);
-  color: var(--text-on-send);
+  background: var(--action-primary-bg);
+  border-color: var(--action-primary-border);
+  color: var(--action-primary-text);
 }
 
 .ui-icon-btn--send:hover {
-  background: var(--surface-send-hover);
-  border-color: var(--surface-send-hover);
-  color: var(--text-on-send);
+  background: var(--action-primary-bg-hover);
+  border-color: var(--action-primary-border-hover);
+  color: var(--action-primary-text);
 }
 
 .btn-outline-primary,
 .btn-outline-secondary {
-  color: var(--text-on-interactive);
-  border-color: var(--border-interactive);
-  background: var(--surface-interactive);
-  font-weight: 500;
+  color: var(--action-secondary-text);
+  border-color: var(--action-secondary-border);
+  background: var(--action-secondary-bg);
+  font-weight: var(--font-weight-medium);
   transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast),
     box-shadow var(--motion-fast);
 }
 
 .btn-outline-primary:hover,
 .btn-outline-secondary:hover {
-  background: var(--surface-interactive-hover);
-  border-color: var(--border-interactive-hover);
-  color: var(--text-on-interactive-hover);
+  background: var(--action-secondary-bg-hover);
+  border-color: var(--action-secondary-border-hover);
+  color: var(--action-secondary-text-hover);
 }
 
 .btn-outline-primary:focus,
@@ -85,8 +141,8 @@
 .btn-outline-secondary:focus,
 .btn-outline-secondary:active,
 .btn-outline-secondary.show {
-  background: var(--surface-interactive-hover);
+  background: var(--action-secondary-bg-hover);
   border-color: var(--interactive-border-active);
-  color: var(--text-on-interactive-hover);
+  color: var(--action-secondary-text-hover);
   box-shadow: 0 0 0 3px var(--focus-ring-soft);
 }

@@ -1,0 +1,61 @@
+.form-label {
+  color: var(--text-main);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-bold);
+  margin: 0;
+}
+
+.form-control {
+  min-height: var(--control-height-xl);
+  border-color: var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-input);
+  color: var(--text-main);
+  font-size: var(--font-size-control);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-base);
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.form-control::placeholder {
+  color: var(--text-muted);
+}
+
+.form-control:focus {
+  border-color: var(--interactive-border-active);
+  background-color: var(--surface-input);
+  color: var(--text-main);
+  box-shadow: 0 0 0 3px var(--focus-ring-soft);
+}
+
+.form-check {
+  min-height: 22px;
+  margin: 0;
+  padding: 0;
+}
+
+.form-check-input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border-color: var(--border);
+  background-color: var(--surface-input);
+  cursor: pointer;
+}
+
+.form-check-input:checked {
+  border-color: var(--brand-primary);
+  background-color: var(--brand-primary);
+}
+
+.form-check-input:focus {
+  border-color: var(--interactive-border-active);
+  box-shadow: 0 0 0 3px var(--focus-ring-soft);
+}
+
+.form-check-label {
+  color: var(--text-muted);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}

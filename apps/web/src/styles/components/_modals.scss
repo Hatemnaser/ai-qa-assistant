@@ -2,7 +2,7 @@
   background: var(--surface-panel);
   color: var(--text-main);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-2xl);
 }
 
 .app-modal .modal-header,

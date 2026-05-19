@@ -2,32 +2,32 @@
 
 .answer :is(h1, h2, h3) {
   margin: 16px 0 10px;
-  font-weight: 700;
-  line-height: 1.3;
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-compact);
   color: var(--text-main);
 }
 
 .answer h1 {
-  font-size: 26px;
+  font-size: var(--font-size-title-lg);
 }
 
 .answer h2 {
-  font-size: 22px;
+  font-size: var(--font-size-title-sm);
 }
 
 .answer h3 {
-  font-size: 18px;
+  font-size: var(--font-size-title-xs);
 }
 
 .answer :is(p, li, td, th) {
-  font-size: 16px;
-  font-weight: 400;
-  line-height: 1.7;
+  font-size: var(--font-size-output);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-output);
   color: var(--text-main);
 }
 
 .answer strong {
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
 .answer code {
@@ -53,7 +53,7 @@
 
 .answer th {
   background: var(--surface-table-header);
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
 .answer :is(ul, ol) {

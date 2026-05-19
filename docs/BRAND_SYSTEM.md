@@ -1,6 +1,6 @@
-# Brand System Exploration
+# Brand And Design System
 
-This document is the starting point for the AI QA Assistant visual identity. The goal is not to install a full template. The goal is to define a small brand system that can grow with auth, settings, projects, memory, and future billing pages without making the app feel random.
+This document is the source of truth for the AI QA Assistant visual identity and frontend design system. The goal is not to install a full template. The goal is to define a small token-based system that can grow with auth, settings, projects, memory, and future billing pages without making the app feel random.
 
 ## Brand Goal
 
@@ -48,18 +48,49 @@ Recommended reference sources:
 
 ## Core Tokens
 
-These are the tokens the app should standardize around:
+The design system is split into three layers:
+
+1. Primitive tokens: raw scales such as neutral colors, status colors, spacing, font sizes, and radii.
+2. Semantic tokens: product meaning such as app surface, output surface, primary action, secondary action, danger action, dropdown surface, and input surface.
+3. Component patterns: Bootstrap-compatible classes and small app primitives that consume semantic tokens.
+
+Components should use semantic tokens. Raw hex values belong only in `apps/web/src/styles/abstracts/_variables.scss` and `apps/web/src/styles/themes/_dark.scss`.
+
+These are the token families the app standardizes around:
 
 ```scss
---tone-0
---tone-50
---tone-100
---tone-200
---tone-300
---tone-400
---tone-500
---tone-600
---tone-700
+--color-neutral-0
+--color-neutral-50
+--color-neutral-100
+--color-neutral-200
+--color-neutral-300
+--color-neutral-400
+--color-neutral-500
+--color-neutral-600
+--color-neutral-700
+--color-neutral-800
+--color-neutral-900
+
+--color-brand-50
+--color-brand-100
+--color-brand-200
+--color-brand-300
+--color-brand-400
+--color-brand-500
+--color-brand-600
+--color-brand-700
+--color-brand-contrast
+
+--color-success-50
+--color-success-500
+--color-success-700
+--color-warning-50
+--color-warning-500
+--color-warning-700
+--color-danger-50
+--color-danger-500
+--color-danger-600
+--color-danger-contrast
 
 --space-1
 --space-2
@@ -81,8 +112,48 @@ These are the tokens the app should standardize around:
 --control-height-sm
 --control-height-md
 --control-height-lg
---sidebar-row-height
+--control-height-xl
+--row-height-sm
+--layout-sidebar-width
+--layout-chat-width
+--layout-message-width
+--layout-composer-width
+--layout-auth-card-width
+--layout-auth-aside-min
+--layout-auth-content-min
 --motion-fast
+
+--font-family-base
+--font-size-xs
+--font-size-sm
+--font-size-md
+--font-size-lg
+--font-size-xl
+--font-size-title-xs
+--font-size-title-sm
+--font-size-title-md
+--font-size-title-lg
+--font-size-display-sm
+--font-size-display-md
+--font-size-display-lg
+--font-size-body
+--font-size-control
+--font-size-label
+--font-size-output
+--font-weight-regular
+--font-weight-medium
+--font-weight-semibold
+--font-weight-bold
+--font-weight-extrabold
+--line-height-tight
+--line-height-base
+--line-height-compact
+--line-height-readable
+--line-height-output
+--icon-size-sm
+--icon-size-md
+--icon-size-lg
+--icon-size-xl
 
 --brand-primary
 --brand-primary-hover
@@ -90,13 +161,14 @@ These are the tokens the app should standardize around:
 
 --surface-app
 --surface-panel
+--surface-raised
 --surface-floating
 --surface-floating-hover
 --surface-dropdown
 --surface-dropdown-hover
+--surface-output
 --surface-user-message
---surface-send
---surface-send-hover
+--surface-assistant-message
 --surface-input
 --surface-interactive
 --surface-interactive-hover
@@ -107,35 +179,60 @@ These are the tokens the app should standardize around:
 
 --text-main
 --text-muted
+--text-subtle
+--text-inverse
+--text-on-primary
 --text-on-user-message
+--text-on-assistant-message
 --text-on-dropdown
---text-on-send
 --text-on-interactive
 --text-on-interactive-hover
 --text-on-attachment
 --text-code
 --border
+--border-subtle
 --border-strong
 --border-interactive
 --border-interactive-hover
+--border-active
 --interactive-border-active
 --border-attachment
 --border-floating
 
 --status-success-bg
 --status-success-text
+--status-warning-bg
+--status-warning-text
 --status-danger-bg
 --status-danger-text
 --status-danger
 --status-danger-hover
 --status-danger-contrast
 
+--action-primary-bg
+--action-primary-bg-hover
+--action-primary-text
+--action-primary-border
+--action-primary-border-hover
+--action-secondary-bg
+--action-secondary-bg-hover
+--action-secondary-text
+--action-secondary-text-hover
+--action-secondary-border
+--action-secondary-border-hover
+--action-danger-bg
+--action-danger-bg-hover
+--action-danger-text
+--action-danger-border
+--action-danger-border-hover
+
 --shadow-soft
 --shadow-hover
 --focus-ring
+--focus-ring-soft
 ```
 
-Component SCSS should use these semantic tokens directly. Avoid reintroducing short aliases such as `--bg-app`, `--primary`, or `--success-bg` unless there is a clear compatibility reason.
+New code should prefer `--color-*` for primitives and `--surface-*`, `--text-*`, `--border-*`, `--action-*`, or `--status-*` for actual component styling.
 
 ## Current Pattern Contract
 
@@ -144,9 +241,18 @@ The active UI foundation is intentionally small:
 - Spacing uses `--space-*` tokens for repeated gaps and padding.
 - Radius uses `--radius-*` tokens; pills use `--radius-pill`.
 - Repeated icon buttons use `.ui-icon-btn`; smaller message actions add `.ui-icon-btn--sm`, and send buttons add `.ui-icon-btn--send`.
+- Primary actions use Bootstrap `.btn-primary`, backed by `--action-primary-*` tokens.
+- Secondary actions use Bootstrap outline variants or `.ui-row`, backed by `--action-secondary-*` and interactive surface tokens.
+- Destructive actions use Bootstrap `.btn-danger`, backed by `--action-danger-*` tokens.
+- Repeated full-width action buttons use `.btn-control` with Bootstrap button variants.
+- Text-only links use Bootstrap `.btn-link`, backed by muted/text tokens.
 - Bootstrap outline buttons are allowed, but `.btn-outline-primary` and `.btn-outline-secondary` share the same secondary interactive pattern.
+- Forms use Bootstrap-compatible `.form-control`, `.form-label`, and `.form-check` classes backed by shared input, control-height, font, and focus tokens.
+- Reusable UI primitives such as `TextField`, `CheckboxField`, and `Icon` live in `apps/web/src/ui` and should stay thin wrappers over Bootstrap-compatible shared classes.
 - Sidebar navigation rows and recent-chat rows use compact row heights, shared hover surfaces, and no permanent card border.
+- Row behavior is centralized in `SidebarNavItem`, `SidebarChatItem`, and the `.ui-row*` styles instead of being embedded directly in the sidebar layout.
 - Dropdowns all route through `_dropdowns.scss` and Bootstrap dropdown CSS variables.
+- Layout SCSS stays structural. Topbar, auth presentation, messages, composer, rows, buttons, and forms live in `styles/components`.
 - Component-specific SCSS should only add sizing, layout, or component-only details on top of these patterns.
 
 ## Interaction Rules
@@ -161,11 +267,16 @@ Floating hover:        --surface-floating-hover
 Dropdown surface:      --surface-dropdown
 Dropdown hover:        --surface-dropdown-hover
 Input surface:         --surface-input
+Output surface:        --surface-output
 Default border:        --border-interactive
 Hover border:          --border-interactive-hover
 Active border:         --interactive-border-active
-Destructive action:    --status-danger
-Destructive hover:     --status-danger-hover
+Primary action:        --action-primary-bg
+Primary hover:         --action-primary-bg-hover
+Secondary action:      --action-secondary-bg
+Secondary hover:       --action-secondary-bg-hover
+Destructive action:    --action-danger-bg
+Destructive hover:     --action-danger-bg-hover
 ```
 
 Rules:
@@ -204,7 +315,7 @@ Rules:
 - Menu shadow uses `--shadow-soft`.
 - Topbar menus, composer upload menu, sidebar context menu, and sidebar export submenu must all inherit the same local dropdown tokens from `_dropdowns.scss`.
 - Bootstrap dropdown CSS variables must be overridden to the same tokens; do not rely on Bootstrap defaults for menu backgrounds.
-- Menu items use `14px`, `400`, `1.35` line-height.
+- Menu items use `--font-size-md`, `--font-weight-regular`, and `--line-height-compact`.
 - Disabled items use `--text-muted` with reduced opacity.
 - Destructive dropdown items use `--status-danger-text`; hover/focus/active uses `--status-danger-bg`.
 - Context submenus can adjust width, but should not redefine colors, font, hover, or danger states.
@@ -230,7 +341,6 @@ surface-dropdown-hover: #E4DAC9
 surface-interactive:  #EFE8DA
 surface-interactive-hover: #E4DAC9
 surface-user-message: #EFE8DA
-surface-send:         #2F3542
 surface-input:        #FFFCF7
 surface-attachment:   #F7F3EA
 surface-code:         #EFE8DA
@@ -257,7 +367,6 @@ surface-dropdown-hover: #2B2B2B
 surface-interactive:  #1F1F1D
 surface-interactive-hover: #2B2B2B
 surface-user-message: #2B2B2B
-surface-send:         #2B2B2B
 surface-input:        #151514
 surface-attachment:   #202020
 surface-code:         #1F1F1D
@@ -447,19 +556,23 @@ The first implementation uses Direction A as the active palette. Component style
 
 Implemented now:
 
-- Light and dark semantic color tokens.
+- Light and dark primitive color scales using `--color-neutral-*`, `--color-brand-*`, and status scales.
+- Semantic surface, text, border, action, status, spacing, sizing, typography, icon, and layout tokens.
 - Bootstrap primary and body variable overrides.
-- Shared spacing, radius, control-height, and motion tokens.
+- Shared spacing, radius, control-height, row-height, layout width, font, line-height, icon-size, and motion tokens.
 - Shared focus ring and soft shadow tokens.
 - Neutral graphite primary actions instead of default blue.
 - Matte black dark mode with warm neutral surfaces.
-- Separate neutral surfaces for user messages, dropdowns, the send button, and the New Chat action.
+- Separate neutral surfaces for user messages, dropdowns, and secondary interactive rows.
+- Primary, secondary, and danger buttons now consume `--action-*` tokens.
 - Secondary interactive controls now share `--surface-interactive`, `--surface-interactive-hover`, and border interaction tokens.
 - Dark-mode interactive controls avoid beige surfaces; dropdowns, action buttons, and list items use gray surfaces with explicit hover states.
 - Sidebar now uses a compact workspace nav for `New Chat`, `Search`, and `Projects`, inspired by Claude/ChatGPT sidebar density.
 - Recent chats are a lightweight scrolling history list, not card-like buttons.
 - Sidebar nav and chat history rows share the same hover surface; active state is shown by background, not a permanent border.
 - Long chat titles use an inner text span for reliable ellipsis.
+- Auth pages use the same semantic surfaces, borders, input styles, and primary/secondary button rules as the chat workspace.
+- Layout partials were trimmed so `_chat-layout.scss` and `_auth.scss` only own page structure; component presentation moved into component partials.
 - Composer attach/send controls and assistant message action controls share `.ui-icon-btn`.
 - Quick action buttons use the same interactive surface rules as other secondary actions.
 - Danger buttons use Bootstrap `.btn-danger`, backed by semantic danger tokens instead of one-off modal styling.
@@ -472,4 +585,4 @@ Still intentionally open:
 - Product font choice.
 - Full component inventory.
 - Search and Projects nav behavior.
-- Future page layout patterns for auth, settings, projects, and memory.
+- Future page layout patterns for settings, projects, and memory.
