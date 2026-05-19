@@ -108,4 +108,4 @@ npm run build:api
 2. Keep TypeScript readable for a Bootstrap-first workflow.
 3. Preserve migrated chat behavior with tests and manual checks.
 4. Reduce file weight when a file becomes hard to scan.
-5. Wire auth UI to the API next, using cookie-backed sessions instead of browser-stored tokens.
+5. Keep the auth UI aligned with cookie-backed sessions and avoid browser-stored auth tokens.

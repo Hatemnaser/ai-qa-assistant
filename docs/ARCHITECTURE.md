@@ -72,11 +72,11 @@ Small modules can start with fewer files, but should not put business logic dire
 ## Active Frontend Routes
 
 - `#/`: chat workspace.
-- `#/login`: sign-in UI shell.
-- `#/register`: account creation UI shell.
-- `#/forgot-password`: password reset UI shell.
+- `#/login`: sign-in page wired to cookie-backed auth.
+- `#/register`: account creation page wired to cookie-backed auth.
+- `#/forgot-password`: password reset request page.
 
-The auth pages are still not wired to the API. The backend auth module now owns password registration, password login, httpOnly session cookies, current-user lookup, logout, and password reset request contracts. Google OAuth and real reset emails are still future integrations.
+The frontend auth pages call the API with `credentials: "include"` so sessions stay in the httpOnly cookie. Google OAuth and real reset emails are still future integrations.
 
 ## Later Backend Modules
 

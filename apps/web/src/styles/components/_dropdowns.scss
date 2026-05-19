@@ -77,6 +77,12 @@
   cursor: pointer;
 }
 
+.dropdown-menu .dropdown-divider {
+  border-top-color: var(--border-floating);
+  margin: 6px 0;
+  opacity: 1;
+}
+
 .dropdown-menu .dropdown-item:hover,
 .dropdown-menu .dropdown-item:focus,
 .dropdown-menu .dropdown-item:active,

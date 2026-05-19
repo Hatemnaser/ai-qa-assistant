@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+import type { AuthUser } from "../../auth/types";
 import { GEMINI_MODELS, QA_MODES, getModelHint } from "../constants";
 import type { ExportFormat } from "../types";
 
 const props = defineProps<{
+  currentUser?: AuthUser | null;
   mode: string;
   model: string;
   themeToggleLabel: string;
@@ -15,6 +17,8 @@ const emit = defineEmits<{
   "update:model": [value: string];
   "export-active-chat": [format: ExportFormat];
   "import-chat": [event: Event];
+  logout: [];
+  "sign-in": [];
   "toggle-theme": [];
 }>();
 
@@ -129,6 +133,20 @@ function selectMode(value: string) {
             <button class="dropdown-item" type="button" @click="emit('toggle-theme')">
               {{ props.themeToggleLabel }}
             </button>
+          </li>
+          <li v-if="props.currentUser">
+            <hr class="dropdown-divider" />
+          </li>
+          <li v-if="props.currentUser">
+            <button class="dropdown-item disabled text-truncate" type="button" disabled>
+              {{ props.currentUser.name || props.currentUser.email }}
+            </button>
+          </li>
+          <li v-if="props.currentUser">
+            <button class="dropdown-item" type="button" @click="emit('logout')">Sign out</button>
+          </li>
+          <li v-else>
+            <button class="dropdown-item" type="button" @click="emit('sign-in')">Sign in</button>
           </li>
         </ul>
       </div>

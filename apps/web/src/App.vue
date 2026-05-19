@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
+import { getCurrentUser, logout } from "./features/auth/authApi";
 import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage.vue";
 import LoginPage from "./features/auth/pages/LoginPage.vue";
 import RegisterPage from "./features/auth/pages/RegisterPage.vue";
+import type { AuthUser } from "./features/auth/types";
 import ChatComposer from "./features/chat/components/ChatComposer.vue";
 import ChatContextMenus from "./features/chat/components/ChatContextMenus.vue";
 import ChatDeleteModal from "./features/chat/components/ChatDeleteModal.vue";
@@ -25,6 +27,7 @@ function readRoute(): AppRoute {
 }
 
 const currentRoute = ref<AppRoute>(readRoute());
+const currentUser = ref<AuthUser | null>(null);
 
 function syncRoute() {
   currentRoute.value = readRoute();
@@ -38,8 +41,30 @@ function navigateToChat() {
   window.location.hash = "/";
 }
 
+function handleAuthenticated(user: AuthUser) {
+  currentUser.value = user;
+  navigateToChat();
+}
+
+async function loadCurrentUser() {
+  try {
+    currentUser.value = await getCurrentUser();
+  } catch {
+    currentUser.value = null;
+  }
+}
+
+async function handleLogout() {
+  try {
+    await logout();
+  } finally {
+    currentUser.value = null;
+  }
+}
+
 onMounted(() => {
   window.addEventListener("hashchange", syncRoute);
+  void loadCurrentUser();
 });
 
 onBeforeUnmount(() => {
@@ -91,6 +116,7 @@ const { themeToggleLabel, toggleTheme } = useTheme();
   <LoginPage
     v-if="currentRoute === 'login'"
     :theme-toggle-label="themeToggleLabel"
+    @authenticated="handleAuthenticated"
     @back-to-chat="navigateToChat"
     @navigate="navigateToAuth"
     @toggle-theme="toggleTheme"
@@ -99,6 +125,7 @@ const { themeToggleLabel, toggleTheme } = useTheme();
   <RegisterPage
     v-else-if="currentRoute === 'register'"
     :theme-toggle-label="themeToggleLabel"
+    @authenticated="handleAuthenticated"
     @back-to-chat="navigateToChat"
     @navigate="navigateToAuth"
     @toggle-theme="toggleTheme"
@@ -128,9 +155,12 @@ const { themeToggleLabel, toggleTheme } = useTheme();
       <ChatTopbar
         v-model:mode="selectedMode"
         v-model:model="selectedModel"
+        :current-user="currentUser"
         :theme-toggle-label="themeToggleLabel"
         @export-active-chat="exportActiveChat"
         @import-chat="handleImportChat"
+        @logout="handleLogout"
+        @sign-in="navigateToAuth('login')"
         @toggle-theme="toggleTheme"
       />
 

@@ -1,20 +1,54 @@
 <script setup lang="ts">
+import { ref } from "vue";
+
 import CheckboxField from "../../../ui/CheckboxField.vue";
 import TextField from "../../../ui/TextField.vue";
+import { login } from "../authApi";
 import AuthLayout from "../components/AuthLayout.vue";
+import type { AuthUser } from "../types";
 
 defineProps<{
   themeToggleLabel: string;
 }>();
 
 const emit = defineEmits<{
+  authenticated: [user: AuthUser];
   "back-to-chat": [];
   navigate: [view: "register" | "forgot-password"];
   "toggle-theme": [];
 }>();
 
-function submitLogin() {
-  // Backend auth wiring belongs to the API auth module.
+const email = ref("");
+const errorMessage = ref("");
+const isSubmitting = ref(false);
+const password = ref("");
+const remember = ref(false);
+
+async function submitLogin() {
+  if (isSubmitting.value) {
+    return;
+  }
+
+  errorMessage.value = "";
+  isSubmitting.value = true;
+
+  try {
+    const response = await login({
+      email: email.value,
+      password: password.value,
+      remember: remember.value,
+    });
+
+    emit("authenticated", response.user);
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    isSubmitting.value = false;
+  }
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Could not sign in. Please try again.";
 }
 </script>
 
@@ -31,29 +65,44 @@ function submitLogin() {
     </div>
 
     <form class="vstack gap-3" @submit.prevent="submitLogin">
-      <TextField id="login-email" label="Email" type="email" autocomplete="email" placeholder="you@example.com" required />
+      <TextField
+        id="login-email"
+        v-model="email"
+        label="Email"
+        type="email"
+        autocomplete="email"
+        placeholder="you@example.com"
+        :disabled="isSubmitting"
+        required
+      />
       <TextField
         id="login-password"
+        v-model="password"
         label="Password"
         type="password"
         autocomplete="current-password"
         placeholder="Enter your password"
+        :disabled="isSubmitting"
         required
       />
 
       <div class="d-flex align-items-center justify-content-between gap-3">
-        <CheckboxField id="login-remember" label="Remember me" />
+        <CheckboxField id="login-remember" v-model="remember" label="Remember me" :disabled="isSubmitting" />
 
         <button class="btn btn-link" type="button" @click="emit('navigate', 'forgot-password')">
           Forgot password?
         </button>
       </div>
 
-      <button class="btn btn-primary btn-control w-100" type="submit">Sign in</button>
+      <p v-if="errorMessage" class="auth-feedback auth-feedback-error" role="alert">{{ errorMessage }}</p>
+
+      <button class="btn btn-primary btn-control w-100" type="submit" :disabled="isSubmitting">
+        {{ isSubmitting ? "Signing in..." : "Sign in" }}
+      </button>
 
       <div class="auth-divider d-flex align-items-center"><span>or</span></div>
 
-      <button class="btn btn-outline-secondary btn-control w-100" type="button">
+      <button class="btn btn-outline-secondary btn-control w-100" type="button" disabled title="Google sign-in is not wired yet.">
         <span class="auth-google-mark d-flex align-items-center justify-content-center" aria-hidden="true">G</span>
         <span>Sign in with Google</span>
       </button>

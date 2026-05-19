@@ -93,6 +93,28 @@
   }
 }
 
+.auth-feedback {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-compact);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.auth-feedback-error {
+  border-color: var(--status-danger);
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
+}
+
+.auth-feedback-success {
+  border-color: var(--status-success-text);
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
+}
+
 .auth-switch {
   color: var(--text-muted);
   margin-top: var(--space-6);
