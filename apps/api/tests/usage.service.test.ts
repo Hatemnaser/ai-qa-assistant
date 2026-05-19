@@ -5,13 +5,11 @@ import { createUsageService } from "../src/modules/usage/usage.service.ts";
 import type { UsageRepository } from "../src/modules/usage/usage.repository.ts";
 import type { UsageCountInput, UsageRecordInput } from "../src/modules/usage/usage.types.ts";
 
+const NOW = new Date("2026-05-19T12:00:00.000Z");
+
 describe("usage service", () => {
   it("reserves guest chat credits with both guest and IP tracking", async () => {
-    const repository = createFakeUsageRepository();
-    const service = createUsageService({
-      now: () => new Date("2026-05-19T12:00:00.000Z"),
-      repository,
-    });
+    const { repository, service } = setupUsageService();
 
     const reservation = await service.reserveChatMessage({
       guestId: "guest-1",
@@ -27,15 +25,11 @@ describe("usage service", () => {
   });
 
   it("rejects guests after the daily demo limit", async () => {
-    const repository = createFakeUsageRepository([
+    const { repository, service } = setupUsageService([
       createUsageEvent({ guestId: "guest-1" }),
       createUsageEvent({ guestId: "guest-1" }),
       createUsageEvent({ guestId: "guest-1" }),
     ]);
-    const service = createUsageService({
-      now: () => new Date("2026-05-19T12:00:00.000Z"),
-      repository,
-    });
 
     await assert.rejects(
       () =>
@@ -52,11 +46,7 @@ describe("usage service", () => {
   });
 
   it("uses user limits for signed-in users", async () => {
-    const repository = createFakeUsageRepository();
-    const service = createUsageService({
-      now: () => new Date("2026-05-19T12:00:00.000Z"),
-      repository,
-    });
+    const { repository, service } = setupUsageService();
 
     const reservation = await service.reserveChatMessage({
       guestId: "guest-1",
@@ -73,7 +63,7 @@ describe("usage service", () => {
   });
 
   it("ignores old usage events outside the active window", async () => {
-    const repository = createFakeUsageRepository([
+    const { service } = setupUsageService([
       createUsageEvent({
         createdAt: new Date("2026-05-17T12:00:00.000Z"),
         guestId: "guest-1",
@@ -83,10 +73,6 @@ describe("usage service", () => {
         guestId: "guest-1",
       }),
     ]);
-    const service = createUsageService({
-      now: () => new Date("2026-05-19T12:00:00.000Z"),
-      repository,
-    });
 
     const reservation = await service.reserveChatMessage({
       guestId: "guest-1",
@@ -96,6 +82,19 @@ describe("usage service", () => {
     assert.equal(reservation.remaining, 1);
   });
 });
+
+function setupUsageService(initialEvents: FakeUsageEvent[] = []) {
+  const repository = createFakeUsageRepository(initialEvents);
+  const service = createUsageService({
+    now: () => NOW,
+    repository,
+  });
+
+  return {
+    repository,
+    service,
+  };
+}
 
 function createFakeUsageRepository(initialEvents: FakeUsageEvent[] = []) {
   const repository = {

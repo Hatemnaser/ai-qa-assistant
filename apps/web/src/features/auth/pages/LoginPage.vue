@@ -6,6 +6,7 @@ import TextField from "../../../ui/TextField.vue";
 import { login } from "../authApi";
 import AuthLayout from "../components/AuthLayout.vue";
 import type { AuthUser } from "../types";
+import { useAuthRequest } from "../useAuthRequest";
 
 defineProps<{
   themeToggleLabel: string;
@@ -19,20 +20,12 @@ const emit = defineEmits<{
 }>();
 
 const email = ref("");
-const errorMessage = ref("");
-const isSubmitting = ref(false);
 const password = ref("");
 const remember = ref(false);
+const { errorMessage, isSubmitting, submit } = useAuthRequest("Could not sign in. Please try again.");
 
 async function submitLogin() {
-  if (isSubmitting.value) {
-    return;
-  }
-
-  errorMessage.value = "";
-  isSubmitting.value = true;
-
-  try {
+  await submit(async () => {
     const response = await login({
       email: email.value,
       password: password.value,
@@ -40,15 +33,7 @@ async function submitLogin() {
     });
 
     emit("authenticated", response.user);
-  } catch (error) {
-    errorMessage.value = getErrorMessage(error);
-  } finally {
-    isSubmitting.value = false;
-  }
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Could not sign in. Please try again.";
+  });
 }
 </script>
 

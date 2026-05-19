@@ -4,6 +4,7 @@ import { ref } from "vue";
 import TextField from "../../../ui/TextField.vue";
 import { forgotPassword } from "../authApi";
 import AuthLayout from "../components/AuthLayout.vue";
+import { useAuthRequest } from "../useAuthRequest";
 
 defineProps<{
   themeToggleLabel: string;
@@ -16,31 +17,18 @@ const emit = defineEmits<{
 }>();
 
 const email = ref("");
-const errorMessage = ref("");
-const isSubmitting = ref(false);
 const successMessage = ref("");
+const { errorMessage, isSubmitting, submit } = useAuthRequest(
+  "Could not request a password reset. Please try again."
+);
 
 async function submitPasswordReset() {
-  if (isSubmitting.value) {
-    return;
-  }
-
-  errorMessage.value = "";
   successMessage.value = "";
-  isSubmitting.value = true;
 
-  try {
+  await submit(async () => {
     const response = await forgotPassword(email.value);
     successMessage.value = response.message;
-  } catch (error) {
-    errorMessage.value = getErrorMessage(error);
-  } finally {
-    isSubmitting.value = false;
-  }
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Could not request a password reset. Please try again.";
+  });
 }
 </script>
 

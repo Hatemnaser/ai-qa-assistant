@@ -1,25 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-  createAuthService,
-  type AuthSecurity,
-} from "../src/modules/auth/auth.service.ts";
-import type {
-  AuthRepository,
-  CreatePasswordUserInput,
-  CreateSessionInput,
-} from "../src/modules/auth/auth.repository.ts";
-import type { AuthSessionRecord, AuthUserRecord } from "../src/modules/auth/auth.types.ts";
+import { EXPIRED_SESSION, createUserRecord, setupAuthService } from "./helpers/authService.ts";
 
 describe("auth service", () => {
   it("registers a password user and creates a hashed session", async () => {
-    const repository = createFakeAuthRepository();
-    const service = createAuthService({
-      now: () => new Date("2026-05-19T00:00:00.000Z"),
-      repository,
-      security: createFakeSecurity(),
-    });
+    const { repository, service } = setupAuthService();
 
     const response = await service.register(
       {
@@ -51,14 +37,12 @@ describe("auth service", () => {
   });
 
   it("rejects duplicate registrations", async () => {
-    const repository = createFakeAuthRepository([
-      createUserRecord({
-        email: "taken@example.com",
-      }),
-    ]);
-    const service = createAuthService({
-      repository,
-      security: createFakeSecurity(),
+    const { repository, service } = setupAuthService({
+      users: [
+        createUserRecord({
+          email: "taken@example.com",
+        }),
+      ],
     });
 
     await assert.rejects(
@@ -80,22 +64,20 @@ describe("auth service", () => {
   });
 
   it("logs in existing password users and supports remember sessions", async () => {
-    const repository = createFakeAuthRepository([
-      createUserRecord({
-        email: "person@example.com",
-        passwordHash: "stored-password-hash",
-      }),
-    ]);
-    const service = createAuthService({
-      now: () => new Date("2026-05-19T00:00:00.000Z"),
-      repository,
-      security: createFakeSecurity({
+    const { repository, service } = setupAuthService({
+      security: {
         async verifyPassword(password, passwordHash) {
           assert.equal(password, "Password1");
           assert.equal(passwordHash, "stored-password-hash");
           return true;
         },
-      }),
+      },
+      users: [
+        createUserRecord({
+          email: "person@example.com",
+          passwordHash: "stored-password-hash",
+        }),
+      ],
     });
 
     const response = await service.login(
@@ -112,19 +94,18 @@ describe("auth service", () => {
   });
 
   it("does not create a session for invalid credentials", async () => {
-    const repository = createFakeAuthRepository([
-      createUserRecord({
-        email: "person@example.com",
-        passwordHash: "stored-password-hash",
-      }),
-    ]);
-    const service = createAuthService({
-      repository,
-      security: createFakeSecurity({
+    const { repository, service } = setupAuthService({
+      security: {
         async verifyPassword() {
           return false;
         },
-      }),
+      },
+      users: [
+        createUserRecord({
+          email: "person@example.com",
+          passwordHash: "stored-password-hash",
+        }),
+      ],
     });
 
     await assert.rejects(
@@ -146,11 +127,7 @@ describe("auth service", () => {
   });
 
   it("keeps password reset responses generic", async () => {
-    const repository = createFakeAuthRepository();
-    const service = createAuthService({
-      repository,
-      security: createFakeSecurity(),
-    });
+    const { service } = setupAuthService();
 
     const response = await service.requestPasswordReset({
       email: "missing@example.com",
@@ -165,17 +142,10 @@ describe("auth service", () => {
     const user = createUserRecord({
       email: "person@example.com",
     });
-    const repository = createFakeAuthRepository([user]);
-    repository.sessions.push({
-      expiresAt: new Date("2026-05-26T00:00:00.000Z"),
-      tokenHash: "hashed-session:session-token",
-      userId: user.id,
+    const { repository, service } = setupAuthService({
+      users: [user],
     });
-    const service = createAuthService({
-      now: () => new Date("2026-05-19T00:00:00.000Z"),
-      repository,
-      security: createFakeSecurity(),
-    });
+    repository.addSession(user);
 
     const response = await service.getCurrentUser("session-token");
 
@@ -190,16 +160,11 @@ describe("auth service", () => {
 
   it("removes expired sessions before rejecting them", async () => {
     const user = createUserRecord();
-    const repository = createFakeAuthRepository([user]);
-    repository.sessions.push({
-      expiresAt: new Date("2026-05-18T00:00:00.000Z"),
-      tokenHash: "hashed-session:session-token",
-      userId: user.id,
+    const { repository, service } = setupAuthService({
+      users: [user],
     });
-    const service = createAuthService({
-      now: () => new Date("2026-05-19T00:00:00.000Z"),
-      repository,
-      security: createFakeSecurity(),
+    repository.addSession(user, {
+      expiresAt: EXPIRED_SESSION,
     });
 
     await assert.rejects(() => service.getCurrentUser("session-token"), {
@@ -211,16 +176,10 @@ describe("auth service", () => {
 
   it("logs out by deleting the matching session token hash", async () => {
     const user = createUserRecord();
-    const repository = createFakeAuthRepository([user]);
-    repository.sessions.push({
-      expiresAt: new Date("2026-05-26T00:00:00.000Z"),
-      tokenHash: "hashed-session:session-token",
-      userId: user.id,
+    const { repository, service } = setupAuthService({
+      users: [user],
     });
-    const service = createAuthService({
-      repository,
-      security: createFakeSecurity(),
-    });
+    repository.addSession(user);
 
     const response = await service.logout("session-token");
 
@@ -230,86 +189,3 @@ describe("auth service", () => {
     assert.equal(repository.sessions.length, 0);
   });
 });
-
-function createFakeSecurity(overrides: Partial<AuthSecurity> = {}): AuthSecurity {
-  return {
-    createSessionToken: () => "session-token",
-    hashPassword: async (password) => `hashed-password:${password}`,
-    hashSessionToken: (token) => `hashed-session:${token}`,
-    verifyPassword: async () => true,
-    ...overrides,
-  };
-}
-
-function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
-  const repository = {
-    sessions: [] as CreateSessionInput[],
-    users: [...initialUsers],
-
-    async createPasswordUser(input: CreatePasswordUserInput) {
-      const user = createUserRecord({
-        email: input.email,
-        id: `user-${repository.users.length + 1}`,
-        locale: input.locale,
-        name: input.name ?? null,
-        passwordHash: input.passwordHash,
-      });
-
-      repository.users.push(user);
-      return user;
-    },
-
-    async createSession(input: CreateSessionInput) {
-      repository.sessions.push(input);
-    },
-
-    async deleteSessionByTokenHash(tokenHash: string) {
-      repository.sessions = repository.sessions.filter((session) => session.tokenHash !== tokenHash);
-    },
-
-    async findSessionByTokenHash(tokenHash: string) {
-      const session = repository.sessions.find((item) => item.tokenHash === tokenHash);
-
-      if (!session) {
-        return null;
-      }
-
-      const user = repository.users.find((item) => item.id === session.userId);
-
-      if (!user) {
-        return null;
-      }
-
-      return {
-        expiresAt: session.expiresAt,
-        id: "session-1",
-        user,
-        userId: session.userId,
-      } satisfies AuthSessionRecord;
-    },
-
-    async findUserByEmail(email: string) {
-      return repository.users.find((user) => user.email === email) ?? null;
-    },
-  } satisfies AuthRepository & {
-    sessions: CreateSessionInput[];
-    users: AuthUserRecord[];
-  };
-
-  return repository;
-}
-
-function createUserRecord(overrides: Partial<AuthUserRecord> = {}): AuthUserRecord {
-  const createdAt = overrides.createdAt ?? new Date("2026-05-19T00:00:00.000Z");
-
-  return {
-    createdAt,
-    email: "person@example.com",
-    id: "user-1",
-    locale: "en",
-    name: null,
-    passwordHash: "stored-password-hash",
-    updatedAt: createdAt,
-    ...overrides,
-  };
-}

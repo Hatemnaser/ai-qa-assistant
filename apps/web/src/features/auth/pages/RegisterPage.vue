@@ -6,6 +6,7 @@ import TextField from "../../../ui/TextField.vue";
 import { register } from "../authApi";
 import AuthLayout from "../components/AuthLayout.vue";
 import type { AuthUser } from "../types";
+import { useAuthRequest } from "../useAuthRequest";
 
 defineProps<{
   themeToggleLabel: string;
@@ -19,21 +20,13 @@ const emit = defineEmits<{
 }>();
 
 const email = ref("");
-const errorMessage = ref("");
-const isSubmitting = ref(false);
 const name = ref("");
 const password = ref("");
 const termsAccepted = ref(false);
+const { errorMessage, isSubmitting, submit } = useAuthRequest("Could not create the account. Please try again.");
 
 async function submitRegistration() {
-  if (isSubmitting.value) {
-    return;
-  }
-
-  errorMessage.value = "";
-  isSubmitting.value = true;
-
-  try {
+  await submit(async () => {
     const response = await register({
       email: email.value,
       locale: "en",
@@ -42,15 +35,7 @@ async function submitRegistration() {
     });
 
     emit("authenticated", response.user);
-  } catch (error) {
-    errorMessage.value = getErrorMessage(error);
-  } finally {
-    isSubmitting.value = false;
-  }
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Could not create the account. Please try again.";
+  });
 }
 </script>
 
