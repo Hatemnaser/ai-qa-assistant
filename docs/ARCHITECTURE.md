@@ -68,6 +68,7 @@ Small modules can start with fewer files, but should not put business logic dire
 - `auth`: password registration, password login, password reset request contract, httpOnly session cookies, and server-side session records.
 - `ai`: provider adapters, prompt building, model normalization, AI error mapping.
 - `chat`: chat API contract and orchestration.
+- `usage`: portfolio/demo usage limits for guests and signed-in users before AI provider calls.
 
 ## Active Frontend Routes
 
@@ -93,6 +94,8 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 - `GET /api/auth/me`: read the current user from the session cookie.
 - `POST /api/auth/logout`: delete the current session when present and clear the cookie.
 - `POST /api/chat`: generate a QA assistant reply.
+
+`POST /api/chat` allows anonymous portfolio usage. Guests receive an httpOnly `qa_guest_id` cookie and are limited separately from signed-in users. The API also hashes the request IP as a fallback abuse guard. Usage is reserved before calling Gemini so the API key is protected from unbounded demo traffic.
 
 ## Future Backend Modules
 
@@ -173,9 +176,18 @@ UserSettings
   defaultModel
   aiPreferences
   updatedAt
+
+UsageEvent
+  id
+  userId
+  guestId
+  ipHash
+  action
+  units
+  createdAt
 ```
 
-Billing and integrations will add their own tables only when those phases begin. The active schema should stay focused on users, sessions, settings, projects, chats, messages, memory, and AI usage.
+Billing and integrations will add their own tables only when those phases begin. The active schema should stay focused on users, sessions, settings, projects, chats, messages, memory, AI usage, and demo usage limits.
 
 ## Migration Plan
 

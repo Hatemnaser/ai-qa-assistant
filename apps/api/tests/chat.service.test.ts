@@ -34,6 +34,7 @@ describe("chat service", () => {
 
   it("rejects unsupported models before calling the AI provider", async () => {
     let providerWasCalled = false;
+    let usageWasReserved = false;
     const service = createChatService({
       chatWithAi: async () => {
         providerWasCalled = true;
@@ -41,6 +42,9 @@ describe("chat service", () => {
           reply: "should not happen",
           model: "gemini-2.5-flash",
         };
+      },
+      reserveUsage: async () => {
+        usageWasReserved = true;
       },
     });
 
@@ -58,5 +62,42 @@ describe("chat service", () => {
       }
     );
     assert.equal(providerWasCalled, false);
+    assert.equal(usageWasReserved, false);
+  });
+
+  it("reserves usage before calling the AI provider", async () => {
+    const calls: string[] = [];
+    const service = createChatService({
+      chatWithAi: async () => {
+        calls.push("ai");
+        return {
+          reply: "Hi from test AI",
+          model: "gemini-2.5-flash",
+        };
+      },
+      reserveUsage: async (identity) => {
+        calls.push("usage");
+        assert.deepEqual(identity, {
+          guestId: "guest-1",
+          ipAddress: "127.0.0.1",
+          userId: undefined,
+        });
+      },
+    });
+
+    await service.createChatReply(
+      {
+        history: [],
+        message: "hello",
+        mode: "general",
+        model: "gemini-2.5-flash",
+      },
+      {
+        guestId: "guest-1",
+        ipAddress: "127.0.0.1",
+      }
+    );
+
+    assert.deepEqual(calls, ["usage", "ai"]);
   });
 });

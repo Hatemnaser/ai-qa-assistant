@@ -52,6 +52,7 @@ model User {
   chats               Chat[]
   memories            Memory[]
   aiUsageLogs         AiUsageLog[]
+  usageEvents         UsageEvent[]
 }
 
 model Session {
@@ -196,4 +197,20 @@ model AiUsageLog {
   @@index([userId, createdAt])
   @@index([chatId, createdAt])
   @@index([provider, model])
+}
+
+model UsageEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  guestId   String?
+  ipHash    String?
+  action    String
+  units     Int      @default(1)
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, action, createdAt])
+  @@index([guestId, action, createdAt])
+  @@index([ipHash, action, createdAt])
 }

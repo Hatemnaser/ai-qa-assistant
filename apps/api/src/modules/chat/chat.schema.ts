@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { env } from "../../config/env.js";
+
 export const chatHistoryMessageSchema = z.object({
   role: z.enum(["user", "assistant"]).optional(),
   content: z.string(),
@@ -13,9 +15,13 @@ export const chatImageSchema = z.object({
 });
 
 export const chatRequestSchema = z.object({
-  message: z.string().trim().min(1, "Message is required and must be a string."),
+  message: z
+    .string()
+    .trim()
+    .min(1, "Message is required and must be a string.")
+    .max(env.maxMessageChars, `Message must be ${env.maxMessageChars} characters or fewer.`),
   mode: z.string().default("general"),
   model: z.string().trim().optional(),
-  history: z.array(chatHistoryMessageSchema).default([]),
+  history: z.array(chatHistoryMessageSchema).max(env.maxHistoryMessages).default([]),
   image: chatImageSchema.optional(),
 });

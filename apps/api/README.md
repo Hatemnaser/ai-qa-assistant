@@ -67,3 +67,19 @@ POST /api/chat
 ```
 
 Auth uses password hashes, server-side session rows, and an httpOnly `qa_session` cookie. Google OAuth and reset email delivery are intentionally not wired yet.
+
+## Usage Limits
+
+`POST /api/chat` stays available to guests for portfolio demos, but usage is reserved before Gemini is called.
+
+Defaults:
+
+```env
+GUEST_DAILY_MESSAGES=3
+USER_DAILY_MESSAGES=10
+USAGE_WINDOW_HOURS=24
+MAX_MESSAGE_CHARS=3000
+MAX_HISTORY_MESSAGES=10
+```
+
+Guests are tracked with an httpOnly `qa_guest_id` cookie plus a hashed IP fallback. Signed-in users are tracked by `userId`.

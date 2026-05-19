@@ -18,6 +18,7 @@ This project is currently in foundation and migration mode. Do not add new produ
 - For sidebar work, keep workspace navigation outside the history scroll area and keep recent chats as compact rows.
 - Row behavior belongs in shared `.ui-row*` styles; keep `_sidebar.scss` focused on shell layout and scrolling.
 - For repeated controls, prefer the existing tokens and shared classes such as `.ui-icon-btn` before adding component-only CSS.
+- Keep `/api/chat` open for portfolio demos, but enforce backend usage limits before provider calls.
 - Legacy files have been removed after parity. Use the docs and tests as the migration reference.
 
 ## Before Changing Code
@@ -27,6 +28,7 @@ This project is currently in foundation and migration mode. Do not add new produ
 3. Auth has a backend module now. Keep password auth, httpOnly session cookies, session records, and reset request contracts there; keep Google OAuth and reset email delivery out until that phase starts.
 4. If it touches UI styling, look for the matching SCSS partial first.
 5. If it touches existing chat behavior, keep localStorage keys and API contracts compatible.
+6. If it touches AI calls, check the `usage` module so guest and user limits keep protecting the Gemini key.
 
 ## Frontend Pattern
 
@@ -109,3 +111,4 @@ npm run build:api
 3. Preserve migrated chat behavior with tests and manual checks.
 4. Reduce file weight when a file becomes hard to scan.
 5. Keep the auth UI aligned with cookie-backed sessions and avoid browser-stored auth tokens.
+6. Keep portfolio/demo access available while respecting usage limits.

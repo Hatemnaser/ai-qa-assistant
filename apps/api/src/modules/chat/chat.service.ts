@@ -6,16 +6,20 @@ import {
 } from "../ai/gemini.models.js";
 import { chatWithGemini } from "../ai/gemini.provider.js";
 import type { AiChatInput, AiChatResponse } from "../ai/ai.types.js";
-import type { ChatRequest } from "./chat.types.js";
+import { usageService } from "../usage/usage.service.js";
+import type { UsageIdentity } from "../usage/usage.types.js";
+import type { ChatRequest, ChatRequestContext } from "./chat.types.js";
 
 type ChatAiProvider = (input: AiChatInput) => Promise<AiChatResponse>;
+type ChatUsageGuard = (identity: UsageIdentity) => Promise<unknown>;
 
 export interface ChatServiceDependencies {
   chatWithAi: ChatAiProvider;
+  reserveUsage?: ChatUsageGuard;
 }
 
-export function createChatService({ chatWithAi }: ChatServiceDependencies) {
-  async function createChatReply(input: ChatRequest) {
+export function createChatService({ chatWithAi, reserveUsage }: ChatServiceDependencies) {
+  async function createChatReply(input: ChatRequest, context: ChatRequestContext = {}) {
     const requestedModel = typeof input.model === "string" ? input.model.trim() : undefined;
 
     if (requestedModel && !isAllowedGeminiModel(requestedModel)) {
@@ -25,6 +29,12 @@ export function createChatService({ chatWithAi }: ChatServiceDependencies) {
         "UNSUPPORTED_MODEL"
       );
     }
+
+    await reserveUsage?.({
+      guestId: context.guestId,
+      ipAddress: context.ipAddress,
+      userId: context.userId,
+    });
 
     const response = await chatWithAi({
       ...input,
@@ -45,4 +55,5 @@ export function createChatService({ chatWithAi }: ChatServiceDependencies) {
 
 export const { createChatReply } = createChatService({
   chatWithAi: chatWithGemini,
+  reserveUsage: usageService.reserveChatMessage,
 });

@@ -101,6 +101,22 @@ export function createAuthService({ now = () => new Date(), repository, security
     return toPublicUser(session.user);
   }
 
+  async function getOptionalCurrentUser(sessionToken: string | undefined): Promise<PublicAuthUser | null> {
+    if (!sessionToken) {
+      return null;
+    }
+
+    try {
+      return await getCurrentUser(sessionToken);
+    } catch (error) {
+      if (error instanceof AppError && error.code === "SESSION_REQUIRED") {
+        return null;
+      }
+
+      throw error;
+    }
+  }
+
   async function logout(sessionToken: string | undefined) {
     if (sessionToken) {
       await repository.deleteSessionByTokenHash(authSecurity.hashSessionToken(sessionToken));
@@ -141,6 +157,7 @@ export function createAuthService({ now = () => new Date(), repository, security
 
   return {
     getCurrentUser,
+    getOptionalCurrentUser,
     login,
     logout,
     register,

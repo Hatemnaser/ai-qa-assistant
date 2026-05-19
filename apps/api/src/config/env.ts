@@ -31,4 +31,10 @@ export const env = Object.freeze({
   geminiModel: process.env.GEMINI_MODEL || "",
   aiTimeoutMs: parseNumber(process.env.AI_TIMEOUT_MS, 55000),
   aiMaxOutputTokens: parseNumber(process.env.AI_MAX_OUTPUT_TOKENS, 2048),
+  guestDailyMessageLimit: parseNumber(process.env.GUEST_DAILY_MESSAGES, 3),
+  userDailyMessageLimit: parseNumber(process.env.USER_DAILY_MESSAGES, 10),
+  usageWindowHours: parseNumber(process.env.USAGE_WINDOW_HOURS, 24),
+  maxMessageChars: parseNumber(process.env.MAX_MESSAGE_CHARS, 3000),
+  maxHistoryMessages: parseNumber(process.env.MAX_HISTORY_MESSAGES, 10),
+  usageIpHashSalt: process.env.USAGE_IP_HASH_SALT || "development-usage-salt",
 });
