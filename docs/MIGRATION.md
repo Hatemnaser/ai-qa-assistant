@@ -40,7 +40,7 @@ Use `docs/PARITY_CHECKLIST.md` as the migration tracker before removing legacy f
 
 ## Active Code Rule
 
-Future ideas belong in docs until the feature is close. Avoid adding active services or modules for auth, billing, integrations, advanced memory search, or team permissions before the current app is migrated cleanly.
+Future ideas belong in docs until the feature is close. Auth has now entered the foundation phase, but billing, integrations, advanced memory search, and team permissions should still stay out of active code until those phases begin.
 
 For the current migration phase, avoid adding new product features. The active goal is to move the existing chat behavior into the new `apps/api` and planned `apps/web` structure with cleaner boundaries.
 

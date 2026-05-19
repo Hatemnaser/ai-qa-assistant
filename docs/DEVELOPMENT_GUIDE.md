@@ -24,7 +24,7 @@ This project is currently in foundation and migration mode. Do not add new produ
 
 1. Check whether the change is a feature, a migration cleanup, or a bug fix.
 2. If it is a future feature like settings, projects, memory, billing, or integrations, document it instead of adding active code unless the task explicitly starts that phase.
-3. Auth is currently allowed as a frontend UI shell only; backend sessions, password reset, and OAuth should wait for the API auth module.
+3. Auth has a backend module now. Keep password auth, session records, and reset request contracts there; keep Google OAuth and reset email delivery out until that phase starts.
 4. If it touches UI styling, look for the matching SCSS partial first.
 5. If it touches existing chat behavior, keep localStorage keys and API contracts compatible.
 
@@ -108,4 +108,4 @@ npm run build:api
 2. Keep TypeScript readable for a Bootstrap-first workflow.
 3. Preserve migrated chat behavior with tests and manual checks.
 4. Reduce file weight when a file becomes hard to scan.
-5. Keep auth UI ready for the backend auth module without pretending sessions or Google OAuth are already wired.
+5. Wire auth UI to the API next, without pretending Google OAuth or reset emails are already live.

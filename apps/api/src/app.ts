@@ -4,6 +4,7 @@ import express from "express";
 import { buildCorsOptions } from "./config/cors.js";
 import { env } from "./config/env.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.middleware.js";
+import { authRouter } from "./modules/auth/auth.routes.js";
 import { chatRouter } from "./modules/chat/chat.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 
@@ -21,6 +22,7 @@ export function createApp() {
   });
 
   app.use("/api/health", healthRouter);
+  app.use("/api/auth", authRouter);
   app.use("/api/chat", chatRouter);
 
   app.use(notFoundHandler);

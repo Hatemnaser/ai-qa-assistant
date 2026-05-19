@@ -53,3 +53,15 @@ GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 Keep local secrets in ignored `apps/api/.env`.
+
+## Routes
+
+```text
+GET  /api/health
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/forgot-password
+POST /api/chat
+```
+
+Auth uses password hashes plus server-side session rows. Google OAuth and reset email delivery are intentionally not wired yet.

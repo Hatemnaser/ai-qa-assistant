@@ -65,6 +65,7 @@ Small modules can start with fewer files, but should not put business logic dire
 ## Active Backend Modules
 
 - `health`: service status and deployment checks.
+- `auth`: password registration, password login, password reset request contract, and server-side session records.
 - `ai`: provider adapters, prompt building, model normalization, AI error mapping.
 - `chat`: chat API contract and orchestration.
 
@@ -75,14 +76,21 @@ Small modules can start with fewer files, but should not put business logic dire
 - `#/register`: account creation UI shell.
 - `#/forgot-password`: password reset UI shell.
 
-The auth pages are currently frontend-only. Password login, sessions, password reset email, and Google OAuth should be wired when the backend `auth` module starts.
+The auth pages are still not wired to the API. The backend auth module now owns password registration, password login, and password reset request contracts. Google OAuth and real reset emails are still future integrations.
 
 ## Later Backend Modules
 
-- `auth`: users, sessions, password login, and httpOnly session cookies.
 - `projects`: project ownership, members, and chat grouping.
 - `memory`: user memory, project memory, chat summaries, and later vector search.
 - `settings`: user preferences, language, model defaults, and theme.
+
+## Active API Routes
+
+- `GET /api/health`: health check.
+- `POST /api/auth/register`: create a password user and session token.
+- `POST /api/auth/login`: validate credentials and create a session token.
+- `POST /api/auth/forgot-password`: accept reset requests with a generic response.
+- `POST /api/chat`: generate a QA assistant reply.
 
 ## Future Backend Modules
 
