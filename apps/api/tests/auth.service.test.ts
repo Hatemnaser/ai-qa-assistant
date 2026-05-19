@@ -10,7 +10,7 @@ import type {
   CreatePasswordUserInput,
   CreateSessionInput,
 } from "../src/modules/auth/auth.repository.ts";
-import type { AuthUserRecord } from "../src/modules/auth/auth.types.ts";
+import type { AuthSessionRecord, AuthUserRecord } from "../src/modules/auth/auth.types.ts";
 
 describe("auth service", () => {
   it("registers a password user and creates a hashed session", async () => {
@@ -39,9 +39,9 @@ describe("auth service", () => {
     assert.equal(repository.sessions.length, 1);
     assert.equal(repository.sessions[0].tokenHash, "hashed-session:session-token");
     assert.equal(repository.sessions[0].userAgent, "test-agent");
-    assert.equal(response.session.token, "session-token");
-    assert.equal(response.session.expiresAt, "2026-05-26T00:00:00.000Z");
-    assert.deepEqual(response.user, {
+    assert.equal(response.sessionToken, "session-token");
+    assert.equal(response.response.session.expiresAt, "2026-05-26T00:00:00.000Z");
+    assert.deepEqual(response.response.user, {
       createdAt: "2026-05-19T00:00:00.000Z",
       email: "person@example.com",
       id: "user-1",
@@ -108,7 +108,7 @@ describe("auth service", () => {
     );
 
     assert.equal(repository.sessions.length, 1);
-    assert.equal(response.session.expiresAt, "2026-06-18T00:00:00.000Z");
+    assert.equal(response.response.session.expiresAt, "2026-06-18T00:00:00.000Z");
   });
 
   it("does not create a session for invalid credentials", async () => {
@@ -160,6 +160,75 @@ describe("auth service", () => {
       message: "If an account exists for that email, password reset instructions will be sent.",
     });
   });
+
+  it("returns the current user for a valid session token", async () => {
+    const user = createUserRecord({
+      email: "person@example.com",
+    });
+    const repository = createFakeAuthRepository([user]);
+    repository.sessions.push({
+      expiresAt: new Date("2026-05-26T00:00:00.000Z"),
+      tokenHash: "hashed-session:session-token",
+      userId: user.id,
+    });
+    const service = createAuthService({
+      now: () => new Date("2026-05-19T00:00:00.000Z"),
+      repository,
+      security: createFakeSecurity(),
+    });
+
+    const response = await service.getCurrentUser("session-token");
+
+    assert.deepEqual(response, {
+      createdAt: "2026-05-19T00:00:00.000Z",
+      email: "person@example.com",
+      id: "user-1",
+      locale: "en",
+      name: null,
+    });
+  });
+
+  it("removes expired sessions before rejecting them", async () => {
+    const user = createUserRecord();
+    const repository = createFakeAuthRepository([user]);
+    repository.sessions.push({
+      expiresAt: new Date("2026-05-18T00:00:00.000Z"),
+      tokenHash: "hashed-session:session-token",
+      userId: user.id,
+    });
+    const service = createAuthService({
+      now: () => new Date("2026-05-19T00:00:00.000Z"),
+      repository,
+      security: createFakeSecurity(),
+    });
+
+    await assert.rejects(() => service.getCurrentUser("session-token"), {
+      code: "SESSION_REQUIRED",
+      statusCode: 401,
+    });
+    assert.equal(repository.sessions.length, 0);
+  });
+
+  it("logs out by deleting the matching session token hash", async () => {
+    const user = createUserRecord();
+    const repository = createFakeAuthRepository([user]);
+    repository.sessions.push({
+      expiresAt: new Date("2026-05-26T00:00:00.000Z"),
+      tokenHash: "hashed-session:session-token",
+      userId: user.id,
+    });
+    const service = createAuthService({
+      repository,
+      security: createFakeSecurity(),
+    });
+
+    const response = await service.logout("session-token");
+
+    assert.deepEqual(response, {
+      ok: true,
+    });
+    assert.equal(repository.sessions.length, 0);
+  });
 });
 
 function createFakeSecurity(overrides: Partial<AuthSecurity> = {}): AuthSecurity {
@@ -192,6 +261,31 @@ function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
 
     async createSession(input: CreateSessionInput) {
       repository.sessions.push(input);
+    },
+
+    async deleteSessionByTokenHash(tokenHash: string) {
+      repository.sessions = repository.sessions.filter((session) => session.tokenHash !== tokenHash);
+    },
+
+    async findSessionByTokenHash(tokenHash: string) {
+      const session = repository.sessions.find((item) => item.tokenHash === tokenHash);
+
+      if (!session) {
+        return null;
+      }
+
+      const user = repository.users.find((item) => item.id === session.userId);
+
+      if (!user) {
+        return null;
+      }
+
+      return {
+        expiresAt: session.expiresAt,
+        id: "session-1",
+        user,
+        userId: session.userId,
+      } satisfies AuthSessionRecord;
     },
 
     async findUserByEmail(email: string) {

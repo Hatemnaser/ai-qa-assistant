@@ -8,7 +8,7 @@ import {
 import { authRepository, type AuthRepository } from "./auth.repository.js";
 import type {
   AuthRequestContext,
-  AuthResponse,
+  AuthServiceResponse,
   AuthUserRecord,
   ForgotPasswordRequest,
   LoginRequest,
@@ -43,7 +43,7 @@ export function createAuthService({ now = () => new Date(), repository, security
     ...security,
   };
 
-  async function register(input: RegisterRequest, context: AuthRequestContext): Promise<AuthResponse> {
+  async function register(input: RegisterRequest, context: AuthRequestContext): Promise<AuthServiceResponse> {
     const existingUser = await repository.findUserByEmail(input.email);
 
     if (existingUser) {
@@ -61,7 +61,7 @@ export function createAuthService({ now = () => new Date(), repository, security
     return createSessionResponse(user, false, context);
   }
 
-  async function login(input: LoginRequest, context: AuthRequestContext): Promise<AuthResponse> {
+  async function login(input: LoginRequest, context: AuthRequestContext): Promise<AuthServiceResponse> {
     const user = await repository.findUserByEmail(input.email);
 
     if (!user?.passwordHash) {
@@ -85,11 +85,37 @@ export function createAuthService({ now = () => new Date(), repository, security
     };
   }
 
+  async function getCurrentUser(sessionToken: string): Promise<PublicAuthUser> {
+    const tokenHash = authSecurity.hashSessionToken(sessionToken);
+    const session = await repository.findSessionByTokenHash(tokenHash);
+
+    if (!session) {
+      throwSessionRequiredError();
+    }
+
+    if (session.expiresAt <= now()) {
+      await repository.deleteSessionByTokenHash(tokenHash);
+      throwSessionRequiredError();
+    }
+
+    return toPublicUser(session.user);
+  }
+
+  async function logout(sessionToken: string | undefined) {
+    if (sessionToken) {
+      await repository.deleteSessionByTokenHash(authSecurity.hashSessionToken(sessionToken));
+    }
+
+    return {
+      ok: true,
+    };
+  }
+
   async function createSessionResponse(
     user: AuthUserRecord,
     remember: boolean,
     context: AuthRequestContext
-  ): Promise<AuthResponse> {
+  ): Promise<AuthServiceResponse> {
     const token = authSecurity.createSessionToken();
     const tokenHash = authSecurity.hashSessionToken(token);
     const expiresAt = addDays(now(), remember ? REMEMBER_SESSION_DAYS : DEFAULT_SESSION_DAYS);
@@ -102,16 +128,21 @@ export function createAuthService({ now = () => new Date(), repository, security
     });
 
     return {
-      session: {
-        expiresAt: expiresAt.toISOString(),
-        token,
+      response: {
+        session: {
+          expiresAt: expiresAt.toISOString(),
+        },
+        user: toPublicUser(user),
       },
-      user: toPublicUser(user),
+      sessionExpiresAt: expiresAt,
+      sessionToken: token,
     };
   }
 
   return {
+    getCurrentUser,
     login,
+    logout,
     register,
     requestPasswordReset,
   };
@@ -135,6 +166,10 @@ function addDays(date: Date, days: number) {
 
 function throwInvalidCredentialsError(): never {
   throw new AppError("Invalid email or password.", 401, "INVALID_CREDENTIALS");
+}
+
+function throwSessionRequiredError(): never {
+  throw new AppError("Authentication is required.", 401, "SESSION_REQUIRED");
 }
 
 export const authService = createAuthService({

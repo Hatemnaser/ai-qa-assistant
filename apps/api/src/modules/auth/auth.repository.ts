@@ -1,5 +1,5 @@
 import { prisma } from "../../db/prisma.js";
-import type { AuthRequestContext, AuthUserRecord } from "./auth.types.js";
+import type { AuthRequestContext, AuthSessionRecord, AuthUserRecord } from "./auth.types.js";
 
 export interface CreatePasswordUserInput {
   email: string;
@@ -17,6 +17,8 @@ export interface CreateSessionInput extends AuthRequestContext {
 export interface AuthRepository {
   createPasswordUser(input: CreatePasswordUserInput): Promise<AuthUserRecord>;
   createSession(input: CreateSessionInput): Promise<void>;
+  deleteSessionByTokenHash(tokenHash: string): Promise<void>;
+  findSessionByTokenHash(tokenHash: string): Promise<AuthSessionRecord | null>;
   findUserByEmail(email: string): Promise<AuthUserRecord | null>;
 }
 
@@ -46,6 +48,25 @@ export function createPrismaAuthRepository(): AuthRepository {
           tokenHash: input.tokenHash,
           userAgent: input.userAgent,
           userId: input.userId,
+        },
+      });
+    },
+
+    async deleteSessionByTokenHash(tokenHash) {
+      await prisma.session.deleteMany({
+        where: {
+          tokenHash,
+        },
+      });
+    },
+
+    async findSessionByTokenHash(tokenHash) {
+      return prisma.session.findUnique({
+        include: {
+          user: true,
+        },
+        where: {
+          tokenHash,
         },
       });
     },

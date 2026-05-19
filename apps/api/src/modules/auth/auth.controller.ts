@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 
+import { clearAuthCookie, getAuthCookie, setAuthCookie } from "./auth.cookies.js";
 import {
   forgotPasswordRequestSchema,
   loginRequestSchema,
@@ -13,7 +14,8 @@ export async function register(req: Request, res: Response, next: NextFunction) 
     const input = registerRequestSchema.parse(req.body);
     const response = await authService.register(input, getRequestContext(req));
 
-    res.status(201).json(response);
+    setAuthCookie(res, response.sessionToken, response.sessionExpiresAt);
+    res.status(201).json(response.response);
   } catch (error) {
     next(error);
   }
@@ -24,7 +26,8 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     const input = loginRequestSchema.parse(req.body);
     const response = await authService.login(input, getRequestContext(req));
 
-    res.json(response);
+    setAuthCookie(res, response.sessionToken, response.sessionExpiresAt);
+    res.json(response.response);
   } catch (error) {
     next(error);
   }
@@ -36,6 +39,25 @@ export async function forgotPassword(req: Request, res: Response, next: NextFunc
     const response = await authService.requestPasswordReset(input);
 
     res.json(response);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function getCurrentUser(req: Request, res: Response) {
+  res.json({
+    user: req.authUser,
+  });
+}
+
+export async function logout(req: Request, res: Response, next: NextFunction) {
+  try {
+    await authService.logout(getAuthCookie(req));
+    clearAuthCookie(res);
+
+    res.json({
+      ok: true,
+    });
   } catch (error) {
     next(error);
   }

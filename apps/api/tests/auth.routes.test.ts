@@ -61,6 +61,29 @@ describe("POST /api/auth", () => {
     assert.equal(body.error, "Invalid request payload.");
     assert.ok(Array.isArray(body.issues));
   });
+
+  it("requires a session cookie for the current user route", async () => {
+    const response = await fetch(`${baseUrl}/api/auth/me`);
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.code, "SESSION_REQUIRED");
+  });
+
+  it("clears the auth cookie on logout", async () => {
+    const response = await fetch(`${baseUrl}/api/auth/logout`, {
+      method: "POST",
+    });
+    const body = await response.json();
+    const setCookie = response.headers.get("set-cookie") || "";
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(body, {
+      ok: true,
+    });
+    assert.match(setCookie, /qa_session=/);
+    assert.match(setCookie, /HttpOnly/);
+  });
 });
 
 async function postJson(path: string, body: unknown) {

@@ -61,7 +61,9 @@ GET  /api/health
 POST /api/auth/register
 POST /api/auth/login
 POST /api/auth/forgot-password
+GET  /api/auth/me
+POST /api/auth/logout
 POST /api/chat
 ```
 
-Auth uses password hashes plus server-side session rows. Google OAuth and reset email delivery are intentionally not wired yet.
+Auth uses password hashes, server-side session rows, and an httpOnly `qa_session` cookie. Google OAuth and reset email delivery are intentionally not wired yet.

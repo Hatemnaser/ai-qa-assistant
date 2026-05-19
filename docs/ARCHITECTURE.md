@@ -65,7 +65,7 @@ Small modules can start with fewer files, but should not put business logic dire
 ## Active Backend Modules
 
 - `health`: service status and deployment checks.
-- `auth`: password registration, password login, password reset request contract, and server-side session records.
+- `auth`: password registration, password login, password reset request contract, httpOnly session cookies, and server-side session records.
 - `ai`: provider adapters, prompt building, model normalization, AI error mapping.
 - `chat`: chat API contract and orchestration.
 
@@ -76,7 +76,7 @@ Small modules can start with fewer files, but should not put business logic dire
 - `#/register`: account creation UI shell.
 - `#/forgot-password`: password reset UI shell.
 
-The auth pages are still not wired to the API. The backend auth module now owns password registration, password login, and password reset request contracts. Google OAuth and real reset emails are still future integrations.
+The auth pages are still not wired to the API. The backend auth module now owns password registration, password login, httpOnly session cookies, current-user lookup, logout, and password reset request contracts. Google OAuth and real reset emails are still future integrations.
 
 ## Later Backend Modules
 
@@ -87,9 +87,11 @@ The auth pages are still not wired to the API. The backend auth module now owns 
 ## Active API Routes
 
 - `GET /api/health`: health check.
-- `POST /api/auth/register`: create a password user and session token.
-- `POST /api/auth/login`: validate credentials and create a session token.
+- `POST /api/auth/register`: create a password user and set a session cookie.
+- `POST /api/auth/login`: validate credentials and set a session cookie.
 - `POST /api/auth/forgot-password`: accept reset requests with a generic response.
+- `GET /api/auth/me`: read the current user from the session cookie.
+- `POST /api/auth/logout`: delete the current session when present and clear the cookie.
 - `POST /api/chat`: generate a QA assistant reply.
 
 ## Future Backend Modules

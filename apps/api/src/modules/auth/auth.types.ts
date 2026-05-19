@@ -35,10 +35,22 @@ export interface PublicAuthUser {
 
 export interface AuthSessionResponse {
   expiresAt: string;
-  token: string;
 }
 
 export interface AuthResponse {
   session: AuthSessionResponse;
   user: PublicAuthUser;
+}
+
+export interface AuthServiceResponse {
+  response: AuthResponse;
+  sessionExpiresAt: Date;
+  sessionToken: string;
+}
+
+export interface AuthSessionRecord {
+  expiresAt: Date;
+  id: string;
+  user: AuthUserRecord;
+  userId: string;
 }
