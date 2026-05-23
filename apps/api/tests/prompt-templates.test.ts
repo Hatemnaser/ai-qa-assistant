@@ -24,4 +24,18 @@ describe("prompt templates", () => {
     assert.match(prompt, /# Bug Report/);
     assert.match(prompt, /login button does not work/);
   });
+
+  it("infers a QA artifact from the latest message when general mode is selected", () => {
+    const prompt = buildPrompt("general", "create test cases for a checkout page");
+
+    assert.match(prompt, /# Test Cases/);
+    assert.match(prompt, /checkout page/);
+  });
+
+  it("asks focused questions for underspecified artifact requests", () => {
+    const prompt = buildPrompt("test_cases", "login");
+
+    assert.match(prompt, /underspecified/i);
+    assert.match(prompt, /clarifying questions/i);
+  });
 });

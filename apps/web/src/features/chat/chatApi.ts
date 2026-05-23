@@ -19,6 +19,7 @@ export async function sendMessageToAI(input: {
   message: string;
   mode: string;
   model: string;
+  provider?: string;
   history: ChatHistoryItem[];
   image?: RequestImage | null;
 }): Promise<ChatApiResponse> {
@@ -29,6 +30,7 @@ export async function sendMessageToAI(input: {
     message: input.message,
     mode: input.mode,
     model: input.model,
+    ...(input.provider ? { provider: input.provider } : {}),
     ...(input.image ? { image: input.image } : {}),
   };
 

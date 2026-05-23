@@ -58,7 +58,7 @@ describe("POST /api/chat", () => {
 
     assert.equal(response.status, 400);
     assert.equal(body.code, "UNSUPPORTED_MODEL");
-    assert.match(body.error, /Unsupported Gemini model/);
+    assert.match(body.error, /Unsupported AI model/);
   });
 
   it("treats null image payloads as no image", async () => {

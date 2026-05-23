@@ -22,6 +22,7 @@ export const chatRequestSchema = z.object({
     .max(env.maxMessageChars, `Message must be ${env.maxMessageChars} characters or fewer.`),
   mode: z.string().default("general"),
   model: z.string().trim().optional(),
+  provider: z.string().trim().optional(),
   history: z.array(chatHistoryMessageSchema).max(env.maxHistoryMessages).default([]),
   image: z.preprocess((value) => (value === null ? undefined : value), chatImageSchema.optional()),
 });

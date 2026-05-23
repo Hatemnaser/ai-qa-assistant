@@ -10,10 +10,12 @@ describe("chat service", () => {
         assert.equal(input.message, "hello");
         assert.equal(input.mode, "general");
         assert.equal(input.model, "gemini-2.5-flash-lite");
+        assert.equal(input.provider, "gemini");
 
         return {
           reply: "Hi from test AI",
           model: "gemini-2.5-flash-lite",
+          provider: "gemini",
         };
       },
     });
@@ -29,6 +31,7 @@ describe("chat service", () => {
       reply: "Hi from test AI",
       mode: "general",
       model: "gemini-2.5-flash-lite",
+      provider: "gemini",
     });
   });
 
@@ -41,6 +44,7 @@ describe("chat service", () => {
         return {
           reply: "should not happen",
           model: "gemini-2.5-flash",
+          provider: "gemini",
         };
       },
       reserveUsage: async () => {
@@ -73,6 +77,7 @@ describe("chat service", () => {
         return {
           reply: "Hi from test AI",
           model: "gemini-2.5-flash",
+          provider: "gemini",
         };
       },
       reserveUsage: async (identity) => {

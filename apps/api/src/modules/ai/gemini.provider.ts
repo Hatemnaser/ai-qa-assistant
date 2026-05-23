@@ -2,9 +2,14 @@ import { GoogleGenAI } from "@google/genai";
 
 import { env } from "../../config/env.js";
 import { AppError } from "../../lib/errors.js";
-import type { AiChatInput, AiChatResponse, AiHistoryMessage } from "./ai.types.js";
+import type { AiChatInput, AiChatResponse, AiHistoryMessage, AiProviderAdapter } from "./ai.types.js";
 import { normalizeGeminiError } from "./gemini.errors.js";
-import { GEMINI_DEFAULT_MODEL, normalizeGeminiModel } from "./gemini.models.js";
+import {
+  GEMINI_DEFAULT_MODEL,
+  GEMINI_MODELS,
+  GEMINI_PROVIDER_ID,
+  normalizeGeminiModel,
+} from "./gemini.models.js";
 import { buildPrompt } from "./prompt-templates.js";
 
 export async function chatWithGemini(input: AiChatInput): Promise<AiChatResponse> {
@@ -21,7 +26,13 @@ export async function chatWithGemini(input: AiChatInput): Promise<AiChatResponse
     apiKey: env.geminiApiKey,
   });
 
-  const prompt = addHistoryContext(buildPrompt(input.mode, input.message), input.history);
+  const prompt = addHistoryContext(
+    buildPrompt(input.mode, input.message, {
+      hasImage: Boolean(input.image?.data && input.image.mimeType),
+      history: input.history,
+    }),
+    input.history
+  );
   const contents =
     input.image && input.image.data && input.image.mimeType
       ? [
@@ -56,11 +67,20 @@ export async function chatWithGemini(input: AiChatInput): Promise<AiChatResponse
     return {
       reply: response.text || "",
       model: selectedModel,
+      provider: GEMINI_PROVIDER_ID,
     };
   } catch (error) {
     throw normalizeGeminiError(error, selectedModel);
   }
 }
+
+export const geminiProvider = {
+  chat: chatWithGemini,
+  defaultModel: GEMINI_DEFAULT_MODEL,
+  id: GEMINI_PROVIDER_ID,
+  label: "Gemini",
+  models: GEMINI_MODELS,
+} satisfies AiProviderAdapter;
 
 function addHistoryContext(prompt: string, history: AiHistoryMessage[]) {
   const textHistory = Array.isArray(history)

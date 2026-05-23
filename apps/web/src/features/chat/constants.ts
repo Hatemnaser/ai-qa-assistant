@@ -26,36 +26,39 @@ export const COMPOSER_PLACEHOLDERS_BY_MODE: Record<string, string> = {
   screenshot_review: "Add notes about what to inspect in the screenshot...",
 };
 
-export const GEMINI_MODELS = [
+export const AI_MODELS = [
   {
     label: "Gemini 2.5 Flash",
+    provider: "gemini",
     value: "gemini-2.5-flash",
     supportsImages: true,
     recommendedFor: "Screenshot review and deeper QA analysis",
   },
   {
     label: "Gemini 2.5 Flash Lite",
+    provider: "gemini",
     value: "gemini-2.5-flash-lite",
     supportsImages: true,
     recommendedFor: "Fast text tasks",
   },
   {
     label: "Gemini 3.1 Flash Lite",
+    provider: "gemini",
     value: "gemini-3.1-flash-lite",
     supportsImages: true,
     recommendedFor: "High-volume text tasks",
   },
 ] as const;
 
-type GeminiModel = (typeof GEMINI_MODELS)[number];
+type AiModel = (typeof AI_MODELS)[number];
 
-export function getModelConfig(model: unknown): GeminiModel {
+export function getModelConfig(model: unknown): AiModel {
   const selectedModel = typeof model === "string" ? model.trim() : "";
 
   return (
-    GEMINI_MODELS.find((option) => option.value === selectedModel) ||
-    GEMINI_MODELS.find((option) => option.value === DEFAULT_MODEL) ||
-    GEMINI_MODELS[0]
+    AI_MODELS.find((option) => option.value === selectedModel) ||
+    AI_MODELS.find((option) => option.value === DEFAULT_MODEL) ||
+    AI_MODELS[0]
   );
 }
 

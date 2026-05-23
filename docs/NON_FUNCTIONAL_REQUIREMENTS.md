@@ -23,6 +23,13 @@ This project should stay easy to extend while it grows from a portfolio demo int
 - The app should merge local and database chats by `updatedAt`, keeping the newest copy per chat id.
 - Delete operations should remove the local chat immediately and then attempt the account delete.
 
+## AI Behavior
+
+- The latest user message must take priority over the selected mode and older chat context.
+- Conversational follow-ups, thanks, language changes, and clarification questions must not be forced into QA artifact templates.
+- QA artifact responses should include assumptions when details are missing instead of pretending requirements are complete.
+- Underspecified artifact requests should ask a few focused questions before generating a large answer.
+
 ## Privacy
 
 - Chats from different users must never share the same localStorage scope.

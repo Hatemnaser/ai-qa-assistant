@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { GEMINI_MODELS, QA_MODES, getModelHint } from "../constants";
+import { AI_MODELS, QA_MODES, getModelHint } from "../constants";
 import type { ChatUsageSummary } from "../types";
 
 const props = defineProps<{
@@ -17,7 +17,7 @@ const emit = defineEmits<{
 
 const selectedModeOption = computed(() => QA_MODES.find((option) => option.value === props.mode) || QA_MODES[0]);
 const selectedModelOption = computed(
-  () => GEMINI_MODELS.find((option) => option.value === props.model) || GEMINI_MODELS[0]
+  () => AI_MODELS.find((option) => option.value === props.model) || AI_MODELS[0]
 );
 const modelHint = computed(() => getModelHint(props.model, props.mode));
 const usageLabel = computed(() => {
@@ -58,7 +58,7 @@ function selectMode(value: string) {
           </button>
 
           <ul class="dropdown-menu dropdown-menu-end topbar-select-menu">
-            <li v-for="modelOption in GEMINI_MODELS" :key="modelOption.value">
+            <li v-for="modelOption in AI_MODELS" :key="modelOption.value">
               <button
                 class="dropdown-item"
                 :class="{ active: modelOption.value === props.model }"

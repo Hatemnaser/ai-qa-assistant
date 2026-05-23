@@ -27,6 +27,7 @@ export const env = Object.freeze({
   databaseUrl:
     process.env.DATABASE_URL ||
     "postgresql://postgres:postgres@localhost:5432/ai_qa_assistant?schema=public",
+  aiProvider: process.env.AI_PROVIDER || "gemini",
   geminiApiKey: process.env.GEMINI_API_KEY || "",
   geminiModel: process.env.GEMINI_MODEL || "",
   aiTimeoutMs: parseNumber(process.env.AI_TIMEOUT_MS, 55000),

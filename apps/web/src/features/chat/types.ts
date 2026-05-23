@@ -46,6 +46,7 @@ export interface ChatApiResponse {
   reply: string;
   mode: string;
   model: string;
+  provider?: string;
   usage?: ChatUsageSummary;
 }
 

@@ -1,5 +1,15 @@
-const conversationalPromptTemplate = (message: string) => `
+import type { AiHistoryMessage } from "./ai.types.js";
+import { analyzeQaWorkflow, formatWorkflowInstructions, type QaWorkflowAnalysis } from "./qa-workflow.js";
+
+interface PromptBuildOptions {
+  hasImage?: boolean;
+  history?: AiHistoryMessage[];
+}
+
+const conversationalPromptTemplate = (message: string, analysis: QaWorkflowAnalysis) => `
 You are an AI QA Assistant.
+
+${formatWorkflowInstructions(analysis)}
 
 Help the user with software testing, QA strategy, test planning, bug analysis, and quality improvement.
 Use the recent conversation context when the user asks a follow-up, says thanks, asks for a language change,
@@ -12,17 +22,31 @@ Respond in a clear, practical, and structured way.
 Use QA terminology where useful.
 `;
 
-const generalPromptTemplate = conversationalPromptTemplate;
+const generalPromptTemplate = (message: string, analysis: QaWorkflowAnalysis) => `
+You are an AI QA Assistant.
 
-const promptTemplates: Record<string, (message: string) => string> = {
+${formatWorkflowInstructions(analysis)}
+
+User request:
+${message}
+
+Respond as a senior QA partner. If the request is broad, identify the likely QA workflow and give a useful next step.
+When details are missing, state assumptions clearly and ask focused follow-up questions.
+`;
+
+const promptTemplates: Record<string, (message: string, analysis: QaWorkflowAnalysis) => string> = {
   general: generalPromptTemplate,
 
-  test_cases: (message) => `
+  test_cases: (message, analysis) => `
 You are a professional QA Engineer.
+
+${formatWorkflowInstructions(analysis)}
 
 Generate structured test cases for the following feature or requirement:
 
 ${message}
+
+${formatClarificationInstruction(analysis)}
 
 Format the answer as:
 
@@ -30,6 +54,9 @@ Format the answer as:
 
 ## Scope
 Briefly describe what is being tested.
+
+## Assumptions
+List any assumptions you made from the request.
 
 ## Test Cases
 For each test case include:
@@ -42,15 +69,19 @@ For each test case include:
 - Type: Functional / Negative / Boundary / Security / UI / Regression
 
 Make the test cases practical and realistic.
-Include positive, negative, edge, security, and UI cases when relevant.
+Include positive, negative, edge, security, accessibility, integration/API, and UI cases when relevant.
 `,
 
-  bug_report: (message) => `
+  bug_report: (message, analysis) => `
 You are a QA Engineer writing a professional bug report.
+
+${formatWorkflowInstructions(analysis)}
 
 Create a structured bug report based on this issue:
 
 ${message}
+
+${formatClarificationInstruction(analysis)}
 
 Format the answer as:
 
@@ -85,19 +116,26 @@ Low / Medium / High / Critical
 ## Priority
 Low / Medium / High
 
+## Evidence Needed
+Mention useful logs, screenshots, network calls, console errors, or data checks the tester should collect.
+
 ## Possible Cause
-Suggest possible technical or UX causes.
+Suggest possible technical or UX causes without pretending they are confirmed.
 
 ## Additional Notes
-Mention useful logs, screenshots, or checks the tester should collect.
+Add assumptions and open questions.
 `,
 
-  edge_cases: (message) => `
+  edge_cases: (message, analysis) => `
 You are a QA Engineer specialized in edge case analysis.
+
+${formatWorkflowInstructions(analysis)}
 
 Suggest edge cases for the following feature:
 
 ${message}
+
+${formatClarificationInstruction(analysis)}
 
 Format the answer as:
 
@@ -105,6 +143,9 @@ Format the answer as:
 
 ## Feature
 Briefly describe the feature.
+
+## Assumptions
+List any assumptions you made from the request.
 
 ## Edge Cases
 Group the edge cases by category:
@@ -123,16 +164,23 @@ For each edge case, include:
 - Expected behavior
 `,
 
-  checklist: (message) => `
+  checklist: (message, analysis) => `
 You are a Senior QA Engineer.
+
+${formatWorkflowInstructions(analysis)}
 
 Create a QA checklist for:
 
 ${message}
 
+${formatClarificationInstruction(analysis)}
+
 Format the answer as:
 
 # QA Checklist
+
+## Assumptions
+- ...
 
 ## Functional Testing
 - [ ] ...
@@ -161,8 +209,10 @@ Format the answer as:
 Make the checklist practical and useful for a real QA process.
 `,
 
-  screenshot_review: (message) => `
+  screenshot_review: (message, analysis) => `
 You are a Senior QA Engineer reviewing a UI screenshot.
+
+${formatWorkflowInstructions(analysis)}
 
 Analyze the attached screenshot and the user note:
 
@@ -194,28 +244,26 @@ Be practical and specific. Do not invent backend behavior that cannot be seen fr
 `,
 };
 
-export function buildPrompt(mode: string, message: string) {
-  if (isConversationalFollowUp(message)) {
-    return conversationalPromptTemplate(message);
+export function buildPrompt(mode: string, message: string, options: PromptBuildOptions = {}) {
+  const analysis = analyzeQaWorkflow({
+    hasImage: options.hasImage,
+    history: options.history,
+    message,
+    mode,
+  });
+
+  if (!analysis.shouldUseArtifactTemplate) {
+    return conversationalPromptTemplate(message, analysis);
   }
 
-  const selectedTemplate = promptTemplates[mode] || generalPromptTemplate;
-  return selectedTemplate(message);
+  const selectedTemplate = promptTemplates[analysis.effectiveMode] || generalPromptTemplate;
+  return selectedTemplate(message, analysis);
 }
 
-function isConversationalFollowUp(message: string) {
-  const normalized = message.trim().toLowerCase();
+function formatClarificationInstruction(analysis: QaWorkflowAnalysis) {
+  if (!analysis.shouldAskClarifyingQuestion) {
+    return "If important details are missing, state reasonable assumptions before the artifact.";
+  }
 
-  if (!normalized) return false;
-
-  return conversationalPatterns.some((pattern) => pattern.test(normalized));
+  return "The request is underspecified. Ask up to 3 focused clarifying questions first, then provide a short starter outline only if it is still useful.";
 }
-
-const conversationalPatterns = [
-  /^(thanks|thank you|thx|ty|ok|okay|cool|great|nice|perfect|awesome|done)[.!?]*$/,
-  /\b(can|could|do)\s+you\s+(speak|talk|write|answer|reply)\s+(in\s+)?(arabic|english)\b/,
-  /\b(use|switch to|respond in|reply in|answer in|write in)\s+(arabic|english)\b/,
-  /\b(in arabic|in english|arabic please|english please)\b/,
-  /^(مرحبا|اهلا|أهلا|شكرا|شكراً|تمام|اوكي|حلو|ممتاز|يسلمو|يعطيك العافية)[.!؟]*$/,
-  /(بتحكي|تحكي|احكي|جاوب|اكتب).*(عربي|باللغة العربية|بالانجليزي|انجليزي)/,
-];

@@ -8,7 +8,7 @@ AI QA Assistant is a QA-focused chat workspace for test cases, bug reports, edge
 - Backend: Node.js, Express, TypeScript
 - Database: PostgreSQL
 - ORM: Prisma
-- AI provider: Gemini
+- AI provider layer: provider registry with Gemini active
 - Styling: Bootstrap plus app SCSS under `apps/web/src/styles`
 
 ## Project Structure

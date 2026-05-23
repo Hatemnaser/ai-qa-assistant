@@ -49,10 +49,23 @@ npm run db:migrate
 Required for live AI requests:
 
 ```env
+AI_PROVIDER=gemini
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 Keep local secrets in ignored `apps/api/.env`.
+
+## AI Providers
+
+The chat service talks to the AI layer through a provider registry instead of calling Gemini directly.
+
+Active provider:
+
+```text
+gemini
+```
+
+To add another provider later, add a provider adapter in `src/modules/ai`, register its model catalog in `provider-registry.ts`, and keep the shared `AiProviderAdapter` contract unchanged.
 
 ## Routes
 

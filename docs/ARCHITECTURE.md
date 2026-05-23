@@ -66,7 +66,7 @@ Small modules can start with fewer files, but should not put business logic dire
 
 - `health`: service status and deployment checks.
 - `auth`: password registration, password login, password reset request contract, httpOnly session cookies, and server-side session records.
-- `ai`: provider adapters, prompt building, model normalization, AI error mapping.
+- `ai`: provider registry, provider adapters, model catalog, QA workflow intent analysis, prompt building, model normalization, AI error mapping.
 - `chat`: chat API contract and orchestration.
 - `usage`: portfolio/demo usage limits for guests and signed-in users before AI provider calls.
 
@@ -96,6 +96,26 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 - `POST /api/chat`: generate a QA assistant reply.
 
 `POST /api/chat` allows anonymous portfolio usage. Guests receive an httpOnly `qa_guest_id` cookie and are limited separately from signed-in users. The API also hashes the request IP as a fallback abuse guard. Usage is reserved before calling Gemini so the API key is protected from unbounded demo traffic. Successful chat responses include a `usage` summary with `used`, `remaining`, and `limit`.
+
+## AI Workflow Layer
+
+The chat service talks to AI providers through the provider registry, not directly through a specific vendor SDK. Gemini is the active provider today. Future providers should implement the shared provider adapter contract and register their model catalog without changing chat orchestration, usage limits, auth, or workflow analysis.
+
+The backend treats the selected chat mode as a helpful default, not as an absolute instruction. Before building the provider prompt, the `ai` module analyzes the latest user message, attachment state, and selected mode to detect the active QA workflow:
+
+- conversational follow-up
+- language preference
+- test cases
+- bug report
+- edge cases
+- checklist
+- screenshot review
+
+The latest user message is the strongest signal. For example, a short follow-up such as "thanks" or "can you speak Arabic?" should be answered naturally even if the previous mode was Bug Report or Checklist. A direct artifact request such as "create test cases for checkout" should still produce the requested artifact even when the selected mode is General QA.
+
+Prompt templates should stay workflow-aware and practical. They should state assumptions, ask focused questions when a request is underspecified, and avoid inventing product rules that were not provided by the user.
+
+The behavior contract is covered by `docs/AI_BEHAVIOR_EVALS.md` and `apps/api/tests/ai-behavior.test.ts`.
 
 ## Future Backend Modules
 
