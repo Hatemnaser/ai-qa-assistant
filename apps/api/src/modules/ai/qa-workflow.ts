@@ -9,7 +9,8 @@ export type QaWorkflowIntent =
   | "general_qa"
   | "language_preference"
   | "screenshot_review"
-  | "test_cases";
+  | "test_cases"
+  | "visual_context";
 
 export type QaWorkflowLanguage = "arabic" | "english" | "mixed" | "unknown";
 
@@ -67,7 +68,6 @@ export function formatWorkflowInstructions(analysis: QaWorkflowAnalysis) {
 }
 
 function detectIntent(message: string, mode: string, hasImage: boolean): QaWorkflowIntent {
-  if (hasImage || mode === "screenshot_review") return "screenshot_review";
   if (matchesAny(message, languagePreferencePatterns)) return "language_preference";
   if (matchesAny(message, conversationalPatterns)) return "conversational";
   if (matchesAny(message, clarificationPatterns)) return "clarification";
@@ -75,6 +75,9 @@ function detectIntent(message: string, mode: string, hasImage: boolean): QaWorkf
   if (matchesAny(message, checklistPatterns)) return "checklist";
   if (matchesAny(message, edgeCasePatterns)) return "edge_cases";
   if (matchesAny(message, testCasePatterns)) return "test_cases";
+  if (hasImage && isArtifactMode(mode) && mode !== "screenshot_review") return mode as QaWorkflowIntent;
+  if (hasImage && isWeakVisualNote(message)) return "visual_context";
+  if (hasImage) return "screenshot_review";
   if (isArtifactMode(mode)) return mode as QaWorkflowIntent;
 
   return "general_qa";
@@ -116,6 +119,14 @@ function isUnderspecifiedArtifactRequest(message: string) {
   return words.length <= 2;
 }
 
+function isWeakVisualNote(message: string) {
+  const normalized = message.trim().toLowerCase();
+
+  if (!normalized) return true;
+
+  return weakVisualNotePatterns.some((pattern) => pattern.test(normalized));
+}
+
 function matchesAny(message: string, patterns: RegExp[]) {
   return patterns.some((pattern) => pattern.test(message));
 }
@@ -129,8 +140,8 @@ function formatLanguageInstruction(language: QaWorkflowLanguage) {
 }
 
 const conversationalPatterns = [
-  /^(thanks|thank you|thx|ty|ok|okay|cool|great|nice|perfect|awesome|done)[.!?]*$/,
-  /^(مرحبا|اهلا|أهلا|شكرا|شكراً|تمام|اوكي|حلو|ممتاز|يسلمو|يعطيك العافية)[.!؟]*$/,
+  /^(thanks|thank you|thx|ty|ok|okay|cool|great|nice|perfect|awesome|done|wow|waw|lol|haha)[.!?]*$/,
+  /^(مرحبا|اهلا|أهلا|شكرا|شكراً|تمام|اوكي|حلو|ممتاز|يسلمو|يعطيك العافية|واو|ههه)[.!؟]*$/,
 ];
 
 const languagePreferencePatterns = [
@@ -146,7 +157,8 @@ const clarificationPatterns = [
 ];
 
 const testCasePatterns = [
-  /\b(test cases?|tests?|test scenarios?|cases?)\b/,
+  /\b(test cases?|test scenarios?|test suites?|cases?)\b/,
+  /\b(create|generate|write|design|list|give me|make)\s+(manual\s+)?tests?\b/,
   /(تست|تيست|حالات اختبار|اختبارات)/,
 ];
 
@@ -163,4 +175,11 @@ const checklistPatterns = [
 const edgeCasePatterns = [
   /\b(edge cases?|corner cases?|boundary cases?|negative scenarios?)\b/,
   /(إيدج|ايدج|حالات حدودية|حالات طرفية|سيناريوهات سلبية)/,
+];
+
+const weakVisualNotePatterns = [
+  /^(uploaded|attached|sent|added)\s+(an?\s+)?(image|screenshot|picture|photo|attachment)(\s+without\s+additional\s+instructions)?[.!?]*$/,
+  /^(image|screenshot|picture|photo|attachment)[.!?]*$/,
+  /^(check this|look at this|see this|take a look|here|this)[.!?]*$/,
+  /^(شوف|شوف هاي|شوف هاد|هاي|هاد|الصورة|سكرين شوت|صورة)[.!؟]*$/,
 ];

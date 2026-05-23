@@ -15,7 +15,7 @@ export function errorHandler(error: unknown, req: Request, res: Response, next: 
 
   if (isEntityTooLargeError(error)) {
     res.status(413).json({
-      error: "Uploaded image is too large. Please use a smaller screenshot.",
+      error: "Uploaded image is too large. Please use a smaller image.",
       code: "PAYLOAD_TOO_LARGE",
     });
     return;

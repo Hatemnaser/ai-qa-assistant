@@ -9,7 +9,7 @@ const artifactHeadings = [
   "# Bug Report",
   "# Edge Case Analysis",
   "# QA Checklist",
-  "# Screenshot QA Review",
+  "# Visual QA Review",
 ];
 
 describe("AI behavior contract", () => {
@@ -50,12 +50,20 @@ describe("AI behavior contract", () => {
       name: "checklist request from general mode",
     },
     {
-      expectedHeading: "# Screenshot QA Review",
+      expectedHeading: "# Visual QA Review",
       expectedIntent: "screenshot_review",
       hasImage: true,
       message: "what should I test here?",
       mode: "general",
-      name: "screenshot review request from attachment",
+      name: "visual review request from attachment",
+    },
+    {
+      expectedHeading: "# Test Cases",
+      expectedIntent: "test_cases",
+      hasImage: true,
+      message: "create test cases from this screen",
+      mode: "general",
+      name: "test cases from an attached visual",
     },
     {
       expectedHeading: "# Test Cases",
@@ -113,6 +121,18 @@ describe("AI behavior contract", () => {
       mode: "bug_report",
       name: "Arabic next-step follow-up",
     },
+    {
+      expectedIntent: "conversational",
+      message: "waw",
+      mode: "screenshot_review",
+      name: "brief reaction after visual review mode",
+    },
+    {
+      expectedIntent: "conversational",
+      message: "thanks",
+      mode: "screenshot_review",
+      name: "thanks after visual review mode",
+    },
   ];
 
   for (const testCase of conversationalCases) {
@@ -143,6 +163,26 @@ describe("AI behavior contract", () => {
     assert.equal(analysis.shouldAskClarifyingQuestion, true);
     assert.match(prompt, /underspecified/i);
     assert.match(prompt, /focused clarifying questions/i);
+  });
+
+  it("describes an image and offers QA options when no task is specified", () => {
+    const analysis = analyzeQaWorkflow({
+      hasImage: true,
+      message: "Uploaded an image.",
+      mode: "general",
+    });
+    const prompt = buildPrompt("general", "Uploaded an image.", {
+      hasImage: true,
+    });
+
+    assert.equal(analysis.intent, "visual_context");
+    assert.equal(analysis.shouldUseArtifactTemplate, false);
+    assert.match(prompt, /Briefly describe what appears to be visible/i);
+    assert.match(prompt, /QA visual review/i);
+
+    for (const heading of artifactHeadings) {
+      assert.doesNotMatch(prompt, textPattern(heading));
+    }
   });
 });
 

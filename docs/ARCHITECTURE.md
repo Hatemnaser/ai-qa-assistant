@@ -109,7 +109,7 @@ The backend treats the selected chat mode as a helpful default, not as an absolu
 - bug report
 - edge cases
 - checklist
-- screenshot review
+- visual review
 
 The latest user message is the strongest signal. For example, a short follow-up such as "thanks" or "can you speak Arabic?" should be answered naturally even if the previous mode was Bug Report or Checklist. A direct artifact request such as "create test cases for checkout" should still produce the requested artifact even when the selected mode is General QA.
 

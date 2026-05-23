@@ -64,7 +64,7 @@ function hideDragOver() {
   isDraggingOver.value = false;
 }
 
-function handleScreenshotChange(event: Event) {
+function handleImageChange(event: Event) {
   if (isComposerDisabled.value) return;
 
   const input = event.target as HTMLInputElement;
@@ -146,7 +146,7 @@ function handleComposerClick() {
 
           <ul class="dropdown-menu composer-menu">
             <li>
-              <label class="dropdown-item mb-0" for="screenshot-input">Upload image</label>
+              <label class="dropdown-item mb-0" for="image-input">Upload image</label>
             </li>
             <li>
               <button class="dropdown-item disabled" type="button" disabled>
@@ -177,11 +177,11 @@ function handleComposerClick() {
       </div>
 
       <input
-        id="screenshot-input"
+        id="image-input"
         type="file"
         accept="image/png,image/jpeg,image/webp"
         hidden
-        @change="handleScreenshotChange"
+        @change="handleImageChange"
       />
     </div>
 

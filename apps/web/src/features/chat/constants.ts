@@ -6,7 +6,7 @@ export const STORAGE_KEYS = {
 
 export const DEFAULT_MODE = "general";
 export const DEFAULT_MODEL = "gemini-2.5-flash";
-export const SCREENSHOT_REVIEW_MODEL = "gemini-2.5-flash";
+export const VISUAL_REVIEW_MODEL = "gemini-2.5-flash";
 
 export const QA_MODES = [
   { label: "General QA", value: "general" },
@@ -14,7 +14,7 @@ export const QA_MODES = [
   { label: "Bug Report", value: "bug_report" },
   { label: "Edge Cases", value: "edge_cases" },
   { label: "QA Checklist", value: "checklist" },
-  { label: "Screenshot Review", value: "screenshot_review" },
+  { label: "Visual Review", value: "screenshot_review" },
 ] as const;
 
 export const COMPOSER_PLACEHOLDERS_BY_MODE: Record<string, string> = {
@@ -23,7 +23,7 @@ export const COMPOSER_PLACEHOLDERS_BY_MODE: Record<string, string> = {
   bug_report: "Describe the issue, actual result, and expected result...",
   edge_cases: "Describe the feature and I will look for edge cases...",
   checklist: "Describe the product, feature, or release scope...",
-  screenshot_review: "Add notes about what to inspect in the screenshot...",
+  screenshot_review: "Add notes about what to inspect in the visual...",
 };
 
 export const AI_MODELS = [
@@ -32,7 +32,7 @@ export const AI_MODELS = [
     provider: "gemini",
     value: "gemini-2.5-flash",
     supportsImages: true,
-    recommendedFor: "Screenshot review and deeper QA analysis",
+    recommendedFor: "Visual review and deeper QA analysis",
   },
   {
     label: "Gemini 2.5 Flash Lite",
@@ -74,7 +74,7 @@ export function getModelForMode(mode: string, requestedModel: unknown) {
   const selectedModel = normalizeModel(requestedModel);
 
   if (mode === "screenshot_review" && !supportsImages(selectedModel)) {
-    return SCREENSHOT_REVIEW_MODEL;
+    return VISUAL_REVIEW_MODEL;
   }
 
   return selectedModel;
@@ -82,10 +82,10 @@ export function getModelForMode(mode: string, requestedModel: unknown) {
 
 export function getModelHint(model: unknown, mode: string) {
   const selectedConfig = getModelConfig(model);
-  const screenshotRecommendation =
-    mode === "screenshot_review" ? ` Screenshot review is best with ${SCREENSHOT_REVIEW_MODEL}.` : "";
+  const visualRecommendation =
+    mode === "screenshot_review" ? ` Visual review is best with ${VISUAL_REVIEW_MODEL}.` : "";
 
-  return `${selectedConfig.label}: ${selectedConfig.recommendedFor}.${screenshotRecommendation}`;
+  return `${selectedConfig.label}: ${selectedConfig.recommendedFor}.${visualRecommendation}`;
 }
 
 export const QUICK_ACTIONS = [
@@ -110,9 +110,9 @@ export const QUICK_ACTIONS = [
     prompt: "Create a QA checklist for a web application",
   },
   {
-    label: "Screenshot Review",
+    label: "Visual Review",
     mode: "screenshot_review",
-    prompt: "Analyze this screenshot as a QA engineer",
+    prompt: "Review this visual as a QA engineer",
   },
 ] as const;
 

@@ -14,6 +14,7 @@ ${formatWorkflowInstructions(analysis)}
 Help the user with software testing, QA strategy, test planning, bug analysis, and quality improvement.
 Use the recent conversation context when the user asks a follow-up, says thanks, asks for a language change,
 or asks a clarification question. Do not force a QA artifact format unless the latest user request asks for one.
+If the latest message is only a brief reaction such as thanks, wow, or ok, answer naturally and do not ask for a new image or attachment just because older context involved one.
 
 User request:
 ${message}
@@ -32,6 +33,27 @@ ${message}
 
 Respond as a senior QA partner. If the request is broad, identify the likely QA workflow and give a useful next step.
 When details are missing, state assumptions clearly and ask focused follow-up questions.
+`;
+
+const visualContextPromptTemplate = (message: string, analysis: QaWorkflowAnalysis) => `
+You are an AI QA Assistant looking at an attached visual.
+
+${formatWorkflowInstructions(analysis)}
+
+The user attached an image or screenshot without a specific QA task.
+
+User note:
+${message}
+
+Briefly describe what appears to be visible in the image. Then ask what the user wants to do next.
+Offer a short set of relevant QA options, such as:
+- QA visual review
+- test cases based on the screen
+- bug report for a visible issue
+- accessibility, layout, or UX review
+
+Do not produce a full QA artifact yet unless the user's latest message clearly asks for one.
+Do not invent details that are not visible in the attached image.
 `;
 
 const promptTemplates: Record<string, (message: string, analysis: QaWorkflowAnalysis) => string> = {
@@ -210,17 +232,19 @@ Make the checklist practical and useful for a real QA process.
 `,
 
   screenshot_review: (message, analysis) => `
-You are a Senior QA Engineer reviewing a UI screenshot.
+You are a Senior QA Engineer reviewing a visual attachment such as a UI screenshot, app screen, or product image.
 
 ${formatWorkflowInstructions(analysis)}
 
-Analyze the attached screenshot and the user note:
+Analyze the attached image or screenshot and the user note:
 
 ${message}
 
+If no image is attached to the latest request, ask the user to upload the image before reviewing. Do not invent visible details from earlier context.
+
 Format the answer as:
 
-# Screenshot QA Review
+# Visual QA Review
 
 ## Summary
 Briefly describe what the screen appears to show.
@@ -235,12 +259,12 @@ Mention possible accessibility problems such as contrast, labels, readability, k
 List anything that could be a functional or visual bug.
 
 ## Suggested Test Cases
-Provide practical test cases based on the screenshot.
+Provide practical test cases based on the attached visual.
 
 ## Severity Notes
 Classify the most important issues as Low / Medium / High.
 
-Be practical and specific. Do not invent backend behavior that cannot be seen from the screenshot.
+Be practical and specific. Do not invent backend behavior that cannot be seen from the attached visual.
 `,
 };
 
@@ -253,6 +277,10 @@ export function buildPrompt(mode: string, message: string, options: PromptBuildO
   });
 
   if (!analysis.shouldUseArtifactTemplate) {
+    if (analysis.intent === "visual_context") {
+      return visualContextPromptTemplate(message, analysis);
+    }
+
     return conversationalPromptTemplate(message, analysis);
   }
 

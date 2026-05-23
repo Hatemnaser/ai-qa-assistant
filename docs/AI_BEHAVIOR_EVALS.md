@@ -25,7 +25,10 @@ npm run test:api
 | User asks for a bug report from General mode | Infer `bug_report` and build a bug report artifact. |
 | User asks for edge cases from General mode | Infer `edge_cases` and build an edge case artifact. |
 | User asks for a checklist from General mode | Infer `checklist` and build a checklist artifact. |
-| User uploads a screenshot | Use screenshot review behavior. |
+| User uploads an image and asks for review | Use visual review behavior. |
+| User uploads an image and asks for test cases | Use the image as context and build test cases instead of forcing visual review. |
+| User uploads an image without a specific task | Briefly describe the image and offer QA workflow options. |
+| User says `thanks` or `waw` while Visual Review is selected but no new image is attached | Reply conversationally, do not ask for another image just because older context involved one. |
 | User gives a tiny artifact request like `login` | Ask focused clarification questions before inventing details. |
 
 ## Rules

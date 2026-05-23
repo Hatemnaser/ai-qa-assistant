@@ -26,7 +26,7 @@ describe("QA workflow analysis", () => {
     assert.equal(analysis.shouldUseArtifactTemplate, true);
   });
 
-  it("keeps screenshot review intent when an image is attached", () => {
+  it("keeps visual review intent when an image is attached", () => {
     const analysis = analyzeQaWorkflow({
       hasImage: true,
       message: "what should I test here?",
@@ -35,6 +35,40 @@ describe("QA workflow analysis", () => {
 
     assert.equal(analysis.intent, "screenshot_review");
     assert.equal(analysis.effectiveMode, "screenshot_review");
+  });
+
+  it("uses a clear artifact request instead of forcing image review", () => {
+    const analysis = analyzeQaWorkflow({
+      hasImage: true,
+      message: "create test cases from this screen",
+      mode: "general",
+    });
+
+    assert.equal(analysis.intent, "test_cases");
+    assert.equal(analysis.effectiveMode, "test_cases");
+  });
+
+  it("uses visual context handling for images without a specific request", () => {
+    const analysis = analyzeQaWorkflow({
+      hasImage: true,
+      message: "Uploaded an image.",
+      mode: "general",
+    });
+
+    assert.equal(analysis.intent, "visual_context");
+    assert.equal(analysis.effectiveMode, "general");
+    assert.equal(analysis.shouldUseArtifactTemplate, false);
+  });
+
+  it("does not force visual review for short reactions without a new image", () => {
+    const analysis = analyzeQaWorkflow({
+      message: "waw",
+      mode: "screenshot_review",
+    });
+
+    assert.equal(analysis.intent, "conversational");
+    assert.equal(analysis.effectiveMode, "general");
+    assert.equal(analysis.shouldUseArtifactTemplate, false);
   });
 
   it("detects Arabic requests", () => {

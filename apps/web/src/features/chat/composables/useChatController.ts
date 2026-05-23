@@ -178,12 +178,12 @@ export function useChatController() {
 
   async function handleSubmit() {
     const typedMessage = messageInput.value.trim();
-    const message = typedMessage || (selectedImage.value ? "Analyze this screenshot as a QA engineer." : "");
+    const message = typedMessage || (selectedImage.value ? "Uploaded an image." : "");
 
     if (!message || isSending.value) return;
 
     const chat = ensureActiveChat();
-    const mode = selectedImage.value ? "screenshot_review" : selectedMode.value;
+    const mode = selectedMode.value;
     const model = getModelForMode(mode, selectedModel.value);
     const shouldResetQuickActionMode = quickActionMode.value === mode && !selectedImage.value;
     const history = buildRequestHistory(chat);
@@ -308,7 +308,6 @@ export function useChatController() {
     }
 
     selectedImage.value = await fileToSelectedImage(file);
-    selectedMode.value = "screenshot_review";
   }
 
   function openAttachment(attachment: ChatAttachment) {

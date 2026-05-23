@@ -27,7 +27,7 @@ The current goal is not to add new product features. The goal is to keep the mig
   - Existing SCSS already contains dark theme styles, so Vue should reuse them.
 
 - [x] Composer placeholder by selected mode.
-  - Legacy changes the placeholder for test cases, bug reports, edge cases, checklist, and screenshot review.
+  - Legacy changes the placeholder for test cases, bug reports, edge cases, checklist, and visual review.
   - Vue currently uses one generic placeholder.
 
 - [x] Composer textarea auto-resize.

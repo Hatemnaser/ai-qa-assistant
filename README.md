@@ -1,6 +1,6 @@
 # AI QA Assistant
 
-AI QA Assistant is a QA-focused chat workspace for test cases, bug reports, edge cases, checklist generation, screenshot review, and chat export/import.
+AI QA Assistant is a QA-focused chat workspace for test cases, bug reports, edge cases, checklist generation, visual review, and chat export/import.
 
 ## Stack
 

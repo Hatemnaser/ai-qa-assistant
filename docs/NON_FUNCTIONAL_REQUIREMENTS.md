@@ -27,6 +27,8 @@ This project should stay easy to extend while it grows from a portfolio demo int
 
 - The latest user message must take priority over the selected mode and older chat context.
 - Conversational follow-ups, thanks, language changes, and clarification questions must not be forced into QA artifact templates.
+- Attachments should provide context, not permanently lock the conversation into an attachment-review mode.
+- When a user uploads an image without a clear task, the assistant should briefly describe it and offer next-step QA options.
 - QA artifact responses should include assumptions when details are missing instead of pretending requirements are complete.
 - Underspecified artifact requests should ask a few focused questions before generating a large answer.
 

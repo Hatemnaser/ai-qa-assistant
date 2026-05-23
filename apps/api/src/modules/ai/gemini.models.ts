@@ -7,7 +7,7 @@ export const GEMINI_MODELS = [
   {
     label: "Gemini 2.5 Flash",
     provider: GEMINI_PROVIDER_ID,
-    recommendedFor: "Screenshot review and deeper QA analysis",
+    recommendedFor: "Visual review and deeper QA analysis",
     supportsImages: true,
     value: "gemini-2.5-flash",
   },
