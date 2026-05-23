@@ -117,7 +117,7 @@ Prompt templates should stay workflow-aware and practical. They should state ass
 
 The behavior contract is covered by `docs/AI_BEHAVIOR_EVALS.md` and `apps/api/tests/ai-behavior.test.ts`.
 
-The frontend composer uses generic attachment state, even though the current backend payload only sends image data to Gemini. This keeps the UI and chat storage ready for later file types without changing the chat controller contract again.
+The chat API accepts a generic `attachments` array. The active provider boundary converts supported image attachments into the Gemini image payload, while non-image file processing remains a future integration. This keeps the UI, API contract, and chat storage ready for later file types without changing the chat controller contract again.
 
 ## Future Backend Modules
 

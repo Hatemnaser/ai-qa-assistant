@@ -8,6 +8,7 @@ import {
 } from "../chatExport";
 import {
   createAttachment,
+  createRequestAttachment,
   fileToSelectedAttachment,
   getAttachmentFileError,
 } from "../chatAttachments";
@@ -191,12 +192,7 @@ export function useChatController() {
     const model = getModelForMode(mode, selectedModel.value);
     const shouldResetQuickActionMode = quickActionMode.value === mode && !selectedAttachment.value;
     const history = buildRequestHistory(chat);
-    const imageForRequest = selectedAttachment.value?.type === "image"
-      ? {
-          data: selectedAttachment.value.data,
-          mimeType: selectedAttachment.value.mimeType,
-        }
-      : null;
+    const attachmentsForRequest = selectedAttachment.value ? [createRequestAttachment(selectedAttachment.value)] : null;
     const displayAttachment = selectedAttachment.value ? createAttachment(selectedAttachment.value) : undefined;
     const userMessage = createChatMessage({
       role: "user",
@@ -222,8 +218,8 @@ export function useChatController() {
 
     try {
       const response = await sendMessageToAI({
+        attachments: attachmentsForRequest,
         history,
-        image: imageForRequest,
         message,
         mode,
         model,

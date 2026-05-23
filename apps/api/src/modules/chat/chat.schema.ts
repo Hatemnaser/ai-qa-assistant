@@ -14,6 +14,11 @@ export const chatImageSchema = z.object({
   data: z.string().min(1),
 });
 
+export const chatAttachmentSchema = chatImageSchema.extend({
+  type: z.enum(["image", "file"]),
+  name: z.string().trim().max(255).optional(),
+});
+
 export const chatRequestSchema = z.object({
   message: z
     .string()
@@ -24,5 +29,9 @@ export const chatRequestSchema = z.object({
   model: z.string().trim().optional(),
   provider: z.string().trim().optional(),
   history: z.array(chatHistoryMessageSchema).max(env.maxHistoryMessages).default([]),
+  attachments: z.preprocess(
+    (value) => (value === null ? undefined : value),
+    z.array(chatAttachmentSchema).max(1, "Only one attachment is supported right now.").optional()
+  ),
   image: z.preprocess((value) => (value === null ? undefined : value), chatImageSchema.optional()),
 });

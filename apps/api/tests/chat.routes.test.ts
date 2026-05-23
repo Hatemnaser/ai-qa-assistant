@@ -74,6 +74,51 @@ describe("POST /api/chat", () => {
     assert.equal(response.status, 400);
     assert.equal(body.code, "UNSUPPORTED_MODEL");
   });
+
+  it("accepts image attachments in the request contract", async () => {
+    const response = await postJson("/api/chat", {
+      attachments: [
+        {
+          type: "image",
+          name: "screen.png",
+          mimeType: "image/png",
+          data: "abc",
+        },
+      ],
+      message: "Review this visual",
+      mode: "general",
+      model: "not-a-real-model",
+      history: [],
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.code, "UNSUPPORTED_MODEL");
+  });
+
+  it("rejects more than one chat attachment for now", async () => {
+    const response = await postJson("/api/chat", {
+      attachments: [
+        {
+          type: "image",
+          mimeType: "image/png",
+          data: "abc",
+        },
+        {
+          type: "image",
+          mimeType: "image/png",
+          data: "def",
+        },
+      ],
+      message: "Review these",
+      mode: "general",
+      history: [],
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.code, "VALIDATION_ERROR");
+  });
 });
 
 async function postJson(path: string, body: unknown) {

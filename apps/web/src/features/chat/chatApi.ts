@@ -1,4 +1,4 @@
-import type { ChatApiResponse, ChatHistoryItem, RequestImage } from "./types";
+import type { ChatApiResponse, ChatHistoryItem, RequestAttachment } from "./types";
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 const REQUEST_TIMEOUT_MS = 60000;
@@ -21,7 +21,7 @@ export async function sendMessageToAI(input: {
   model: string;
   provider?: string;
   history: ChatHistoryItem[];
-  image?: RequestImage | null;
+  attachments?: RequestAttachment[] | null;
 }): Promise<ChatApiResponse> {
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -31,7 +31,7 @@ export async function sendMessageToAI(input: {
     mode: input.mode,
     model: input.model,
     ...(input.provider ? { provider: input.provider } : {}),
-    ...(input.image ? { image: input.image } : {}),
+    ...(input.attachments?.length ? { attachments: input.attachments } : {}),
   };
 
   try {

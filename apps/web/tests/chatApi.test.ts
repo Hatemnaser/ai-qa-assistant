@@ -10,6 +10,43 @@ afterEach(() => {
 });
 
 describe("chat api", () => {
+  it("sends attachments through the chat request contract", async () => {
+    mockFetch(async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+
+      assert.deepEqual(body.attachments, [
+        {
+          type: "image",
+          name: "screen.png",
+          mimeType: "image/png",
+          data: "abc",
+        },
+      ]);
+      assert.equal("image" in body, false);
+
+      return jsonResponse({
+        reply: "ok",
+        mode: "general",
+        model: "gemini-2.5-flash",
+      });
+    });
+
+    await sendMessageToAI({
+      attachments: [
+        {
+          type: "image",
+          name: "screen.png",
+          mimeType: "image/png",
+          data: "abc",
+        },
+      ],
+      history: [],
+      message: "hello",
+      mode: "general",
+      model: "gemini-2.5-flash",
+    });
+  });
+
   it("surfaces structured backend errors", async () => {
     mockFetch(async (input, init) => {
       assert.equal(input, "/api/chat");

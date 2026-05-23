@@ -48,7 +48,7 @@ The current goal is not to add new product features. The goal is to keep the mig
 
 - [x] Attachment menu parity.
   - The composer keeps a plus-button dropup menu.
-  - The UI uses attachment naming, while the active API payload still supports images only.
+  - The UI and API use attachment naming, while the active provider path supports image data only.
 
 - [x] Empty welcome state parity.
   - Legacy shows a welcome message with starter actions.

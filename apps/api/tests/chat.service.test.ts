@@ -116,4 +116,78 @@ describe("chat service", () => {
       used: 1,
     });
   });
+
+  it("converts image attachments into the provider image payload", async () => {
+    const service = createChatService({
+      chatWithAi: async (input) => {
+        assert.deepEqual(input.image, {
+          mimeType: "image/png",
+          data: "abc",
+        });
+
+        return {
+          reply: "Hi from test AI",
+          model: "gemini-2.5-flash",
+          provider: "gemini",
+        };
+      },
+    });
+
+    await service.createChatReply({
+      attachments: [
+        {
+          type: "image",
+          name: "screen.png",
+          mimeType: "image/png",
+          data: "abc",
+        },
+      ],
+      history: [],
+      message: "review this",
+      mode: "general",
+      model: "gemini-2.5-flash",
+    });
+  });
+
+  it("rejects unsupported attachment types before usage or AI calls", async () => {
+    let providerWasCalled = false;
+    let usageWasReserved = false;
+    const service = createChatService({
+      chatWithAi: async () => {
+        providerWasCalled = true;
+        return {
+          reply: "should not happen",
+          model: "gemini-2.5-flash",
+          provider: "gemini",
+        };
+      },
+      reserveUsage: async () => {
+        usageWasReserved = true;
+      },
+    });
+
+    await assert.rejects(
+      () =>
+        service.createChatReply({
+          attachments: [
+            {
+              type: "file",
+              name: "requirements.pdf",
+              mimeType: "application/pdf",
+              data: "abc",
+            },
+          ],
+          history: [],
+          message: "review this",
+          mode: "general",
+          model: "gemini-2.5-flash",
+        }),
+      {
+        code: "UNSUPPORTED_ATTACHMENT_TYPE",
+        statusCode: 400,
+      }
+    );
+    assert.equal(providerWasCalled, false);
+    assert.equal(usageWasReserved, false);
+  });
 });

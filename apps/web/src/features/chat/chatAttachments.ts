@@ -1,4 +1,4 @@
-import type { ChatAttachment, SelectedAttachment } from "./types";
+import type { ChatAttachment, RequestAttachment, SelectedAttachment } from "./types";
 
 const MAX_IMAGE_SIZE_MB = 4;
 
@@ -44,5 +44,14 @@ export function createAttachment(attachment: SelectedAttachment): ChatAttachment
     name: attachment.name,
     mimeType: attachment.mimeType,
     ...(attachment.previewUrl ? { previewUrl: attachment.previewUrl } : {}),
+  };
+}
+
+export function createRequestAttachment(attachment: SelectedAttachment): RequestAttachment {
+  return {
+    type: attachment.type,
+    name: attachment.name,
+    mimeType: attachment.mimeType,
+    data: attachment.data,
   };
 }
