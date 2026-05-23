@@ -16,14 +16,14 @@ import { DEFAULT_MODE, DEFAULT_MODEL } from "../constants";
 import type { Chat } from "../types";
 
 interface StoredChatOptions {
-  clearSelectedImage: () => void;
+  clearSelectedAttachment: () => void;
   messageInput: Ref<string>;
   selectedMode: Ref<string>;
   selectedModel: Ref<string>;
 }
 
 export function useStoredChats({
-  clearSelectedImage,
+  clearSelectedAttachment,
   messageInput,
   selectedMode,
   selectedModel,
@@ -43,7 +43,7 @@ export function useStoredChats({
     activeChatId.value = null;
     clearActiveChatId(storageScope.value);
     messageInput.value = "";
-    clearSelectedImage();
+    clearSelectedAttachment();
     selectedMode.value = DEFAULT_MODE;
     selectedModel.value = DEFAULT_MODEL;
   }
@@ -150,7 +150,7 @@ export function useStoredChats({
     chats.value = loadChats(storageScope.value);
     activeChatId.value = getActiveChatId(storageScope.value);
     messageInput.value = "";
-    clearSelectedImage();
+    clearSelectedAttachment();
 
     if (!activeChat.value) {
       activeChatId.value = null;

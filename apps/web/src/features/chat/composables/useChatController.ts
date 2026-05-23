@@ -6,8 +6,12 @@ import {
   exportChatByFormat,
   parseImportedChatJson,
 } from "../chatExport";
-import { fileToSelectedImage, getImageFileError } from "../chatImages";
-import { buildRequestHistory, createChatMessage, createImageAttachment } from "../chatMessages";
+import {
+  createAttachment,
+  fileToSelectedAttachment,
+  getAttachmentFileError,
+} from "../chatAttachments";
+import { buildRequestHistory, createChatMessage } from "../chatMessages";
 import { DEFAULT_MODE, DEFAULT_MODEL, getModelForMode } from "../constants";
 import { useStoredChats } from "./useStoredChats";
 import { useChatMenus } from "./useChatMenus";
@@ -18,14 +22,14 @@ import type {
   ChatMessage,
   ChatUsageSummary,
   ExportFormat,
-  SelectedImage,
+  SelectedAttachment,
 } from "../types";
 
 export function useChatController() {
   const messageInput = ref("");
   const selectedMode = ref(DEFAULT_MODE);
   const selectedModel = ref(DEFAULT_MODEL);
-  const selectedImage = ref<SelectedImage | null>(null);
+  const selectedAttachment = ref<SelectedAttachment | null>(null);
   const chatPendingDelete = ref<Chat | null>(null);
   const renamingChatId = ref<string | null>(null);
   const quickActionMode = ref<string | null>(null);
@@ -33,8 +37,8 @@ export function useChatController() {
   const guestLimitReached = ref(false);
   const isSending = ref(false);
 
-  function clearSelectedImage() {
-    selectedImage.value = null;
+  function clearSelectedAttachment() {
+    selectedAttachment.value = null;
   }
 
   const {
@@ -52,7 +56,7 @@ export function useChatController() {
     startNewChat: startStoredNewChat,
     updateChat,
   } = useStoredChats({
-    clearSelectedImage,
+    clearSelectedAttachment,
     messageInput,
     selectedMode,
     selectedModel,
@@ -178,22 +182,22 @@ export function useChatController() {
 
   async function handleSubmit() {
     const typedMessage = messageInput.value.trim();
-    const message = typedMessage || (selectedImage.value ? "Uploaded an image." : "");
+    const message = typedMessage || getAttachmentOnlyMessage(selectedAttachment.value);
 
     if (!message || isSending.value) return;
 
     const chat = ensureActiveChat();
     const mode = selectedMode.value;
     const model = getModelForMode(mode, selectedModel.value);
-    const shouldResetQuickActionMode = quickActionMode.value === mode && !selectedImage.value;
+    const shouldResetQuickActionMode = quickActionMode.value === mode && !selectedAttachment.value;
     const history = buildRequestHistory(chat);
-    const imageForRequest = selectedImage.value
+    const imageForRequest = selectedAttachment.value?.type === "image"
       ? {
-          data: selectedImage.value.data,
-          mimeType: selectedImage.value.mimeType,
+          data: selectedAttachment.value.data,
+          mimeType: selectedAttachment.value.mimeType,
         }
       : null;
-    const displayAttachment = selectedImage.value ? createImageAttachment(selectedImage.value) : undefined;
+    const displayAttachment = selectedAttachment.value ? createAttachment(selectedAttachment.value) : undefined;
     const userMessage = createChatMessage({
       role: "user",
       content: message,
@@ -211,7 +215,7 @@ export function useChatController() {
 
     updateChat(nextChat);
     messageInput.value = "";
-    clearSelectedImage();
+    clearSelectedAttachment();
     isSending.value = true;
 
     await scrollChatToBottom();
@@ -293,21 +297,21 @@ export function useChatController() {
     }
   }
 
-  async function handleImageSelected(file: File | undefined) {
-    await handleImageFile(file);
+  async function handleAttachmentSelected(file: File | undefined) {
+    await handleAttachmentFile(file);
   }
 
-  async function handleImageFile(file: File | undefined) {
+  async function handleAttachmentFile(file: File | undefined) {
     if (!file) return;
 
-    const fileError = getImageFileError(file);
+    const fileError = getAttachmentFileError(file);
 
     if (fileError) {
       alert(fileError);
       return;
     }
 
-    selectedImage.value = await fileToSelectedImage(file);
+    selectedAttachment.value = await fileToSelectedAttachment(file);
   }
 
   function openAttachment(attachment: ChatAttachment) {
@@ -316,10 +320,16 @@ export function useChatController() {
     }
   }
 
-  function openSelectedImage() {
-    if (selectedImage.value?.previewUrl) {
-      window.open(selectedImage.value.previewUrl, "_blank");
+  function openSelectedAttachment() {
+    if (selectedAttachment.value?.previewUrl) {
+      window.open(selectedAttachment.value.previewUrl, "_blank");
     }
+  }
+
+  function getAttachmentOnlyMessage(attachment: SelectedAttachment | null) {
+    if (!attachment) return "";
+
+    return attachment.type === "image" ? "Uploaded an image." : "Uploaded an attachment.";
   }
 
   return {
@@ -331,14 +341,14 @@ export function useChatController() {
     cancelRenameChat,
     chatPendingDelete,
     chats,
-    clearSelectedImage,
+    clearSelectedAttachment,
     clearGuestLimitReached,
     confirmDeleteChat,
     copyAnswer,
     exportActiveChat,
     exportAnswer,
     exportChat,
-    handleImageSelected,
+    handleAttachmentSelected,
     handleImportChat,
     handleSubmit,
     guestLimitReached,
@@ -351,12 +361,12 @@ export function useChatController() {
     openExportMenuChat,
     openExportSubmenu,
     openMenuChat,
-    openSelectedImage,
+    openSelectedAttachment,
     renamingChatId,
     requestDeleteChat,
     replaceChats,
     selectChat,
-    selectedImage,
+    selectedAttachment,
     selectedMode,
     selectedModel,
     setChatStorageOwner,

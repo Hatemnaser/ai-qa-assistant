@@ -10,7 +10,7 @@ The current goal is not to add new product features. The goal is to keep the mig
 - [x] New chat flow.
 - [x] Model and mode selectors.
 - [x] `/api/chat` request flow with history.
-- [x] Image attachment payload support.
+- [x] Attachment preview with image payload support.
 - [x] Markdown rendering for assistant replies.
 - [x] Copy and export actions on assistant messages.
 - [x] Sidebar export menu for saved chats.
@@ -47,8 +47,8 @@ The current goal is not to add new product features. The goal is to keep the mig
   - Vue currently uses a browser prompt.
 
 - [x] Attachment menu parity.
-  - Legacy has a dropup menu with image upload and a disabled future document option.
-  - Vue currently opens image upload directly from the plus button.
+  - The composer keeps a plus-button dropup menu.
+  - The UI uses attachment naming, while the active API payload still supports images only.
 
 - [x] Empty welcome state parity.
   - Legacy shows a welcome message with starter actions.

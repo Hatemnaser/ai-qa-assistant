@@ -134,7 +134,9 @@ function copyLabel(message: ChatMessage) {
           />
           <span class="chat-attachment-meta">
             <span class="chat-attachment-name">{{ message.attachment.name }}</span>
-            <span class="chat-attachment-type">Image</span>
+            <span class="chat-attachment-type">
+              {{ message.attachment.type === "image" ? "Image" : "File" }}
+            </span>
           </span>
         </button>
         <div class="message-text">{{ message.content }}</div>

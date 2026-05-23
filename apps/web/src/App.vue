@@ -57,14 +57,14 @@ const {
   cancelRenameChat,
   chatPendingDelete,
   chats,
-  clearSelectedImage,
+  clearSelectedAttachment,
   clearGuestLimitReached,
   confirmDeleteChat,
   copyAnswer,
   exportActiveChat,
   exportAnswer,
   exportChat,
-  handleImageSelected,
+  handleAttachmentSelected,
   handleImportChat,
   handleSubmit,
   guestLimitReached,
@@ -77,12 +77,12 @@ const {
   openExportMenuChat,
   openExportSubmenu,
   openMenuChat,
-  openSelectedImage,
+  openSelectedAttachment,
   renamingChatId,
   requestDeleteChat,
   replaceChats,
   selectChat,
-  selectedImage,
+  selectedAttachment,
   selectedMode,
   selectedModel,
   setChatStorageOwner,
@@ -197,11 +197,11 @@ function confirmDeleteChatAndSync() {
         disabled-message="Guest demo limit reached. Sign in or create a free account to continue."
         :is-sending="isSending"
         :mode="selectedMode"
-        :selected-image="selectedImage"
-        @clear-selected-image="clearSelectedImage"
+        :selected-attachment="selectedAttachment"
+        @clear-selected-attachment="clearSelectedAttachment"
         @disabled-click="isGuestLimitModalOpen = true"
-        @image-selected="handleImageSelected"
-        @open-selected-image="openSelectedImage"
+        @attachment-selected="handleAttachmentSelected"
+        @open-selected-attachment="openSelectedAttachment"
         @quick-action="applyQuickAction"
         @submit="handleSubmit"
       />

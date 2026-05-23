@@ -1,5 +1,5 @@
 import { createId } from "./chatStorage";
-import type { Chat, ChatAttachment, ChatHistoryItem, ChatMessage, SelectedImage } from "./types";
+import type { Chat, ChatAttachment, ChatHistoryItem, ChatMessage } from "./types";
 
 interface NewChatMessage {
   role: ChatMessage["role"];
@@ -58,12 +58,3 @@ const systemErrorPatterns = [
   /invalid request payload/i,
   /gemini_api_key is not configured/i,
 ];
-
-export function createImageAttachment(image: SelectedImage): ChatAttachment {
-  return {
-    type: "image",
-    name: image.name,
-    mimeType: image.mimeType,
-    previewUrl: image.previewUrl,
-  };
-}

@@ -1,12 +1,12 @@
-import type { SelectedImage } from "./types";
+import type { ChatAttachment, SelectedAttachment } from "./types";
 
 const MAX_IMAGE_SIZE_MB = 4;
 
-export function getImageFileError(file: File | undefined) {
+export function getAttachmentFileError(file: File | undefined) {
   if (!file) return "";
 
   if (!file.type.startsWith("image/")) {
-    return "Please upload an image file.";
+    return "File uploads are coming soon. For now, please upload an image file.";
   }
 
   if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
@@ -16,7 +16,7 @@ export function getImageFileError(file: File | undefined) {
   return "";
 }
 
-export function fileToSelectedImage(file: File): Promise<SelectedImage> {
+export function fileToSelectedAttachment(file: File): Promise<SelectedAttachment> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
@@ -25,6 +25,7 @@ export function fileToSelectedImage(file: File): Promise<SelectedImage> {
       const base64Data = result.split(",")[1] || "";
 
       resolve({
+        type: "image",
         name: file.name,
         mimeType: file.type,
         data: base64Data,
@@ -35,4 +36,13 @@ export function fileToSelectedImage(file: File): Promise<SelectedImage> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+export function createAttachment(attachment: SelectedAttachment): ChatAttachment {
+  return {
+    type: attachment.type,
+    name: attachment.name,
+    mimeType: attachment.mimeType,
+    ...(attachment.previewUrl ? { previewUrl: attachment.previewUrl } : {}),
+  };
 }

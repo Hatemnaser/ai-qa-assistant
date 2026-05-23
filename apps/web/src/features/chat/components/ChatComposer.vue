@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, ref, watch } from "vue";
 
 import { COMPOSER_PLACEHOLDERS_BY_MODE, QUICK_ACTIONS } from "../constants";
 import type { QuickAction } from "../constants";
-import type { SelectedImage } from "../types";
+import type { SelectedAttachment } from "../types";
 
 const props = defineProps<{
   disabled?: boolean;
@@ -11,15 +11,15 @@ const props = defineProps<{
   isSending: boolean;
   message: string;
   mode: string;
-  selectedImage: SelectedImage | null;
+  selectedAttachment: SelectedAttachment | null;
 }>();
 
 const emit = defineEmits<{
   "update:message": [value: string];
   submit: [];
-  "image-selected": [file: File | undefined];
-  "open-selected-image": [];
-  "clear-selected-image": [];
+  "attachment-selected": [file: File | undefined];
+  "open-selected-attachment": [];
+  "clear-selected-attachment": [];
   "quick-action": [action: QuickAction];
   "disabled-click": [];
 }>();
@@ -64,14 +64,14 @@ function hideDragOver() {
   isDraggingOver.value = false;
 }
 
-function handleImageChange(event: Event) {
+function handleAttachmentChange(event: Event) {
   if (isComposerDisabled.value) return;
 
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
 
   input.value = "";
-  emit("image-selected", file);
+  emit("attachment-selected", file);
 }
 
 function handleDrop(event: DragEvent) {
@@ -82,7 +82,7 @@ function handleDrop(event: DragEvent) {
     return;
   }
 
-  emit("image-selected", event.dataTransfer?.files?.[0]);
+  emit("attachment-selected", event.dataTransfer?.files?.[0]);
 }
 
 function requestSubmit() {
@@ -112,19 +112,25 @@ function handleComposerClick() {
       @dragleave.prevent="hideDragOver"
       @drop.prevent="handleDrop"
     >
-      <div v-if="selectedImage" id="attachment-preview" class="attachment-preview">
-        <div class="attachment-preview-card d-flex align-items-center" @click="emit('open-selected-image')">
-          <img :src="selectedImage.previewUrl" :alt="selectedImage.name" />
+      <div v-if="selectedAttachment" id="attachment-preview" class="attachment-preview">
+        <div class="attachment-preview-card d-flex align-items-center" @click="emit('open-selected-attachment')">
+          <img
+            v-if="selectedAttachment.type === 'image' && selectedAttachment.previewUrl"
+            :src="selectedAttachment.previewUrl"
+            :alt="selectedAttachment.name"
+          />
           <div class="attachment-preview-info">
-            <div class="attachment-preview-name">{{ selectedImage.name }}</div>
-            <div class="attachment-preview-type">Image</div>
+            <div class="attachment-preview-name">{{ selectedAttachment.name }}</div>
+            <div class="attachment-preview-type">
+              {{ selectedAttachment.type === "image" ? "Image" : "File" }}
+            </div>
           </div>
           <button
             class="attachment-remove-btn"
             type="button"
             aria-label="Remove attachment"
             :disabled="isComposerDisabled"
-            @click.stop="emit('clear-selected-image')"
+            @click.stop="emit('clear-selected-attachment')"
           >
             &times;
           </button>
@@ -146,12 +152,7 @@ function handleComposerClick() {
 
           <ul class="dropdown-menu composer-menu">
             <li>
-              <label class="dropdown-item mb-0" for="image-input">Upload image</label>
-            </li>
-            <li>
-              <button class="dropdown-item disabled" type="button" disabled>
-                Upload document soon
-              </button>
+              <label class="dropdown-item mb-0" for="attachment-input">Upload image or file</label>
             </li>
           </ul>
         </div>
@@ -177,11 +178,10 @@ function handleComposerClick() {
       </div>
 
       <input
-        id="image-input"
+        id="attachment-input"
         type="file"
-        accept="image/png,image/jpeg,image/webp"
         hidden
-        @change="handleImageChange"
+        @change="handleAttachmentChange"
       />
     </div>
 

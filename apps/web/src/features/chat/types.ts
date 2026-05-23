@@ -61,7 +61,6 @@ export interface RequestImage {
   data: string;
 }
 
-export interface SelectedImage extends RequestImage {
-  name: string;
-  previewUrl: string;
+export interface SelectedAttachment extends ChatAttachment {
+  data: string;
 }
