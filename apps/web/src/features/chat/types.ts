@@ -22,6 +22,7 @@ export interface ChatMessage {
   model: string;
   attachment?: ChatAttachment;
   createdAt: string;
+  isError?: boolean;
 }
 
 export interface Chat {

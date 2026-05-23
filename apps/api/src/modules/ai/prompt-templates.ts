@@ -1,7 +1,9 @@
-const generalPromptTemplate = (message: string) => `
+const conversationalPromptTemplate = (message: string) => `
 You are an AI QA Assistant.
 
 Help the user with software testing, QA strategy, test planning, bug analysis, and quality improvement.
+Use the recent conversation context when the user asks a follow-up, says thanks, asks for a language change,
+or asks a clarification question. Do not force a QA artifact format unless the latest user request asks for one.
 
 User request:
 ${message}
@@ -9,6 +11,8 @@ ${message}
 Respond in a clear, practical, and structured way.
 Use QA terminology where useful.
 `;
+
+const generalPromptTemplate = conversationalPromptTemplate;
 
 const promptTemplates: Record<string, (message: string) => string> = {
   general: generalPromptTemplate,
@@ -191,6 +195,27 @@ Be practical and specific. Do not invent backend behavior that cannot be seen fr
 };
 
 export function buildPrompt(mode: string, message: string) {
+  if (isConversationalFollowUp(message)) {
+    return conversationalPromptTemplate(message);
+  }
+
   const selectedTemplate = promptTemplates[mode] || generalPromptTemplate;
   return selectedTemplate(message);
 }
+
+function isConversationalFollowUp(message: string) {
+  const normalized = message.trim().toLowerCase();
+
+  if (!normalized) return false;
+
+  return conversationalPatterns.some((pattern) => pattern.test(normalized));
+}
+
+const conversationalPatterns = [
+  /^(thanks|thank you|thx|ty|ok|okay|cool|great|nice|perfect|awesome|done)[.!?]*$/,
+  /\b(can|could|do)\s+you\s+(speak|talk|write|answer|reply)\s+(in\s+)?(arabic|english)\b/,
+  /\b(use|switch to|respond in|reply in|answer in|write in)\s+(arabic|english)\b/,
+  /\b(in arabic|in english|arabic please|english please)\b/,
+  /^(مرحبا|اهلا|أهلا|شكرا|شكراً|تمام|اوكي|حلو|ممتاز|يسلمو|يعطيك العافية)[.!؟]*$/,
+  /(بتحكي|تحكي|احكي|جاوب|اكتب).*(عربي|باللغة العربية|بالانجليزي|انجليزي)/,
+];

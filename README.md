@@ -32,6 +32,13 @@ Install dependencies:
 npm install
 ```
 
+Start PostgreSQL and apply migrations:
+
+```bash
+npm run db:up
+npm run db:migrate
+```
+
 Run the API and web app in separate terminals:
 
 ```bash
@@ -56,6 +63,40 @@ http://127.0.0.1:5000
 ## Environment
 
 Create `apps/api/.env` from `apps/api/.env.example`.
+
+At minimum, local development expects:
+
+```text
+GEMINI_API_KEY=your_key
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ai_qa_assistant?schema=public
+```
+
+If `DATABASE_URL` is omitted, the API uses the local PostgreSQL URL above.
+
+## Database
+
+PostgreSQL is managed through Docker Compose:
+
+```bash
+npm run db:up
+npm run db:down
+npm run db:logs
+npm run db:migrate
+```
+
+Use Prisma Studio to inspect local data:
+
+```bash
+npm run db:studio
+```
+
+If auth returns `DATABASE_UNAVAILABLE` or Prisma Studio cannot load tables, make sure Docker Desktop is running and PostgreSQL is reachable on `localhost:5432`.
+
+## Auth Notes
+
+Password auth uses httpOnly session cookies and hashed passwords. Passwords cannot be viewed after registration; reset them by updating the password hash or by adding real reset email delivery later.
+
+The forgot-password page currently returns a generic local response only. Email delivery and reset links are not implemented yet.
 
 ## Verification
 

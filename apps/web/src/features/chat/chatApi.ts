@@ -1,8 +1,19 @@
 import type { ChatApiResponse, ChatHistoryItem, RequestImage } from "./types";
-import { getBackendError } from "../../api/backendErrors";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 const REQUEST_TIMEOUT_MS = 60000;
+
+export class ChatApiError extends Error {
+  readonly code?: string;
+  readonly status?: number;
+
+  constructor(message: string, options: { code?: string; status?: number } = {}) {
+    super(message);
+    this.name = "ChatApiError";
+    this.code = options.code;
+    this.status = options.status;
+  }
+}
 
 export async function sendMessageToAI(input: {
   message: string;
@@ -12,7 +23,7 @@ export async function sendMessageToAI(input: {
   image?: RequestImage | null;
 }): Promise<ChatApiResponse> {
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const body = {
     history: input.history,
     message: input.message,
@@ -33,7 +44,7 @@ export async function sendMessageToAI(input: {
     });
 
     if (!response.ok) {
-      throw new Error(await getBackendError(response, "Failed to get response from backend."));
+      throw await createChatApiError(response, "Failed to get response from backend.");
     }
 
     return response.json();
@@ -56,6 +67,25 @@ export async function sendMessageToAI(input: {
 
     throw new Error("Could not connect to the backend.");
   } finally {
-    window.clearTimeout(timeoutId);
+    globalThis.clearTimeout(timeoutId);
+  }
+}
+
+async function createChatApiError(response: Response, fallback: string) {
+  const text = await response.text();
+
+  if (!text) {
+    return new ChatApiError(fallback, { status: response.status });
+  }
+
+  try {
+    const parsed = JSON.parse(text) as { code?: string; error?: string; message?: string };
+
+    return new ChatApiError(parsed.error || parsed.message || fallback, {
+      code: parsed.code,
+      status: response.status,
+    });
+  } catch {
+    return new ChatApiError(text, { status: response.status });
   }
 }

@@ -1,0 +1,27 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+import { buildPrompt } from "../src/modules/ai/prompt-templates.ts";
+
+describe("prompt templates", () => {
+  it("does not force artifact formats for short conversational follow-ups", () => {
+    const prompt = buildPrompt("checklist", "thanks");
+
+    assert.match(prompt, /Do not force a QA artifact format/);
+    assert.doesNotMatch(prompt, /# QA Checklist/);
+  });
+
+  it("answers language preference follow-ups conversationally", () => {
+    const prompt = buildPrompt("bug_report", "can you speak arabic");
+
+    assert.match(prompt, /language change/);
+    assert.doesNotMatch(prompt, /# Bug Report/);
+  });
+
+  it("keeps the selected artifact mode for real QA requests", () => {
+    const prompt = buildPrompt("bug_report", "login button does not work");
+
+    assert.match(prompt, /# Bug Report/);
+    assert.match(prompt, /login button does not work/);
+  });
+});

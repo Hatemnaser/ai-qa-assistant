@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 
-import { getCurrentUser, logout } from "./features/auth/authApi";
+import { useAuthSession } from "./features/auth/composables/useAuthSession";
 import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage.vue";
 import LoginPage from "./features/auth/pages/LoginPage.vue";
 import RegisterPage from "./features/auth/pages/RegisterPage.vue";
@@ -9,67 +9,44 @@ import type { AuthUser } from "./features/auth/types";
 import ChatComposer from "./features/chat/components/ChatComposer.vue";
 import ChatContextMenus from "./features/chat/components/ChatContextMenus.vue";
 import ChatDeleteModal from "./features/chat/components/ChatDeleteModal.vue";
+import GuestLimitModal from "./features/chat/components/GuestLimitModal.vue";
 import ChatMessages from "./features/chat/components/ChatMessages.vue";
 import ChatSidebar from "./features/chat/components/ChatSidebar.vue";
 import ChatTopbar from "./features/chat/components/ChatTopbar.vue";
 import { useTheme } from "./features/chat/chatTheme";
+import { useAccountChatSync } from "./features/chat/composables/useAccountChatSync";
 import { useChatController } from "./features/chat/composables/useChatController";
+import { useAppRoute, type AuthView } from "./router/useAppRoute";
 
-type AuthView = "login" | "register" | "forgot-password";
-type AppRoute = "chat" | AuthView;
-
-const authRoutes = new Set<AuthView>(["login", "register", "forgot-password"]);
-
-function readRoute(): AppRoute {
-  const route = window.location.hash.replace(/^#\/?/, "").split("?")[0];
-
-  return authRoutes.has(route as AuthView) ? (route as AuthView) : "chat";
-}
-
-const currentRoute = ref<AppRoute>(readRoute());
-const currentUser = ref<AuthUser | null>(null);
-
-function syncRoute() {
-  currentRoute.value = readRoute();
-}
+const { currentRoute, navigateToAuth: navigateToAuthRoute, navigateToChat } = useAppRoute();
+const { currentUser, loadCurrentUser, logoutCurrentUser, setAuthenticatedUser } = useAuthSession();
+const isGuestLimitModalOpen = ref(false);
 
 function navigateToAuth(view: AuthView) {
-  window.location.hash = `/${view}`;
-}
-
-function navigateToChat() {
-  window.location.hash = "/";
+  isGuestLimitModalOpen.value = false;
+  navigateToAuthRoute(view);
 }
 
 function handleAuthenticated(user: AuthUser) {
-  currentUser.value = user;
+  setAuthenticatedUser(user);
+  setChatStorageOwner(user.id, { adoptGuestChats: true });
+  clearGuestLimitReached();
+  isGuestLimitModalOpen.value = false;
   navigateToChat();
-}
-
-async function loadCurrentUser() {
-  try {
-    currentUser.value = await getCurrentUser();
-  } catch {
-    currentUser.value = null;
-  }
+  void syncAccountChats();
 }
 
 async function handleLogout() {
-  try {
-    await logout();
-  } finally {
-    currentUser.value = null;
-  }
+  await logoutCurrentUser(async () => {
+    clearScheduledChatPersist();
+
+    if (currentUser.value) {
+      await persistAccountChats();
+    }
+  });
+  setChatStorageOwner(null);
+  clearGuestLimitReached();
 }
-
-onMounted(() => {
-  window.addEventListener("hashchange", syncRoute);
-  void loadCurrentUser();
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("hashchange", syncRoute);
-});
 
 const {
   activeChatId,
@@ -81,6 +58,7 @@ const {
   chatPendingDelete,
   chats,
   clearSelectedImage,
+  clearGuestLimitReached,
   confirmDeleteChat,
   copyAnswer,
   exportActiveChat,
@@ -89,6 +67,7 @@ const {
   handleImageSelected,
   handleImportChat,
   handleSubmit,
+  guestLimitReached,
   isSending,
   messageInput,
   openAttachment,
@@ -101,16 +80,53 @@ const {
   openSelectedImage,
   renamingChatId,
   requestDeleteChat,
+  replaceChats,
   selectChat,
   selectedImage,
   selectedMode,
   selectedModel,
+  setChatStorageOwner,
   submitRenameChat,
   startNewChat,
   usageSummary,
 } = useChatController();
 
+const { clearScheduledChatPersist, deletePersistedChat, persistAccountChats, syncAccountChats } =
+  useAccountChatSync({
+    chats,
+    currentUser,
+    replaceChats,
+  });
 const { themeToggleLabel, toggleTheme } = useTheme();
+const isGuestLimitBlocked = computed(() => !currentUser.value && guestLimitReached.value);
+
+onMounted(() => {
+  void initializeSession();
+});
+
+watch(isGuestLimitBlocked, (isBlocked) => {
+  if (isBlocked) {
+    isGuestLimitModalOpen.value = true;
+  }
+});
+
+async function initializeSession() {
+  const user = await loadCurrentUser();
+
+  setChatStorageOwner(user?.id || null);
+
+  if (user) {
+    await syncAccountChats();
+  }
+}
+
+function confirmDeleteChatAndSync() {
+  const deletedChatId = chatPendingDelete.value?.id;
+
+  confirmDeleteChat();
+
+  void deletePersistedChat(deletedChatId);
+}
 </script>
 
 <template>
@@ -177,10 +193,13 @@ const { themeToggleLabel, toggleTheme } = useTheme();
 
       <ChatComposer
         v-model:message="messageInput"
+        :disabled="isGuestLimitBlocked"
+        disabled-message="Guest demo limit reached. Sign in or create a free account to continue."
         :is-sending="isSending"
         :mode="selectedMode"
         :selected-image="selectedImage"
         @clear-selected-image="clearSelectedImage"
+        @disabled-click="isGuestLimitModalOpen = true"
         @image-selected="handleImageSelected"
         @open-selected-image="openSelectedImage"
         @quick-action="applyQuickAction"
@@ -199,6 +218,13 @@ const { themeToggleLabel, toggleTheme } = useTheme();
       @rename-chat="beginRenameChat"
     />
 
-    <ChatDeleteModal :chat="chatPendingDelete" @cancel="cancelDeleteChat" @confirm="confirmDeleteChat" />
+    <ChatDeleteModal :chat="chatPendingDelete" @cancel="cancelDeleteChat" @confirm="confirmDeleteChatAndSync" />
+    <GuestLimitModal
+      v-if="isGuestLimitBlocked && isGuestLimitModalOpen"
+      @close="isGuestLimitModalOpen = false"
+      @export-chat="exportActiveChat('json')"
+      @register="navigateToAuth('register')"
+      @sign-in="navigateToAuth('login')"
+    />
   </div>
 </template>

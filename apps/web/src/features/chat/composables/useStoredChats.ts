@@ -4,8 +4,11 @@ import type { Ref } from "vue";
 import {
   clearActiveChatId,
   createChat,
+  GUEST_CHAT_STORAGE_SCOPE,
   getActiveChatId,
+  getUserChatStorageScope,
   loadChats,
+  migrateGuestChatsToUser,
   saveChats,
   setActiveChatId,
 } from "../chatStorage";
@@ -25,19 +28,20 @@ export function useStoredChats({
   selectedMode,
   selectedModel,
 }: StoredChatOptions) {
-  const chats = ref<Chat[]>(loadChats());
-  const activeChatId = ref(getActiveChatId());
+  const storageScope = ref(GUEST_CHAT_STORAGE_SCOPE);
+  const chats = ref<Chat[]>(loadChats(storageScope.value));
+  const activeChatId = ref(getActiveChatId(storageScope.value));
   const activeChat = computed(() => chats.value.find((chat) => chat.id === activeChatId.value) || null);
   const activeMessages = computed(() => activeChat.value?.messages || []);
 
   function persist(nextChats = chats.value) {
     chats.value = nextChats;
-    saveChats(chats.value);
+    saveChats(chats.value, storageScope.value);
   }
 
   function startNewChat() {
     activeChatId.value = null;
-    clearActiveChatId();
+    clearActiveChatId(storageScope.value);
     messageInput.value = "";
     clearSelectedImage();
     selectedMode.value = DEFAULT_MODE;
@@ -50,7 +54,7 @@ export function useStoredChats({
     if (!chat) return null;
 
     activeChatId.value = chat.id;
-    setActiveChatId(chat.id);
+    setActiveChatId(chat.id, storageScope.value);
     selectedMode.value = chat.mode;
     selectedModel.value = chat.model;
 
@@ -67,10 +71,10 @@ export function useStoredChats({
     activeChatId.value = nextActiveChat?.id || null;
 
     if (nextActiveChat) {
-      setActiveChatId(nextActiveChat.id);
+      setActiveChatId(nextActiveChat.id, storageScope.value);
       selectChat(nextActiveChat.id);
     } else {
-      clearActiveChatId();
+      clearActiveChatId(storageScope.value);
     }
   }
 
@@ -119,6 +123,44 @@ export function useStoredChats({
     );
   }
 
+  function replaceChats(nextChats: Chat[]) {
+    persist(nextChats);
+
+    const currentActiveChatId = activeChatId.value;
+    const nextActiveChat = chats.value.find((chat) => chat.id === currentActiveChatId) || chats.value[0] || null;
+
+    activeChatId.value = nextActiveChat?.id || null;
+
+    if (nextActiveChat) {
+      setActiveChatId(nextActiveChat.id, storageScope.value);
+    } else {
+      clearActiveChatId(storageScope.value);
+    }
+
+    selectedMode.value = nextActiveChat?.mode || DEFAULT_MODE;
+    selectedModel.value = nextActiveChat?.model || DEFAULT_MODEL;
+  }
+
+  function setChatStorageOwner(userId: string | null, options: { adoptGuestChats?: boolean } = {}) {
+    if (userId && options.adoptGuestChats) {
+      migrateGuestChatsToUser(userId);
+    }
+
+    storageScope.value = userId ? getUserChatStorageScope(userId) : GUEST_CHAT_STORAGE_SCOPE;
+    chats.value = loadChats(storageScope.value);
+    activeChatId.value = getActiveChatId(storageScope.value);
+    messageInput.value = "";
+    clearSelectedImage();
+
+    if (!activeChat.value) {
+      activeChatId.value = null;
+      clearActiveChatId(storageScope.value);
+    }
+
+    selectedMode.value = activeChat.value?.mode || DEFAULT_MODE;
+    selectedModel.value = activeChat.value?.model || DEFAULT_MODEL;
+  }
+
   return {
     activeChat,
     activeChatId,
@@ -128,7 +170,9 @@ export function useStoredChats({
     deleteChat,
     ensureActiveChat,
     renameChat,
+    replaceChats,
     selectChat,
+    setChatStorageOwner,
     startNewChat,
     updateChat,
   };

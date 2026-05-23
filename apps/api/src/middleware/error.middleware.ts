@@ -33,6 +33,15 @@ export function errorHandler(error: unknown, req: Request, res: Response, next: 
     return;
   }
 
+  if (isDatabaseUnavailableError(error)) {
+    logError(error, req, 503);
+    res.status(503).json({
+      error: "Database is unavailable. Make sure PostgreSQL is running.",
+      code: "DATABASE_UNAVAILABLE",
+    });
+    return;
+  }
+
   const statusCode = getErrorStatus(error);
   const isAppError = error instanceof AppError;
   const message =
@@ -70,6 +79,15 @@ function isEntityTooLargeError(error: unknown) {
     error &&
     typeof error === "object" &&
     (error as Record<string, unknown>).type === "entity.too.large"
+  );
+}
+
+function isDatabaseUnavailableError(error: unknown) {
+  return (
+    error &&
+    typeof error === "object" &&
+    ((error as Record<string, unknown>).code === "ECONNREFUSED" ||
+      String((error as Record<string, unknown>).message || "").includes("ECONNREFUSED"))
   );
 }
 

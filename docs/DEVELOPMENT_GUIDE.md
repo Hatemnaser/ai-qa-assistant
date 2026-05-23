@@ -50,7 +50,7 @@ Do not create every file up front. Add a file only when it removes real weight f
 Vue components should stay mostly template + small event handlers. If a component starts carrying business logic, move that logic into a helper or composable.
 Reusable UI primitives that are not tied to one feature live in `apps/web/src/ui`. Keep them thin, Bootstrap-compatible, and backed by shared SCSS classes.
 
-Auth routes currently use a small hash route layer in `App.vue`:
+Auth routes currently use a small hash route composable:
 
 ```text
 #/login
@@ -59,7 +59,10 @@ Auth routes currently use a small hash route layer in `App.vue`:
 ```
 
 Do not introduce Vue Router until navigation grows beyond a few shell pages.
+Keep the hash route implementation in `apps/web/src/router/useAppRoute.ts`; `App.vue` should only wire the active page.
 Auth pages should stay split by page, with shared framing in `features/auth/components/AuthLayout.vue`.
+
+Account chat persistence lives in `features/chat/composables/useAccountChatSync.ts`. Keep database sync, debouncing, and local/remote merge logic out of `App.vue`.
 
 ## Backend Pattern
 
@@ -77,6 +80,13 @@ apps/api/src/modules/<feature>/
 Keep routes thin. Put validation in schemas, orchestration in services, and provider-specific code behind provider files.
 
 ## Verification
+
+Start PostgreSQL before auth, persistence, or Prisma checks:
+
+```bash
+npm run db:up
+npm run db:migrate
+```
 
 Run this before considering a cleanup done:
 
@@ -104,6 +114,14 @@ Run this after API changes when you want a production API build check:
 npm run build:api
 ```
 
+Use Prisma Studio to inspect local accounts and chats:
+
+```bash
+npm run db:studio
+```
+
+If Prisma or auth reports `DATABASE_UNAVAILABLE`, check Docker Desktop and confirm PostgreSQL is reachable on `localhost:5432`.
+
 ## Current Priorities
 
 1. Keep the migrated chat app stable.
@@ -112,3 +130,4 @@ npm run build:api
 4. Reduce file weight when a file becomes hard to scan.
 5. Keep the auth UI aligned with cookie-backed sessions and avoid browser-stored auth tokens.
 6. Keep portfolio/demo access available while respecting usage limits.
+7. Keep account-owned chats persisted in PostgreSQL and protected by `userId`.

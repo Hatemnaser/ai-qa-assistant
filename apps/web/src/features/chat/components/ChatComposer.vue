@@ -6,6 +6,8 @@ import type { QuickAction } from "../constants";
 import type { SelectedImage } from "../types";
 
 const props = defineProps<{
+  disabled?: boolean;
+  disabledMessage?: string;
   isSending: boolean;
   message: string;
   mode: string;
@@ -19,6 +21,7 @@ const emit = defineEmits<{
   "open-selected-image": [];
   "clear-selected-image": [];
   "quick-action": [action: QuickAction];
+  "disabled-click": [];
 }>();
 
 const textareaInput = ref<HTMLTextAreaElement | null>(null);
@@ -34,6 +37,7 @@ const draftMessage = computed({
 const composerPlaceholder = computed(
   () => COMPOSER_PLACEHOLDERS_BY_MODE[props.mode] || COMPOSER_PLACEHOLDERS_BY_MODE.general
 );
+const isComposerDisabled = computed(() => Boolean(props.disabled));
 
 onMounted(autoResizeTextarea);
 watch(
@@ -51,6 +55,8 @@ function autoResizeTextarea() {
 }
 
 function showDragOver() {
+  if (isComposerDisabled.value) return;
+
   isDraggingOver.value = true;
 }
 
@@ -59,6 +65,8 @@ function hideDragOver() {
 }
 
 function handleScreenshotChange(event: Event) {
+  if (isComposerDisabled.value) return;
+
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
 
@@ -68,15 +76,37 @@ function handleScreenshotChange(event: Event) {
 
 function handleDrop(event: DragEvent) {
   hideDragOver();
+
+  if (isComposerDisabled.value) {
+    emit("disabled-click");
+    return;
+  }
+
   emit("image-selected", event.dataTransfer?.files?.[0]);
+}
+
+function requestSubmit() {
+  if (isComposerDisabled.value) {
+    emit("disabled-click");
+    return;
+  }
+
+  emit("submit");
+}
+
+function handleComposerClick() {
+  if (isComposerDisabled.value) {
+    emit("disabled-click");
+  }
 }
 </script>
 
 <template>
-  <form class="chat-form" @submit.prevent="emit('submit')">
+  <form class="chat-form" @submit.prevent="requestSubmit">
     <div
       class="composer d-flex flex-column justify-content-center"
-      :class="{ 'drag-over': isDraggingOver }"
+      :class="{ 'drag-over': isDraggingOver, 'is-disabled': isComposerDisabled }"
+      @click="handleComposerClick"
       @dragenter.prevent="showDragOver"
       @dragover.prevent="showDragOver"
       @dragleave.prevent="hideDragOver"
@@ -93,6 +123,7 @@ function handleDrop(event: DragEvent) {
             class="attachment-remove-btn"
             type="button"
             aria-label="Remove attachment"
+            :disabled="isComposerDisabled"
             @click.stop="emit('clear-selected-image')"
           >
             &times;
@@ -108,6 +139,7 @@ function handleDrop(event: DragEvent) {
             aria-label="Attach file"
             data-bs-toggle="dropdown"
             aria-expanded="false"
+            :disabled="isComposerDisabled"
           >
             +
           </button>
@@ -130,11 +162,16 @@ function handleDrop(event: DragEvent) {
           class="composer-textarea"
           rows="1"
           :placeholder="composerPlaceholder"
+          :readonly="isComposerDisabled"
           @input="autoResizeTextarea"
-          @keydown.enter.exact.prevent="emit('submit')"
+          @keydown.enter.exact.prevent="requestSubmit"
         />
 
-        <button class="ui-icon-btn ui-icon-btn--send composer-send-btn" type="submit" :disabled="isSending">
+        <button
+          class="ui-icon-btn ui-icon-btn--send composer-send-btn"
+          type="submit"
+          :disabled="isSending || isComposerDisabled"
+        >
           &uarr;
         </button>
       </div>
@@ -148,12 +185,17 @@ function handleDrop(event: DragEvent) {
       />
     </div>
 
+    <p v-if="isComposerDisabled && disabledMessage" class="composer-disabled-note mb-0">
+      {{ disabledMessage }}
+    </p>
+
     <section class="quick-actions d-flex flex-wrap gap-2">
       <button
         v-for="action in QUICK_ACTIONS"
         :key="action.label"
         class="btn btn-sm btn-outline-primary"
         type="button"
+        :disabled="isComposerDisabled"
         @click="emit('quick-action', action)"
       >
         {{ action.label }}

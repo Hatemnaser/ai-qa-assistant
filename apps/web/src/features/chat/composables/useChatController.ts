@@ -1,6 +1,6 @@
 import { nextTick, ref, watch } from "vue";
 
-import { sendMessageToAI } from "../chatApi";
+import { ChatApiError, sendMessageToAI } from "../chatApi";
 import {
   exportAnswerByFormat,
   exportChatByFormat,
@@ -28,7 +28,9 @@ export function useChatController() {
   const selectedImage = ref<SelectedImage | null>(null);
   const chatPendingDelete = ref<Chat | null>(null);
   const renamingChatId = ref<string | null>(null);
+  const quickActionMode = ref<string | null>(null);
   const usageSummary = ref<ChatUsageSummary | null>(null);
+  const guestLimitReached = ref(false);
   const isSending = ref(false);
 
   function clearSelectedImage() {
@@ -44,7 +46,9 @@ export function useChatController() {
     deleteChat: deleteStoredChat,
     ensureActiveChat,
     renameChat: renameStoredChat,
+    replaceChats,
     selectChat: selectStoredChat,
+    setChatStorageOwner,
     startNewChat: startStoredNewChat,
     updateChat,
   } = useStoredChats({
@@ -181,6 +185,7 @@ export function useChatController() {
     const chat = ensureActiveChat();
     const mode = selectedImage.value ? "screenshot_review" : selectedMode.value;
     const model = getModelForMode(mode, selectedModel.value);
+    const shouldResetQuickActionMode = quickActionMode.value === mode && !selectedImage.value;
     const history = buildRequestHistory(chat);
     const imageForRequest = selectedImage.value
       ? {
@@ -234,11 +239,16 @@ export function useChatController() {
       });
 
       usageSummary.value = response.usage || usageSummary.value;
+      guestLimitReached.value = false;
     } catch (error) {
       const fallback =
         error instanceof Error
           ? error.message
           : "Sorry, something went wrong. Please make sure the backend server is running.";
+
+      if (error instanceof ChatApiError && error.code === "USAGE_LIMIT_REACHED") {
+        guestLimitReached.value = true;
+      }
 
       updateChat({
         ...nextChat,
@@ -249,18 +259,29 @@ export function useChatController() {
             content: fallback,
             mode: selectedMode.value,
             model,
+            isError: true,
           }),
         ],
       });
     } finally {
+      if (shouldResetQuickActionMode) {
+        selectedMode.value = DEFAULT_MODE;
+      }
+
+      quickActionMode.value = null;
       isSending.value = false;
       await scrollChatToBottom();
     }
   }
 
+  function clearGuestLimitReached() {
+    guestLimitReached.value = false;
+  }
+
   function applyQuickAction(action: QuickAction) {
     selectedMode.value = action.mode;
     messageInput.value = action.prompt;
+    quickActionMode.value = action.mode;
   }
 
   async function scrollChatToBottom() {
@@ -312,6 +333,7 @@ export function useChatController() {
     chatPendingDelete,
     chats,
     clearSelectedImage,
+    clearGuestLimitReached,
     confirmDeleteChat,
     copyAnswer,
     exportActiveChat,
@@ -320,6 +342,7 @@ export function useChatController() {
     handleImageSelected,
     handleImportChat,
     handleSubmit,
+    guestLimitReached,
     isSending,
     messageInput,
     openAttachment,
@@ -332,10 +355,12 @@ export function useChatController() {
     openSelectedImage,
     renamingChatId,
     requestDeleteChat,
+    replaceChats,
     selectChat,
     selectedImage,
     selectedMode,
     selectedModel,
+    setChatStorageOwner,
     usageSummary,
     submitRenameChat,
     startNewChat,

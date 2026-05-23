@@ -30,6 +30,10 @@
   box-shadow: 0 0 0 3px var(--focus-ring-soft);
 }
 
+.composer.is-disabled {
+  cursor: pointer;
+}
+
 .composer-row {
   gap: var(--space-3);
   min-height: 42px;
@@ -72,6 +76,14 @@
   width: 100%;
   margin: 8px auto 0;
   padding: 0;
+}
+
+.composer-disabled-note {
+  max-width: var(--layout-composer-width);
+  width: 100%;
+  margin: 8px auto 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
 }
 
 @media (max-width: 991px) {

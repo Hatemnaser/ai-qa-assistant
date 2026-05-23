@@ -142,6 +142,7 @@ function sanitizeMessageForExport(message: ChatMessage): ChatMessage {
     mode: message.mode || DEFAULT_MODE,
     model: message.model || DEFAULT_MODEL,
     createdAt: message.createdAt,
+    ...(message.isError ? { isError: true } : {}),
     ...(message.attachment
       ? {
           attachment: {
