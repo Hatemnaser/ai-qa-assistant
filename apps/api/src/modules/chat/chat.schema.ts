@@ -5,6 +5,7 @@ import {
   CHAT_ATTACHMENT_LIMITS,
   MAX_INLINE_IMAGE_BASE64_CHARS,
   isSupportedImageMimeType,
+  isSupportedTextAttachment,
 } from "./chat.attachments.js";
 
 export const chatHistoryMessageSchema = z.object({
@@ -40,9 +41,17 @@ export const chatFileAttachmentSchema = z.object({
     .string()
     .min(1)
     .max(CHAT_ATTACHMENT_LIMITS.maxTextContentChars, "File content must be 1MB or smaller."),
+}).superRefine((attachment, context) => {
+  if (isSupportedTextAttachment(attachment.name, attachment.mimeType)) return;
+
+  context.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: "Unsupported file type. Please use TXT, Markdown, LOG, CSV, or JSON.",
+    path: ["mimeType"],
+  });
 });
 
-export const chatAttachmentSchema = z.discriminatedUnion("type", [
+export const chatAttachmentSchema = z.union([
   chatImageAttachmentSchema,
   chatFileAttachmentSchema,
 ]);

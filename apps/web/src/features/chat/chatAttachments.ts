@@ -1,15 +1,19 @@
 import type { ChatAttachment, RequestAttachment, SelectedAttachment } from "./types";
 
-const MAX_IMAGE_SIZE_MB = 4;
-const MAX_TEXT_ATTACHMENT_SIZE_MB = 1;
-export const MAX_SELECTED_ATTACHMENTS = 4;
-const SUPPORTED_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
-const SUPPORTED_TEXT_EXTENSIONS = ["txt", "md", "log", "csv", "json"] as const;
-const SUPPORTED_IMAGE_TYPES: ReadonlySet<string> = new Set(SUPPORTED_IMAGE_MIME_TYPES);
-const SUPPORTED_TEXT_EXTENSION_SET: ReadonlySet<string> = new Set(SUPPORTED_TEXT_EXTENSIONS);
+export const CHAT_ATTACHMENT_POLICY = {
+  maxAttachments: 4,
+  maxImageSizeMb: 4,
+  maxTextAttachmentSizeMb: 1,
+  supportedImageMimeTypes: ["image/png", "image/jpeg", "image/webp"],
+  supportedTextExtensions: ["txt", "md", "log", "csv", "json"],
+} as const;
+
+export const MAX_SELECTED_ATTACHMENTS = CHAT_ATTACHMENT_POLICY.maxAttachments;
+const SUPPORTED_IMAGE_TYPES: ReadonlySet<string> = new Set(CHAT_ATTACHMENT_POLICY.supportedImageMimeTypes);
+const SUPPORTED_TEXT_EXTENSION_SET: ReadonlySet<string> = new Set(CHAT_ATTACHMENT_POLICY.supportedTextExtensions);
 export const ATTACHMENT_INPUT_ACCEPT = [
-  ...SUPPORTED_IMAGE_MIME_TYPES,
-  ...SUPPORTED_TEXT_EXTENSIONS.map((extension) => `.${extension}`),
+  ...CHAT_ATTACHMENT_POLICY.supportedImageMimeTypes,
+  ...CHAT_ATTACHMENT_POLICY.supportedTextExtensions.map((extension) => `.${extension}`),
 ].join(",");
 const IMAGE_MIME_TYPES_BY_EXTENSION: Record<string, string> = {
   jpeg: "image/jpeg",
@@ -29,16 +33,16 @@ export function getAttachmentFileError(file: File | undefined) {
   if (!file) return "";
 
   if (isSupportedImage(file)) {
-    if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
-      return `Image is too large. Please upload an image smaller than ${MAX_IMAGE_SIZE_MB}MB.`;
+    if (file.size > CHAT_ATTACHMENT_POLICY.maxImageSizeMb * 1024 * 1024) {
+      return `Image is too large. Please upload an image smaller than ${CHAT_ATTACHMENT_POLICY.maxImageSizeMb}MB.`;
     }
 
     return "";
   }
 
   if (isSupportedTextAttachment(file)) {
-    if (file.size > MAX_TEXT_ATTACHMENT_SIZE_MB * 1024 * 1024) {
-      return `File is too large. Please upload a text or data file smaller than ${MAX_TEXT_ATTACHMENT_SIZE_MB}MB.`;
+    if (file.size > CHAT_ATTACHMENT_POLICY.maxTextAttachmentSizeMb * 1024 * 1024) {
+      return `File is too large. Please upload a text or data file smaller than ${CHAT_ATTACHMENT_POLICY.maxTextAttachmentSizeMb}MB.`;
     }
 
     return "";
@@ -132,5 +136,7 @@ function getAttachmentMimeType(file: File) {
 }
 
 function getFileExtension(fileName: string) {
-  return fileName.split(".").pop()?.toLowerCase() || "";
+  const parts = fileName.toLowerCase().split(".");
+
+  return parts.length > 1 ? parts.at(-1) || "" : "";
 }

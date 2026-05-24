@@ -37,6 +37,63 @@ describe("chat request schema", () => {
     assert.equal(result.success, false);
   });
 
+  it("accepts supported text and data file attachments", () => {
+    const result = chatRequestSchema.safeParse(
+      createChatRequest({
+        attachments: [
+          {
+            type: "file",
+            name: "requirements.md",
+            mimeType: "text/markdown",
+            content: "# Checkout requirements",
+          },
+          {
+            type: "file",
+            name: "logs.log",
+            mimeType: "application/octet-stream",
+            content: "error=true",
+          },
+        ],
+      })
+    );
+
+    assert.equal(result.success, true);
+  });
+
+  it("rejects unsupported file attachment types", () => {
+    const result = chatRequestSchema.safeParse(
+      createChatRequest({
+        attachments: [
+          {
+            type: "file",
+            name: "requirements.pdf",
+            mimeType: "application/pdf",
+            content: "fake pdf text",
+          },
+        ],
+      })
+    );
+
+    assert.equal(result.success, false);
+  });
+
+  it("does not treat extensionless file names as supported extensions", () => {
+    const result = chatRequestSchema.safeParse(
+      createChatRequest({
+        attachments: [
+          {
+            type: "file",
+            name: "json",
+            mimeType: "application/octet-stream",
+            content: "not really json",
+          },
+        ],
+      })
+    );
+
+    assert.equal(result.success, false);
+  });
+
   it("keeps attachment limits centralized", () => {
     const result = chatRequestSchema.safeParse(
       createChatRequest({

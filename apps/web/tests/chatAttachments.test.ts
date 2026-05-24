@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { ATTACHMENT_INPUT_ACCEPT, getAttachmentFileError } from "../src/features/chat/chatAttachments";
+import {
+  ATTACHMENT_INPUT_ACCEPT,
+  CHAT_ATTACHMENT_POLICY,
+  getAttachmentFileError,
+} from "../src/features/chat/chatAttachments";
 
 describe("chat attachments", () => {
   it("accepts supported image files", () => {
@@ -20,6 +24,18 @@ describe("chat attachments", () => {
     const file = { name: "requirements.pdf", size: 1024, type: "application/pdf" } as File;
 
     assert.match(getAttachmentFileError(file), /next version/i);
+  });
+
+  it("does not treat extensionless file names as supported extensions", () => {
+    const file = { name: "json", size: 1024, type: "application/octet-stream" } as File;
+
+    assert.match(getAttachmentFileError(file), /Please upload/);
+  });
+
+  it("keeps attachment limits in one frontend policy", () => {
+    assert.equal(CHAT_ATTACHMENT_POLICY.maxAttachments, 4);
+    assert.equal(CHAT_ATTACHMENT_POLICY.maxImageSizeMb, 4);
+    assert.equal(CHAT_ATTACHMENT_POLICY.maxTextAttachmentSizeMb, 1);
   });
 
   it("exposes the supported picker accept list", () => {

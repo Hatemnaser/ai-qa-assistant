@@ -117,6 +117,26 @@ describe("POST /api/chat", () => {
     assert.equal(body.code, "UNSUPPORTED_MODEL");
   });
 
+  it("rejects unsupported file attachments in the request contract", async () => {
+    const response = await postJson("/api/chat", {
+      attachments: [
+        {
+          type: "file",
+          name: "requirements.pdf",
+          mimeType: "application/pdf",
+          content: "fake pdf text",
+        },
+      ],
+      message: "Review this file",
+      mode: "general",
+      history: [],
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.code, "VALIDATION_ERROR");
+  });
+
   it("accepts multiple chat attachments in the request contract", async () => {
     const response = await postJson("/api/chat", {
       attachments: [
