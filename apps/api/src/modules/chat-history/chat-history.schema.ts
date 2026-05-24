@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { CHAT_ATTACHMENT_LIMITS } from "../chat/chat.attachments.js";
+
 const chatAttachmentSchema = z.object({
   type: z.enum(["image", "file"]),
   name: z.string().min(1),
@@ -14,7 +16,7 @@ const chatMessageSchema = z.object({
   mode: z.string().default("general"),
   model: z.string().default("gemini-2.5-flash"),
   attachment: chatAttachmentSchema.optional(),
-  attachments: z.array(chatAttachmentSchema).max(4).optional(),
+  attachments: z.array(chatAttachmentSchema).max(CHAT_ATTACHMENT_LIMITS.maxAttachments).optional(),
   createdAt: z.string().datetime().optional(),
   isError: z.boolean().optional(),
 });

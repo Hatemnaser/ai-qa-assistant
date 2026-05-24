@@ -1,6 +1,11 @@
 import { z } from "zod";
 
 import { env } from "../../config/env.js";
+import {
+  CHAT_ATTACHMENT_LIMITS,
+  MAX_INLINE_IMAGE_BASE64_CHARS,
+  isSupportedImageMimeType,
+} from "./chat.attachments.js";
 
 export const chatHistoryMessageSchema = z.object({
   role: z.enum(["user", "assistant"]).optional(),
@@ -10,20 +15,31 @@ export const chatHistoryMessageSchema = z.object({
 });
 
 export const chatImageSchema = z.object({
-  mimeType: z.string().min(1),
-  data: z.string().min(1),
+  mimeType: z.string().min(1).refine(isSupportedImageMimeType, {
+    message: "Unsupported image type. Please use PNG, JPG, JPEG, or WEBP.",
+  }),
+  data: z
+    .string()
+    .min(1)
+    .max(
+      MAX_INLINE_IMAGE_BASE64_CHARS,
+      "Image data must be 4MB or smaller before encoding."
+    ),
 });
 
 export const chatImageAttachmentSchema = chatImageSchema.extend({
   type: z.literal("image"),
-  name: z.string().trim().max(255).optional(),
+  name: z.string().trim().max(CHAT_ATTACHMENT_LIMITS.maxNameChars).optional(),
 });
 
 export const chatFileAttachmentSchema = z.object({
   type: z.literal("file"),
-  name: z.string().trim().max(255).optional(),
+  name: z.string().trim().max(CHAT_ATTACHMENT_LIMITS.maxNameChars).optional(),
   mimeType: z.string().min(1),
-  content: z.string().min(1).max(1_000_000, "File content must be 1MB or smaller."),
+  content: z
+    .string()
+    .min(1)
+    .max(CHAT_ATTACHMENT_LIMITS.maxTextContentChars, "File content must be 1MB or smaller."),
 });
 
 export const chatAttachmentSchema = z.discriminatedUnion("type", [
@@ -43,7 +59,13 @@ export const chatRequestSchema = z.object({
   history: z.array(chatHistoryMessageSchema).max(env.maxHistoryMessages).default([]),
   attachments: z.preprocess(
     (value) => (value === null ? undefined : value),
-    z.array(chatAttachmentSchema).max(4, "You can attach up to 4 files per message.").optional()
+    z
+      .array(chatAttachmentSchema)
+      .max(
+        CHAT_ATTACHMENT_LIMITS.maxAttachments,
+        `You can attach up to ${CHAT_ATTACHMENT_LIMITS.maxAttachments} files per message.`
+      )
+      .optional()
   ),
   image: z.preprocess((value) => (value === null ? undefined : value), chatImageSchema.optional()),
 });

@@ -51,6 +51,7 @@ This project should stay easy to extend while it grows from a portfolio demo int
 - Chat history sent to the AI should remain capped by backend validation.
 - Large attachments should keep using backend request body limits and client-side validation.
 - Inline chat attachments are capped to 4 files per message until a provider file API is introduced.
+- Backend schemas must enforce the same attachment count, image type, and inline image/text size limits as the UI.
 - Text/data file attachment content should stay capped and should not be stored in chat export metadata unless explicit file persistence is added.
 
 ## Testing Expectations
