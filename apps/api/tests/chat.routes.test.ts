@@ -96,7 +96,28 @@ describe("POST /api/chat", () => {
     assert.equal(body.code, "UNSUPPORTED_MODEL");
   });
 
-  it("rejects more than one chat attachment for now", async () => {
+  it("accepts text file attachments in the request contract", async () => {
+    const response = await postJson("/api/chat", {
+      attachments: [
+        {
+          type: "file",
+          name: "requirements.md",
+          mimeType: "text/markdown",
+          content: "# Checkout requirements",
+        },
+      ],
+      message: "Review this file",
+      mode: "general",
+      model: "not-a-real-model",
+      history: [],
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.code, "UNSUPPORTED_MODEL");
+  });
+
+  it("accepts multiple chat attachments in the request contract", async () => {
     const response = await postJson("/api/chat", {
       attachments: [
         {
@@ -110,6 +131,24 @@ describe("POST /api/chat", () => {
           data: "def",
         },
       ],
+      message: "Review these",
+      mode: "general",
+      model: "not-a-real-model",
+      history: [],
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.code, "UNSUPPORTED_MODEL");
+  });
+
+  it("rejects more than four chat attachments", async () => {
+    const response = await postJson("/api/chat", {
+      attachments: Array.from({ length: 5 }, (_, index) => ({
+        type: "image",
+        mimeType: "image/png",
+        data: `image-${index}`,
+      })),
       message: "Review these",
       mode: "general",
       history: [],

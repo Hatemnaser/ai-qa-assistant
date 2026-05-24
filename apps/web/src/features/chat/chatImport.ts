@@ -1,6 +1,6 @@
 import { DEFAULT_MODE, getModelForMode, normalizeModel } from "./constants";
 import { createChat, createId } from "./chatStorage";
-import type { Chat, ChatMessage } from "./types";
+import type { Chat, ChatAttachment, ChatMessage } from "./types";
 
 const CHAT_TYPE = "qa-chat";
 
@@ -59,6 +59,8 @@ function normalizeImportedMessage(message: Partial<ChatMessage>): ChatMessage {
     throw new Error("Invalid chat file. Every message must have a user or assistant role.");
   }
 
+  const attachments = normalizeImportedAttachments(message);
+
   return {
     id: createId(),
     role: message.role === "assistant" ? "assistant" : "user",
@@ -66,16 +68,26 @@ function normalizeImportedMessage(message: Partial<ChatMessage>): ChatMessage {
     mode: getMode(message.mode),
     model: normalizeModel(message.model),
     createdAt: isValidDate(message.createdAt) ? message.createdAt : new Date().toISOString(),
-    ...(message.attachment
-      ? {
-          attachment: {
-            type: message.attachment.type === "image" ? "image" : "file",
-            name: message.attachment.name || "Attachment",
-            mimeType: message.attachment.mimeType || "",
-          },
-        }
-      : {}),
+    ...(attachments.length > 0 ? { attachments } : {}),
   };
+}
+
+function normalizeImportedAttachments(message: Partial<ChatMessage>): ChatAttachment[] {
+  const attachments = Array.isArray(message.attachments)
+    ? message.attachments
+    : message.attachment
+      ? [message.attachment]
+      : [];
+
+  return attachments.filter(isAttachmentLike).map((attachment) => ({
+    type: attachment.type === "image" ? "image" : "file",
+    name: attachment.name || "Attachment",
+    mimeType: attachment.mimeType || "",
+  }));
+}
+
+function isAttachmentLike(value: unknown): value is Partial<ChatAttachment> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function getMode(mode: unknown) {

@@ -117,7 +117,7 @@ Prompt templates should stay workflow-aware and practical. They should state ass
 
 The behavior contract is covered by `docs/AI_BEHAVIOR_EVALS.md` and `apps/api/tests/ai-behavior.test.ts`.
 
-The chat API accepts a generic `attachments` array. The active provider boundary converts supported image attachments into the Gemini image payload, while non-image file processing remains a future integration. This keeps the UI, API contract, and chat storage ready for later file types without changing the chat controller contract again.
+The chat API accepts a generic `attachments` array with up to 4 files per message. The web composer supports file picker, drag/drop, and clipboard paste for attachments. The active provider boundary converts supported image attachments into the Gemini image payload and injects supported text/data file content into the provider prompt. Current inline support is intentionally capped to images under 4MB and text/data files under 1MB. PDF, video, and large-file workflows remain future integrations through a provider file API. This keeps the UI, API contract, and chat storage ready for later file types without changing the chat controller contract again.
 
 ## Future Backend Modules
 

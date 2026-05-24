@@ -13,13 +13,22 @@ export interface AiImage {
   data: string;
 }
 
+export interface AiTextAttachment {
+  type: "file";
+  name?: string;
+  mimeType: string;
+  content: string;
+}
+
 export interface AiChatInput {
   message: string;
   mode: string;
   model?: string;
   provider?: string;
   history: AiHistoryMessage[];
+  attachments?: AiTextAttachment[];
   image?: AiImage;
+  images?: AiImage[];
 }
 
 export interface AiChatResponse {

@@ -47,6 +47,42 @@ describe("chat api", () => {
     });
   });
 
+  it("sends text file attachment content through the chat request contract", async () => {
+    mockFetch(async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+
+      assert.deepEqual(body.attachments, [
+        {
+          type: "file",
+          name: "requirements.md",
+          mimeType: "text/markdown",
+          content: "# Checkout requirements",
+        },
+      ]);
+
+      return jsonResponse({
+        reply: "ok",
+        mode: "general",
+        model: "gemini-2.5-flash",
+      });
+    });
+
+    await sendMessageToAI({
+      attachments: [
+        {
+          type: "file",
+          name: "requirements.md",
+          mimeType: "text/markdown",
+          content: "# Checkout requirements",
+        },
+      ],
+      history: [],
+      message: "hello",
+      mode: "general",
+      model: "gemini-2.5-flash",
+    });
+  });
+
   it("surfaces structured backend errors", async () => {
     mockFetch(async (input, init) => {
       assert.equal(input, "/api/chat");

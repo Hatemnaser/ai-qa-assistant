@@ -50,6 +50,8 @@ This project should stay easy to extend while it grows from a portfolio demo int
 - Chat DB persistence should be debounced instead of saving on every reactive micro-change.
 - Chat history sent to the AI should remain capped by backend validation.
 - Large attachments should keep using backend request body limits and client-side validation.
+- Inline chat attachments are capped to 4 files per message until a provider file API is introduced.
+- Text/data file attachment content should stay capped and should not be stored in chat export metadata unless explicit file persistence is added.
 
 ## Testing Expectations
 

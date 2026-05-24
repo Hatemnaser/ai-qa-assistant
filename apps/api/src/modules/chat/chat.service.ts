@@ -1,6 +1,5 @@
-import type { AiChatInput, AiChatResponse } from "../ai/ai.types.js";
+import type { AiChatInput, AiChatResponse, AiTextAttachment } from "../ai/ai.types.js";
 import { chatWithAi, resolveAiModel } from "../ai/provider-registry.js";
-import { AppError } from "../../lib/errors.js";
 import { usageService } from "../usage/usage.service.js";
 import type { UsageIdentity, UsageReservation } from "../usage/usage.types.js";
 import type { ChatRequest, ChatRequestContext } from "./chat.types.js";
@@ -22,7 +21,7 @@ export function createChatService({ chatWithAi, reserveUsage }: ChatServiceDepen
       model: requestedModel,
       provider: requestedProvider,
     });
-    const image = getProviderImage(input);
+    const providerAttachments = getProviderAttachments(input);
 
     const usage = await reserveUsage?.({
       guestId: context.guestId,
@@ -31,7 +30,8 @@ export function createChatService({ chatWithAi, reserveUsage }: ChatServiceDepen
     });
     const response = await chatWithAi({
       history: input.history,
-      ...(image ? { image } : {}),
+      ...(providerAttachments.attachments.length > 0 ? { attachments: providerAttachments.attachments } : {}),
+      ...(providerAttachments.images.length > 0 ? { images: providerAttachments.images } : {}),
       message: input.message,
       mode: input.mode,
       model: resolvedModel.model,
@@ -52,22 +52,30 @@ export function createChatService({ chatWithAi, reserveUsage }: ChatServiceDepen
   };
 }
 
-function getProviderImage(input: ChatRequest) {
-  const attachment = input.attachments?.[0];
+function getProviderAttachments(input: ChatRequest) {
+  const textAttachments: AiTextAttachment[] = [];
+  const images = input.image ? [input.image] : [];
 
-  if (!attachment) return input.image;
+  for (const attachment of input.attachments || []) {
+    if (attachment.type === "image") {
+      images.push({
+        data: attachment.data,
+        mimeType: attachment.mimeType,
+      });
+      continue;
+    }
 
-  if (attachment.type !== "image") {
-    throw new AppError(
-      "Only image attachments are supported for AI chat requests right now.",
-      400,
-      "UNSUPPORTED_ATTACHMENT_TYPE"
-    );
+    textAttachments.push({
+      type: "file" as const,
+      name: attachment.name,
+      mimeType: attachment.mimeType,
+      content: attachment.content,
+    });
   }
 
   return {
-    data: attachment.data,
-    mimeType: attachment.mimeType,
+    attachments: textAttachments,
+    images,
   };
 }
 

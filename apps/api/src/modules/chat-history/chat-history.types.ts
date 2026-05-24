@@ -11,6 +11,7 @@ export interface StoredChatMessageDto {
   mode: string;
   model: string;
   attachment?: unknown;
+  attachments?: unknown[];
   createdAt: string;
   isError?: boolean;
 }

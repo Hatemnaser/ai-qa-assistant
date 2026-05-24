@@ -25,23 +25,27 @@ export async function chatWithGemini(input: AiChatInput): Promise<AiChatResponse
   const ai = new GoogleGenAI({
     apiKey: env.geminiApiKey,
   });
+  const images = getInputImages(input);
 
   const prompt = addHistoryContext(
-    buildPrompt(input.mode, input.message, {
-      hasImage: Boolean(input.image?.data && input.image.mimeType),
-      history: input.history,
-    }),
+    addAttachmentContext(
+      buildPrompt(input.mode, input.message, {
+        hasImage: images.length > 0,
+        history: input.history,
+      }),
+      input.attachments
+    ),
     input.history
   );
   const contents =
-    input.image && input.image.data && input.image.mimeType
+    images.length > 0
       ? [
-          {
+          ...images.map((image) => ({
             inlineData: {
-              mimeType: input.image.mimeType,
-              data: input.image.data,
+              mimeType: image.mimeType,
+              data: image.data,
             },
-          },
+          })),
           {
             text: prompt,
           },
@@ -96,6 +100,36 @@ function addHistoryContext(prompt: string, history: AiHistoryMessage[]) {
     .join("\n");
 
   return `Recent conversation context:\n${context}\n\n${prompt}`;
+}
+
+function getInputImages(input: AiChatInput) {
+  const images = input.images?.length ? input.images : input.image ? [input.image] : [];
+
+  return images.filter((image) => image.data && image.mimeType);
+}
+
+function addAttachmentContext(prompt: string, attachments: AiChatInput["attachments"] = []) {
+  const textAttachments = attachments.filter((attachment) => attachment.content.trim());
+
+  if (textAttachments.length === 0) return prompt;
+
+  const attachmentContext = textAttachments.map(formatTextAttachment).join("\n\n");
+
+  return `Attached file context:
+${attachmentContext}
+
+Use the attached file content as context for the latest user request. If the user only uploaded the file without a specific task, briefly summarize what the file appears to contain and ask which QA workflow they want next.
+
+${prompt}`;
+}
+
+function formatTextAttachment(attachment: NonNullable<AiChatInput["attachments"]>[number]) {
+  return `File: ${attachment.name || "attachment"}
+MIME type: ${attachment.mimeType}
+Content:
+<<<ATTACHMENT_CONTENT
+${attachment.content}
+ATTACHMENT_CONTENT`;
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {

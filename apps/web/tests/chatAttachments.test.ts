@@ -5,14 +5,20 @@ import { getAttachmentFileError } from "../src/features/chat/chatAttachments";
 
 describe("chat attachments", () => {
   it("accepts supported image files", () => {
-    const file = { size: 1024, type: "image/png" } as File;
+    const file = { name: "screen.png", size: 1024, type: "image/png" } as File;
 
     assert.equal(getAttachmentFileError(file), "");
   });
 
-  it("keeps non-image files behind the future file-upload path", () => {
-    const file = { size: 1024, type: "application/pdf" } as File;
+  it("accepts supported text and data files", () => {
+    const file = { name: "requirements.md", size: 1024, type: "" } as File;
 
-    assert.match(getAttachmentFileError(file), /coming soon/i);
+    assert.equal(getAttachmentFileError(file), "");
+  });
+
+  it("keeps PDF and video behind the future file-upload path", () => {
+    const file = { name: "requirements.pdf", size: 1024, type: "application/pdf" } as File;
+
+    assert.match(getAttachmentFileError(file), /next version/i);
   });
 });

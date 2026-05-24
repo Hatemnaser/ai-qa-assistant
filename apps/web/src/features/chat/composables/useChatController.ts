@@ -7,10 +7,11 @@ import {
   parseImportedChatJson,
 } from "../chatExport";
 import {
-  createAttachment,
-  createRequestAttachment,
+  createAttachments,
+  createRequestAttachments,
   fileToSelectedAttachment,
   getAttachmentFileError,
+  MAX_SELECTED_ATTACHMENTS,
 } from "../chatAttachments";
 import { buildRequestHistory, createChatMessage } from "../chatMessages";
 import { DEFAULT_MODE, DEFAULT_MODEL, getModelForMode } from "../constants";
@@ -30,7 +31,7 @@ export function useChatController() {
   const messageInput = ref("");
   const selectedMode = ref(DEFAULT_MODE);
   const selectedModel = ref(DEFAULT_MODEL);
-  const selectedAttachment = ref<SelectedAttachment | null>(null);
+  const selectedAttachments = ref<SelectedAttachment[]>([]);
   const chatPendingDelete = ref<Chat | null>(null);
   const renamingChatId = ref<string | null>(null);
   const quickActionMode = ref<string | null>(null);
@@ -38,8 +39,8 @@ export function useChatController() {
   const guestLimitReached = ref(false);
   const isSending = ref(false);
 
-  function clearSelectedAttachment() {
-    selectedAttachment.value = null;
+  function clearSelectedAttachments() {
+    selectedAttachments.value = [];
   }
 
   const {
@@ -57,7 +58,7 @@ export function useChatController() {
     startNewChat: startStoredNewChat,
     updateChat,
   } = useStoredChats({
-    clearSelectedAttachment,
+    clearSelectedAttachments,
     messageInput,
     selectedMode,
     selectedModel,
@@ -183,23 +184,25 @@ export function useChatController() {
 
   async function handleSubmit() {
     const typedMessage = messageInput.value.trim();
-    const message = typedMessage || getAttachmentOnlyMessage(selectedAttachment.value);
+    const message = typedMessage || getAttachmentOnlyMessage(selectedAttachments.value);
 
     if (!message || isSending.value) return;
 
     const chat = ensureActiveChat();
     const mode = selectedMode.value;
     const model = getModelForMode(mode, selectedModel.value);
-    const shouldResetQuickActionMode = quickActionMode.value === mode && !selectedAttachment.value;
+    const shouldResetQuickActionMode = quickActionMode.value === mode && selectedAttachments.value.length === 0;
     const history = buildRequestHistory(chat);
-    const attachmentsForRequest = selectedAttachment.value ? [createRequestAttachment(selectedAttachment.value)] : null;
-    const displayAttachment = selectedAttachment.value ? createAttachment(selectedAttachment.value) : undefined;
+    const attachmentsForRequest =
+      selectedAttachments.value.length > 0 ? createRequestAttachments(selectedAttachments.value) : null;
+    const displayAttachments =
+      selectedAttachments.value.length > 0 ? createAttachments(selectedAttachments.value) : undefined;
     const userMessage = createChatMessage({
       role: "user",
       content: message,
       mode,
       model,
-      attachment: displayAttachment,
+      attachments: displayAttachments,
     });
     const nextChat = {
       ...chat,
@@ -211,7 +214,7 @@ export function useChatController() {
 
     updateChat(nextChat);
     messageInput.value = "";
-    clearSelectedAttachment();
+    clearSelectedAttachments();
     isSending.value = true;
 
     await scrollChatToBottom();
@@ -293,21 +296,30 @@ export function useChatController() {
     }
   }
 
-  async function handleAttachmentSelected(file: File | undefined) {
-    await handleAttachmentFile(file);
+  async function handleAttachmentsSelected(files: File[] | FileList | undefined) {
+    await handleAttachmentFiles(files);
   }
 
-  async function handleAttachmentFile(file: File | undefined) {
-    if (!file) return;
+  async function handleAttachmentFiles(files: File[] | FileList | undefined) {
+    const selectedFiles = Array.from(files || []);
 
-    const fileError = getAttachmentFileError(file);
+    if (selectedFiles.length === 0) return;
+
+    if (selectedAttachments.value.length + selectedFiles.length > MAX_SELECTED_ATTACHMENTS) {
+      alert(`You can attach up to ${MAX_SELECTED_ATTACHMENTS} files per message.`);
+      return;
+    }
+
+    const fileError = selectedFiles.map(getAttachmentFileError).find(Boolean);
 
     if (fileError) {
       alert(fileError);
       return;
     }
 
-    selectedAttachment.value = await fileToSelectedAttachment(file);
+    const nextAttachments = await Promise.all(selectedFiles.map(fileToSelectedAttachment));
+
+    selectedAttachments.value = [...selectedAttachments.value, ...nextAttachments];
   }
 
   function openAttachment(attachment: ChatAttachment) {
@@ -316,13 +328,23 @@ export function useChatController() {
     }
   }
 
-  function openSelectedAttachment() {
-    if (selectedAttachment.value?.previewUrl) {
-      window.open(selectedAttachment.value.previewUrl, "_blank");
+  function openSelectedAttachment(index: number) {
+    const attachment = selectedAttachments.value[index];
+
+    if (attachment?.previewUrl) {
+      window.open(attachment.previewUrl, "_blank");
     }
   }
 
-  function getAttachmentOnlyMessage(attachment: SelectedAttachment | null) {
+  function removeSelectedAttachment(index: number) {
+    selectedAttachments.value = selectedAttachments.value.filter((_, itemIndex) => itemIndex !== index);
+  }
+
+  function getAttachmentOnlyMessage(attachments: SelectedAttachment[]) {
+    if (attachments.length === 0) return "";
+    if (attachments.length > 1) return `Uploaded ${attachments.length} attachments.`;
+
+    const attachment = attachments[0];
     if (!attachment) return "";
 
     return attachment.type === "image" ? "Uploaded an image." : "Uploaded an attachment.";
@@ -337,14 +359,13 @@ export function useChatController() {
     cancelRenameChat,
     chatPendingDelete,
     chats,
-    clearSelectedAttachment,
     clearGuestLimitReached,
     confirmDeleteChat,
     copyAnswer,
     exportActiveChat,
     exportAnswer,
     exportChat,
-    handleAttachmentSelected,
+    handleAttachmentsSelected,
     handleImportChat,
     handleSubmit,
     guestLimitReached,
@@ -361,8 +382,9 @@ export function useChatController() {
     renamingChatId,
     requestDeleteChat,
     replaceChats,
+    removeSelectedAttachment,
     selectChat,
-    selectedAttachment,
+    selectedAttachments,
     selectedMode,
     selectedModel,
     setChatStorageOwner,

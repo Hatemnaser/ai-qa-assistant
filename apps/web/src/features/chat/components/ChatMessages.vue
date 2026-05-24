@@ -2,6 +2,7 @@
 import { ref } from "vue";
 
 import { QUICK_ACTIONS } from "../constants";
+import { getMessageAttachments } from "../chatMessages";
 import { renderMarkdown } from "../markdown";
 import type { QuickAction } from "../constants";
 import type { ChatAttachment, ChatMessage, ExportFormat } from "../types";
@@ -121,21 +122,22 @@ function copyLabel(message: ChatMessage) {
 
       <div v-else class="msg">
         <button
-          v-if="message.attachment"
+          v-for="(attachment, index) in getMessageAttachments(message)"
+          :key="`${message.id}-${attachment.name}-${attachment.mimeType}-${index}`"
           class="chat-attachment-card d-flex align-items-center"
           type="button"
-          @click="emit('open-attachment', message.attachment)"
+          @click="emit('open-attachment', attachment)"
         >
           <img
-            v-if="message.attachment.type === 'image' && message.attachment.previewUrl"
-            :src="message.attachment.previewUrl"
-            :alt="message.attachment.name"
+            v-if="attachment.type === 'image' && attachment.previewUrl"
+            :src="attachment.previewUrl"
+            :alt="attachment.name"
             class="chat-attachment-thumb"
           />
           <span class="chat-attachment-meta">
-            <span class="chat-attachment-name">{{ message.attachment.name }}</span>
+            <span class="chat-attachment-name">{{ attachment.name }}</span>
             <span class="chat-attachment-type">
-              {{ message.attachment.type === "image" ? "Image" : "File" }}
+              {{ attachment.type === "image" ? "Image" : "File" }}
             </span>
           </span>
         </button>

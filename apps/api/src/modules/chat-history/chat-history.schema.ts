@@ -14,6 +14,7 @@ const chatMessageSchema = z.object({
   mode: z.string().default("general"),
   model: z.string().default("gemini-2.5-flash"),
   attachment: chatAttachmentSchema.optional(),
+  attachments: z.array(chatAttachmentSchema).max(4).optional(),
   createdAt: z.string().datetime().optional(),
   isError: z.boolean().optional(),
 });

@@ -29,6 +29,13 @@ describe("chat history service", () => {
             model: "gemini-2.5-flash",
             createdAt: "2026-05-21T10:00:00.000Z",
             isError: true,
+            attachments: [
+              {
+                type: "file",
+                name: "requirements.md",
+                mimeType: "text/markdown",
+              },
+            ],
           },
         ],
       })
@@ -44,6 +51,13 @@ describe("chat history service", () => {
     );
     assert.equal(userChats[0].messages[0]?.content, "Saved answer");
     assert.equal(userChats[0].messages[0]?.isError, true);
+    assert.deepEqual(userChats[0].messages[0]?.attachments, [
+      {
+        type: "file",
+        name: "requirements.md",
+        mimeType: "text/markdown",
+      },
+    ]);
   });
 
   it("updates chats owned by the current user", async () => {

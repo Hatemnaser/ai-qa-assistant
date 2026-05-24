@@ -21,6 +21,7 @@ export interface ChatMessage {
   mode: string;
   model: string;
   attachment?: ChatAttachment;
+  attachments?: ChatAttachment[];
   createdAt: string;
   isError?: boolean;
 }
@@ -61,12 +62,21 @@ export interface RequestImage {
   data: string;
 }
 
-export interface RequestAttachment extends RequestImage {
-  type: ChatAttachment["type"];
+export interface RequestImageAttachment extends RequestImage {
+  type: "image";
   name?: string;
 }
 
-export interface SelectedAttachment extends RequestAttachment {
+export interface RequestFileAttachment {
+  type: "file";
+  name?: string;
+  mimeType: string;
+  content: string;
+}
+
+export type RequestAttachment = RequestImageAttachment | RequestFileAttachment;
+
+export type SelectedAttachment = RequestAttachment & {
   name: string;
   previewUrl?: string;
-}
+};

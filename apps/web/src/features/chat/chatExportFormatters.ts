@@ -1,4 +1,5 @@
 import { DEFAULT_MODE, DEFAULT_MODEL } from "./constants";
+import { getMessageAttachments } from "./chatMessages";
 import type { Chat, ChatMessage } from "./types";
 
 export function formatChatAsMarkdown(chat: Chat) {
@@ -20,10 +21,10 @@ export function formatChatAsMarkdown(chat: Chat) {
     lines.push(`- Model: ${message.model || chat.model || DEFAULT_MODEL}`);
     lines.push(`- Created At: ${message.createdAt || ""}`);
 
-    if (message.attachment) {
-      lines.push(`- Attachment Name: ${message.attachment.name || ""}`);
-      lines.push(`- Attachment Type: ${message.attachment.type || ""}`);
-      lines.push(`- Attachment MIME Type: ${message.attachment.mimeType || ""}`);
+    for (const attachment of getMessageAttachments(message)) {
+      lines.push(`- Attachment Name: ${attachment.name || ""}`);
+      lines.push(`- Attachment Type: ${attachment.type || ""}`);
+      lines.push(`- Attachment MIME Type: ${attachment.mimeType || ""}`);
     }
 
     lines.push("");
@@ -135,6 +136,12 @@ function formatRole(role: string) {
 }
 
 function sanitizeMessageForExport(message: ChatMessage): ChatMessage {
+  const attachments = getMessageAttachments(message).map((attachment) => ({
+    type: attachment.type,
+    name: attachment.name || "Attachment",
+    mimeType: attachment.mimeType || "",
+  }));
+
   return {
     id: message.id,
     role: message.role,
@@ -143,14 +150,6 @@ function sanitizeMessageForExport(message: ChatMessage): ChatMessage {
     model: message.model || DEFAULT_MODEL,
     createdAt: message.createdAt,
     ...(message.isError ? { isError: true } : {}),
-    ...(message.attachment
-      ? {
-          attachment: {
-            type: message.attachment.type,
-            name: message.attachment.name || "Attachment",
-            mimeType: message.attachment.mimeType || "",
-          },
-        }
-      : {}),
+    ...(attachments.length > 0 ? { attachments } : {}),
   };
 }

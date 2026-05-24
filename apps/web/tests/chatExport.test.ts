@@ -51,8 +51,8 @@ describe("chat export/import helpers", () => {
     assert.equal(chat.model, "gemini-2.5-flash-lite");
     assert.equal(chat.messages[0]?.id, "generated-chat-id");
     assert.equal(chat.messages[0]?.role, "assistant");
-    assert.equal(chat.messages[0]?.attachment?.name, "screen.png");
-    assert.equal(chat.messages[0]?.attachment?.previewUrl, undefined);
+    assert.equal(chat.messages[0]?.attachments?.[0]?.name, "screen.png");
+    assert.equal(chat.messages[0]?.attachments?.[0]?.previewUrl, undefined);
   });
 
   it("uses safe defaults for minimal raw chat JSON", () => {

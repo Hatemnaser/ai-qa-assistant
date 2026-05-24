@@ -95,18 +95,32 @@ function normalizeChat(chat: Partial<Chat>): Chat {
   return createChat({
     ...chat,
     messages: Array.isArray(chat.messages)
-      ? chat.messages.map((message) => ({
-          id: message.id || createId(),
-          role: message.role === "assistant" ? "assistant" : "user",
-          content: typeof message.content === "string" ? message.content : "",
-          mode: message.mode || chat.mode || DEFAULT_MODE,
-          model: normalizeModel(message.model || chat.model),
-          ...(message.attachment ? { attachment: normalizeAttachment(message.attachment) } : {}),
-          createdAt: message.createdAt || new Date().toISOString(),
-          ...(message.isError ? { isError: true } : {}),
-        }))
+      ? chat.messages.map((message) => {
+          const attachments = normalizeAttachments(message);
+
+          return {
+            id: message.id || createId(),
+            role: message.role === "assistant" ? "assistant" : "user",
+            content: typeof message.content === "string" ? message.content : "",
+            mode: message.mode || chat.mode || DEFAULT_MODE,
+            model: normalizeModel(message.model || chat.model),
+            ...(attachments.length > 0 ? { attachments } : {}),
+            createdAt: message.createdAt || new Date().toISOString(),
+            ...(message.isError ? { isError: true } : {}),
+          };
+        })
       : [],
   });
+}
+
+function normalizeAttachments(message: Partial<Chat["messages"][number]>) {
+  const rawAttachments = Array.isArray(message.attachments)
+    ? message.attachments
+    : message.attachment
+      ? [message.attachment]
+      : [];
+
+  return rawAttachments.filter(isAttachmentLike).map(normalizeAttachment);
 }
 
 function normalizeAttachment(attachment: Partial<ChatAttachment>): ChatAttachment {
@@ -116,6 +130,10 @@ function normalizeAttachment(attachment: Partial<ChatAttachment>): ChatAttachmen
     mimeType: attachment.mimeType || "",
     ...(attachment.previewUrl ? { previewUrl: attachment.previewUrl } : {}),
   };
+}
+
+function isAttachmentLike(value: unknown): value is Partial<ChatAttachment> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function parseSavedChats(savedChats: string | null) {

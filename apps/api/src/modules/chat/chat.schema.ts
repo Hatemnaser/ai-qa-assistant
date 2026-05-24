@@ -14,10 +14,22 @@ export const chatImageSchema = z.object({
   data: z.string().min(1),
 });
 
-export const chatAttachmentSchema = chatImageSchema.extend({
-  type: z.enum(["image", "file"]),
+export const chatImageAttachmentSchema = chatImageSchema.extend({
+  type: z.literal("image"),
   name: z.string().trim().max(255).optional(),
 });
+
+export const chatFileAttachmentSchema = z.object({
+  type: z.literal("file"),
+  name: z.string().trim().max(255).optional(),
+  mimeType: z.string().min(1),
+  content: z.string().min(1).max(1_000_000, "File content must be 1MB or smaller."),
+});
+
+export const chatAttachmentSchema = z.discriminatedUnion("type", [
+  chatImageAttachmentSchema,
+  chatFileAttachmentSchema,
+]);
 
 export const chatRequestSchema = z.object({
   message: z
@@ -31,7 +43,7 @@ export const chatRequestSchema = z.object({
   history: z.array(chatHistoryMessageSchema).max(env.maxHistoryMessages).default([]),
   attachments: z.preprocess(
     (value) => (value === null ? undefined : value),
-    z.array(chatAttachmentSchema).max(1, "Only one attachment is supported right now.").optional()
+    z.array(chatAttachmentSchema).max(4, "You can attach up to 4 files per message.").optional()
   ),
   image: z.preprocess((value) => (value === null ? undefined : value), chatImageSchema.optional()),
 });

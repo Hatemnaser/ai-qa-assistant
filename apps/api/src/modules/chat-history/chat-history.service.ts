@@ -31,16 +31,20 @@ export function createChatHistoryService({ now = () => new Date(), repository }:
     const savedChat = await repository.saveUserChat({
       chat: input,
       createdAt: toDate(input.createdAt, fallbackDate),
-      messages: input.messages.map((message) => ({
-        id: message.id,
-        attachment: message.attachment,
-        content: message.content,
-        createdAt: toDate(message.createdAt, fallbackDate),
-        metadata: message.isError ? { isError: true } : undefined,
-        mode: message.mode,
-        model: message.model,
-        role: toPrismaChatRole(message.role),
-      })),
+      messages: input.messages.map((message) => {
+        const attachments = toStoredAttachments(message);
+
+        return {
+          id: message.id,
+          ...(attachments.length > 0 ? { attachment: attachments } : {}),
+          content: message.content,
+          createdAt: toDate(message.createdAt, fallbackDate),
+          metadata: message.isError ? { isError: true } : undefined,
+          mode: message.mode,
+          model: message.model,
+          role: toPrismaChatRole(message.role),
+        };
+      }),
       updatedAt: toDate(input.updatedAt, fallbackDate),
       userId,
     });
@@ -76,16 +80,30 @@ function toStoredChatDto(chat: StoredChatRecord): StoredChatDto {
 }
 
 function toStoredMessageDto(message: StoredMessageRecord): StoredChatMessageDto {
+  const attachments = toStoredAttachments(message);
+
   return {
     id: message.id,
     role: message.role === ChatRole.ASSISTANT ? "assistant" : "user",
     content: message.content,
     mode: message.mode,
     model: message.model || "gemini-2.5-flash",
-    ...(message.attachment ? { attachment: message.attachment } : {}),
+    ...(attachments.length > 0 ? { attachments } : {}),
     createdAt: message.createdAt.toISOString(),
     ...(hasErrorFlag(message.metadata) ? { isError: true } : {}),
   };
+}
+
+function toStoredAttachments(message: { attachment?: unknown; attachments?: unknown[] }) {
+  if (Array.isArray(message.attachments)) {
+    return message.attachments;
+  }
+
+  if (Array.isArray(message.attachment)) {
+    return message.attachment;
+  }
+
+  return message.attachment ? [message.attachment] : [];
 }
 
 function toPrismaChatRole(role: "user" | "assistant") {

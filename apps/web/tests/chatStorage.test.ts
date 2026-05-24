@@ -33,6 +33,28 @@ describe("chat storage", () => {
             {
               content: "hello",
               role: "assistant",
+              attachment: {
+                type: "image",
+                name: "legacy.png",
+                mimeType: "image/png",
+                previewUrl: "data:image/png;base64,abc",
+              },
+            },
+            {
+              content: "multiple",
+              role: "user",
+              attachments: [
+                {
+                  type: "file",
+                  name: "requirements.md",
+                  mimeType: "text/markdown",
+                },
+                {
+                  type: "image",
+                  name: "screen.webp",
+                  mimeType: "image/webp",
+                },
+              ],
             },
           ],
         },
@@ -47,6 +69,8 @@ describe("chat storage", () => {
     assert.equal(chat?.messages[0]?.content, "hello");
     assert.equal(chat?.messages[0]?.mode, "edge_cases");
     assert.equal(chat?.messages[0]?.model, "gemini-2.5-flash-lite");
+    assert.equal(chat?.messages[0]?.attachments?.[0]?.name, "legacy.png");
+    assert.equal(chat?.messages[1]?.attachments?.length, 2);
     assert.ok(chat?.createdAt);
     assert.ok(chat?.updatedAt);
   });

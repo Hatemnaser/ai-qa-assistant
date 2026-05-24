@@ -7,6 +7,7 @@ interface NewChatMessage {
   mode: string;
   model: string;
   attachment?: ChatAttachment;
+  attachments?: ChatAttachment[];
   isError?: boolean;
 }
 
@@ -16,15 +17,18 @@ export function createChatMessage({
   mode,
   model,
   attachment,
+  attachments,
   isError,
 }: NewChatMessage): ChatMessage {
+  const nextAttachments = attachments?.length ? attachments : attachment ? [attachment] : [];
+
   return {
     id: createId(),
     role,
     content,
     mode,
     model,
-    ...(attachment ? { attachment } : {}),
+    ...(nextAttachments.length > 0 ? { attachments: nextAttachments } : {}),
     ...(isError ? { isError } : {}),
     createdAt: new Date().toISOString(),
   };
@@ -58,3 +62,11 @@ const systemErrorPatterns = [
   /invalid request payload/i,
   /gemini_api_key is not configured/i,
 ];
+
+export function getMessageAttachments(message: ChatMessage): ChatAttachment[] {
+  if (Array.isArray(message.attachments) && message.attachments.length > 0) {
+    return message.attachments;
+  }
+
+  return message.attachment ? [message.attachment] : [];
+}

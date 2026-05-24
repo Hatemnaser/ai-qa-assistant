@@ -6,6 +6,7 @@ import {
   markdownToPlainText,
   sanitizeChatForExport,
 } from "./chatExportFormatters";
+import { getMessageAttachments } from "./chatMessages";
 import type { Chat, ChatMessage, ExportFormat } from "./types";
 
 const ANSWER_TYPE = "qa-answer";
@@ -67,8 +68,12 @@ export function exportChatCsv(chat: Chat) {
       message.mode || chat.mode || DEFAULT_MODE,
       message.model || chat.model || DEFAULT_MODEL,
       message.createdAt || "",
-      message.attachment?.name || "",
-      message.attachment?.type || "",
+      getMessageAttachments(message)
+        .map((attachment) => attachment.name)
+        .join("; "),
+      getMessageAttachments(message)
+        .map((attachment) => attachment.type)
+        .join("; "),
       markdownToPlainText(message.content || ""),
     ]),
   ];

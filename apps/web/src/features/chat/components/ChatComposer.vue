@@ -11,15 +11,15 @@ const props = defineProps<{
   isSending: boolean;
   message: string;
   mode: string;
-  selectedAttachment: SelectedAttachment | null;
+  selectedAttachments: SelectedAttachment[];
 }>();
 
 const emit = defineEmits<{
   "update:message": [value: string];
   submit: [];
-  "attachment-selected": [file: File | undefined];
-  "open-selected-attachment": [];
-  "clear-selected-attachment": [];
+  "attachments-selected": [files: File[]];
+  "open-selected-attachment": [index: number];
+  "remove-selected-attachment": [index: number];
   "quick-action": [action: QuickAction];
   "disabled-click": [];
 }>();
@@ -68,10 +68,10 @@ function handleAttachmentChange(event: Event) {
   if (isComposerDisabled.value) return;
 
   const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
+  const files = Array.from(input.files || []);
 
   input.value = "";
-  emit("attachment-selected", file);
+  emit("attachments-selected", files);
 }
 
 function handleDrop(event: DragEvent) {
@@ -82,7 +82,23 @@ function handleDrop(event: DragEvent) {
     return;
   }
 
-  emit("attachment-selected", event.dataTransfer?.files?.[0]);
+  emit("attachments-selected", Array.from(event.dataTransfer?.files || []));
+}
+
+function handlePaste(event: ClipboardEvent) {
+  if (isComposerDisabled.value) return;
+
+  const clipboardFiles = Array.from(event.clipboardData?.files || []);
+  const itemFiles = Array.from(event.clipboardData?.items || [])
+    .filter((item) => item.kind === "file")
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => Boolean(file));
+  const files = clipboardFiles.length > 0 ? clipboardFiles : itemFiles;
+
+  if (files.length === 0) return;
+
+  event.preventDefault();
+  emit("attachments-selected", files);
 }
 
 function requestSubmit() {
@@ -111,9 +127,15 @@ function handleComposerClick() {
       @dragover.prevent="showDragOver"
       @dragleave.prevent="hideDragOver"
       @drop.prevent="handleDrop"
+      @paste="handlePaste"
     >
-      <div v-if="selectedAttachment" id="attachment-preview" class="attachment-preview">
-        <div class="attachment-preview-card d-flex align-items-center" @click="emit('open-selected-attachment')">
+      <div v-if="selectedAttachments.length" id="attachment-preview" class="attachment-preview">
+        <div
+          v-for="(selectedAttachment, index) in selectedAttachments"
+          :key="`${selectedAttachment.name}-${index}`"
+          class="attachment-preview-card d-flex align-items-center"
+          @click="emit('open-selected-attachment', index)"
+        >
           <img
             v-if="selectedAttachment.type === 'image' && selectedAttachment.previewUrl"
             :src="selectedAttachment.previewUrl"
@@ -130,7 +152,7 @@ function handleComposerClick() {
             type="button"
             aria-label="Remove attachment"
             :disabled="isComposerDisabled"
-            @click.stop="emit('clear-selected-attachment')"
+            @click.stop="emit('remove-selected-attachment', index)"
           >
             &times;
           </button>
@@ -180,6 +202,7 @@ function handleComposerClick() {
       <input
         id="attachment-input"
         type="file"
+        multiple
         hidden
         @change="handleAttachmentChange"
       />

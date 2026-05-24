@@ -120,10 +120,16 @@ describe("chat service", () => {
   it("converts image attachments into the provider image payload", async () => {
     const service = createChatService({
       chatWithAi: async (input) => {
-        assert.deepEqual(input.image, {
-          mimeType: "image/png",
-          data: "abc",
-        });
+        assert.deepEqual(input.images, [
+          {
+            mimeType: "image/png",
+            data: "abc",
+          },
+          {
+            mimeType: "image/webp",
+            data: "def",
+          },
+        ]);
 
         return {
           reply: "Hi from test AI",
@@ -141,6 +147,12 @@ describe("chat service", () => {
           mimeType: "image/png",
           data: "abc",
         },
+        {
+          type: "image",
+          name: "wireframe.webp",
+          mimeType: "image/webp",
+          data: "def",
+        },
       ],
       history: [],
       message: "review this",
@@ -149,45 +161,46 @@ describe("chat service", () => {
     });
   });
 
-  it("rejects unsupported attachment types before usage or AI calls", async () => {
-    let providerWasCalled = false;
-    let usageWasReserved = false;
+  it("passes text file attachments to the AI provider", async () => {
+    const calls: string[] = [];
     const service = createChatService({
-      chatWithAi: async () => {
-        providerWasCalled = true;
+      chatWithAi: async (input) => {
+        calls.push("ai");
+        assert.deepEqual(input.attachments, [
+          {
+            type: "file",
+            name: "requirements.md",
+            mimeType: "text/markdown",
+            content: "# Checkout requirements",
+          },
+        ]);
+
         return {
-          reply: "should not happen",
+          reply: "Hi from test AI",
           model: "gemini-2.5-flash",
           provider: "gemini",
         };
       },
       reserveUsage: async () => {
-        usageWasReserved = true;
+        calls.push("usage");
       },
     });
 
-    await assert.rejects(
-      () =>
-        service.createChatReply({
-          attachments: [
-            {
-              type: "file",
-              name: "requirements.pdf",
-              mimeType: "application/pdf",
-              data: "abc",
-            },
-          ],
-          history: [],
-          message: "review this",
-          mode: "general",
-          model: "gemini-2.5-flash",
-        }),
-      {
-        code: "UNSUPPORTED_ATTACHMENT_TYPE",
-        statusCode: 400,
-      }
-    );
-    assert.equal(providerWasCalled, false);
-    assert.equal(usageWasReserved, false);
+    await service.createChatReply({
+      attachments: [
+        {
+          type: "file",
+          name: "requirements.md",
+          mimeType: "text/markdown",
+          content: "# Checkout requirements",
+        },
+      ],
+      history: [],
+      message: "review this",
+      mode: "general",
+      model: "gemini-2.5-flash",
+    });
+
+    assert.deepEqual(calls, ["usage", "ai"]);
   });
 });
