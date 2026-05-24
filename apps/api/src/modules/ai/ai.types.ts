@@ -1,3 +1,5 @@
+import type { QaWorkflowAnalysis } from "./qa-workflow.js";
+
 export type AiRole = "user" | "assistant";
 export type AiProviderId = "gemini";
 
@@ -29,12 +31,24 @@ export interface AiChatInput {
   attachments?: AiTextAttachment[];
   image?: AiImage;
   images?: AiImage[];
+  workflow?: QaWorkflowAnalysis;
 }
 
 export interface AiChatResponse {
   reply: string;
   model: string;
+  modelRouting?: AiModelRouting;
   provider?: string;
+  workflow?: QaWorkflowAnalysis;
+}
+
+export type AiModelRoutingSource = "fallback" | "policy" | "requested";
+
+export interface AiModelRouting {
+  reason: string;
+  requestedModel: string;
+  selectedModel: string;
+  source: AiModelRoutingSource;
 }
 
 export interface AiErrorDetails {

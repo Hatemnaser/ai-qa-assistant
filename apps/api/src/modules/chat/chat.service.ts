@@ -1,9 +1,14 @@
 import type { AiChatInput, AiChatResponse, AiTextAttachment } from "../ai/ai.types.js";
+import { routeAiModel } from "../ai/routing/model-router.js";
 import {
   assertAiModelCapabilities,
   chatWithAi,
+  routeWorkflowWithAi,
   resolveAiModel,
 } from "../ai/provider-registry.js";
+import { analyzeQaWorkflowWithRouter } from "../ai/routing/workflow-router.js";
+import type { WorkflowRouter } from "../ai/routing/workflow-router.js";
+import { env } from "../../config/env.js";
 import { usageService } from "../usage/usage.service.js";
 import type { UsageIdentity, UsageReservation } from "../usage/usage.types.js";
 import type { ChatRequest, ChatRequestContext } from "./chat.types.js";
@@ -14,9 +19,10 @@ type ChatUsageGuard = (identity: UsageIdentity) => Promise<UsageReservation | un
 export interface ChatServiceDependencies {
   chatWithAi: ChatAiProvider;
   reserveUsage?: ChatUsageGuard;
+  routeWorkflow?: WorkflowRouter;
 }
 
-export function createChatService({ chatWithAi, reserveUsage }: ChatServiceDependencies) {
+export function createChatService({ chatWithAi, reserveUsage, routeWorkflow }: ChatServiceDependencies) {
   async function createChatReply(input: ChatRequest, context: ChatRequestContext = {}) {
     const requestedModel = typeof input.model === "string" ? input.model.trim() : undefined;
     const requestedProvider = typeof input.provider === "string" ? input.provider.trim() : undefined;
@@ -26,31 +32,56 @@ export function createChatService({ chatWithAi, reserveUsage }: ChatServiceDepen
       provider: requestedProvider,
     });
     const providerAttachments = getProviderAttachments(input);
-    assertAiModelCapabilities(resolvedModel.config, {
-      images: providerAttachments.images.length > 0,
-      textAttachments: providerAttachments.attachments.length > 0,
-    });
-
     const usage = await reserveUsage?.({
       guestId: context.guestId,
       ipAddress: context.ipAddress,
       userId: context.userId,
     });
+    const workflow = await analyzeQaWorkflowWithRouter(
+      {
+        hasImage: providerAttachments.images.length > 0,
+        hasTextAttachment: providerAttachments.attachments.length > 0,
+        history: input.history,
+        message: input.message,
+        mode: input.mode,
+      },
+      {
+        enabled: env.aiWorkflowRouterEnabled,
+        minConfidence: env.aiWorkflowRouterMinConfidence,
+        router: routeWorkflow,
+      }
+    );
+    const modelRouting = routeAiModel({
+      hasImage: providerAttachments.images.length > 0,
+      hasTextAttachment: providerAttachments.attachments.length > 0,
+      requestedModel: resolvedModel,
+      resolveModel: resolveAiModel,
+      workflow,
+    });
+
+    assertAiModelCapabilities(modelRouting.model.config, {
+      images: providerAttachments.images.length > 0,
+      textAttachments: providerAttachments.attachments.length > 0,
+    });
+
     const response = await chatWithAi({
       history: input.history,
       ...(providerAttachments.attachments.length > 0 ? { attachments: providerAttachments.attachments } : {}),
       ...(providerAttachments.images.length > 0 ? { images: providerAttachments.images } : {}),
       message: input.message,
       mode: input.mode,
-      model: resolvedModel.model,
-      provider: resolvedModel.provider,
+      model: modelRouting.model.model,
+      provider: modelRouting.model.provider,
+      workflow,
     });
 
     return {
       reply: response.reply,
-      mode: input.mode,
-      model: response.model || resolvedModel.model,
-      provider: response.provider || resolvedModel.provider,
+      mode: response.workflow?.effectiveMode || workflow.effectiveMode,
+      model: response.model || modelRouting.model.model,
+      modelRouting: response.modelRouting || modelRouting.routing,
+      provider: response.provider || modelRouting.model.provider,
+      workflow: response.workflow || workflow,
       ...(usage ? { usage } : {}),
     };
   }
@@ -89,5 +120,6 @@ function getProviderAttachments(input: ChatRequest) {
 
 export const { createChatReply } = createChatService({
   chatWithAi,
+  routeWorkflow: routeWorkflowWithAi,
   reserveUsage: usageService.reserveChatMessage,
 });

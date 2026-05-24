@@ -47,14 +47,33 @@ export interface ChatApiResponse {
   reply: string;
   mode: string;
   model: string;
+  modelRouting?: ChatModelRoutingSummary;
   provider?: string;
   usage?: ChatUsageSummary;
+  workflow?: ChatWorkflowSummary;
+}
+
+export interface ChatModelRoutingSummary {
+  reason: string;
+  requestedModel: string;
+  selectedModel: string;
+  source: string;
 }
 
 export interface ChatUsageSummary {
   limit: number;
   remaining: number;
   used: number;
+}
+
+export interface ChatWorkflowSummary {
+  confidence: number;
+  effectiveMode: string;
+  intent: string;
+  language: string;
+  source: string;
+  shouldUseArtifactTemplate: boolean;
+  shouldAskClarifyingQuestion: boolean;
 }
 
 export interface AiModelCapabilities {

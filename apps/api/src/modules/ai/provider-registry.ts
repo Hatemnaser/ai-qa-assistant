@@ -1,3 +1,5 @@
+import { GoogleGenAI } from "@google/genai";
+
 import { env } from "../../config/env.js";
 import { AppError } from "../../lib/errors.js";
 import type {
@@ -10,6 +12,8 @@ import type {
   AiResolvedModel,
 } from "./ai.types.js";
 import { geminiProvider } from "./gemini.provider.js";
+import { routeWorkflowWithGemini } from "./routing/gemini-workflow-router.js";
+import type { WorkflowRouterInput } from "./routing/workflow-router.js";
 
 export const AI_PROVIDERS = [geminiProvider] as const satisfies readonly AiProviderAdapter[];
 
@@ -78,6 +82,17 @@ export async function chatWithAi(input: AiChatInput): Promise<AiChatResponse> {
     model: resolved.model,
     provider: resolved.provider,
   });
+}
+
+export async function routeWorkflowWithAi(input: WorkflowRouterInput) {
+  if (!env.aiWorkflowRouterEnabled) return undefined;
+  if (!env.geminiApiKey) return undefined;
+
+  const ai = new GoogleGenAI({
+    apiKey: env.geminiApiKey,
+  });
+
+  return routeWorkflowWithGemini(ai, input);
 }
 
 export function getAiProvider(providerId: AiProviderId) {

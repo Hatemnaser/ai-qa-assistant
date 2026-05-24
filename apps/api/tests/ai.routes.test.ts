@@ -38,7 +38,7 @@ describe("GET /api/ai/models", () => {
 
     assert.equal(response.status, 200);
     assert.equal(body.defaultProvider, "gemini");
-    assert.equal(body.defaultModel, "gemini-2.5-flash");
+    assert.equal(body.defaultModel, "gemini-3.1-flash-lite");
     assert.deepEqual(body.providers, ["gemini"]);
     assert.ok(Array.isArray(body.models));
     assert.ok(body.models.some((model: { value: string }) => model.value === "gemini-2.5-flash"));

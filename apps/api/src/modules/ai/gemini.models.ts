@@ -1,7 +1,7 @@
 import type { AiProviderId } from "./ai.types.js";
 
 export const GEMINI_PROVIDER_ID = "gemini" satisfies AiProviderId;
-export const GEMINI_DEFAULT_MODEL = "gemini-2.5-flash";
+export const GEMINI_DEFAULT_MODEL = "gemini-3.1-flash-lite";
 
 const GEMINI_INLINE_ATTACHMENT_CAPABILITIES = {
   images: true,

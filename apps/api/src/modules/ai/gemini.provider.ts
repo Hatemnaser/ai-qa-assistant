@@ -31,6 +31,7 @@ export async function chatWithGemini(input: AiChatInput): Promise<AiChatResponse
   const prompt = addHistoryContext(
     addAttachmentContext(
       buildPrompt(input.mode, input.message, {
+        analysis: input.workflow,
         hasImage: images.length > 0,
         hasTextAttachment: textAttachments.length > 0,
         history: input.history,
@@ -74,6 +75,7 @@ export async function chatWithGemini(input: AiChatInput): Promise<AiChatResponse
       reply: response.text || "",
       model: selectedModel,
       provider: GEMINI_PROVIDER_ID,
+      ...(input.workflow ? { workflow: input.workflow } : {}),
     };
   } catch (error) {
     throw normalizeGeminiError(error, selectedModel);

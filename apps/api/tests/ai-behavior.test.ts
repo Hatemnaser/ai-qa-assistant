@@ -66,13 +66,6 @@ describe("AI behavior contract", () => {
       mode: "general",
       name: "test cases from an attached visual",
     },
-    {
-      expectedHeading: "# Test Cases",
-      expectedIntent: "test_cases",
-      message: "اعمل حالات اختبار لصفحة تسجيل الدخول",
-      mode: "general",
-      name: "Arabic test case request",
-    },
   ];
 
   for (const testCase of artifactCases) {
@@ -117,12 +110,6 @@ describe("AI behavior contract", () => {
       message: "can you explain this?",
       mode: "test_cases",
       name: "clarification question after an artifact",
-    },
-    {
-      expectedIntent: "clarification",
-      message: "شو الخطوة بعدا؟",
-      mode: "bug_report",
-      name: "Arabic next-step follow-up",
     },
     {
       expectedIntent: "conversational",

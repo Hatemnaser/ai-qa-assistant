@@ -9,12 +9,13 @@ describe("chat service", () => {
       chatWithAi: async (input) => {
         assert.equal(input.message, "hello");
         assert.equal(input.mode, "general");
-        assert.equal(input.model, "gemini-2.5-flash-lite");
+        assert.equal(input.model, "gemini-3.1-flash-lite");
         assert.equal(input.provider, "gemini");
+        assert.equal(input.workflow?.intent, "general_qa");
 
         return {
           reply: "Hi from test AI",
-          model: "gemini-2.5-flash-lite",
+          model: "gemini-3.1-flash-lite",
           provider: "gemini",
         };
       },
@@ -30,8 +31,23 @@ describe("chat service", () => {
     assert.deepEqual(response, {
       reply: "Hi from test AI",
       mode: "general",
-      model: "gemini-2.5-flash-lite",
+      model: "gemini-3.1-flash-lite",
+      modelRouting: {
+        reason: "Workflow intent general_qa uses the configured general model.",
+        requestedModel: "gemini-2.5-flash-lite",
+        selectedModel: "gemini-3.1-flash-lite",
+        source: "policy",
+      },
       provider: "gemini",
+      workflow: {
+        confidence: 0.4,
+        effectiveMode: "general",
+        intent: "general_qa",
+        language: "english",
+        shouldAskClarifyingQuestion: false,
+        shouldUseArtifactTemplate: false,
+        source: "fallback",
+      },
     });
   });
 
@@ -76,7 +92,7 @@ describe("chat service", () => {
         calls.push("ai");
         return {
           reply: "Hi from test AI",
-          model: "gemini-2.5-flash",
+          model: "gemini-3.1-flash-lite",
           provider: "gemini",
         };
       },
@@ -120,6 +136,7 @@ describe("chat service", () => {
   it("converts image attachments into the provider image payload", async () => {
     const service = createChatService({
       chatWithAi: async (input) => {
+        assert.equal(input.model, "gemini-2.5-flash");
         assert.deepEqual(input.images, [
           {
             mimeType: "image/png",
@@ -166,6 +183,7 @@ describe("chat service", () => {
     const service = createChatService({
       chatWithAi: async (input) => {
         calls.push("ai");
+        assert.equal(input.model, "gemini-3.1-flash-lite");
         assert.deepEqual(input.attachments, [
           {
             type: "file",
@@ -202,5 +220,44 @@ describe("chat service", () => {
     });
 
     assert.deepEqual(calls, ["usage", "ai"]);
+  });
+
+  it("uses the workflow router for ambiguous selected-mode follow-ups", async () => {
+    const service = createChatService({
+      chatWithAi: async (input) => {
+        assert.equal(input.workflow?.intent, "conversational");
+        assert.equal(input.workflow?.source, "ai_router");
+        assert.equal(input.model, "gemini-3.1-flash-lite");
+
+        return {
+          reply: "You are welcome.",
+          model: "gemini-2.5-flash",
+          provider: "gemini",
+          workflow: input.workflow,
+        };
+      },
+      routeWorkflow: async () => ({
+        confidence: 0.94,
+        intent: "conversational",
+        language: "english",
+      }),
+    });
+
+    const response = await service.createChatReply({
+      history: [
+        {
+          content: "Bug report",
+          mode: "bug_report",
+          role: "assistant",
+        },
+      ],
+      message: "thaanks",
+      mode: "bug_report",
+      model: "gemini-2.5-flash",
+    });
+
+    assert.equal(response.mode, "general");
+    assert.equal(response.workflow.intent, "conversational");
+    assert.equal(response.workflow.source, "ai_router");
   });
 });

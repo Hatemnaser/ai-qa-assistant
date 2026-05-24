@@ -2,6 +2,7 @@ import type { AiHistoryMessage } from "./ai.types.js";
 import { analyzeQaWorkflow, formatWorkflowInstructions, type QaWorkflowAnalysis } from "./qa-workflow.js";
 
 interface PromptBuildOptions {
+  analysis?: QaWorkflowAnalysis;
   hasImage?: boolean;
   hasTextAttachment?: boolean;
   history?: AiHistoryMessage[];
@@ -292,13 +293,15 @@ Be practical and specific. Do not invent backend behavior that cannot be seen fr
 };
 
 export function buildPrompt(mode: string, message: string, options: PromptBuildOptions = {}) {
-  const analysis = analyzeQaWorkflow({
-    hasImage: options.hasImage,
-    hasTextAttachment: options.hasTextAttachment,
-    history: options.history,
-    message,
-    mode,
-  });
+  const analysis =
+    options.analysis ||
+    analyzeQaWorkflow({
+      hasImage: options.hasImage,
+      hasTextAttachment: options.hasTextAttachment,
+      history: options.history,
+      message,
+      mode,
+    });
 
   if (!analysis.shouldUseArtifactTemplate) {
     if (analysis.intent === "visual_context") {

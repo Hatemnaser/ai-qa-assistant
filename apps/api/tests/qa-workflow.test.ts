@@ -161,13 +161,14 @@ describe("QA workflow analysis", () => {
     assert.equal(analysis.shouldUseArtifactTemplate, false);
   });
 
-  it("detects Arabic requests", () => {
+  it("keeps Arabic language detection but leaves Arabic intent to the AI router", () => {
     const analysis = analyzeQaWorkflow({
       message: "اعمل حالات اختبار لصفحة تسجيل الدخول",
       mode: "general",
     });
 
     assert.equal(analysis.language, "arabic");
-    assert.equal(analysis.intent, "test_cases");
+    assert.equal(analysis.intent, "general_qa");
+    assert.equal(analysis.source, "fallback");
   });
 });

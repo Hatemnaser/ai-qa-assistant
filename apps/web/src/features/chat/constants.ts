@@ -7,7 +7,7 @@ export const STORAGE_KEYS = {
 };
 
 export const DEFAULT_MODE = "general";
-export const DEFAULT_MODEL = "gemini-2.5-flash";
+export const DEFAULT_MODEL = "gemini-3.1-flash-lite";
 export const VISUAL_REVIEW_MODEL = "gemini-2.5-flash";
 
 export const QA_MODES = [
@@ -89,7 +89,7 @@ export function getModelForMode(
 ) {
   const selectedModel = normalizeModel(requestedModel, modelOptions);
 
-  if (mode === "screenshot_review" && !supportsImages(selectedModel, modelOptions)) {
+  if (mode === "screenshot_review") {
     return VISUAL_REVIEW_MODEL;
   }
 

@@ -15,6 +15,6 @@ describe("chat model catalog", () => {
   });
 
   it("keeps visual review on an image-capable model", () => {
-    assert.equal(getModelForMode("screenshot_review", DEFAULT_MODEL), DEFAULT_MODEL);
+    assert.equal(getModelForMode("screenshot_review", DEFAULT_MODEL), "gemini-2.5-flash");
   });
 });
