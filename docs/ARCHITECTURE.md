@@ -93,6 +93,7 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 - `POST /api/auth/forgot-password`: accept reset requests with a generic response.
 - `GET /api/auth/me`: read the current user from the session cookie.
 - `POST /api/auth/logout`: delete the current session when present and clear the cookie.
+- `GET /api/ai/models`: expose the active provider/model catalog for the frontend model selector.
 - `POST /api/chat`: generate a QA assistant reply.
 
 `POST /api/chat` allows anonymous portfolio usage. Guests receive an httpOnly `qa_guest_id` cookie and are limited separately from signed-in users. The API also hashes the request IP as a fallback abuse guard. Usage is reserved before calling Gemini so the API key is protected from unbounded demo traffic. Successful chat responses include a `usage` summary with `used`, `remaining`, and `limit`.

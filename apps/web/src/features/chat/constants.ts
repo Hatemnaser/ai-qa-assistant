@@ -1,3 +1,5 @@
+import type { AiModelOption } from "./types";
+
 export const STORAGE_KEYS = {
   CHATS: "ai_qa_assistant_chats",
   ACTIVE_CHAT_ID: "ai_qa_assistant_active_chat_id",
@@ -54,44 +56,52 @@ export const AI_MODELS = [
     value: "gemini-3.1-flash-lite",
     recommendedFor: "High-volume text tasks",
   },
-] as const;
+] as const satisfies readonly AiModelOption[];
 
-type AiModel = (typeof AI_MODELS)[number];
+type AiModel = AiModelOption;
 
-export function getModelConfig(model: unknown): AiModel {
+export function getModelConfig(model: unknown, modelOptions: readonly AiModelOption[] = AI_MODELS): AiModel {
   const selectedModel = typeof model === "string" ? model.trim() : "";
 
   return (
-    AI_MODELS.find((option) => option.value === selectedModel) ||
-    AI_MODELS.find((option) => option.value === DEFAULT_MODEL) ||
+    modelOptions.find((option) => option.value === selectedModel) ||
+    modelOptions.find((option) => option.value === DEFAULT_MODEL) ||
     AI_MODELS[0]
   );
 }
 
-export function normalizeModel(model: unknown) {
-  return getModelConfig(model).value;
+export function normalizeModel(model: unknown, modelOptions: readonly AiModelOption[] = AI_MODELS) {
+  return getModelConfig(model, modelOptions).value;
 }
 
-export function supportsImages(model: unknown) {
-  return getModelConfig(model).capabilities.images;
+export function supportsImages(model: unknown, modelOptions: readonly AiModelOption[] = AI_MODELS) {
+  return getModelConfig(model, modelOptions).capabilities.images;
 }
 
-export function supportsTextAttachments(model: unknown) {
-  return getModelConfig(model).capabilities.textAttachments;
+export function supportsTextAttachments(model: unknown, modelOptions: readonly AiModelOption[] = AI_MODELS) {
+  return getModelConfig(model, modelOptions).capabilities.textAttachments;
 }
 
-export function getModelForMode(mode: string, requestedModel: unknown) {
-  const selectedModel = normalizeModel(requestedModel);
+export function getModelForMode(
+  mode: string,
+  requestedModel: unknown,
+  modelOptions: readonly AiModelOption[] = AI_MODELS
+) {
+  const selectedModel = normalizeModel(requestedModel, modelOptions);
 
-  if (mode === "screenshot_review" && !supportsImages(selectedModel)) {
+  if (mode === "screenshot_review" && !supportsImages(selectedModel, modelOptions)) {
     return VISUAL_REVIEW_MODEL;
   }
 
   return selectedModel;
 }
 
-export function getModelHint(model: unknown, mode: string) {
-  const selectedConfig = getModelConfig(model);
+export function getModelHint(
+  model: unknown,
+  mode: string,
+  modelOptions: readonly AiModelOption[] = AI_MODELS
+) {
+  const selectedConfig = getModelConfig(model, modelOptions);
   const visualRecommendation =
     mode === "screenshot_review" ? ` Visual review is best with ${VISUAL_REVIEW_MODEL}.` : "";
 

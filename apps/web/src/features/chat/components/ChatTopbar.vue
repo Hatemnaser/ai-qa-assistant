@@ -2,11 +2,12 @@
 import { computed } from "vue";
 
 import { AI_MODELS, QA_MODES, getModelHint } from "../constants";
-import type { ChatUsageSummary } from "../types";
+import type { AiModelOption, ChatUsageSummary } from "../types";
 
 const props = defineProps<{
   mode: string;
   model: string;
+  modelOptions?: AiModelOption[];
   usageSummary?: ChatUsageSummary | null;
 }>();
 
@@ -16,10 +17,11 @@ const emit = defineEmits<{
 }>();
 
 const selectedModeOption = computed(() => QA_MODES.find((option) => option.value === props.mode) || QA_MODES[0]);
+const availableModelOptions = computed(() => (props.modelOptions?.length ? props.modelOptions : [...AI_MODELS]));
 const selectedModelOption = computed(
-  () => AI_MODELS.find((option) => option.value === props.model) || AI_MODELS[0]
+  () => availableModelOptions.value.find((option) => option.value === props.model) || availableModelOptions.value[0]
 );
-const modelHint = computed(() => getModelHint(props.model, props.mode));
+const modelHint = computed(() => getModelHint(props.model, props.mode, availableModelOptions.value));
 const usageLabel = computed(() => {
   if (!props.usageSummary) return "";
 
@@ -58,7 +60,7 @@ function selectMode(value: string) {
           </button>
 
           <ul class="dropdown-menu dropdown-menu-end topbar-select-menu">
-            <li v-for="modelOption in AI_MODELS" :key="modelOption.value">
+            <li v-for="modelOption in availableModelOptions" :key="modelOption.value">
               <button
                 class="dropdown-item"
                 :class="{ active: modelOption.value === props.model }"

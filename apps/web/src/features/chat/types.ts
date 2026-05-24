@@ -57,6 +57,27 @@ export interface ChatUsageSummary {
   used: number;
 }
 
+export interface AiModelCapabilities {
+  images: boolean;
+  text: boolean;
+  textAttachments: boolean;
+}
+
+export interface AiModelOption {
+  capabilities: AiModelCapabilities;
+  label: string;
+  provider: string;
+  recommendedFor: string;
+  value: string;
+}
+
+export interface AiModelCatalogResponse {
+  defaultModel: string;
+  defaultProvider: string;
+  models: AiModelOption[];
+  providers: string[];
+}
+
 export interface RequestImage {
   mimeType: string;
   data: string;

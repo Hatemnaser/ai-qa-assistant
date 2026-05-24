@@ -68,7 +68,9 @@ const {
   handleSubmit,
   guestLimitReached,
   isSending,
+  loadAiModelCatalog,
   messageInput,
+  modelOptions,
   openAttachment,
   openChatMenu,
   openChatMenuForChat,
@@ -101,6 +103,7 @@ const { themeToggleLabel, toggleTheme } = useTheme();
 const isGuestLimitBlocked = computed(() => !currentUser.value && guestLimitReached.value);
 
 onMounted(() => {
+  void loadAiModelCatalog();
   void initializeSession();
 });
 
@@ -179,6 +182,7 @@ function confirmDeleteChatAndSync() {
       <ChatTopbar
         v-model:mode="selectedMode"
         v-model:model="selectedModel"
+        :model-options="modelOptions"
         :usage-summary="usageSummary"
       />
 

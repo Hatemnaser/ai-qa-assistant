@@ -92,6 +92,16 @@ export function getAllowedProviderIds() {
   return AI_PROVIDERS.map((provider) => provider.id);
 }
 
+export function getAiModelCatalog() {
+  return AI_MODEL_CATALOG.map((model) => ({
+    capabilities: model.capabilities,
+    label: model.label,
+    provider: model.provider,
+    recommendedFor: model.recommendedFor,
+    value: model.value,
+  }));
+}
+
 export function assertAiModelCapabilities(
   model: AiModelConfig,
   requiredCapabilities: Partial<AiModelCapabilities>

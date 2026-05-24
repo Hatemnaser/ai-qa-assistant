@@ -14,7 +14,8 @@ import {
   MAX_SELECTED_ATTACHMENTS,
 } from "../chatAttachments";
 import { buildRequestHistory, createChatMessage } from "../chatMessages";
-import { DEFAULT_MODE, DEFAULT_MODEL, getModelForMode } from "../constants";
+import { fetchAiModelCatalog } from "../chatModelsApi";
+import { AI_MODELS, DEFAULT_MODE, DEFAULT_MODEL, getModelForMode } from "../constants";
 import { useStoredChats } from "./useStoredChats";
 import { useChatMenus } from "./useChatMenus";
 import type { QuickAction } from "../constants";
@@ -23,6 +24,7 @@ import type {
   ChatAttachment,
   ChatMessage,
   ChatUsageSummary,
+  AiModelOption,
   ExportFormat,
   SelectedAttachment,
 } from "../types";
@@ -38,6 +40,7 @@ export function useChatController() {
   const usageSummary = ref<ChatUsageSummary | null>(null);
   const guestLimitReached = ref(false);
   const isSending = ref(false);
+  const modelOptions = ref<AiModelOption[]>([...AI_MODELS]);
 
   function clearSelectedAttachments() {
     selectedAttachments.value = [];
@@ -75,7 +78,7 @@ export function useChatController() {
   } = useChatMenus(chats);
 
   function syncModelForSelectedMode() {
-    const nextModel = getModelForMode(selectedMode.value, selectedModel.value);
+    const nextModel = getModelForMode(selectedMode.value, selectedModel.value, modelOptions.value);
 
     if (selectedModel.value !== nextModel) {
       selectedModel.value = nextModel;
@@ -84,6 +87,15 @@ export function useChatController() {
 
   watch(selectedMode, syncModelForSelectedMode);
   watch(selectedModel, syncModelForSelectedMode);
+
+  async function loadAiModelCatalog() {
+    try {
+      modelOptions.value = await fetchAiModelCatalog();
+      syncModelForSelectedMode();
+    } catch {
+      modelOptions.value = [...AI_MODELS];
+    }
+  }
 
   function selectChat(chatId: string) {
     selectStoredChat(chatId);
@@ -190,7 +202,7 @@ export function useChatController() {
 
     const chat = ensureActiveChat();
     const mode = selectedMode.value;
-    const model = getModelForMode(mode, selectedModel.value);
+    const model = getModelForMode(mode, selectedModel.value, modelOptions.value);
     const shouldResetQuickActionMode = quickActionMode.value === mode && selectedAttachments.value.length === 0;
     const history = buildRequestHistory(chat);
     const attachmentsForRequest =
@@ -370,7 +382,9 @@ export function useChatController() {
     handleSubmit,
     guestLimitReached,
     isSending,
+    loadAiModelCatalog,
     messageInput,
+    modelOptions,
     openAttachment,
     openChatMenu,
     openChatMenuForChat,
