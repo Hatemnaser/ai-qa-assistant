@@ -38,4 +38,22 @@ describe("prompt templates", () => {
     assert.match(prompt, /underspecified/i);
     assert.match(prompt, /clarifying questions/i);
   });
+
+  it("uses file context instead of visual review for text attachments", () => {
+    const prompt = buildPrompt("screenshot_review", "Uploaded an attachment.", {
+      hasTextAttachment: true,
+    });
+
+    assert.match(prompt, /attached text or data files/i);
+    assert.match(prompt, /Do not mention screenshots or ask for an image/i);
+    assert.doesNotMatch(prompt, /# Visual QA Review/);
+  });
+
+  it("uses selected artifact mode for text attachments when the mode is clear", () => {
+    const prompt = buildPrompt("test_cases", "Uploaded an attachment.", {
+      hasTextAttachment: true,
+    });
+
+    assert.match(prompt, /# Test Cases/);
+  });
 });

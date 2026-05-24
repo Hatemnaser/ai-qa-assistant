@@ -28,6 +28,8 @@ npm run test:api
 | User uploads an image and asks for review | Use visual review behavior. |
 | User uploads an image and asks for test cases | Use the image as context and build test cases instead of forcing visual review. |
 | User uploads an image without a specific task | Briefly describe the image and offer QA workflow options. |
+| User uploads text/data files without a specific task | Briefly summarize the attached file context and offer QA workflow options. |
+| User uploads text/data files while an artifact mode is selected | Use the file content as context for that artifact mode, except Visual Review should not ask for a screenshot. |
 | User says `thanks` or `waw` while Visual Review is selected but no new image is attached | Reply conversationally, do not ask for another image just because older context involved one. |
 | User gives a tiny artifact request like `login` | Ask focused clarification questions before inventing details. |
 

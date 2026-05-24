@@ -3,6 +3,7 @@ import { analyzeQaWorkflow, formatWorkflowInstructions, type QaWorkflowAnalysis 
 
 interface PromptBuildOptions {
   hasImage?: boolean;
+  hasTextAttachment?: boolean;
   history?: AiHistoryMessage[];
 }
 
@@ -54,6 +55,28 @@ Offer a short set of relevant QA options, such as:
 
 Do not produce a full QA artifact yet unless the user's latest message clearly asks for one.
 Do not invent details that are not visible in the attached image.
+`;
+
+const fileContextPromptTemplate = (message: string, analysis: QaWorkflowAnalysis) => `
+You are an AI QA Assistant reviewing attached text or data files.
+
+${formatWorkflowInstructions(analysis)}
+
+The user attached one or more text/data files without a specific QA task.
+
+User note:
+${message}
+
+Briefly summarize what the attached file content appears to contain. Then ask what the user wants to do next.
+Offer a short set of relevant QA options, such as:
+- create test cases from the requirements
+- find edge cases or risks
+- turn an issue description into a bug report
+- create a QA checklist
+- review data for gaps or inconsistencies
+
+Do not produce a full QA artifact yet unless the user's latest message clearly asks for one.
+Do not mention screenshots or ask for an image unless the user specifically asks for visual review.
 `;
 
 const promptTemplates: Record<string, (message: string, analysis: QaWorkflowAnalysis) => string> = {
@@ -271,6 +294,7 @@ Be practical and specific. Do not invent backend behavior that cannot be seen fr
 export function buildPrompt(mode: string, message: string, options: PromptBuildOptions = {}) {
   const analysis = analyzeQaWorkflow({
     hasImage: options.hasImage,
+    hasTextAttachment: options.hasTextAttachment,
     history: options.history,
     message,
     mode,
@@ -279,6 +303,10 @@ export function buildPrompt(mode: string, message: string, options: PromptBuildO
   if (!analysis.shouldUseArtifactTemplate) {
     if (analysis.intent === "visual_context") {
       return visualContextPromptTemplate(message, analysis);
+    }
+
+    if (analysis.intent === "file_context") {
+      return fileContextPromptTemplate(message, analysis);
     }
 
     return conversationalPromptTemplate(message, analysis);

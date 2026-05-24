@@ -60,6 +60,30 @@ describe("QA workflow analysis", () => {
     assert.equal(analysis.shouldUseArtifactTemplate, false);
   });
 
+  it("uses file context handling for text attachments without a specific request", () => {
+    const analysis = analyzeQaWorkflow({
+      hasTextAttachment: true,
+      message: "Uploaded an attachment.",
+      mode: "screenshot_review",
+    });
+
+    assert.equal(analysis.intent, "file_context");
+    assert.equal(analysis.effectiveMode, "general");
+    assert.equal(analysis.shouldUseArtifactTemplate, false);
+  });
+
+  it("keeps selected artifact mode for text attachments when it is not visual review", () => {
+    const analysis = analyzeQaWorkflow({
+      hasTextAttachment: true,
+      message: "Uploaded an attachment.",
+      mode: "test_cases",
+    });
+
+    assert.equal(analysis.intent, "test_cases");
+    assert.equal(analysis.effectiveMode, "test_cases");
+    assert.equal(analysis.shouldUseArtifactTemplate, true);
+  });
+
   it("does not force visual review for short reactions without a new image", () => {
     const analysis = analyzeQaWorkflow({
       message: "waw",

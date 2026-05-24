@@ -6,6 +6,7 @@ export type QaWorkflowIntent =
   | "clarification"
   | "conversational"
   | "edge_cases"
+  | "file_context"
   | "general_qa"
   | "language_preference"
   | "screenshot_review"
@@ -15,6 +16,7 @@ export type QaWorkflowIntent =
 export type QaWorkflowLanguage = "arabic" | "english" | "mixed" | "unknown";
 
 export interface QaWorkflowInput {
+  hasTextAttachment?: boolean;
   history?: AiHistoryMessage[];
   hasImage?: boolean;
   message: string;
@@ -37,11 +39,16 @@ const artifactIntents = new Set<QaWorkflowIntent>([
   "test_cases",
 ]);
 
-export function analyzeQaWorkflow({ hasImage = false, message, mode }: QaWorkflowInput): QaWorkflowAnalysis {
+export function analyzeQaWorkflow({
+  hasImage = false,
+  hasTextAttachment = false,
+  message,
+  mode,
+}: QaWorkflowInput): QaWorkflowAnalysis {
   const trimmedMessage = message.trim();
   const normalizedMessage = trimmedMessage.toLowerCase();
   const language = detectLanguage(trimmedMessage);
-  const intent = detectIntent(normalizedMessage, mode, hasImage);
+  const intent = detectIntent(normalizedMessage, mode, hasImage, hasTextAttachment);
   const shouldUseArtifactTemplate = artifactIntents.has(intent) && intent !== "clarification";
   const effectiveMode = getEffectiveMode(intent, mode);
 
@@ -67,7 +74,12 @@ export function formatWorkflowInstructions(analysis: QaWorkflowAnalysis) {
 `;
 }
 
-function detectIntent(message: string, mode: string, hasImage: boolean): QaWorkflowIntent {
+function detectIntent(
+  message: string,
+  mode: string,
+  hasImage: boolean,
+  hasTextAttachment: boolean
+): QaWorkflowIntent {
   if (matchesAny(message, languagePreferencePatterns)) return "language_preference";
   if (matchesAny(message, conversationalPatterns)) return "conversational";
   if (matchesAny(message, clarificationPatterns)) return "clarification";
@@ -75,6 +87,9 @@ function detectIntent(message: string, mode: string, hasImage: boolean): QaWorkf
   if (matchesAny(message, checklistPatterns)) return "checklist";
   if (matchesAny(message, edgeCasePatterns)) return "edge_cases";
   if (matchesAny(message, testCasePatterns)) return "test_cases";
+  if (hasTextAttachment && mode === "screenshot_review") return "file_context";
+  if (hasTextAttachment && isArtifactMode(mode)) return mode as QaWorkflowIntent;
+  if (hasTextAttachment && isWeakFileNote(message)) return "file_context";
   if (hasImage && isArtifactMode(mode) && mode !== "screenshot_review") return mode as QaWorkflowIntent;
   if (hasImage && isWeakVisualNote(message)) return "visual_context";
   if (hasImage) return "screenshot_review";
@@ -85,6 +100,10 @@ function detectIntent(message: string, mode: string, hasImage: boolean): QaWorkf
 
 function getEffectiveMode(intent: QaWorkflowIntent, selectedMode: string) {
   if (intent === "conversational" || intent === "language_preference" || intent === "clarification") {
+    return "general";
+  }
+
+  if (intent === "file_context" || intent === "visual_context") {
     return "general";
   }
 
@@ -125,6 +144,14 @@ function isWeakVisualNote(message: string) {
   if (!normalized) return true;
 
   return weakVisualNotePatterns.some((pattern) => pattern.test(normalized));
+}
+
+function isWeakFileNote(message: string) {
+  const normalized = message.trim().toLowerCase();
+
+  if (!normalized) return true;
+
+  return weakFileNotePatterns.some((pattern) => pattern.test(normalized));
 }
 
 function matchesAny(message: string, patterns: RegExp[]) {
@@ -182,4 +209,12 @@ const weakVisualNotePatterns = [
   /^(image|screenshot|picture|photo|attachment)[.!?]*$/,
   /^(check this|look at this|see this|take a look|here|this)[.!?]*$/,
   /^(شوف|شوف هاي|شوف هاد|هاي|هاد|الصورة|سكرين شوت|صورة)[.!؟]*$/,
+];
+
+const weakFileNotePatterns = [
+  /^(uploaded|attached|sent|added)\s+(\d+\s+)?(files?|attachments?|documents?|text files?|data files?)(\s+without\s+additional\s+instructions)?[.!?]*$/,
+  /^(files?|attachments?|documents?|text|csv|json|markdown|log)[.!?]*$/,
+  /^(check this|look at this|see this|take a look|here|this)[.!?]*$/,
+  /^(رفعت|ارفقت|بعت)\s+(\d+\s+)?(ملفات?|مرفقات?|داتا|بيانات)[.!؟]*$/,
+  /^(ملف|مرفق|مرفقات|بيانات|داتا|هاد|هاي)[.!؟]*$/,
 ];

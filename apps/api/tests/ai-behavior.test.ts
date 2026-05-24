@@ -17,6 +17,7 @@ describe("AI behavior contract", () => {
     expectedHeading: string;
     expectedIntent: QaWorkflowIntent;
     hasImage?: boolean;
+    hasTextAttachment?: boolean;
     message: string;
     mode: string;
     name: string;
@@ -78,11 +79,13 @@ describe("AI behavior contract", () => {
     it(`creates the right QA artifact for ${testCase.name}`, () => {
       const analysis = analyzeQaWorkflow({
         hasImage: testCase.hasImage,
+        hasTextAttachment: testCase.hasTextAttachment,
         message: testCase.message,
         mode: testCase.mode,
       });
       const prompt = buildPrompt(testCase.mode, testCase.message, {
         hasImage: testCase.hasImage,
+        hasTextAttachment: testCase.hasTextAttachment,
       });
 
       assert.equal(analysis.intent, testCase.expectedIntent);
@@ -183,6 +186,22 @@ describe("AI behavior contract", () => {
     for (const heading of artifactHeadings) {
       assert.doesNotMatch(prompt, textPattern(heading));
     }
+  });
+
+  it("summarizes attached text/data files without forcing visual review", () => {
+    const analysis = analyzeQaWorkflow({
+      hasTextAttachment: true,
+      message: "Uploaded an attachment.",
+      mode: "screenshot_review",
+    });
+    const prompt = buildPrompt("screenshot_review", "Uploaded an attachment.", {
+      hasTextAttachment: true,
+    });
+
+    assert.equal(analysis.intent, "file_context");
+    assert.equal(analysis.shouldUseArtifactTemplate, false);
+    assert.match(prompt, /attached text or data files/i);
+    assert.doesNotMatch(prompt, /# Visual QA Review/);
   });
 });
 

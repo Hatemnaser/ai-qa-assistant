@@ -26,14 +26,16 @@ export async function chatWithGemini(input: AiChatInput): Promise<AiChatResponse
     apiKey: env.geminiApiKey,
   });
   const images = getInputImages(input);
+  const textAttachments = getTextAttachments(input);
 
   const prompt = addHistoryContext(
     addAttachmentContext(
       buildPrompt(input.mode, input.message, {
         hasImage: images.length > 0,
+        hasTextAttachment: textAttachments.length > 0,
         history: input.history,
       }),
-      input.attachments
+      textAttachments
     ),
     input.history
   );
@@ -108,8 +110,12 @@ function getInputImages(input: AiChatInput) {
   return images.filter((image) => image.data && image.mimeType);
 }
 
+function getTextAttachments(input: AiChatInput) {
+  return (input.attachments || []).filter((attachment) => attachment.content.trim());
+}
+
 function addAttachmentContext(prompt: string, attachments: AiChatInput["attachments"] = []) {
-  const textAttachments = attachments.filter((attachment) => attachment.content.trim());
+  const textAttachments = attachments;
 
   if (textAttachments.length === 0) return prompt;
 
