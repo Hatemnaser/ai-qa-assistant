@@ -1,4 +1,5 @@
 import { getBackendError } from "../../api/backendErrors";
+import { sanitizeChatForExport } from "./chatExportFormatters";
 import type { Chat } from "./types";
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
@@ -18,8 +19,9 @@ export async function fetchAccountChats(): Promise<Chat[]> {
 }
 
 export async function saveAccountChat(chat: Chat): Promise<Chat> {
+  const chatForPersistence = sanitizeChatForExport(chat);
   const response = await fetch(`${API_BASE_URL}/api/chats/${encodeURIComponent(chat.id)}`, {
-    body: JSON.stringify({ chat }),
+    body: JSON.stringify({ chat: chatForPersistence }),
     credentials: "include",
     headers: {
       "Content-Type": "application/json",

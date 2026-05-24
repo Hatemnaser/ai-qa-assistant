@@ -6,7 +6,6 @@ const chatAttachmentSchema = z.object({
   type: z.enum(["image", "file"]),
   name: z.string().min(1),
   mimeType: z.string(),
-  previewUrl: z.string().optional(),
 });
 
 const chatMessageSchema = z.object({

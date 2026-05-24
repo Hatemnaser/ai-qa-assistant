@@ -95,15 +95,23 @@ function toStoredMessageDto(message: StoredMessageRecord): StoredChatMessageDto 
 }
 
 function toStoredAttachments(message: { attachment?: unknown; attachments?: unknown[] }) {
-  if (Array.isArray(message.attachments)) {
-    return message.attachments;
-  }
+  const attachments = Array.isArray(message.attachments)
+    ? message.attachments
+    : Array.isArray(message.attachment)
+      ? message.attachment
+      : message.attachment
+        ? [message.attachment]
+        : [];
 
-  if (Array.isArray(message.attachment)) {
-    return message.attachment;
-  }
+  return attachments.filter(isAttachmentRecord).map((attachment) => ({
+    type: attachment.type === "image" ? "image" : "file",
+    name: typeof attachment.name === "string" && attachment.name.trim() ? attachment.name : "Attachment",
+    mimeType: typeof attachment.mimeType === "string" ? attachment.mimeType : "",
+  }));
+}
 
-  return message.attachment ? [message.attachment] : [];
+function isAttachmentRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function toPrismaChatRole(role: "user" | "assistant") {

@@ -135,6 +135,44 @@ describe("chat history service", () => {
     });
     assert.equal(repository.chats.length, 1);
   });
+
+  it("strips attachment preview data from stored chat DTOs", async () => {
+    const { service } = setupChatHistoryService([
+      createFakeChatRecord({
+        id: "chat-1",
+        messages: [
+          {
+            id: "message-1",
+            role: "USER",
+            content: "Uploaded an image.",
+            mode: "general",
+            model: "gemini-2.5-flash",
+            attachment: [
+              {
+                type: "image",
+                name: "screen.png",
+                mimeType: "image/png",
+                previewUrl: "data:image/png;base64,abc",
+              },
+            ],
+            metadata: null,
+            createdAt: NOW,
+          },
+        ],
+        userId: "user-1",
+      }),
+    ]);
+
+    const [chat] = await service.listUserChats("user-1");
+
+    assert.deepEqual(chat?.messages[0]?.attachments, [
+      {
+        type: "image",
+        name: "screen.png",
+        mimeType: "image/png",
+      },
+    ]);
+  });
 });
 
 function setupChatHistoryService(initialChats: FakeChatRecord[] = []): ChatHistoryServiceTestContext {
