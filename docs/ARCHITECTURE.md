@@ -101,6 +101,8 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 
 The chat service talks to AI providers through the provider registry, not directly through a specific vendor SDK. Gemini is the active provider today. Future providers should implement the shared provider adapter contract and register their model catalog without changing chat orchestration, usage limits, auth, or workflow analysis.
 
+Model catalogs must declare capabilities such as text prompts, image attachments, and text/data file attachments. The chat service checks those capabilities before reserving usage or calling a provider, so adding a text-only or file-capable model later does not require rewriting chat orchestration.
+
 The backend treats the selected chat mode as a helpful default, not as an absolute instruction. Before building the provider prompt, the `ai` module analyzes the latest user message, attachment state, and selected mode to detect the active QA workflow:
 
 - conversational follow-up

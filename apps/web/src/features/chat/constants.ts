@@ -26,26 +26,32 @@ export const COMPOSER_PLACEHOLDERS_BY_MODE: Record<string, string> = {
   screenshot_review: "Add notes about what to inspect in the visual...",
 };
 
+const INLINE_ATTACHMENT_CAPABILITIES = {
+  images: true,
+  text: true,
+  textAttachments: true,
+} as const;
+
 export const AI_MODELS = [
   {
+    capabilities: INLINE_ATTACHMENT_CAPABILITIES,
     label: "Gemini 2.5 Flash",
     provider: "gemini",
     value: "gemini-2.5-flash",
-    supportsImages: true,
     recommendedFor: "Visual review and deeper QA analysis",
   },
   {
+    capabilities: INLINE_ATTACHMENT_CAPABILITIES,
     label: "Gemini 2.5 Flash Lite",
     provider: "gemini",
     value: "gemini-2.5-flash-lite",
-    supportsImages: true,
     recommendedFor: "Fast text tasks",
   },
   {
+    capabilities: INLINE_ATTACHMENT_CAPABILITIES,
     label: "Gemini 3.1 Flash Lite",
     provider: "gemini",
     value: "gemini-3.1-flash-lite",
-    supportsImages: true,
     recommendedFor: "High-volume text tasks",
   },
 ] as const;
@@ -67,7 +73,11 @@ export function normalizeModel(model: unknown) {
 }
 
 export function supportsImages(model: unknown) {
-  return getModelConfig(model).supportsImages;
+  return getModelConfig(model).capabilities.images;
+}
+
+export function supportsTextAttachments(model: unknown) {
+  return getModelConfig(model).capabilities.textAttachments;
 }
 
 export function getModelForMode(mode: string, requestedModel: unknown) {

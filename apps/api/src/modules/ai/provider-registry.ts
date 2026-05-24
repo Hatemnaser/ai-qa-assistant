@@ -3,6 +3,7 @@ import { AppError } from "../../lib/errors.js";
 import type {
   AiChatInput,
   AiChatResponse,
+  AiModelCapabilities,
   AiModelConfig,
   AiProviderAdapter,
   AiProviderId,
@@ -91,6 +92,24 @@ export function getAllowedProviderIds() {
   return AI_PROVIDERS.map((provider) => provider.id);
 }
 
+export function assertAiModelCapabilities(
+  model: AiModelConfig,
+  requiredCapabilities: Partial<AiModelCapabilities>
+) {
+  const unsupportedCapabilities = Object.entries(requiredCapabilities)
+    .filter(([, required]) => required)
+    .map(([capability]) => capability as keyof AiModelCapabilities)
+    .filter((capability) => !model.capabilities[capability]);
+
+  if (unsupportedCapabilities.length === 0) return;
+
+  throw new AppError(
+    `Model ${model.value} does not support ${formatCapabilities(unsupportedCapabilities)}.`,
+    400,
+    "UNSUPPORTED_MODEL_CAPABILITY"
+  );
+}
+
 function resolveKnownModel(model: string): AiResolvedModel {
   const modelConfig = modelsByValue.get(model);
 
@@ -125,4 +144,14 @@ function unsupportedModelError(model: string) {
     400,
     "UNSUPPORTED_MODEL"
   );
+}
+
+function formatCapabilities(capabilities: Array<keyof AiModelCapabilities>) {
+  const labels = capabilities.map((capability) => {
+    if (capability === "textAttachments") return "text/data file attachments";
+    if (capability === "images") return "image attachments";
+    return "text prompts";
+  });
+
+  return labels.join(" or ");
 }

@@ -3,26 +3,32 @@ import type { AiProviderId } from "./ai.types.js";
 export const GEMINI_PROVIDER_ID = "gemini" satisfies AiProviderId;
 export const GEMINI_DEFAULT_MODEL = "gemini-2.5-flash";
 
+const GEMINI_INLINE_ATTACHMENT_CAPABILITIES = {
+  images: true,
+  text: true,
+  textAttachments: true,
+} as const;
+
 export const GEMINI_MODELS = [
   {
+    capabilities: GEMINI_INLINE_ATTACHMENT_CAPABILITIES,
     label: "Gemini 2.5 Flash",
     provider: GEMINI_PROVIDER_ID,
     recommendedFor: "Visual review and deeper QA analysis",
-    supportsImages: true,
     value: "gemini-2.5-flash",
   },
   {
+    capabilities: GEMINI_INLINE_ATTACHMENT_CAPABILITIES,
     label: "Gemini 2.5 Flash Lite",
     provider: GEMINI_PROVIDER_ID,
     recommendedFor: "Fast text tasks",
-    supportsImages: true,
     value: "gemini-2.5-flash-lite",
   },
   {
+    capabilities: GEMINI_INLINE_ATTACHMENT_CAPABILITIES,
     label: "Gemini 3.1 Flash Lite",
     provider: GEMINI_PROVIDER_ID,
     recommendedFor: "High-volume text tasks",
-    supportsImages: true,
     value: "gemini-3.1-flash-lite",
   },
 ] as const;

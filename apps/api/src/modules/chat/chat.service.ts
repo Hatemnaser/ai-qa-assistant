@@ -1,5 +1,9 @@
 import type { AiChatInput, AiChatResponse, AiTextAttachment } from "../ai/ai.types.js";
-import { chatWithAi, resolveAiModel } from "../ai/provider-registry.js";
+import {
+  assertAiModelCapabilities,
+  chatWithAi,
+  resolveAiModel,
+} from "../ai/provider-registry.js";
 import { usageService } from "../usage/usage.service.js";
 import type { UsageIdentity, UsageReservation } from "../usage/usage.types.js";
 import type { ChatRequest, ChatRequestContext } from "./chat.types.js";
@@ -22,6 +26,10 @@ export function createChatService({ chatWithAi, reserveUsage }: ChatServiceDepen
       provider: requestedProvider,
     });
     const providerAttachments = getProviderAttachments(input);
+    assertAiModelCapabilities(resolvedModel.config, {
+      images: providerAttachments.images.length > 0,
+      textAttachments: providerAttachments.attachments.length > 0,
+    });
 
     const usage = await reserveUsage?.({
       guestId: context.guestId,

@@ -44,11 +44,17 @@ export interface AiErrorDetails {
   status?: string;
 }
 
+export interface AiModelCapabilities {
+  images: boolean;
+  text: boolean;
+  textAttachments: boolean;
+}
+
 export interface AiModelConfig {
+  capabilities: AiModelCapabilities;
   label: string;
   provider: AiProviderId;
   recommendedFor: string;
-  supportsImages: boolean;
   value: string;
 }
 
