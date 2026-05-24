@@ -60,11 +60,59 @@ describe("QA workflow analysis", () => {
     assert.equal(analysis.shouldUseArtifactTemplate, false);
   });
 
+  it("uses the latest attached image even when the text is only a brief reaction", () => {
+    const analysis = analyzeQaWorkflow({
+      hasImage: true,
+      message: "waw",
+      mode: "general",
+    });
+
+    assert.equal(analysis.intent, "visual_context");
+    assert.equal(analysis.effectiveMode, "general");
+    assert.equal(analysis.shouldUseArtifactTemplate, false);
+  });
+
+  it("uses the latest attached image for visual clarification questions", () => {
+    const analysis = analyzeQaWorkflow({
+      hasImage: true,
+      message: "can you explain this?",
+      mode: "general",
+    });
+
+    assert.equal(analysis.intent, "visual_context");
+    assert.equal(analysis.effectiveMode, "general");
+    assert.equal(analysis.shouldUseArtifactTemplate, false);
+  });
+
   it("uses file context handling for text attachments without a specific request", () => {
     const analysis = analyzeQaWorkflow({
       hasTextAttachment: true,
       message: "Uploaded an attachment.",
       mode: "screenshot_review",
+    });
+
+    assert.equal(analysis.intent, "file_context");
+    assert.equal(analysis.effectiveMode, "general");
+    assert.equal(analysis.shouldUseArtifactTemplate, false);
+  });
+
+  it("uses the latest attached text file for brief reactions in general mode", () => {
+    const analysis = analyzeQaWorkflow({
+      hasTextAttachment: true,
+      message: "thanks",
+      mode: "general",
+    });
+
+    assert.equal(analysis.intent, "file_context");
+    assert.equal(analysis.effectiveMode, "general");
+    assert.equal(analysis.shouldUseArtifactTemplate, false);
+  });
+
+  it("uses the latest attached text file for clarification questions", () => {
+    const analysis = analyzeQaWorkflow({
+      hasTextAttachment: true,
+      message: "can you explain this?",
+      mode: "general",
     });
 
     assert.equal(analysis.intent, "file_context");
@@ -87,6 +135,24 @@ describe("QA workflow analysis", () => {
   it("does not force visual review for short reactions without a new image", () => {
     const analysis = analyzeQaWorkflow({
       message: "waw",
+      mode: "screenshot_review",
+    });
+
+    assert.equal(analysis.intent, "conversational");
+    assert.equal(analysis.effectiveMode, "general");
+    assert.equal(analysis.shouldUseArtifactTemplate, false);
+  });
+
+  it("does not let older visual context override the latest brief follow-up", () => {
+    const analysis = analyzeQaWorkflow({
+      history: [
+        {
+          content: "Uploaded an image.",
+          mode: "screenshot_review",
+          role: "user",
+        },
+      ],
+      message: "thanks",
       mode: "screenshot_review",
     });
 

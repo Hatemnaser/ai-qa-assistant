@@ -56,4 +56,24 @@ describe("prompt templates", () => {
 
     assert.match(prompt, /# Test Cases/);
   });
+
+  it("uses a newly attached image even when the note is a short reaction", () => {
+    const prompt = buildPrompt("general", "waw", {
+      hasImage: true,
+    });
+
+    assert.match(prompt, /attached visual/i);
+    assert.match(prompt, /Briefly describe what appears to be visible/i);
+    assert.doesNotMatch(prompt, /Do not force a QA artifact format/);
+  });
+
+  it("uses newly attached text files for clarification-style notes", () => {
+    const prompt = buildPrompt("general", "can you explain this?", {
+      hasTextAttachment: true,
+    });
+
+    assert.match(prompt, /attached text or data files/i);
+    assert.match(prompt, /Briefly summarize what the attached file content appears to contain/i);
+    assert.doesNotMatch(prompt, /# Visual QA Review/);
+  });
 });

@@ -81,18 +81,18 @@ function detectIntent(
   hasTextAttachment: boolean
 ): QaWorkflowIntent {
   if (matchesAny(message, languagePreferencePatterns)) return "language_preference";
-  if (matchesAny(message, conversationalPatterns)) return "conversational";
-  if (matchesAny(message, clarificationPatterns)) return "clarification";
   if (matchesAny(message, bugReportPatterns)) return "bug_report";
   if (matchesAny(message, checklistPatterns)) return "checklist";
   if (matchesAny(message, edgeCasePatterns)) return "edge_cases";
   if (matchesAny(message, testCasePatterns)) return "test_cases";
   if (hasTextAttachment && mode === "screenshot_review") return "file_context";
   if (hasTextAttachment && isArtifactMode(mode)) return mode as QaWorkflowIntent;
-  if (hasTextAttachment && isWeakFileNote(message)) return "file_context";
+  if (hasTextAttachment && isWeakFileContextRequest(message)) return "file_context";
   if (hasImage && isArtifactMode(mode) && mode !== "screenshot_review") return mode as QaWorkflowIntent;
-  if (hasImage && isWeakVisualNote(message)) return "visual_context";
+  if (hasImage && isWeakVisualContextRequest(message)) return "visual_context";
   if (hasImage) return "screenshot_review";
+  if (matchesAny(message, conversationalPatterns)) return "conversational";
+  if (matchesAny(message, clarificationPatterns)) return "clarification";
   if (isArtifactMode(mode)) return mode as QaWorkflowIntent;
 
   return "general_qa";
@@ -146,12 +146,28 @@ function isWeakVisualNote(message: string) {
   return weakVisualNotePatterns.some((pattern) => pattern.test(normalized));
 }
 
+function isWeakVisualContextRequest(message: string) {
+  return (
+    isWeakVisualNote(message) ||
+    matchesAny(message, conversationalPatterns) ||
+    matchesAny(message, clarificationPatterns)
+  );
+}
+
 function isWeakFileNote(message: string) {
   const normalized = message.trim().toLowerCase();
 
   if (!normalized) return true;
 
   return weakFileNotePatterns.some((pattern) => pattern.test(normalized));
+}
+
+function isWeakFileContextRequest(message: string) {
+  return (
+    isWeakFileNote(message) ||
+    matchesAny(message, conversationalPatterns) ||
+    matchesAny(message, clarificationPatterns)
+  );
 }
 
 function matchesAny(message: string, patterns: RegExp[]) {

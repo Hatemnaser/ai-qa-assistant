@@ -28,9 +28,14 @@ npm run test:api
 | User uploads an image and asks for review | Use visual review behavior. |
 | User uploads an image and asks for test cases | Use the image as context and build test cases instead of forcing visual review. |
 | User uploads an image without a specific task | Briefly describe the image and offer QA workflow options. |
+| User uploads a new image with a short note like `waw` | Treat the new image as the latest context, briefly describe it, and offer QA options. |
+| User uploads a new image with `can you explain this?` | Use visual context instead of treating it as a text-only clarification. |
 | User uploads text/data files without a specific task | Briefly summarize the attached file context and offer QA workflow options. |
+| User uploads text/data files with a short note like `thanks` | Treat the new files as the latest context, summarize them, and offer QA options. |
+| User uploads text/data files with `can you explain this?` | Use file context instead of treating it as a text-only clarification. |
 | User uploads text/data files while an artifact mode is selected | Use the file content as context for that artifact mode, except Visual Review should not ask for a screenshot. |
 | User says `thanks` or `waw` while Visual Review is selected but no new image is attached | Reply conversationally, do not ask for another image just because older context involved one. |
+| Older image/file context exists in history but no new attachment is sent | Let the latest text intent win; do not ask for a new image/file unless the latest message asks for it. |
 | User gives a tiny artifact request like `login` | Ask focused clarification questions before inventing details. |
 
 ## Rules

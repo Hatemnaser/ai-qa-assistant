@@ -156,6 +156,73 @@ describe("AI behavior contract", () => {
     });
   }
 
+  const attachmentContextCases: Array<{
+    expectedPromptPattern: RegExp;
+    expectedIntent: QaWorkflowIntent;
+    hasImage?: boolean;
+    hasTextAttachment?: boolean;
+    message: string;
+    mode: string;
+    name: string;
+  }> = [
+    {
+      expectedPromptPattern: /Briefly describe what appears to be visible/i,
+      expectedIntent: "visual_context",
+      hasImage: true,
+      message: "waw",
+      mode: "general",
+      name: "new image with a brief reaction",
+    },
+    {
+      expectedPromptPattern: /Briefly describe what appears to be visible/i,
+      expectedIntent: "visual_context",
+      hasImage: true,
+      message: "can you explain this?",
+      mode: "general",
+      name: "new image with a clarification question",
+    },
+    {
+      expectedPromptPattern: /attached text or data files/i,
+      expectedIntent: "file_context",
+      hasTextAttachment: true,
+      message: "thanks",
+      mode: "general",
+      name: "new text file with a brief reaction",
+    },
+    {
+      expectedPromptPattern: /attached text or data files/i,
+      expectedIntent: "file_context",
+      hasTextAttachment: true,
+      message: "can you explain this?",
+      mode: "general",
+      name: "new text file with a clarification question",
+    },
+  ];
+
+  for (const testCase of attachmentContextCases) {
+    it(`uses attachment context for ${testCase.name}`, () => {
+      const analysis = analyzeQaWorkflow({
+        hasImage: testCase.hasImage,
+        hasTextAttachment: testCase.hasTextAttachment,
+        message: testCase.message,
+        mode: testCase.mode,
+      });
+      const prompt = buildPrompt(testCase.mode, testCase.message, {
+        hasImage: testCase.hasImage,
+        hasTextAttachment: testCase.hasTextAttachment,
+      });
+
+      assert.equal(analysis.intent, testCase.expectedIntent);
+      assert.equal(analysis.effectiveMode, "general");
+      assert.equal(analysis.shouldUseArtifactTemplate, false);
+      assert.match(prompt, testCase.expectedPromptPattern);
+
+      for (const heading of artifactHeadings) {
+        assert.doesNotMatch(prompt, textPattern(heading));
+      }
+    });
+  }
+
   it("asks focused questions for underspecified artifact requests", () => {
     const analysis = analyzeQaWorkflow({
       message: "login",
