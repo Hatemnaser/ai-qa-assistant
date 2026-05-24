@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 
+import { ATTACHMENT_INPUT_ACCEPT } from "../chatAttachments";
 import { COMPOSER_PLACEHOLDERS_BY_MODE, QUICK_ACTIONS } from "../constants";
 import type { QuickAction } from "../constants";
 import type { SelectedAttachment } from "../types";
@@ -202,6 +203,7 @@ function handleComposerClick() {
       <input
         id="attachment-input"
         type="file"
+        :accept="ATTACHMENT_INPUT_ACCEPT"
         multiple
         hidden
         @change="handleAttachmentChange"

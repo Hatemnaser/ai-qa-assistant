@@ -3,8 +3,14 @@ import type { ChatAttachment, RequestAttachment, SelectedAttachment } from "./ty
 const MAX_IMAGE_SIZE_MB = 4;
 const MAX_TEXT_ATTACHMENT_SIZE_MB = 1;
 export const MAX_SELECTED_ATTACHMENTS = 4;
-const SUPPORTED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
-const SUPPORTED_TEXT_EXTENSIONS = new Set(["txt", "md", "log", "csv", "json"]);
+const SUPPORTED_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+const SUPPORTED_TEXT_EXTENSIONS = ["txt", "md", "log", "csv", "json"] as const;
+const SUPPORTED_IMAGE_TYPES: ReadonlySet<string> = new Set(SUPPORTED_IMAGE_MIME_TYPES);
+const SUPPORTED_TEXT_EXTENSION_SET: ReadonlySet<string> = new Set(SUPPORTED_TEXT_EXTENSIONS);
+export const ATTACHMENT_INPUT_ACCEPT = [
+  ...SUPPORTED_IMAGE_MIME_TYPES,
+  ...SUPPORTED_TEXT_EXTENSIONS.map((extension) => `.${extension}`),
+].join(",");
 const IMAGE_MIME_TYPES_BY_EXTENSION: Record<string, string> = {
   jpeg: "image/jpeg",
   jpg: "image/jpeg",
@@ -116,7 +122,7 @@ function isSupportedImage(file: File) {
 }
 
 function isSupportedTextAttachment(file: File) {
-  return SUPPORTED_TEXT_EXTENSIONS.has(getFileExtension(file.name));
+  return SUPPORTED_TEXT_EXTENSION_SET.has(getFileExtension(file.name));
 }
 
 function getAttachmentMimeType(file: File) {

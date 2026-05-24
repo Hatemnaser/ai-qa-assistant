@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { getAttachmentFileError } from "../src/features/chat/chatAttachments";
+import { ATTACHMENT_INPUT_ACCEPT, getAttachmentFileError } from "../src/features/chat/chatAttachments";
 
 describe("chat attachments", () => {
   it("accepts supported image files", () => {
@@ -20,5 +20,11 @@ describe("chat attachments", () => {
     const file = { name: "requirements.pdf", size: 1024, type: "application/pdf" } as File;
 
     assert.match(getAttachmentFileError(file), /next version/i);
+  });
+
+  it("exposes the supported picker accept list", () => {
+    assert.match(ATTACHMENT_INPUT_ACCEPT, /image\/png/);
+    assert.match(ATTACHMENT_INPUT_ACCEPT, /\.md/);
+    assert.match(ATTACHMENT_INPUT_ACCEPT, /\.json/);
   });
 });
