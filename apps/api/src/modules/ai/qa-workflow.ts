@@ -39,6 +39,15 @@ const artifactIntents = new Set<QaWorkflowIntent>([
   "test_cases",
 ]);
 
+interface QaWorkflowDetectionContext {
+  hasImage: boolean;
+  hasTextAttachment: boolean;
+  message: string;
+  mode: string;
+}
+
+type IntentRule = (context: QaWorkflowDetectionContext) => QaWorkflowIntent | undefined;
+
 export function analyzeQaWorkflow({
   hasImage = false,
   hasTextAttachment = false,
@@ -80,23 +89,41 @@ function detectIntent(
   hasImage: boolean,
   hasTextAttachment: boolean
 ): QaWorkflowIntent {
-  if (matchesAny(message, languagePreferencePatterns)) return "language_preference";
-  if (matchesAny(message, bugReportPatterns)) return "bug_report";
-  if (matchesAny(message, checklistPatterns)) return "checklist";
-  if (matchesAny(message, edgeCasePatterns)) return "edge_cases";
-  if (matchesAny(message, testCasePatterns)) return "test_cases";
-  if (hasTextAttachment && mode === "screenshot_review") return "file_context";
-  if (hasTextAttachment && isArtifactMode(mode)) return mode as QaWorkflowIntent;
-  if (hasTextAttachment && isWeakFileContextRequest(message)) return "file_context";
-  if (hasImage && isArtifactMode(mode) && mode !== "screenshot_review") return mode as QaWorkflowIntent;
-  if (hasImage && isWeakVisualContextRequest(message)) return "visual_context";
-  if (hasImage) return "screenshot_review";
-  if (matchesAny(message, conversationalPatterns)) return "conversational";
-  if (matchesAny(message, clarificationPatterns)) return "clarification";
-  if (isArtifactMode(mode)) return mode as QaWorkflowIntent;
+  const context = {
+    hasImage,
+    hasTextAttachment,
+    message,
+    mode,
+  };
+
+  for (const rule of intentRules) {
+    const intent = rule(context);
+
+    if (intent) return intent;
+  }
 
   return "general_qa";
 }
+
+const intentRules: IntentRule[] = [
+  ({ message }) => matchPatternIntent(message, languagePreferencePatterns, "language_preference"),
+  ({ message }) => matchPatternIntent(message, bugReportPatterns, "bug_report"),
+  ({ message }) => matchPatternIntent(message, checklistPatterns, "checklist"),
+  ({ message }) => matchPatternIntent(message, edgeCasePatterns, "edge_cases"),
+  ({ message }) => matchPatternIntent(message, testCasePatterns, "test_cases"),
+  ({ hasTextAttachment, mode }) =>
+    hasTextAttachment && mode === "screenshot_review" ? "file_context" : undefined,
+  ({ hasTextAttachment, mode }) => (hasTextAttachment ? getArtifactModeIntent(mode) : undefined),
+  ({ hasTextAttachment, message }) =>
+    hasTextAttachment && isWeakFileContextRequest(message) ? "file_context" : undefined,
+  ({ hasImage, mode }) => (hasImage && mode !== "screenshot_review" ? getArtifactModeIntent(mode) : undefined),
+  ({ hasImage, message }) =>
+    hasImage && isWeakVisualContextRequest(message) ? "visual_context" : undefined,
+  ({ hasImage }) => (hasImage ? "screenshot_review" : undefined),
+  ({ message }) => matchPatternIntent(message, conversationalPatterns, "conversational"),
+  ({ message }) => matchPatternIntent(message, clarificationPatterns, "clarification"),
+  ({ mode }) => getArtifactModeIntent(mode),
+];
 
 function getEffectiveMode(intent: QaWorkflowIntent, selectedMode: string) {
   if (intent === "conversational" || intent === "language_preference" || intent === "clarification") {
@@ -116,6 +143,14 @@ function getEffectiveMode(intent: QaWorkflowIntent, selectedMode: string) {
 
 function isArtifactMode(mode: string) {
   return artifactIntents.has(mode as QaWorkflowIntent);
+}
+
+function getArtifactModeIntent(mode: string) {
+  return isArtifactMode(mode) ? (mode as QaWorkflowIntent) : undefined;
+}
+
+function matchPatternIntent(message: string, patterns: RegExp[], intent: QaWorkflowIntent) {
+  return matchesAny(message, patterns) ? intent : undefined;
 }
 
 function detectLanguage(message: string): QaWorkflowLanguage {
