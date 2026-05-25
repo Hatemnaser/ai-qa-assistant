@@ -19,6 +19,7 @@ const emit = defineEmits<{
   "import-chat": [event: Event];
   logout: [];
   "new-chat": [];
+  "open-usage": [];
   "select-chat": [chatId: string];
   "sign-in": [];
   "open-chat-menu": [event: MouseEvent, chatId: string];
@@ -64,6 +65,7 @@ const emit = defineEmits<{
       @export-active-chat="emit('export-active-chat', $event)"
       @import-chat="emit('import-chat', $event)"
       @logout="emit('logout')"
+      @open-usage="emit('open-usage')"
       @sign-in="emit('sign-in')"
       @toggle-theme="emit('toggle-theme')"
     />

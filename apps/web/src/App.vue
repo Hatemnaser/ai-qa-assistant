@@ -6,6 +6,7 @@ import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage.vue";
 import LoginPage from "./features/auth/pages/LoginPage.vue";
 import RegisterPage from "./features/auth/pages/RegisterPage.vue";
 import type { AuthUser } from "./features/auth/types";
+import UsagePage from "./features/usage/UsagePage.vue";
 import ChatComposer from "./features/chat/components/ChatComposer.vue";
 import ChatContextMenus from "./features/chat/components/ChatContextMenus.vue";
 import ChatDeleteModal from "./features/chat/components/ChatDeleteModal.vue";
@@ -18,7 +19,12 @@ import { useAccountChatSync } from "./features/chat/composables/useAccountChatSy
 import { useChatController } from "./features/chat/composables/useChatController";
 import { useAppRoute, type AuthView } from "./router/useAppRoute";
 
-const { currentRoute, navigateToAuth: navigateToAuthRoute, navigateToChat } = useAppRoute();
+const {
+  currentRoute,
+  navigateToAuth: navigateToAuthRoute,
+  navigateToChat,
+  navigateToUsage,
+} = useAppRoute();
 const { currentUser, loadCurrentUser, logoutCurrentUser, setAuthenticatedUser } = useAuthSession();
 const isGuestLimitModalOpen = ref(false);
 
@@ -171,6 +177,7 @@ function confirmDeleteChatAndSync() {
       @import-chat="handleImportChat"
       @logout="handleLogout"
       @new-chat="startNewChat"
+      @open-usage="navigateToUsage"
       @select-chat="selectChat"
       @sign-in="navigateToAuth('login')"
       @open-chat-menu="openChatMenuForChat"
@@ -178,7 +185,11 @@ function confirmDeleteChatAndSync() {
       @toggle-theme="toggleTheme"
     />
 
-    <main class="chat-layout" :class="{ 'empty-chat': activeMessages.length === 0 }">
+    <main v-if="currentRoute === 'usage'" class="chat-layout">
+      <UsagePage @back-to-chat="navigateToChat" />
+    </main>
+
+    <main v-else class="chat-layout" :class="{ 'empty-chat': activeMessages.length === 0 }">
       <ChatTopbar
         v-model:mode="selectedMode"
         v-model:model="selectedModel"

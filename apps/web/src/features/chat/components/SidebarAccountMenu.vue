@@ -13,6 +13,7 @@ const emit = defineEmits<{
   "export-active-chat": [format: ExportFormat];
   "import-chat": [event: Event];
   logout: [];
+  "open-usage": [];
   "sign-in": [];
   "toggle-theme": [];
 }>();
@@ -78,6 +79,9 @@ function openImportChatPicker() {
       </li>
       <li v-if="currentUser">
         <hr class="dropdown-divider" />
+      </li>
+      <li>
+        <button class="dropdown-item" type="button" @click="emit('open-usage')">My Usage</button>
       </li>
       <li>
         <button class="dropdown-item disabled" type="button" disabled>Settings soon</button>

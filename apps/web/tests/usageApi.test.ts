@@ -1,0 +1,57 @@
+import assert from "node:assert/strict";
+import { afterEach, describe, it } from "node:test";
+
+import { fetchUsageSummary } from "../src/features/usage/usageApi";
+
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
+
+describe("usage api", () => {
+  it("loads the current identity usage summary", async () => {
+    mockFetch(async (input, init) => {
+      assert.equal(input, "/api/usage/summary");
+      assert.equal(init?.method, "GET");
+      assert.equal(init?.credentials, "include");
+
+      return jsonResponse({
+        identityType: "guest",
+        limit: 20,
+        modelTotals: [],
+        recentEvents: [],
+        remaining: 17,
+        since: "2026-05-19T12:00:00.000Z",
+        statusTotals: [],
+        unit: "credits",
+        used: 3,
+        windowHours: 24,
+      });
+    });
+
+    const summary = await fetchUsageSummary();
+
+    assert.equal(summary.identityType, "guest");
+    assert.equal(summary.remaining, 17);
+  });
+
+  it("uses backend usage errors when requests fail", async () => {
+    mockFetch(async () => jsonResponse({ error: "Database schema is out of date." }, 500));
+
+    await assert.rejects(() => fetchUsageSummary(), /Database schema is out of date/);
+  });
+});
+
+function mockFetch(handler: typeof fetch) {
+  globalThis.fetch = handler;
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    headers: {
+      "Content-Type": "application/json",
+    },
+    status,
+  });
+}

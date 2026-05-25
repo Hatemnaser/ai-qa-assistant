@@ -5,6 +5,8 @@ import { createUsageService } from "../src/modules/usage/usage.service.ts";
 import type { UsageRepository } from "../src/modules/usage/usage.repository.ts";
 import type {
   UsageCountInput,
+  UsageEventRecord,
+  UsageListInput,
   UsageRecordInput,
   UsageUpdateInput,
 } from "../src/modules/usage/usage.types.ts";
@@ -169,6 +171,61 @@ describe("usage service", () => {
     assert.equal(repository.events[0].units, 0);
     assert.equal(repository.events[0].status, "failed");
   });
+
+  it("summarizes current identity usage by model and status", async () => {
+    const { service } = setupUsageService([
+      createUsageEvent({
+        creditsUsed: 3,
+        guestId: "guest-1",
+        model: "gemini-3.1-flash-lite",
+        provider: "gemini",
+        status: "completed",
+        totalTokens: 2500,
+        units: 3,
+      }),
+      createUsageEvent({
+        creditsUsed: 0,
+        guestId: "guest-1",
+        model: "gemini-2.5-flash",
+        provider: "gemini",
+        status: "failed",
+        units: 0,
+      }),
+      createUsageEvent({
+        createdAt: new Date("2026-05-17T11:00:00.000Z"),
+        guestId: "guest-1",
+        units: 10,
+      }),
+      createUsageEvent({
+        guestId: "guest-2",
+        units: 8,
+      }),
+    ]);
+
+    const summary = await service.getChatCreditInsights({
+      guestId: "guest-1",
+    });
+
+    assert.equal(summary.identityType, "guest");
+    assert.equal(summary.limit, 20);
+    assert.equal(summary.used, 3);
+    assert.equal(summary.remaining, 17);
+    assert.deepEqual(summary.statusTotals, [
+      {
+        credits: 3,
+        requests: 1,
+        status: "completed",
+      },
+      {
+        credits: 0,
+        requests: 1,
+        status: "failed",
+      },
+    ]);
+    assert.equal(summary.modelTotals[0]?.model, "gemini-3.1-flash-lite");
+    assert.equal(summary.modelTotals[0]?.credits, 3);
+    assert.equal(summary.recentEvents.length, 2);
+  });
 });
 
 function setupUsageService(initialEvents: FakeUsageEvent[] = []): UsageServiceTestContext {
@@ -207,6 +264,22 @@ function createFakeUsageRepository(initialEvents: FakeUsageEvent[] = []): FakeUs
         .reduce((total, event) => total + event.units, 0);
     },
 
+    async listUsageEvents(input: UsageListInput): Promise<UsageEventRecord[]> {
+      return repository.events
+        .filter((event: FakeUsageEvent) => {
+          if (event.action !== input.action) return false;
+          if (event.createdAt < input.since) return false;
+          if (input.userId !== undefined) return event.userId === input.userId;
+
+          const matchesGuest = input.guestId !== undefined && event.guestId === input.guestId;
+          const matchesIp = input.ipHash !== undefined && event.ipHash === input.ipHash;
+
+          return matchesGuest || matchesIp;
+        })
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .map(toUsageEventRecord);
+    },
+
     async recordUsage(input: UsageRecordInput): Promise<{ id: string }> {
       const event = createUsageEvent(input);
       repository.events.push(event);
@@ -242,7 +315,34 @@ function createUsageEvent(overrides: Partial<FakeUsageEvent> = {}): FakeUsageEve
     action: "chat_message",
     createdAt: new Date("2026-05-19T11:00:00.000Z"),
     id: `usage-${Math.random().toString(16).slice(2)}`,
+    status: "reserved",
     units: 1,
     ...overrides,
+  };
+}
+
+function toUsageEventRecord(event: FakeUsageEvent): UsageEventRecord {
+  return {
+    attachmentCount: event.attachmentCount || 0,
+    createdAt: event.createdAt,
+    creditsReserved: event.creditsReserved ?? null,
+    creditsUsed: event.creditsUsed ?? null,
+    estimatedOutputTokens: event.estimatedOutputTokens ?? null,
+    estimatedPromptTokens: event.estimatedPromptTokens ?? null,
+    estimatedTotalTokens: event.estimatedTotalTokens ?? null,
+    fileCount: event.fileCount || 0,
+    id: event.id,
+    imageCount: event.imageCount || 0,
+    mode: event.mode ?? null,
+    model: event.model ?? null,
+    modelRoutingSource: event.modelRoutingSource ?? null,
+    outputTokens: event.outputTokens ?? null,
+    promptTokens: event.promptTokens ?? null,
+    provider: event.provider ?? null,
+    status: event.status || "reserved",
+    totalTokens: event.totalTokens ?? null,
+    units: event.units,
+    workflowIntent: event.workflowIntent ?? null,
+    workflowSource: event.workflowSource ?? null,
   };
 }

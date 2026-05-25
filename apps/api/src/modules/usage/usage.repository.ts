@@ -1,8 +1,15 @@
 import { prisma } from "../../db/prisma.js";
-import type { UsageCountInput, UsageRecordInput, UsageUpdateInput } from "./usage.types.js";
+import type {
+  UsageCountInput,
+  UsageEventRecord,
+  UsageListInput,
+  UsageRecordInput,
+  UsageUpdateInput,
+} from "./usage.types.js";
 
 export interface UsageRepository {
   countUsage(input: UsageCountInput): Promise<number>;
+  listUsageEvents(input: UsageListInput): Promise<UsageEventRecord[]>;
   recordUsage(input: UsageRecordInput): Promise<{ id: string }>;
   updateUsage(input: UsageUpdateInput): Promise<void>;
 }
@@ -26,6 +33,39 @@ export function createPrismaUsageRepository(): UsageRepository {
       });
 
       return usage._sum.units || 0;
+    },
+
+    async listUsageEvents(input) {
+      return prisma.usageEvent.findMany({
+        orderBy: {
+          createdAt: "desc",
+        },
+        select: {
+          attachmentCount: true,
+          createdAt: true,
+          creditsReserved: true,
+          creditsUsed: true,
+          estimatedOutputTokens: true,
+          estimatedPromptTokens: true,
+          estimatedTotalTokens: true,
+          fileCount: true,
+          id: true,
+          imageCount: true,
+          mode: true,
+          model: true,
+          modelRoutingSource: true,
+          outputTokens: true,
+          promptTokens: true,
+          provider: true,
+          status: true,
+          totalTokens: true,
+          units: true,
+          workflowIntent: true,
+          workflowSource: true,
+        },
+        take: 200,
+        where: buildUsageListWhere(input),
+      });
     },
 
     async recordUsage(input) {
@@ -82,6 +122,48 @@ export function createPrismaUsageRepository(): UsageRepository {
         },
       });
     },
+  };
+}
+
+function buildUsageListWhere(input: UsageListInput) {
+  const base = {
+    action: input.action,
+    createdAt: {
+      gte: input.since,
+    },
+  };
+
+  if (input.userId) {
+    return {
+      ...base,
+      userId: input.userId,
+    };
+  }
+
+  const identityFilters: Array<{ guestId: string } | { ipHash: string }> = [];
+
+  if (input.guestId) {
+    identityFilters.push({
+      guestId: input.guestId,
+    });
+  }
+
+  if (input.ipHash) {
+    identityFilters.push({
+      ipHash: input.ipHash,
+    });
+  }
+
+  if (identityFilters.length === 0) {
+    return {
+      ...base,
+      id: "__no_usage_identity__",
+    };
+  }
+
+  return {
+    ...base,
+    OR: identityFilters,
   };
 }
 

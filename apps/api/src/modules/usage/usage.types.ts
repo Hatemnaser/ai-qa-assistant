@@ -14,6 +14,8 @@ export interface UsageCountInput {
   userId?: string;
 }
 
+export interface UsageListInput extends UsageCountInput {}
+
 export interface UsageRecordInput {
   action: string;
   attachmentCount?: number;
@@ -38,6 +40,30 @@ export interface UsageRecordInput {
   userId?: string;
   workflowIntent?: string;
   workflowSource?: string;
+}
+
+export interface UsageEventRecord {
+  attachmentCount: number;
+  createdAt: Date;
+  creditsReserved: number | null;
+  creditsUsed: number | null;
+  estimatedOutputTokens: number | null;
+  estimatedPromptTokens: number | null;
+  estimatedTotalTokens: number | null;
+  fileCount: number;
+  id: string;
+  imageCount: number;
+  mode: string | null;
+  model: string | null;
+  modelRoutingSource: string | null;
+  outputTokens: number | null;
+  promptTokens: number | null;
+  provider: string | null;
+  status: string;
+  totalTokens: number | null;
+  units: number;
+  workflowIntent: string | null;
+  workflowSource: string | null;
 }
 
 export interface UsageUpdateInput {

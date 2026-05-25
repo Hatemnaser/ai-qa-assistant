@@ -9,6 +9,7 @@ import { authRouter } from "./modules/auth/auth.routes.js";
 import { chatHistoryRouter } from "./modules/chat-history/chat-history.routes.js";
 import { chatRouter } from "./modules/chat/chat.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
+import { usageRouter } from "./modules/usage/usage.routes.js";
 
 export function createApp() {
   const app = express();
@@ -28,6 +29,7 @@ export function createApp() {
   app.use("/api/auth", authRouter);
   app.use("/api/chats", chatHistoryRouter);
   app.use("/api/chat", chatRouter);
+  app.use("/api/usage", usageRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
