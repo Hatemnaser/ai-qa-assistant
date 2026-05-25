@@ -67,10 +67,10 @@ These should happen before large new product features.
   - `usage.service.ts` for reserve/complete/fail.
   - `usage-insights.ts` for `My Usage` summaries.
   - `usage.scope.ts` for identity scope/window helpers.
-- [ ] Continue splitting `apps/web/src/features/chat/composables/useChatController.ts` before adding more chat features:
-  - [ ] `useChatSubmit`
+- [x] Split `apps/web/src/features/chat/composables/useChatController.ts` responsibilities:
+  - [x] `useChatSubmit`
   - [x] `useChatAttachments`
-  - [ ] `useChatExportImport`
+  - [x] `useChatExportImport`
 - [ ] Consider unifying attachment policy between web and API.
   - Current duplication is tested and acceptable.
   - Longer-term, expose backend capabilities or move shared constants into a package.
@@ -85,7 +85,7 @@ These should happen before large new product features.
 - [x] Usage credits and guest protection.
 - [x] Personal usage view.
 - [x] AI workflow routing foundation.
-- [ ] Update docs after latest features.
+- [x] Update docs after latest features.
 - [ ] Review error UX copy and backend error codes.
 - [ ] Confirm production env checklist.
 - [ ] Decide first deploy target.
