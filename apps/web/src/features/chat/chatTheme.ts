@@ -3,28 +3,42 @@ import { computed, ref } from "vue";
 import { STORAGE_KEYS } from "./constants";
 
 type Theme = "light" | "dark";
+type ThemePreference = Theme | "system";
 
-function normalizeTheme(value: string | null): Theme {
-  return value === "dark" ? "dark" : "light";
+function normalizeTheme(value: string | null): ThemePreference {
+  if (value === "dark" || value === "system") return value;
+
+  return "light";
 }
 
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
 }
 
-export function useTheme() {
-  const theme = ref<Theme>(normalizeTheme(localStorage.getItem(STORAGE_KEYS.THEME)));
-  const themeToggleLabel = computed(() => (theme.value === "dark" ? "Light" : "Dark"));
+function resolveTheme(theme: ThemePreference): Theme {
+  if (theme !== "system") return theme;
 
-  applyTheme(theme.value);
+  return globalThis.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+export function useTheme() {
+  const theme = ref<ThemePreference>(normalizeTheme(localStorage.getItem(STORAGE_KEYS.THEME)));
+  const themeToggleLabel = computed(() => (resolveTheme(theme.value) === "dark" ? "Light" : "Dark"));
+
+  applyTheme(resolveTheme(theme.value));
+
+  function setTheme(nextTheme: ThemePreference) {
+    theme.value = nextTheme;
+    localStorage.setItem(STORAGE_KEYS.THEME, theme.value);
+    applyTheme(resolveTheme(theme.value));
+  }
 
   function toggleTheme() {
-    theme.value = theme.value === "dark" ? "light" : "dark";
-    localStorage.setItem(STORAGE_KEYS.THEME, theme.value);
-    applyTheme(theme.value);
+    setTheme(resolveTheme(theme.value) === "dark" ? "light" : "dark");
   }
 
   return {
+    setTheme,
     theme,
     themeToggleLabel,
     toggleTheme,

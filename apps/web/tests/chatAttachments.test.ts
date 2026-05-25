@@ -34,8 +34,14 @@ describe("chat attachments", () => {
 
   it("keeps attachment limits in one frontend policy", () => {
     assert.equal(CHAT_ATTACHMENT_POLICY.maxAttachments, 4);
-    assert.equal(CHAT_ATTACHMENT_POLICY.maxImageSizeMb, 4);
-    assert.equal(CHAT_ATTACHMENT_POLICY.maxTextAttachmentSizeMb, 1);
+    assert.equal(CHAT_ATTACHMENT_POLICY.maxImageBytes, 4 * 1024 * 1024);
+    assert.equal(CHAT_ATTACHMENT_POLICY.maxTextAttachmentBytes, 1_000_000);
+  });
+
+  it("rejects text files over the API inline text limit", () => {
+    const file = { name: "requirements.md", size: 1_000_001, type: "text/markdown" } as File;
+
+    assert.match(getAttachmentFileError(file), /smaller than 1\.0MB/);
   });
 
   it("exposes the supported picker accept list", () => {

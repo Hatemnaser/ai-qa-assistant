@@ -2,8 +2,8 @@ import type { ChatAttachment, RequestAttachment, SelectedAttachment } from "./ty
 
 export const CHAT_ATTACHMENT_POLICY = {
   maxAttachments: 4,
-  maxImageSizeMb: 4,
-  maxTextAttachmentSizeMb: 1,
+  maxImageBytes: 4 * 1024 * 1024,
+  maxTextAttachmentBytes: 1_000_000,
   supportedImageMimeTypes: ["image/png", "image/jpeg", "image/webp"],
   supportedTextExtensions: ["txt", "md", "log", "csv", "json"],
 } as const;
@@ -33,16 +33,20 @@ export function getAttachmentFileError(file: File | undefined) {
   if (!file) return "";
 
   if (isSupportedImage(file)) {
-    if (file.size > CHAT_ATTACHMENT_POLICY.maxImageSizeMb * 1024 * 1024) {
-      return `Image is too large. Please upload an image smaller than ${CHAT_ATTACHMENT_POLICY.maxImageSizeMb}MB.`;
+    if (file.size > CHAT_ATTACHMENT_POLICY.maxImageBytes) {
+      return `Image is too large. Please upload an image smaller than ${formatBytes(
+        CHAT_ATTACHMENT_POLICY.maxImageBytes
+      )}.`;
     }
 
     return "";
   }
 
   if (isSupportedTextAttachment(file)) {
-    if (file.size > CHAT_ATTACHMENT_POLICY.maxTextAttachmentSizeMb * 1024 * 1024) {
-      return `File is too large. Please upload a text or data file smaller than ${CHAT_ATTACHMENT_POLICY.maxTextAttachmentSizeMb}MB.`;
+    if (file.size > CHAT_ATTACHMENT_POLICY.maxTextAttachmentBytes) {
+      return `File is too large. Please upload a text or data file smaller than ${formatBytes(
+        CHAT_ATTACHMENT_POLICY.maxTextAttachmentBytes
+      )}.`;
     }
 
     return "";
@@ -139,4 +143,10 @@ function getFileExtension(fileName: string) {
   const parts = fileName.toLowerCase().split(".");
 
   return parts.length > 1 ? parts.at(-1) || "" : "";
+}
+
+function formatBytes(bytes: number) {
+  const megaBytes = bytes / (1024 * 1024);
+
+  return `${Number.isInteger(megaBytes) ? megaBytes : megaBytes.toFixed(1)}MB`;
 }

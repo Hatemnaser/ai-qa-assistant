@@ -14,6 +14,7 @@ const emit = defineEmits<{
   "import-chat": [event: Event];
   logout: [];
   "open-usage": [];
+  "open-settings": [];
   "sign-in": [];
   "toggle-theme": [];
 }>();
@@ -84,7 +85,7 @@ function openImportChatPicker() {
         <button class="dropdown-item" type="button" @click="emit('open-usage')">My Usage</button>
       </li>
       <li>
-        <button class="dropdown-item disabled" type="button" disabled>Settings soon</button>
+        <button class="dropdown-item" type="button" @click="emit('open-settings')">Settings</button>
       </li>
       <li>
         <button class="dropdown-item" type="button" @click="emit('toggle-theme')">

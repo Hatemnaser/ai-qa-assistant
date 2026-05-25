@@ -44,6 +44,27 @@ describe("chat theme", () => {
     assert.equal(themeToggleLabel.value, "Light");
     assert.equal(document.documentElement.dataset.theme, "dark");
   });
+
+  it("supports the system theme preference", () => {
+    localStorage.setItem(STORAGE_KEYS.THEME, "system");
+    Object.defineProperty(globalThis, "matchMedia", {
+      configurable: true,
+      value: () => ({
+        matches: true,
+      }),
+    });
+
+    const { setTheme, theme, themeToggleLabel } = useTheme();
+
+    assert.equal(theme.value, "system");
+    assert.equal(themeToggleLabel.value, "Light");
+    assert.equal(document.documentElement.dataset.theme, "dark");
+
+    setTheme("light");
+
+    assert.equal(localStorage.getItem(STORAGE_KEYS.THEME), "light");
+    assert.equal(document.documentElement.dataset.theme, "light");
+  });
 });
 
 function installDomGlobals() {
@@ -73,5 +94,10 @@ function installDomGlobals() {
         dataset: {},
       },
     },
+  });
+
+  Object.defineProperty(globalThis, "matchMedia", {
+    configurable: true,
+    value: undefined,
   });
 }

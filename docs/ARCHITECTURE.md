@@ -77,6 +77,7 @@ Small modules can start with fewer files, but should not put business logic dire
 - `#/register`: account creation page wired to cookie-backed auth.
 - `#/forgot-password`: password reset request page.
 - `#/usage`: personal `My Usage` page for the current guest or signed-in user.
+- `#/settings`: signed-in user preferences for language, theme, and default model.
 
 The frontend auth pages call the API with `credentials: "include"` so sessions stay in the httpOnly cookie. Google OAuth and real reset emails are still future integrations.
 
@@ -96,6 +97,8 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 - `POST /api/auth/logout`: delete the current session when present and clear the cookie.
 - `GET /api/ai/models`: expose the active provider/model catalog for the frontend model selector.
 - `POST /api/chat`: generate a QA assistant reply.
+- `GET /api/settings`: return the signed-in user's preferences.
+- `PUT /api/settings`: update language, theme, and default model for the signed-in user.
 - `GET /api/usage/summary`: return current identity usage only. Guests see their guest/IP-hash scoped usage; signed-in users see their own `userId` scoped usage.
 
 `POST /api/chat` allows anonymous portfolio usage. Guests receive an httpOnly `qa_guest_id` cookie and are limited separately from signed-in users. The API also hashes the request IP as a fallback abuse guard. Usage credits are reserved before calling Gemini so the API key is protected from unbounded demo traffic. Successful chat responses update the reserved usage with provider token metadata when available and include a public `usage` summary with `used`, `remaining`, and `limit`.
@@ -244,7 +247,7 @@ Billing and integrations will add their own tables only when those phases begin.
 4. Add the Vue app shell in `apps/web`.
 5. Move the existing chat screen and local chat behavior into the new web app.
 6. Delete legacy code only after parity testing. Done.
-7. Add auth, projects, settings, i18n, and memory after the migration is stable.
+7. Continue with projects, i18n, and memory after the auth/settings foundation is stable.
 8. Add billing and integrations after the core product data model is stable.
 
 ## Prisma Setup Notes

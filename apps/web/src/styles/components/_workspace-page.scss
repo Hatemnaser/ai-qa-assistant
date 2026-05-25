@@ -1,0 +1,87 @@
+.workspace-page {
+  flex: 1 1 auto;
+  padding: 24px;
+  background: var(--surface-app);
+}
+
+.workspace-header {
+  margin-bottom: 20px;
+}
+
+.workspace-eyebrow,
+.workspace-subtitle,
+.workspace-note {
+  color: var(--text-muted);
+}
+
+.workspace-title {
+  color: var(--text-main);
+  font-size: var(--font-size-title-md);
+  font-weight: var(--font-weight-bold);
+}
+
+.workspace-panel {
+  padding: 18px;
+  background: var(--surface-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.workspace-section-title {
+  margin: 0 0 8px;
+  color: var(--text-main);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.workspace-feedback {
+  padding: 12px;
+  border-radius: var(--radius-md);
+}
+
+.workspace-feedback--error {
+  color: var(--status-danger-text);
+  background: var(--status-danger-bg);
+  border: 1px solid var(--status-danger);
+}
+
+.workspace-feedback--success {
+  color: var(--status-success-text);
+  background: var(--status-success-bg);
+  border: 1px solid var(--status-success);
+}
+
+.settings-form {
+  display: grid;
+  gap: 18px;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.settings-field {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-field--wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 767px) {
+  .workspace-page {
+    padding: 16px;
+  }
+
+  .workspace-header,
+  .settings-grid {
+    display: block;
+  }
+
+  .settings-field + .settings-field {
+    margin-top: 14px;
+  }
+}

@@ -11,10 +11,10 @@ Last reviewed: 2026-05-25
 - [x] Backend is modular Express + TypeScript + Prisma.
 - [x] PostgreSQL schema is established for users, sessions, chats, projects, memory, usage events, and settings.
 - [x] `npm run verify` passes:
-  - API tests: 110 passing.
-  - Web tests: 36 passing.
+  - API tests: 116 passing.
+  - Web tests: 41 passing.
   - API and web TypeScript checks passing.
-- [x] Git working tree was clean after the last push.
+- [x] Latest pushed baseline was clean before the current uncommitted settings work.
 
 ## What Is Complete Enough For The Current Foundation
 
@@ -40,7 +40,7 @@ Last reviewed: 2026-05-25
 
 - [ ] Google OAuth is not wired. The UI button is intentionally disabled.
 - [ ] Forgot password only returns a safe generic response. It does not send reset emails yet.
-- [ ] Settings page/API is not implemented.
+- [x] Settings page/API is implemented for language, theme, and default model.
 - [ ] Projects UI/API is not implemented yet.
 - [ ] Memory and project memory are schema-level foundations only.
 - [ ] Admin usage dashboard does not exist. Current `My Usage` is personal only.
@@ -78,8 +78,9 @@ These should happen before large new product features.
 - [x] Add deployment cookie configuration.
   - Added configurable `COOKIE_SAME_SITE`, `COOKIE_SECURE`, and `COOKIE_DOMAIN`.
   - Documented same-site versus split web/API deployment behavior.
-- [ ] Consider unifying attachment policy between web and API.
-  - Current duplication is tested and acceptable.
+- [x] Consider unifying attachment policy between web and API.
+  - Current runtime duplication is intentionally small and covered by policy tests.
+  - Web text-file limits now match the API inline text limit.
   - Longer-term, expose backend capabilities or move shared constants into a package.
 
 ## Product Roadmap Checklist
@@ -99,12 +100,12 @@ These should happen before large new product features.
 
 ### Phase 2: Settings
 
-- [ ] Build settings route/page.
-- [ ] Add API for user settings.
-- [ ] Persist theme preference server-side for signed-in users.
-- [ ] Persist preferred language.
-- [ ] Persist default model.
-- [ ] Add tests for settings service and API.
+- [x] Build settings route/page.
+- [x] Add API for user settings.
+- [x] Persist theme preference server-side for signed-in users.
+- [x] Persist preferred language.
+- [x] Persist default model.
+- [x] Add tests for settings service and API.
 
 ### Phase 3: Projects
 
@@ -241,11 +242,11 @@ This section is based on the model screenshots shared in the chat. Availability 
 When asking "what is next?", choose the first unfinished item that matches the current goal:
 
 1. If the goal is foundation quality:
-   - Update docs and do the small usage/chat controller cleanup.
+   - Finish reviewing the current uncommitted settings work, apply the database migration locally, then commit/push the batch.
 2. If the goal is user product value:
-   - Build Settings first.
+   - Start Projects: project list/switcher, CRUD API, chat-to-project linking, and ownership tests.
 3. If the goal is portfolio/demo polish:
-   - Improve README, screenshots, deploy guide, and error UX.
+   - Add README screenshots/GIFs and run a portfolio demo pass.
 4. If the goal is SaaS direction:
    - Build plans/entitlements before Stripe.
 5. If the goal is AI quality:

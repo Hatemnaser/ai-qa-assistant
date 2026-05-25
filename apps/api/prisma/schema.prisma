@@ -76,7 +76,7 @@ model UserSettings {
   userId        String   @unique
   language      String   @default("en")
   theme         String   @default("system")
-  defaultModel  String   @default("gemini-2.5-flash")
+  defaultModel  String   @default("gemini-3.1-flash-lite")
   aiPreferences Json?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

@@ -29,6 +29,7 @@ Vue app
   -> /api/chat       chat orchestration, usage guard, workflow routing
   -> /api/chats      signed-in user chat persistence
   -> /api/ai/models  active provider model catalog
+  -> /api/settings   signed-in user preferences
   -> /api/usage      current identity usage summary
 
 Express API
@@ -146,15 +147,15 @@ Before sharing or deploying the app, use [docs/PRODUCTION_READINESS.md](docs/PRO
 
 Current expected local verification:
 
-- API tests: 110 passing
-- Web tests: 36 passing
+- API tests: 116 passing
+- Web tests: 41 passing
 - API and web TypeScript checks passing
 
 ## Current Gaps
 
 - Google OAuth is not wired yet; the UI button is disabled intentionally.
 - Forgot password returns a safe generic response, but reset emails are not implemented yet.
-- Settings, projects, memory, admin usage, billing, and provider file uploads are roadmap items.
+- Projects, memory, admin usage, billing, and provider file uploads are roadmap items.
 
 ## Styling
 

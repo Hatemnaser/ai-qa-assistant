@@ -6,6 +6,9 @@ import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage.vue";
 import LoginPage from "./features/auth/pages/LoginPage.vue";
 import RegisterPage from "./features/auth/pages/RegisterPage.vue";
 import type { AuthUser } from "./features/auth/types";
+import SettingsPage from "./features/settings/SettingsPage.vue";
+import { fetchUserSettings, updateUserSettings } from "./features/settings/settingsApi";
+import type { UserSettings } from "./features/settings/types";
 import UsagePage from "./features/usage/UsagePage.vue";
 import ChatComposer from "./features/chat/components/ChatComposer.vue";
 import ChatContextMenus from "./features/chat/components/ChatContextMenus.vue";
@@ -23,10 +26,12 @@ const {
   currentRoute,
   navigateToAuth: navigateToAuthRoute,
   navigateToChat,
+  navigateToSettings,
   navigateToUsage,
 } = useAppRoute();
 const { currentUser, loadCurrentUser, logoutCurrentUser, setAuthenticatedUser } = useAuthSession();
 const isGuestLimitModalOpen = ref(false);
+const accountSettings = ref<UserSettings | null>(null);
 
 function navigateToAuth(view: AuthView) {
   isGuestLimitModalOpen.value = false;
@@ -39,6 +44,7 @@ function handleAuthenticated(user: AuthUser) {
   clearGuestLimitReached();
   isGuestLimitModalOpen.value = false;
   navigateToChat();
+  void applyAccountSettings();
   void syncAccountChats();
 }
 
@@ -51,6 +57,7 @@ async function handleLogout() {
     }
   });
   setChatStorageOwner(null);
+  accountSettings.value = null;
   clearGuestLimitReached();
 }
 
@@ -105,7 +112,7 @@ const { clearScheduledChatPersist, deletePersistedChat, persistAccountChats, syn
     currentUser,
     replaceChats,
   });
-const { themeToggleLabel, toggleTheme } = useTheme();
+const { setTheme, theme, themeToggleLabel, toggleTheme } = useTheme();
 const isGuestLimitBlocked = computed(() => !currentUser.value && guestLimitReached.value);
 
 onMounted(() => {
@@ -126,6 +133,7 @@ async function initializeSession() {
 
   if (user) {
     await syncAccountChats();
+    await applyAccountSettings();
   }
 }
 
@@ -135,6 +143,45 @@ function confirmDeleteChatAndSync() {
   confirmDeleteChat();
 
   void deletePersistedChat(deletedChatId);
+}
+
+async function applyAccountSettings() {
+  if (!currentUser.value) return;
+
+  try {
+    applySavedSettings(await fetchUserSettings());
+  } catch {
+    // Settings should not block chat startup.
+  }
+}
+
+function handleSettingsSaved(settings: UserSettings) {
+  applySavedSettings(settings);
+}
+
+function applySavedSettings(settings: UserSettings) {
+  accountSettings.value = settings;
+  selectedModel.value = settings.defaultModel;
+  setTheme(settings.theme);
+}
+
+function handleToggleTheme() {
+  toggleTheme();
+  void persistThemeSetting();
+}
+
+async function persistThemeSetting() {
+  if (!currentUser.value) return;
+
+  try {
+    accountSettings.value = await updateUserSettings({
+      defaultModel: accountSettings.value?.defaultModel || selectedModel.value,
+      language: accountSettings.value?.language || "en",
+      theme: theme.value,
+    });
+  } catch {
+    // Local theme changes should still work if the account settings save fails.
+  }
 }
 </script>
 
@@ -177,16 +224,27 @@ function confirmDeleteChatAndSync() {
       @import-chat="handleImportChat"
       @logout="handleLogout"
       @new-chat="startNewChat"
+      @open-settings="navigateToSettings"
       @open-usage="navigateToUsage"
       @select-chat="selectChat"
       @sign-in="navigateToAuth('login')"
       @open-chat-menu="openChatMenuForChat"
       @rename-chat="submitRenameChat"
-      @toggle-theme="toggleTheme"
+      @toggle-theme="handleToggleTheme"
     />
 
     <main v-if="currentRoute === 'usage'" class="chat-layout">
       <UsagePage @back-to-chat="navigateToChat" />
+    </main>
+
+    <main v-else-if="currentRoute === 'settings'" class="chat-layout">
+      <SettingsPage
+        :current-user="currentUser"
+        :model-options="modelOptions"
+        @back-to-chat="navigateToChat"
+        @settings-saved="handleSettingsSaved"
+        @sign-in="navigateToAuth('login')"
+      />
     </main>
 
     <main v-else class="chat-layout" :class="{ 'empty-chat': activeMessages.length === 0 }">

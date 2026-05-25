@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { CHAT_ATTACHMENT_LIMITS, MAX_INLINE_IMAGE_BASE64_CHARS } from "../src/modules/chat/chat.attachments.ts";
+import {
+  CHAT_ATTACHMENT_LIMITS,
+  CHAT_SUPPORTED_IMAGE_MIME_TYPES,
+  CHAT_SUPPORTED_TEXT_EXTENSIONS,
+  MAX_INLINE_IMAGE_BASE64_CHARS,
+} from "../src/modules/chat/chat.attachments.ts";
 import { chatRequestSchema } from "../src/modules/chat/chat.schema.ts";
 
 describe("chat request schema", () => {
@@ -110,6 +115,14 @@ describe("chat request schema", () => {
     );
 
     assert.equal(result.success, false);
+  });
+
+  it("documents the public inline attachment policy", () => {
+    assert.equal(CHAT_ATTACHMENT_LIMITS.maxAttachments, 4);
+    assert.equal(CHAT_ATTACHMENT_LIMITS.maxInlineImageBytes, 4 * 1024 * 1024);
+    assert.equal(CHAT_ATTACHMENT_LIMITS.maxTextContentChars, 1_000_000);
+    assert.deepEqual([...CHAT_SUPPORTED_IMAGE_MIME_TYPES], ["image/png", "image/jpeg", "image/webp"]);
+    assert.deepEqual([...CHAT_SUPPORTED_TEXT_EXTENSIONS], ["txt", "md", "log", "csv", "json"]);
   });
 });
 
