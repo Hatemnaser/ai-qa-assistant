@@ -1,17 +1,13 @@
 import type { ChatApiResponse, ChatHistoryItem, RequestAttachment } from "./types";
+import { BackendApiError, createBackendApiError } from "../../api/backendErrors";
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 const REQUEST_TIMEOUT_MS = 60000;
 
-export class ChatApiError extends Error {
-  readonly code?: string;
-  readonly status?: number;
-
+export class ChatApiError extends BackendApiError {
   constructor(message: string, options: { code?: string; status?: number } = {}) {
-    super(message);
+    super(message, options);
     this.name = "ChatApiError";
-    this.code = options.code;
-    this.status = options.status;
   }
 }
 
@@ -74,20 +70,10 @@ export async function sendMessageToAI(input: {
 }
 
 async function createChatApiError(response: Response, fallback: string) {
-  const text = await response.text();
+  const error = await createBackendApiError(response, fallback);
 
-  if (!text) {
-    return new ChatApiError(fallback, { status: response.status });
-  }
-
-  try {
-    const parsed = JSON.parse(text) as { code?: string; error?: string; message?: string };
-
-    return new ChatApiError(parsed.error || parsed.message || fallback, {
-      code: parsed.code,
-      status: response.status,
-    });
-  } catch {
-    return new ChatApiError(text, { status: response.status });
-  }
+  return new ChatApiError(error.message, {
+    code: error.code,
+    status: error.status,
+  });
 }

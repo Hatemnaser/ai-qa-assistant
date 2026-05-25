@@ -2,6 +2,16 @@
 
 AI QA Assistant is a QA-focused chat workspace for test cases, bug reports, edge cases, checklist generation, visual review, and chat export/import.
 
+## What It Does
+
+- Generates practical QA artifacts: test cases, bug reports, edge cases, QA checklists, and visual reviews.
+- Supports guest demo usage with backend credit limits before AI calls.
+- Supports password accounts with httpOnly session cookies.
+- Persists signed-in user chats in PostgreSQL with ownership checks.
+- Accepts inline image and text/data attachments for QA context.
+- Tracks credits by model, workflow, attachment count, and provider token metadata when available.
+- Routes AI workflows and model selection through backend services instead of hardcoded frontend prompts.
+
 ## Stack
 
 - Frontend: Vue 3, TypeScript, Vite, Bootstrap
@@ -10,6 +20,30 @@ AI QA Assistant is a QA-focused chat workspace for test cases, bug reports, edge
 - ORM: Prisma
 - AI provider layer: provider registry with Gemini active
 - Styling: Bootstrap plus app SCSS under `apps/web/src/styles`
+
+## Architecture Snapshot
+
+```text
+Vue app
+  -> /api/auth       cookie-backed password sessions
+  -> /api/chat       chat orchestration, usage guard, workflow routing
+  -> /api/chats      signed-in user chat persistence
+  -> /api/ai/models  active provider model catalog
+  -> /api/usage      current identity usage summary
+
+Express API
+  -> Prisma/PostgreSQL for users, sessions, chats, messages, usage events
+  -> AI provider registry for Gemini today and future providers later
+  -> model router + fallback for general, visual, and fallback model choices
+  -> workflow router for multilingual and ambiguous QA intent detection
+```
+
+Key architecture docs:
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Development Guide](docs/DEVELOPMENT_GUIDE.md)
+- [Production Readiness](docs/PRODUCTION_READINESS.md)
+- [Next Steps](docs/NEXT_STEPS.md)
 
 ## Project Structure
 
@@ -20,7 +54,7 @@ apps/
     src/
       styles/ App SCSS partials imported by Vite
 
-docs/         Architecture, migration, cleanup, and development notes
+docs/         Architecture, migration, cleanup, readiness, and development notes
 docker-compose.yml
 ```
 
@@ -73,6 +107,8 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ai_qa_assistant?schem
 
 If `DATABASE_URL` is omitted, the API uses the local PostgreSQL URL above.
 
+For split web/API deployments, review `COOKIE_SAME_SITE`, `COOKIE_SECURE`, and `CORS_ORIGIN` in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
+
 ## Database
 
 PostgreSQL is managed through Docker Compose:
@@ -105,6 +141,20 @@ npm run verify
 npm run build:api
 npm run build:web
 ```
+
+Before sharing or deploying the app, use [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
+
+Current expected local verification:
+
+- API tests: 110 passing
+- Web tests: 36 passing
+- API and web TypeScript checks passing
+
+## Current Gaps
+
+- Google OAuth is not wired yet; the UI button is disabled intentionally.
+- Forgot password returns a safe generic response, but reset emails are not implemented yet.
+- Settings, projects, memory, admin usage, billing, and provider file uploads are roadmap items.
 
 ## Styling
 

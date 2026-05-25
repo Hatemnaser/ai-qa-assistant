@@ -1,16 +1,11 @@
 import type { Request, Response } from "express";
 
-import { env } from "../../config/env.js";
+import { getBaseCookieOptions } from "../../config/cookies.js";
 import { getCookieValue } from "../../lib/cookies.js";
 
 export const AUTH_COOKIE_NAME = "qa_session";
 
-const baseCookieOptions = {
-  httpOnly: true,
-  path: "/",
-  sameSite: "lax" as const,
-  secure: env.nodeEnv === "production",
-};
+const baseCookieOptions = getBaseCookieOptions();
 
 export function setAuthCookie(res: Response, token: string, expiresAt: Date) {
   res.cookie(AUTH_COOKIE_NAME, token, {

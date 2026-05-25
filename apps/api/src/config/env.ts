@@ -7,6 +7,12 @@ function parseNumber(value: string | undefined, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function parseBoolean(value: string | undefined, fallback: boolean) {
+  if (!value) return fallback;
+
+  return value.toLowerCase() === "true";
+}
+
 function parseList(value: string | undefined, fallback: string[]) {
   if (!value) return fallback;
 
@@ -14,6 +20,12 @@ function parseList(value: string | undefined, fallback: string[]) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseCookieSameSite(value: string | undefined, fallback: "lax" | "none" | "strict") {
+  if (value === "lax" || value === "none" || value === "strict") return value;
+
+  return fallback;
 }
 
 export const env = Object.freeze({
@@ -50,4 +62,7 @@ export const env = Object.freeze({
   maxMessageChars: parseNumber(process.env.MAX_MESSAGE_CHARS, 3000),
   maxHistoryMessages: parseNumber(process.env.MAX_HISTORY_MESSAGES, 10),
   usageIpHashSalt: process.env.USAGE_IP_HASH_SALT || "development-usage-salt",
+  cookieDomain: process.env.COOKIE_DOMAIN?.trim() || "",
+  cookieSameSite: parseCookieSameSite(process.env.COOKIE_SAME_SITE, "lax"),
+  cookieSecure: parseBoolean(process.env.COOKIE_SECURE, process.env.NODE_ENV === "production"),
 });

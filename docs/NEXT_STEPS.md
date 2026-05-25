@@ -11,8 +11,8 @@ Last reviewed: 2026-05-25
 - [x] Backend is modular Express + TypeScript + Prisma.
 - [x] PostgreSQL schema is established for users, sessions, chats, projects, memory, usage events, and settings.
 - [x] `npm run verify` passes:
-  - API tests: 108 passing.
-  - Web tests: 33 passing.
+  - API tests: 110 passing.
+  - Web tests: 36 passing.
   - API and web TypeScript checks passing.
 - [x] Git working tree was clean after the last push.
 
@@ -71,6 +71,13 @@ These should happen before large new product features.
   - [x] `useChatSubmit`
   - [x] `useChatAttachments`
   - [x] `useChatExportImport`
+- [x] Review error UX copy and backend error codes.
+  - Added shared frontend backend-error parsing.
+  - Added clearer local setup guidance for database/provider/upload failures.
+  - Added Prisma `P1001` handling for unavailable PostgreSQL.
+- [x] Add deployment cookie configuration.
+  - Added configurable `COOKIE_SAME_SITE`, `COOKIE_SECURE`, and `COOKIE_DOMAIN`.
+  - Documented same-site versus split web/API deployment behavior.
 - [ ] Consider unifying attachment policy between web and API.
   - Current duplication is tested and acceptable.
   - Longer-term, expose backend capabilities or move shared constants into a package.
@@ -86,9 +93,9 @@ These should happen before large new product features.
 - [x] Personal usage view.
 - [x] AI workflow routing foundation.
 - [x] Update docs after latest features.
-- [ ] Review error UX copy and backend error codes.
-- [ ] Confirm production env checklist.
-- [ ] Decide first deploy target.
+- [x] Review error UX copy and backend error codes.
+- [x] Confirm production env checklist.
+- [x] Decide first deploy target.
 
 ### Phase 2: Settings
 
@@ -135,12 +142,13 @@ These should happen before large new product features.
 
 ### Phase 7: Deployment And Portfolio Readiness
 
-- [ ] Add production deployment guide.
-- [ ] Add `.env` production checklist.
-- [ ] Add rate limit/proxy notes.
-- [ ] Add demo-safe defaults.
+- [x] Add production deployment guide.
+- [x] Add `.env` production checklist.
+- [x] Add rate limit/proxy notes.
+- [x] Add demo-safe defaults.
+- [x] Add short architecture section to README.
+- [x] Document first deployment target shape.
 - [ ] Add screenshots/GIFs to README.
-- [ ] Add short architecture section to README.
 
 ## Gemini / Google AI Studio Model Strategy
 

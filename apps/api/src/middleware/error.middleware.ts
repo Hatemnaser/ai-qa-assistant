@@ -15,7 +15,7 @@ export function errorHandler(error: unknown, req: Request, res: Response, next: 
 
   if (isEntityTooLargeError(error)) {
     res.status(413).json({
-      error: "Uploaded image is too large. Please use a smaller image.",
+      error: "Upload is too large. Please use a smaller file.",
       code: "PAYLOAD_TOO_LARGE",
     });
     return;
@@ -96,7 +96,9 @@ function isDatabaseUnavailableError(error: unknown) {
     error &&
     typeof error === "object" &&
     ((error as Record<string, unknown>).code === "ECONNREFUSED" ||
-      String((error as Record<string, unknown>).message || "").includes("ECONNREFUSED"))
+      (error as Record<string, unknown>).code === "P1001" ||
+      String((error as Record<string, unknown>).message || "").includes("ECONNREFUSED") ||
+      String((error as Record<string, unknown>).message || "").includes("Can't reach database server"))
   );
 }
 

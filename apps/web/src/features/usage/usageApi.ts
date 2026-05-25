@@ -1,4 +1,4 @@
-import { getBackendError } from "../../api/backendErrors";
+import { createBackendApiError } from "../../api/backendErrors";
 import type { UsageSummary } from "./types";
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
@@ -11,7 +11,7 @@ export async function fetchUsageSummary(): Promise<UsageSummary> {
     });
 
     if (!response.ok) {
-      throw new Error(await getBackendError(response, "Could not load usage summary."));
+      throw await createBackendApiError(response, "Could not load usage summary.");
     }
 
     return response.json();

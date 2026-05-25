@@ -83,6 +83,7 @@ describe("POST /api/auth", () => {
     });
     assert.match(setCookie, /qa_session=/);
     assert.match(setCookie, /HttpOnly/);
+    assert.match(setCookie, /SameSite=Lax/);
   });
 });
 

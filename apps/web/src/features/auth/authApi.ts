@@ -1,5 +1,5 @@
 import type { AuthResponse, AuthUser, LoginInput, RegisterInput } from "./types";
-import { getBackendError } from "../../api/backendErrors";
+import { createBackendApiError, getBackendError } from "../../api/backendErrors";
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 
@@ -64,7 +64,7 @@ async function requestJson<T>(path: string, options: { body?: unknown; method: "
     });
 
     if (!response.ok) {
-      throw new Error(await getBackendError(response, "Authentication request failed."));
+      throw await createBackendApiError(response, "Authentication request failed.");
     }
 
     return response.json();
