@@ -45,14 +45,14 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions            Session[]
-  settings            UserSettings?
-  ownedProjects       Project[]            @relation("ProjectOwner")
-  projectMemberships  ProjectMember[]
-  chats               Chat[]
-  memories            Memory[]
-  aiUsageLogs         AiUsageLog[]
-  usageEvents         UsageEvent[]
+  sessions           Session[]
+  settings           UserSettings?
+  ownedProjects      Project[]       @relation("ProjectOwner")
+  projectMemberships ProjectMember[]
+  chats              Chat[]
+  memories           Memory[]
+  aiUsageLogs        AiUsageLog[]
+  usageEvents        UsageEvent[]
 }
 
 model Session {
@@ -200,17 +200,36 @@ model AiUsageLog {
 }
 
 model UsageEvent {
-  id        String   @id @default(cuid())
-  userId    String?
-  guestId   String?
-  ipHash    String?
-  action    String
-  units     Int      @default(1)
-  createdAt DateTime @default(now())
+  id                    String   @id @default(cuid())
+  userId                String?
+  guestId               String?
+  ipHash                String?
+  action                String
+  units                 Int      @default(1)
+  status                String   @default("reserved")
+  provider              String?
+  model                 String?
+  mode                  String?
+  workflowIntent        String?
+  workflowSource        String?
+  modelRoutingSource    String?
+  creditsReserved       Int?
+  creditsUsed           Int?
+  estimatedPromptTokens Int?
+  estimatedOutputTokens Int?
+  estimatedTotalTokens  Int?
+  promptTokens          Int?
+  outputTokens          Int?
+  totalTokens           Int?
+  attachmentCount       Int      @default(0)
+  imageCount            Int      @default(0)
+  fileCount             Int      @default(0)
+  createdAt             DateTime @default(now())
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId, action, createdAt])
   @@index([guestId, action, createdAt])
   @@index([ipHash, action, createdAt])
+  @@index([model, createdAt])
 }

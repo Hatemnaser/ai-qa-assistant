@@ -19,7 +19,7 @@ describe("chat messages", () => {
         {
           id: "assistant-error",
           role: "assistant",
-          content: "Daily demo limit reached. Sign in for more messages or try again later.",
+          content: "Daily demo credit limit reached. Sign in for more credits or try again later.",
           mode: "test_cases",
           model: "gemini-2.5-flash",
           createdAt: "2026-05-20T00:01:00.000Z",
@@ -50,7 +50,7 @@ describe("chat messages", () => {
         {
           id: "assistant-error",
           role: "assistant",
-          content: "Daily demo limit reached. Sign in for more messages or try again later.",
+          content: "Daily demo credit limit reached. Sign in for more credits or try again later.",
           mode: "general",
           model: "gemini-2.5-flash",
           createdAt: "2026-05-20T00:00:00.000Z",

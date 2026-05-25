@@ -54,6 +54,7 @@ function shouldExcludeFromHistory(message: ChatMessage) {
 
 const systemErrorPatterns = [
   /daily (demo )?limit reached/i,
+  /credit limit reached/i,
   /message limit reached/i,
   /gemini quota exceeded/i,
   /temporarily overloaded/i,

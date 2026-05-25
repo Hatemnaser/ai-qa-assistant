@@ -105,7 +105,7 @@ describe("chat storage", () => {
         {
           id: "message-error",
           role: "assistant",
-          content: "Daily demo limit reached.",
+          content: "Daily demo credit limit reached.",
           mode: "general",
           model: "gemini-2.5-flash",
           createdAt: "2026-05-20T00:00:00.000Z",

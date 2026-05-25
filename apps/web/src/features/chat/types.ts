@@ -63,6 +63,7 @@ export interface ChatModelRoutingSummary {
 export interface ChatUsageSummary {
   limit: number;
   remaining: number;
+  unit?: "credits";
   used: number;
 }
 

@@ -83,16 +83,20 @@ Auth uses password hashes, server-side session rows, and an httpOnly `qa_session
 
 ## Usage Limits
 
-`POST /api/chat` stays available to guests for portfolio demos, but usage is reserved before Gemini is called. Successful chat responses include a `usage` summary so the frontend can show the remaining daily messages.
+`POST /api/chat` stays available to guests for portfolio demos, but usage is reserved as credits before Gemini is called. Successful chat responses include a `usage` summary so the frontend can show the remaining daily credits.
 
 Defaults:
 
 ```env
-GUEST_DAILY_MESSAGES=3
-USER_DAILY_MESSAGES=10
+GUEST_DAILY_CREDITS=20
+USER_DAILY_CREDITS=100
+USAGE_TOKENS_PER_CREDIT=1000
+USAGE_IMAGE_CREDITS=4
+USAGE_TEXT_FILE_CREDITS=1
+USAGE_ROUTER_CREDITS=1
 USAGE_WINDOW_HOURS=24
 MAX_MESSAGE_CHARS=3000
 MAX_HISTORY_MESSAGES=10
 ```
 
-Guests are tracked with an httpOnly `qa_guest_id` cookie plus a hashed IP fallback. Signed-in users are tracked by `userId`.
+Guests are tracked with an httpOnly `qa_guest_id` cookie plus a hashed IP fallback. Signed-in users are tracked by `userId`. Each `UsageEvent` stores the reserved/actual credits, model, workflow, attachment counts, and token metadata when the provider returns it.

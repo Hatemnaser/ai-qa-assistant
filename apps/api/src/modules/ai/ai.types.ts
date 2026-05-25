@@ -39,7 +39,14 @@ export interface AiChatResponse {
   model: string;
   modelRouting?: AiModelRouting;
   provider?: string;
+  usage?: AiTokenUsage;
   workflow?: QaWorkflowAnalysis;
+}
+
+export interface AiTokenUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
 }
 
 export type AiModelRoutingSource = "fallback" | "policy" | "requested";

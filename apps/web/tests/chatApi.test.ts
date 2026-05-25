@@ -92,7 +92,7 @@ describe("chat api", () => {
       return jsonResponse(
         {
           code: "USAGE_LIMIT_REACHED",
-          error: "Daily demo limit reached. Sign in for more messages or try again later.",
+          error: "Daily demo credit limit reached. Sign in for more credits or try again later.",
         },
         429
       );
@@ -110,7 +110,7 @@ describe("chat api", () => {
         assert.ok(error instanceof ChatApiError);
         assert.equal(error.code, "USAGE_LIMIT_REACHED");
         assert.equal(error.status, 429);
-        assert.match(error.message, /Daily demo limit reached/);
+        assert.match(error.message, /Daily demo credit limit reached/);
         return true;
       }
     );

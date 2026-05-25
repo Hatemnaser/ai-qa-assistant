@@ -26,7 +26,14 @@ const usageLabel = computed(() => {
   if (!props.usageSummary) return "";
 
   const remaining = props.usageSummary.remaining;
-  return `${remaining} messages left today`;
+  return `${remaining} credits left`;
+});
+const usageTitle = computed(() => {
+  if (!props.usageSummary) return "";
+
+  const unit = props.usageSummary.unit || "credits";
+
+  return `Daily ${unit}: ${props.usageSummary.remaining} remaining of ${props.usageSummary.limit}. ${props.usageSummary.used} used today.`;
 });
 
 function selectModel(value: string) {
@@ -102,7 +109,12 @@ function selectMode(value: string) {
         </div>
       </div>
 
-      <span v-if="usageLabel" class="topbar-status topbar-status--quota d-inline-flex align-items-center">
+      <span
+        v-if="usageLabel"
+        class="topbar-status topbar-status--quota d-inline-flex align-items-center"
+        :aria-label="usageTitle"
+        :title="usageTitle"
+      >
         {{ usageLabel }}
       </span>
 

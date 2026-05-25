@@ -75,6 +75,11 @@ export async function chatWithGemini(input: AiChatInput): Promise<AiChatResponse
       reply: response.text || "",
       model: selectedModel,
       provider: GEMINI_PROVIDER_ID,
+      usage: {
+        inputTokens: response.usageMetadata?.promptTokenCount,
+        outputTokens: response.usageMetadata?.candidatesTokenCount,
+        totalTokens: response.usageMetadata?.totalTokenCount,
+      },
       ...(input.workflow ? { workflow: input.workflow } : {}),
     };
   } catch (error) {

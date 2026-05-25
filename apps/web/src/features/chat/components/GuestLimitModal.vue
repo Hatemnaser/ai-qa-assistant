@@ -29,7 +29,7 @@ const emit = defineEmits<{
 
           <div class="modal-body">
             <p class="mb-0">
-              Create a free account or sign in to continue with more messages. You can export this chat
+              Create a free account or sign in to continue with more credits. You can export this chat
               before switching accounts.
             </p>
           </div>

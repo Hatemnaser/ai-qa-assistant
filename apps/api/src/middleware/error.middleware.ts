@@ -42,6 +42,15 @@ export function errorHandler(error: unknown, req: Request, res: Response, next: 
     return;
   }
 
+  if (isDatabaseSchemaMismatchError(error)) {
+    logError(error, req, 500);
+    res.status(500).json({
+      error: "Database schema is out of date. Run npm run db:migrate and restart the API server.",
+      code: "DATABASE_SCHEMA_OUT_OF_DATE",
+    });
+    return;
+  }
+
   const statusCode = getErrorStatus(error);
   const isAppError = error instanceof AppError;
   const message =
@@ -89,6 +98,15 @@ function isDatabaseUnavailableError(error: unknown) {
     ((error as Record<string, unknown>).code === "ECONNREFUSED" ||
       String((error as Record<string, unknown>).message || "").includes("ECONNREFUSED"))
   );
+}
+
+function isDatabaseSchemaMismatchError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+
+  const record = error as Record<string, unknown>;
+  const message = String(record.message || "");
+
+  return record.code === "P2022" || message.includes("does not exist in the current database");
 }
 
 function getErrorMessage(error: unknown) {

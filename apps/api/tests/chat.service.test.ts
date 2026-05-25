@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { AppError } from "../src/lib/errors.ts";
 import { createChatService } from "../src/modules/chat/chat.service.ts";
 
 describe("chat service", () => {
@@ -96,17 +97,20 @@ describe("chat service", () => {
           provider: "gemini",
         };
       },
-      reserveUsage: async (identity) => {
+      reserveUsage: async (identity, estimate) => {
         calls.push("usage");
         assert.deepEqual(identity, {
           guestId: "guest-1",
           ipAddress: "127.0.0.1",
           userId: undefined,
         });
+        assert.equal(estimate.credits > 0, true);
+        assert.equal(estimate.model, "gemini-3.1-flash-lite");
 
         return {
           limit: 3,
           remaining: 2,
+          unit: "credits",
           used: 1,
         };
       },
@@ -129,8 +133,166 @@ describe("chat service", () => {
     assert.deepEqual(response.usage, {
       limit: 3,
       remaining: 2,
+      unit: "credits",
       used: 1,
     });
+  });
+
+  it("keeps usage event internals out of the public chat response", async () => {
+    const service = createChatService({
+      chatWithAi: async () => ({
+        reply: "Hi from test AI",
+        model: "gemini-3.1-flash-lite",
+        provider: "gemini",
+      }),
+      reserveUsage: async () => ({
+        eventId: "usage-event-1",
+        limit: 20,
+        remaining: 18,
+        reserved: 2,
+        unit: "credits",
+        used: 2,
+      }),
+    });
+
+    const response = await service.createChatReply({
+      history: [],
+      message: "hello",
+      mode: "general",
+      model: "gemini-2.5-flash",
+    });
+
+    assert.deepEqual(response.usage, {
+      limit: 20,
+      remaining: 18,
+      unit: "credits",
+      used: 2,
+    });
+  });
+
+  it("returns the AI response even when completing usage metadata fails", async () => {
+    const service = createChatService({
+      chatWithAi: async () => ({
+        reply: "Hi from test AI",
+        model: "gemini-3.1-flash-lite",
+        provider: "gemini",
+        usage: {
+          inputTokens: 100,
+          outputTokens: 100,
+          totalTokens: 200,
+        },
+      }),
+      completeUsage: async () => {
+        throw new Error("database update failed");
+      },
+      reserveUsage: async () => ({
+        eventId: "usage-event-1",
+        limit: 20,
+        remaining: 18,
+        reserved: 2,
+        unit: "credits",
+        used: 2,
+      }),
+    });
+
+    const response = await service.createChatReply({
+      history: [],
+      message: "hello",
+      mode: "general",
+      model: "gemini-2.5-flash",
+    });
+
+    assert.equal(response.reply, "Hi from test AI");
+    assert.deepEqual(response.usage, {
+      limit: 20,
+      remaining: 18,
+      unit: "credits",
+      used: 2,
+    });
+  });
+
+  it("does not call the AI workflow router when usage is rejected", async () => {
+    const calls: string[] = [];
+    const service = createChatService({
+      chatWithAi: async () => {
+        calls.push("ai");
+        return {
+          reply: "should not happen",
+          model: "gemini-3.1-flash-lite",
+          provider: "gemini",
+        };
+      },
+      reserveUsage: async () => {
+        calls.push("usage");
+        throw new AppError("limit", 429, "USAGE_LIMIT_REACHED");
+      },
+      routeWorkflow: async () => {
+        calls.push("router");
+        return {
+          confidence: 0.95,
+          intent: "conversational",
+          language: "arabic",
+        };
+      },
+    });
+
+    await assert.rejects(
+      () =>
+        service.createChatReply({
+          history: [],
+          message: "شكرا",
+          mode: "bug_report",
+          model: "gemini-2.5-flash",
+        }),
+      {
+        code: "USAGE_LIMIT_REACHED",
+        statusCode: 429,
+      }
+    );
+    assert.deepEqual(calls, ["usage"]);
+  });
+
+  it("reserves credits for the workflow router before calling it", async () => {
+    const calls: string[] = [];
+    const service = createChatService({
+      chatWithAi: async () => {
+        calls.push("ai");
+        return {
+          reply: "أهلاً!",
+          model: "gemini-3.1-flash-lite",
+          provider: "gemini",
+        };
+      },
+      reserveUsage: async (_identity, estimate) => {
+        calls.push("usage");
+        assert.notEqual(estimate.workflowSource, "ai_router");
+        assert.equal(estimate.credits, 3);
+
+        return {
+          limit: 20,
+          remaining: 17,
+          unit: "credits",
+          used: 3,
+        };
+      },
+      routeWorkflow: async () => {
+        calls.push("router");
+        return {
+          confidence: 0.95,
+          intent: "conversational",
+          language: "arabic",
+        };
+      },
+    });
+
+    await service.createChatReply({
+      history: [],
+      message: "شكرا",
+      mode: "bug_report",
+      model: "gemini-2.5-flash",
+    });
+
+    assert.deepEqual(calls, ["usage", "router", "ai"]);
   });
 
   it("converts image attachments into the provider image payload", async () => {
@@ -259,5 +421,43 @@ describe("chat service", () => {
     assert.equal(response.mode, "general");
     assert.equal(response.workflow.intent, "conversational");
     assert.equal(response.workflow.source, "ai_router");
+  });
+
+  it("falls back to the configured model when the selected model is over quota", async () => {
+    const calls: string[] = [];
+    const service = createChatService({
+      chatWithAi: async (input) => {
+        calls.push(input.model || "");
+
+        if (input.model === "gemini-2.5-flash") {
+          throw new AppError("quota", 429, "QUOTA_EXCEEDED");
+        }
+
+        return {
+          reply: "Fallback reply",
+          model: input.model || "gemini-2.5-flash-lite",
+          provider: "gemini",
+        };
+      },
+    });
+
+    const response = await service.createChatReply({
+      attachments: [
+        {
+          type: "image",
+          name: "screen.png",
+          mimeType: "image/png",
+          data: "abc",
+        },
+      ],
+      history: [],
+      message: "review this",
+      mode: "general",
+      model: "gemini-2.5-flash",
+    });
+
+    assert.deepEqual(calls, ["gemini-2.5-flash", "gemini-2.5-flash-lite"]);
+    assert.equal(response.model, "gemini-2.5-flash-lite");
+    assert.equal(response.modelRouting?.source, "fallback");
   });
 });
