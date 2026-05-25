@@ -67,10 +67,10 @@ These should happen before large new product features.
   - `usage.service.ts` for reserve/complete/fail.
   - `usage-insights.ts` for `My Usage` summaries.
   - `usage.scope.ts` for identity scope/window helpers.
-- [ ] Consider splitting `apps/web/src/features/chat/composables/useChatController.ts` before adding more chat features:
-  - `useChatSubmit`
-  - `useChatAttachments`
-  - `useChatExportImport`
+- [ ] Continue splitting `apps/web/src/features/chat/composables/useChatController.ts` before adding more chat features:
+  - [ ] `useChatSubmit`
+  - [x] `useChatAttachments`
+  - [ ] `useChatExportImport`
 - [ ] Consider unifying attachment policy between web and API.
   - Current duplication is tested and acceptable.
   - Longer-term, expose backend capabilities or move shared constants into a package.
