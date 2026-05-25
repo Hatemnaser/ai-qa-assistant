@@ -63,9 +63,10 @@ These should happen before large new product features.
   - Add personal usage privacy rules.
   - Add credit/entitlement direction.
 - [ ] Keep this file updated after each meaningful feature or refactor.
-- [ ] Consider splitting `apps/api/src/modules/usage/usage.service.ts` if it grows again:
+- [x] Split `apps/api/src/modules/usage/usage.service.ts` responsibilities:
   - `usage.service.ts` for reserve/complete/fail.
   - `usage-insights.ts` for `My Usage` summaries.
+  - `usage.scope.ts` for identity scope/window helpers.
 - [ ] Consider splitting `apps/web/src/features/chat/composables/useChatController.ts` before adding more chat features:
   - `useChatSubmit`
   - `useChatAttachments`
