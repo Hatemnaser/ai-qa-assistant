@@ -68,7 +68,7 @@ Small modules can start with fewer files, but should not put business logic dire
 - `auth`: password registration, password login, password reset request contract, httpOnly session cookies, and server-side session records.
 - `ai`: provider registry, provider adapters, model catalog, QA workflow intent analysis, prompt building, model normalization, AI error mapping.
 - `chat`: chat API contract and orchestration.
-- `usage`: portfolio/demo usage limits for guests and signed-in users before AI provider calls.
+- `usage`: portfolio/demo credit limits, credit reservations before AI provider calls, completed token usage updates, and personal usage summaries.
 
 ## Active Frontend Routes
 
@@ -76,6 +76,7 @@ Small modules can start with fewer files, but should not put business logic dire
 - `#/login`: sign-in page wired to cookie-backed auth.
 - `#/register`: account creation page wired to cookie-backed auth.
 - `#/forgot-password`: password reset request page.
+- `#/usage`: personal `My Usage` page for the current guest or signed-in user.
 
 The frontend auth pages call the API with `credentials: "include"` so sessions stay in the httpOnly cookie. Google OAuth and real reset emails are still future integrations.
 
@@ -95,14 +96,17 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 - `POST /api/auth/logout`: delete the current session when present and clear the cookie.
 - `GET /api/ai/models`: expose the active provider/model catalog for the frontend model selector.
 - `POST /api/chat`: generate a QA assistant reply.
+- `GET /api/usage/summary`: return current identity usage only. Guests see their guest/IP-hash scoped usage; signed-in users see their own `userId` scoped usage.
 
-`POST /api/chat` allows anonymous portfolio usage. Guests receive an httpOnly `qa_guest_id` cookie and are limited separately from signed-in users. The API also hashes the request IP as a fallback abuse guard. Usage is reserved before calling Gemini so the API key is protected from unbounded demo traffic. Successful chat responses include a `usage` summary with `used`, `remaining`, and `limit`.
+`POST /api/chat` allows anonymous portfolio usage. Guests receive an httpOnly `qa_guest_id` cookie and are limited separately from signed-in users. The API also hashes the request IP as a fallback abuse guard. Usage credits are reserved before calling Gemini so the API key is protected from unbounded demo traffic. Successful chat responses update the reserved usage with provider token metadata when available and include a public `usage` summary with `used`, `remaining`, and `limit`.
 
 ## AI Workflow Layer
 
 The chat service talks to AI providers through the provider registry, not directly through a specific vendor SDK. Gemini is the active provider today. Future providers should implement the shared provider adapter contract and register their model catalog without changing chat orchestration, usage limits, auth, or workflow analysis.
 
 Model catalogs must declare capabilities such as text prompts, image attachments, and text/data file attachments. The chat service checks those capabilities before reserving usage or calling a provider, so adding a text-only or file-capable model later does not require rewriting chat orchestration.
+
+The model router can select a configured general, visual, or fallback model based on workflow and attachment needs. Model fallback is allowed only for provider quota/unavailability style failures and must still respect the required model capabilities.
 
 The backend treats the selected chat mode as a helpful default, not as an absolute instruction. Before building the provider prompt, the `ai` module analyzes the latest user message, attachment state, and selected mode to detect the active QA workflow:
 
@@ -118,7 +122,7 @@ The latest user message is the strongest signal. For example, a short follow-up 
 
 Prompt templates should stay workflow-aware and practical. They should state assumptions, ask focused questions when a request is underspecified, and avoid inventing product rules that were not provided by the user.
 
-The behavior contract is covered by `docs/AI_BEHAVIOR_EVALS.md` and `apps/api/tests/ai-behavior.test.ts`.
+The behavior contract is covered by `docs/AI_BEHAVIOR_EVALS.md`, `apps/api/tests/ai-behavior.test.ts`, `apps/api/tests/qa-workflow.test.ts`, and `apps/api/tests/workflow-router.test.ts`.
 
 The chat API accepts a generic `attachments` array with up to 4 files per message. The web composer supports file picker, drag/drop, and clipboard paste for attachments. The active provider boundary converts supported image attachments into the Gemini image payload and injects supported text/data file content into the provider prompt. Current inline support is intentionally capped to images under 4MB and text/data files under 1MB. PDF, video, and large-file workflows remain future integrations through a provider file API. This keeps the UI, API contract, and chat storage ready for later file types without changing the chat controller contract again.
 
@@ -209,6 +213,24 @@ UsageEvent
   ipHash
   action
   units
+  status
+  provider
+  model
+  mode
+  workflowIntent
+  workflowSource
+  modelRoutingSource
+  creditsReserved
+  creditsUsed
+  estimatedPromptTokens
+  estimatedOutputTokens
+  estimatedTotalTokens
+  promptTokens
+  outputTokens
+  totalTokens
+  attachmentCount
+  imageCount
+  fileCount
   createdAt
 ```
 

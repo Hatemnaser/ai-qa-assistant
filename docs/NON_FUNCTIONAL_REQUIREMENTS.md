@@ -8,6 +8,8 @@ This project should stay easy to extend while it grows from a portfolio demo int
 - Prefer small feature modules: API client, storage, controller, sync, and UI components should stay separate.
 - Add new SCSS only when Bootstrap utilities or existing design tokens cannot express the UI cleanly.
 - Shared UI behavior should become reusable components before being duplicated across pages.
+- Provider integrations must stay behind the provider registry/adapter contract. Chat orchestration should not import vendor SDKs directly.
+- Keep model catalogs capability-driven so text-only, image-capable, file-capable, and future providers can be added without rewriting chat flow.
 
 ## Data Ownership
 
@@ -38,12 +40,17 @@ This project should stay easy to extend while it grows from a portfolio demo int
 - Chats from different users must never share the same localStorage scope.
 - Authenticated account data must be scoped by `user:<userId>`.
 - System errors such as quota or backend failures must not be sent back to the AI as conversation history.
+- Personal usage pages must show only the current identity usage. Global usage requires explicit admin roles and authorization first.
+- Guest usage may use a guest cookie and IP hash fallback, but raw IP addresses should not be exposed in frontend responses.
 
 ## Usage Protection
 
 - Guest usage is limited by guest cookie and IP hash fallback.
 - Signed-in usage is limited by `userId`.
 - When guest usage is exhausted, the composer is blocked and the user can sign in, register, export the chat, or close the modal.
+- Usage credits should be reserved before provider calls and updated with actual provider token metadata after successful responses.
+- Credit policy should remain provider/model aware but user-facing credit messaging should stay simple.
+- Plan/entitlement rules should be introduced before paid billing or higher limits.
 
 ## Performance
 
@@ -59,3 +66,4 @@ This project should stay easy to extend while it grows from a portfolio demo int
 - Critical logic needs unit tests: storage scoping, import/export, prompt mode behavior, usage limits, and API error parsing.
 - API route/controller changes need validation tests or service-level tests before feature work continues.
 - Builds and type checks must pass before merging.
+- Model routing, workflow routing, and usage accounting need tests before adding more providers or paid plans.
