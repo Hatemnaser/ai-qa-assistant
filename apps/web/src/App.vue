@@ -6,6 +6,7 @@ import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage.vue";
 import LoginPage from "./features/auth/pages/LoginPage.vue";
 import RegisterPage from "./features/auth/pages/RegisterPage.vue";
 import type { AuthUser } from "./features/auth/types";
+import ProjectsPage from "./features/projects/ProjectsPage.vue";
 import SettingsPage from "./features/settings/SettingsPage.vue";
 import { fetchUserSettings, updateUserSettings } from "./features/settings/settingsApi";
 import type { UserSettings } from "./features/settings/types";
@@ -26,6 +27,7 @@ const {
   currentRoute,
   navigateToAuth: navigateToAuthRoute,
   navigateToChat,
+  navigateToProjects,
   navigateToSettings,
   navigateToUsage,
 } = useAppRoute();
@@ -46,6 +48,11 @@ function handleAuthenticated(user: AuthUser) {
   navigateToChat();
   void applyAccountSettings();
   void syncAccountChats();
+}
+
+function handleNewChat() {
+  startNewChat();
+  navigateToChat();
 }
 
 async function handleLogout() {
@@ -217,13 +224,16 @@ async function persistThemeSetting() {
       :active-chat-id="activeChatId"
       :chats="chats"
       :current-user="currentUser"
+      :is-chat-route="currentRoute === 'chat'"
+      :is-projects-route="currentRoute === 'projects'"
       :renaming-chat-id="renamingChatId"
       :theme-toggle-label="themeToggleLabel"
       @cancel-rename="cancelRenameChat"
       @export-active-chat="exportActiveChat"
       @import-chat="handleImportChat"
       @logout="handleLogout"
-      @new-chat="startNewChat"
+      @new-chat="handleNewChat"
+      @open-projects="navigateToProjects"
       @open-settings="navigateToSettings"
       @open-usage="navigateToUsage"
       @select-chat="selectChat"
@@ -235,6 +245,14 @@ async function persistThemeSetting() {
 
     <main v-if="currentRoute === 'usage'" class="chat-layout">
       <UsagePage @back-to-chat="navigateToChat" />
+    </main>
+
+    <main v-else-if="currentRoute === 'projects'" class="chat-layout">
+      <ProjectsPage
+        :current-user="currentUser"
+        @back-to-chat="navigateToChat"
+        @sign-in="navigateToAuth('login')"
+      />
     </main>
 
     <main v-else-if="currentRoute === 'settings'" class="chat-layout">

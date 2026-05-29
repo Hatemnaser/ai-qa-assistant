@@ -10,6 +10,7 @@ AI QA Assistant is a QA-focused chat workspace for test cases, bug reports, edge
 - Persists signed-in user chats in PostgreSQL with ownership checks.
 - Links signed-in chats to owned projects through the persistence API.
 - Provides a signed-in project CRUD API foundation with owner-only authorization.
+- Provides a signed-in projects page for listing, creating, editing, and deleting projects.
 - Accepts inline image and text/data attachments for QA context.
 - Tracks credits by model, workflow, attachment count, and provider token metadata when available.
 - Routes AI workflows and model selection through backend services instead of hardcoded frontend prompts.
@@ -151,14 +152,14 @@ Before sharing or deploying the app, use [docs/PRODUCTION_READINESS.md](docs/PRO
 Current expected local verification:
 
 - API tests: 130 passing
-- Web tests: 41 passing
+- Web tests: 45 passing
 - API and web TypeScript checks passing
 
 ## Current Gaps
 
 - Google OAuth is not wired yet; the UI button is disabled intentionally.
 - Forgot password returns a safe generic response, but reset emails are not implemented yet.
-- Projects UI, memory, admin usage, billing, and provider file uploads are roadmap items.
+- Project switcher, chat project assignment UI, memory, admin usage, billing, and provider file uploads are roadmap items.
 
 ## Styling
 

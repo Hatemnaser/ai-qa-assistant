@@ -9,6 +9,8 @@ defineProps<{
   activeChatId: string | null;
   chats: Chat[];
   currentUser?: AuthUser | null;
+  isChatRoute: boolean;
+  isProjectsRoute: boolean;
   renamingChatId: string | null;
   themeToggleLabel: string;
 }>();
@@ -19,6 +21,7 @@ const emit = defineEmits<{
   "import-chat": [event: Event];
   logout: [];
   "new-chat": [];
+  "open-projects": [];
   "open-settings": [];
   "open-usage": [];
   "select-chat": [chatId: string];
@@ -37,9 +40,14 @@ const emit = defineEmits<{
     </div>
 
     <nav class="sidebar-nav" aria-label="Workspace">
-      <SidebarNavItem icon="plus" label="New Chat" :active="activeChatId === null" @click="emit('new-chat')" />
+      <SidebarNavItem
+        icon="plus"
+        label="New Chat"
+        :active="isChatRoute && activeChatId === null"
+        @click="emit('new-chat')"
+      />
       <SidebarNavItem icon="search" label="Search" />
-      <SidebarNavItem icon="folder" label="Projects" />
+      <SidebarNavItem icon="folder" label="Projects" :active="isProjectsRoute" @click="emit('open-projects')" />
     </nav>
 
     <div class="sidebar-section">

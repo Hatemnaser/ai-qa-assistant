@@ -92,6 +92,7 @@ npm run build:api
 - `My Usage` is personal only. Do not expose global usage until admin roles exist.
 - Settings page/API exists for language, theme, and default model.
 - Project CRUD API exists for signed-in users with owner-only authorization.
+- Project management UI exists for signed-in users.
 - Gemini provider adapter and model catalog live behind provider/model routing abstractions.
 - Attachments support images and text/data files. Large file/PDF/provider Files API is future work.
 
@@ -106,6 +107,7 @@ Complete enough:
 - Personal usage page.
 - Settings foundation.
 - Projects API foundation.
+- Projects management page.
 - Gemini model strategy, routing, and fallback.
 - Inline image/text/data attachments.
 - Production/deployment docs are mostly in place.
@@ -114,7 +116,7 @@ Still unfinished:
 
 - Google OAuth.
 - Real forgot-password email delivery.
-- Projects UI, project switcher, project assignment controls, and member authorization.
+- Project switcher, project assignment controls, and member authorization.
 - Memory UI/API and embeddings.
 - Admin usage dashboard.
 - Plans/entitlements and billing.
@@ -126,7 +128,7 @@ Still unfinished:
 Pick one track before coding:
 
 1. Product value: Projects
-   - Project list/switcher.
+   - Project switcher.
    - Project assignment controls for chats.
    - Member authorization tests.
 
