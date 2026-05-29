@@ -2,7 +2,9 @@
 
 This file is the working roadmap for what is done, what is still foundation work, and what should come next. Use it as the reference when asking "what is next?" or "what still needs cleanup?"
 
-Last reviewed: 2026-05-25
+Last reviewed: 2026-05-29
+
+For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 
 ## Current Health
 
