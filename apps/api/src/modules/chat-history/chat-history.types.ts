@@ -18,6 +18,7 @@ export interface StoredChatMessageDto {
 
 export interface StoredChatDto {
   id: string;
+  projectId: string | null;
   title: string;
   mode: string;
   model: string;

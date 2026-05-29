@@ -20,6 +20,7 @@ describe("chat export/import helpers", () => {
         type: "qa-chat",
         chat: {
           id: "original-id",
+          projectId: "project-1",
           title: "  Exported chat with a very normal title  ",
           mode: "bug_report",
           model: "gemini-2.5-flash-lite",
@@ -46,6 +47,7 @@ describe("chat export/import helpers", () => {
     );
 
     assert.equal(chat.id, "generated-chat-id");
+    assert.equal(chat.projectId, null);
     assert.equal(chat.title, "Exported chat with a very normal title");
     assert.equal(chat.mode, "bug_report");
     assert.equal(chat.model, "gemini-2.5-flash-lite");

@@ -84,7 +84,7 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 
 ## Later Backend Work
 
-- `projects`: member authorization, project switching UI, and chat grouping.
+- `projects`: member authorization, project switching UI, and chat assignment controls.
 - `memory`: user memory, project memory, chat summaries, and later vector search.
 
 ## Active API Routes
@@ -97,6 +97,9 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 - `POST /api/auth/logout`: delete the current session when present and clear the cookie.
 - `GET /api/ai/models`: expose the active provider/model catalog for the frontend model selector.
 - `POST /api/chat`: generate a QA assistant reply.
+- `GET /api/chats`: list saved signed-in user chats, including optional `projectId`.
+- `PUT /api/chats/:chatId`: save a signed-in user chat and validate any `projectId` belongs to that user.
+- `DELETE /api/chats/:chatId`: delete a signed-in user chat.
 - `GET /api/settings`: return the signed-in user's preferences.
 - `PUT /api/settings`: update language, theme, and default model for the signed-in user.
 - `GET /api/projects`: list projects owned by the signed-in user.
@@ -106,6 +109,8 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 - `GET /api/usage/summary`: return current identity usage only. Guests see their guest/IP-hash scoped usage; signed-in users see their own `userId` scoped usage.
 
 `POST /api/chat` allows anonymous portfolio usage. Guests receive an httpOnly `qa_guest_id` cookie and are limited separately from signed-in users. The API also hashes the request IP as a fallback abuse guard. Usage credits are reserved before calling Gemini so the API key is protected from unbounded demo traffic. Successful chat responses update the reserved usage with provider token metadata when available and include a public `usage` summary with `used`, `remaining`, and `limit`.
+
+Signed-in chat persistence can store an optional `projectId`. The chat history service validates that linked projects are owned by the current user before saving, so a user cannot attach a chat to another user's project. Deleting a project leaves existing chats with `projectId` set to null through the database relation.
 
 ## AI Workflow Layer
 

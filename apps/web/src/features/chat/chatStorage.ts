@@ -78,6 +78,7 @@ export function createChat(settings: Partial<Chat> = {}): Chat {
 
   return {
     id: settings.id || createId(),
+    projectId: normalizeProjectId(settings.projectId),
     title: settings.title || "New QA Chat",
     mode: settings.mode || DEFAULT_MODE,
     model: getModelForMode(settings.mode || DEFAULT_MODE, settings.model),
@@ -111,6 +112,10 @@ function normalizeChat(chat: Partial<Chat>): Chat {
         })
       : [],
   });
+}
+
+function normalizeProjectId(projectId: unknown) {
+  return typeof projectId === "string" && projectId.trim() ? projectId.trim() : null;
 }
 
 function normalizeAttachments(message: Partial<Chat["messages"][number]>) {

@@ -13,7 +13,7 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [x] Backend is modular Express + TypeScript + Prisma.
 - [x] PostgreSQL schema is established for users, sessions, chats, projects, memory, usage events, and settings.
 - [x] `npm run verify` passes:
-  - API tests: 127 passing.
+  - API tests: 130 passing.
   - Web tests: 41 passing.
   - API and web TypeScript checks passing.
 - [x] Latest pushed baseline was clean before the current uncommitted settings work.
@@ -27,7 +27,7 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [x] Credit tracking with token-based completion updates when provider usage metadata is available.
 - [x] `My Usage` page for the current identity only.
 - [x] Project CRUD API foundation with owner-only authorization.
-- [x] Chat persistence for signed-in users.
+- [x] Chat persistence for signed-in users, including optional project links with ownership checks.
 - [x] Guest chats can be adopted into the signed-in user scope during login/register.
 - [x] Chat ownership checks prevent another user from updating/deleting a chat they do not own.
 - [x] Gemini provider adapter and model catalog are behind a provider registry.
@@ -44,7 +44,7 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [ ] Google OAuth is not wired. The UI button is intentionally disabled.
 - [ ] Forgot password only returns a safe generic response. It does not send reset emails yet.
 - [x] Settings page/API is implemented for language, theme, and default model.
-- [ ] Projects UI and chat-to-project linking are not implemented yet.
+- [ ] Projects UI, project switcher, and project assignment controls are not implemented yet.
 - [ ] Memory and project memory are schema-level foundations only.
 - [ ] Admin usage dashboard does not exist. Current `My Usage` is personal only.
 - [ ] Credits are configured through environment variables, not plans/entitlements from the database.
@@ -114,7 +114,8 @@ These should happen before large new product features.
 
 - [ ] Build project list and project switcher.
 - [x] Add project CRUD API.
-- [ ] Attach chats to projects.
+- [x] Add chat-to-project persistence contract and ownership guard.
+- [ ] Add project assignment UI for chats.
 - [x] Add owner-only project authorization.
 - [ ] Add project member authorization.
 - [x] Add tests for project ownership.
@@ -248,7 +249,7 @@ When asking "what is next?", choose the first unfinished item that matches the c
 1. If the goal is foundation quality:
    - Finish reviewing the current uncommitted settings work, apply the database migration locally, then commit/push the batch.
 2. If the goal is user product value:
-   - Continue Projects: project list/switcher, chat-to-project linking, and member authorization.
+   - Continue Projects: project list/switcher, project assignment UI, and member authorization.
 3. If the goal is portfolio/demo polish:
    - Add README screenshots/GIFs and run a portfolio demo pass.
 4. If the goal is SaaS direction:

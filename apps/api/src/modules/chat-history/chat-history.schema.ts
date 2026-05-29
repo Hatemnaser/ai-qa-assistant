@@ -20,8 +20,18 @@ const chatMessageSchema = z.object({
   isError: z.boolean().optional(),
 });
 
+const chatProjectIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(120)
+  .nullable()
+  .optional()
+  .transform((value) => value ?? null);
+
 export const storedChatSchema = z.object({
   id: z.string().min(1),
+  projectId: chatProjectIdSchema,
   title: z.string().trim().min(1).max(120).default("New QA Chat"),
   mode: z.string().default("general"),
   model: z.string().default("gemini-2.5-flash"),

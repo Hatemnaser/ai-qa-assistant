@@ -72,6 +72,7 @@ export function escapeCsvCell(cell: unknown) {
 export function sanitizeChatForExport(chat: Chat): Chat {
   return {
     id: chat.id,
+    projectId: chat.projectId || null,
     title: chat.title,
     mode: chat.mode || DEFAULT_MODE,
     model: chat.model || DEFAULT_MODEL,

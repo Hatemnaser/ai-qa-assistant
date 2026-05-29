@@ -18,6 +18,7 @@ describe("chat persistence api", () => {
       assert.equal(input, "/api/chats/chat-1");
       assert.equal(init?.method, "PUT");
       assert.equal(init?.credentials, "include");
+      assert.equal(body.chat.projectId, "project-1");
       assert.deepEqual(body.chat.messages[0].attachments, [
         {
           type: "image",
@@ -38,6 +39,7 @@ describe("chat persistence api", () => {
 function createChatWithPreview(): Chat {
   return {
     id: "chat-1",
+    projectId: "project-1",
     title: "Visual chat",
     mode: "general",
     model: "gemini-2.5-flash",

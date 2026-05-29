@@ -8,6 +8,7 @@ AI QA Assistant is a QA-focused chat workspace for test cases, bug reports, edge
 - Supports guest demo usage with backend credit limits before AI calls.
 - Supports password accounts with httpOnly session cookies.
 - Persists signed-in user chats in PostgreSQL with ownership checks.
+- Links signed-in chats to owned projects through the persistence API.
 - Provides a signed-in project CRUD API foundation with owner-only authorization.
 - Accepts inline image and text/data attachments for QA context.
 - Tracks credits by model, workflow, attachment count, and provider token metadata when available.
@@ -28,7 +29,7 @@ AI QA Assistant is a QA-focused chat workspace for test cases, bug reports, edge
 Vue app
   -> /api/auth       cookie-backed password sessions
   -> /api/chat       chat orchestration, usage guard, workflow routing
-  -> /api/chats      signed-in user chat persistence
+  -> /api/chats      signed-in user chat persistence and project links
   -> /api/projects   signed-in project CRUD foundation
   -> /api/ai/models  active provider model catalog
   -> /api/settings   signed-in user preferences
@@ -149,7 +150,7 @@ Before sharing or deploying the app, use [docs/PRODUCTION_READINESS.md](docs/PRO
 
 Current expected local verification:
 
-- API tests: 116 passing
+- API tests: 130 passing
 - Web tests: 41 passing
 - API and web TypeScript checks passing
 
