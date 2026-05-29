@@ -64,6 +64,7 @@ describe("chat storage", () => {
     const [chat] = loadChats();
 
     assert.equal(chat?.id, "chat-1");
+    assert.equal(chat?.projectId, null);
     assert.equal(chat?.title, "Legacy chat");
     assert.equal(chat?.messages[0]?.role, "assistant");
     assert.equal(chat?.messages[0]?.content, "hello");
@@ -84,6 +85,7 @@ describe("chat storage", () => {
   it("saves chats and tracks the active chat id", () => {
     const chat = createChat({
       id: "chat-2",
+      projectId: " project-1 ",
       title: "Saved chat",
     });
 
@@ -91,6 +93,7 @@ describe("chat storage", () => {
     setActiveChatId(chat.id);
 
     assert.equal(loadChats()[0]?.title, "Saved chat");
+    assert.equal(loadChats()[0]?.projectId, "project-1");
     assert.equal(getActiveChatId(), "chat-2");
 
     clearActiveChatId();

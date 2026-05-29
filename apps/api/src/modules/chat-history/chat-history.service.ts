@@ -22,14 +22,26 @@ export function createChatHistoryService({ now = () => new Date(), repository }:
 
   async function saveUserChat(userId: string, input: StoredChatInput): Promise<StoredChatDto> {
     const existingChat = await repository.findChatOwner(input.id);
+    const projectId = input.projectId || null;
 
     if (existingChat && existingChat.userId !== userId) {
       throw new AppError("Chat was not found.", 404, "CHAT_NOT_FOUND");
     }
 
+    if (projectId) {
+      const project = await repository.findProjectOwner(projectId);
+
+      if (!project || project.ownerId !== userId) {
+        throw new AppError("Project was not found.", 404, "PROJECT_NOT_FOUND");
+      }
+    }
+
     const fallbackDate = now();
     const savedChat = await repository.saveUserChat({
-      chat: input,
+      chat: {
+        ...input,
+        projectId,
+      },
       createdAt: toDate(input.createdAt, fallbackDate),
       messages: input.messages.map((message) => {
         const attachments = toStoredAttachments(message);
@@ -70,6 +82,7 @@ export function createChatHistoryService({ now = () => new Date(), repository }:
 function toStoredChatDto(chat: StoredChatRecord): StoredChatDto {
   return {
     id: chat.id,
+    projectId: chat.projectId,
     title: chat.title,
     mode: chat.mode,
     model: chat.model,

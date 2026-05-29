@@ -102,7 +102,7 @@ Complete enough:
 - Migrated chat workspace.
 - Auth foundation.
 - Guest mode and usage credit protection.
-- Chat persistence and ownership checks.
+- Chat persistence and ownership checks, including optional project links.
 - Personal usage page.
 - Settings foundation.
 - Projects API foundation.
@@ -114,7 +114,7 @@ Still unfinished:
 
 - Google OAuth.
 - Real forgot-password email delivery.
-- Projects UI, project switcher, chat-to-project linking, and member authorization.
+- Projects UI, project switcher, project assignment controls, and member authorization.
 - Memory UI/API and embeddings.
 - Admin usage dashboard.
 - Plans/entitlements and billing.
@@ -127,7 +127,7 @@ Pick one track before coding:
 
 1. Product value: Projects
    - Project list/switcher.
-   - Attach chats to projects.
+   - Project assignment controls for chats.
    - Member authorization tests.
 
 2. Portfolio polish:

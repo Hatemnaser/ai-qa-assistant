@@ -82,6 +82,65 @@ describe("chat history service", () => {
     assert.equal(repository.chats[0].title, "Updated title");
   });
 
+  it("links chats to projects owned by the current user", async () => {
+    const { repository, service } = setupChatHistoryService([], new Map([["project-1", "user-1"]]));
+
+    const savedChat = await service.saveUserChat(
+      "user-1",
+      createStoredChatInput({
+        id: "chat-1",
+        projectId: "project-1",
+      })
+    );
+
+    assert.equal(savedChat.projectId, "project-1");
+    assert.equal(repository.chats[0].projectId, "project-1");
+  });
+
+  it("rejects project links owned by another user", async () => {
+    const { repository, service } = setupChatHistoryService([], new Map([["project-1", "user-2"]]));
+
+    await assert.rejects(
+      () =>
+        service.saveUserChat(
+          "user-1",
+          createStoredChatInput({
+            id: "chat-1",
+            projectId: "project-1",
+          })
+        ),
+      {
+        code: "PROJECT_NOT_FOUND",
+        statusCode: 404,
+      }
+    );
+    assert.equal(repository.chats.length, 0);
+  });
+
+  it("clears a chat project link when projectId is null", async () => {
+    const { repository, service } = setupChatHistoryService(
+      [
+        createFakeChatRecord({
+          id: "chat-1",
+          projectId: "project-1",
+          userId: "user-1",
+        }),
+      ],
+      new Map([["project-1", "user-1"]])
+    );
+
+    const updatedChat = await service.saveUserChat(
+      "user-1",
+      createStoredChatInput({
+        id: "chat-1",
+        projectId: null,
+      })
+    );
+
+    assert.equal(updatedChat.projectId, null);
+    assert.equal(repository.chats[0].projectId, null);
+  });
+
   it("rejects updates to chats owned by another user", async () => {
     const { repository, service } = setupChatHistoryService([
       createFakeChatRecord({
@@ -175,8 +234,11 @@ describe("chat history service", () => {
   });
 });
 
-function setupChatHistoryService(initialChats: FakeChatRecord[] = []): ChatHistoryServiceTestContext {
-  const repository = createFakeChatHistoryRepository(initialChats);
+function setupChatHistoryService(
+  initialChats: FakeChatRecord[] = [],
+  projectOwners = new Map<string, string>()
+): ChatHistoryServiceTestContext {
+  const repository = createFakeChatHistoryRepository(initialChats, projectOwners);
   const service = createChatHistoryService({
     now: () => NOW,
     repository,
@@ -195,15 +257,20 @@ interface ChatHistoryServiceTestContext {
 
 interface FakeChatHistoryRepository extends ChatHistoryRepository {
   chats: FakeChatRecord[];
+  projectOwners: Map<string, string>;
 }
 
 interface FakeChatRecord extends StoredChatRecord {
   userId: string;
 }
 
-function createFakeChatHistoryRepository(initialChats: FakeChatRecord[] = []): FakeChatHistoryRepository {
+function createFakeChatHistoryRepository(
+  initialChats: FakeChatRecord[] = [],
+  projectOwners = new Map<string, string>()
+): FakeChatHistoryRepository {
   const repository: FakeChatHistoryRepository = {
     chats: [...initialChats],
+    projectOwners,
 
     async deleteUserChat(userId, chatId): Promise<number> {
       const chatIndex = repository.chats.findIndex((chat) => chat.id === chatId && chat.userId === userId);
@@ -221,6 +288,12 @@ function createFakeChatHistoryRepository(initialChats: FakeChatRecord[] = []): F
       return chat ? { userId: chat.userId } : null;
     },
 
+    async findProjectOwner(projectId) {
+      const ownerId = repository.projectOwners.get(projectId);
+
+      return ownerId ? { ownerId } : null;
+    },
+
     async listUserChats(userId) {
       return repository.chats
         .filter((chat) => chat.userId === userId)
@@ -234,6 +307,7 @@ function createFakeChatHistoryRepository(initialChats: FakeChatRecord[] = []): F
         title: input.chat.title,
         mode: input.chat.mode,
         model: input.chat.model,
+        projectId: input.chat.projectId || null,
         createdAt: input.createdAt,
         updatedAt: input.updatedAt,
         messages: input.messages.map(toStoredMessageRecord),
@@ -259,6 +333,7 @@ function createFakeChatRecord(overrides: Partial<FakeChatRecord> = {}): FakeChat
     title: "Saved chat",
     mode: "general",
     model: "gemini-2.5-flash",
+    projectId: null,
     createdAt: new Date("2026-05-21T09:00:00.000Z"),
     updatedAt: new Date("2026-05-21T09:00:00.000Z"),
     messages: [],

@@ -28,6 +28,7 @@ export interface ChatMessage {
 
 export interface Chat {
   id: string;
+  projectId: string | null;
   title: string;
   mode: string;
   model: string;
