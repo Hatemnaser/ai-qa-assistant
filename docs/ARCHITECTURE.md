@@ -79,6 +79,7 @@ Small modules can start with fewer files, but should not put business logic dire
 - `#/forgot-password`: password reset request page.
 - `#/usage`: personal `My Usage` page for the current guest or signed-in user.
 - `#/settings`: signed-in user preferences for language, theme, and default model.
+- `#/projects`: signed-in project management page for listing, creating, editing, and deleting owned projects.
 
 The frontend auth pages call the API with `credentials: "include"` so sessions stay in the httpOnly cookie. Google OAuth and real reset emails are still future integrations.
 

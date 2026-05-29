@@ -1,7 +1,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 export type AuthView = "login" | "register" | "forgot-password";
-export type AppRoute = "chat" | "settings" | "usage" | AuthView;
+export type AppRoute = "chat" | "projects" | "settings" | "usage" | AuthView;
 
 const authRoutes = new Set<AuthView>(["login", "register", "forgot-password"]);
 
@@ -24,6 +24,10 @@ export function useAppRoute() {
     window.location.hash = "/usage";
   }
 
+  function navigateToProjects() {
+    window.location.hash = "/projects";
+  }
+
   function navigateToSettings() {
     window.location.hash = "/settings";
   }
@@ -40,6 +44,7 @@ export function useAppRoute() {
     currentRoute,
     navigateToAuth,
     navigateToChat,
+    navigateToProjects,
     navigateToSettings,
     navigateToUsage,
   };
@@ -48,6 +53,7 @@ export function useAppRoute() {
 function readRoute(): AppRoute {
   const route = window.location.hash.replace(/^#\/?/, "").split("?")[0];
 
+  if (route === "projects") return "projects";
   if (route === "usage") return "usage";
   if (route === "settings") return "settings";
 

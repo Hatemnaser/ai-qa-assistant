@@ -71,6 +71,68 @@
   grid-column: 1 / -1;
 }
 
+.project-editor,
+.project-form {
+  display: grid;
+  gap: 18px;
+}
+
+.project-description {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.project-list-panel {
+  margin-top: 16px;
+}
+
+.workspace-empty {
+  color: var(--text-muted);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+}
+
+.project-list {
+  display: grid;
+  gap: 10px;
+}
+
+.project-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  padding: 14px;
+  background: var(--surface-interactive);
+  border: 1px solid var(--border-interactive);
+  border-radius: var(--radius-md);
+}
+
+.project-row h3 {
+  margin: 0 0 6px;
+  color: var(--text-main);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.project-row p {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-readable);
+}
+
+.project-row small {
+  color: var(--text-subtle);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.project-row-actions {
+  display: flex;
+  gap: 8px;
+}
+
 @media (max-width: 767px) {
   .workspace-page {
     padding: 16px;
@@ -83,5 +145,13 @@
 
   .settings-field + .settings-field {
     margin-top: 14px;
+  }
+
+  .project-row {
+    grid-template-columns: 1fr;
+  }
+
+  .project-row-actions {
+    flex-wrap: wrap;
   }
 }
