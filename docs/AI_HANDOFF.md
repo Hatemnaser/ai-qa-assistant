@@ -91,6 +91,7 @@ npm run build:api
 - Auth foundation exists with password auth, httpOnly cookies, sessions, guest mode, and chat adoption on login/register.
 - `My Usage` is personal only. Do not expose global usage until admin roles exist.
 - Settings page/API exists for language, theme, and default model.
+- Project CRUD API exists for signed-in users with owner-only authorization.
 - Gemini provider adapter and model catalog live behind provider/model routing abstractions.
 - Attachments support images and text/data files. Large file/PDF/provider Files API is future work.
 
@@ -104,6 +105,7 @@ Complete enough:
 - Chat persistence and ownership checks.
 - Personal usage page.
 - Settings foundation.
+- Projects API foundation.
 - Gemini model strategy, routing, and fallback.
 - Inline image/text/data attachments.
 - Production/deployment docs are mostly in place.
@@ -112,7 +114,7 @@ Still unfinished:
 
 - Google OAuth.
 - Real forgot-password email delivery.
-- Projects UI/API.
+- Projects UI, project switcher, chat-to-project linking, and member authorization.
 - Memory UI/API and embeddings.
 - Admin usage dashboard.
 - Plans/entitlements and billing.
@@ -125,9 +127,8 @@ Pick one track before coding:
 
 1. Product value: Projects
    - Project list/switcher.
-   - Project CRUD API.
    - Attach chats to projects.
-   - Ownership/member authorization tests.
+   - Member authorization tests.
 
 2. Portfolio polish:
    - README screenshots/GIFs.
@@ -173,4 +174,3 @@ Constraints:
 - Preserve existing auth, chat persistence, usage credits, settings, attachments, import/export, dark/light theme, and tests.
 - Do not delete old remote branches unless I explicitly ask.
 ```
-

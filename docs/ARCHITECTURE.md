@@ -68,6 +68,7 @@ Small modules can start with fewer files, but should not put business logic dire
 - `auth`: password registration, password login, password reset request contract, httpOnly session cookies, and server-side session records.
 - `ai`: provider registry, provider adapters, model catalog, QA workflow intent analysis, prompt building, model normalization, AI error mapping.
 - `chat`: chat API contract and orchestration.
+- `projects`: signed-in project CRUD, owner-only authorization, and owner membership foundation records.
 - `usage`: portfolio/demo credit limits, credit reservations before AI provider calls, completed token usage updates, and personal usage summaries.
 
 ## Active Frontend Routes
@@ -81,11 +82,10 @@ Small modules can start with fewer files, but should not put business logic dire
 
 The frontend auth pages call the API with `credentials: "include"` so sessions stay in the httpOnly cookie. Google OAuth and real reset emails are still future integrations.
 
-## Later Backend Modules
+## Later Backend Work
 
-- `projects`: project ownership, members, and chat grouping.
+- `projects`: member authorization, project switching UI, and chat grouping.
 - `memory`: user memory, project memory, chat summaries, and later vector search.
-- `settings`: user preferences, language, model defaults, and theme.
 
 ## Active API Routes
 
@@ -99,6 +99,10 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 - `POST /api/chat`: generate a QA assistant reply.
 - `GET /api/settings`: return the signed-in user's preferences.
 - `PUT /api/settings`: update language, theme, and default model for the signed-in user.
+- `GET /api/projects`: list projects owned by the signed-in user.
+- `POST /api/projects`: create a signed-in user's project.
+- `PUT /api/projects/:projectId`: update a project owned by the signed-in user.
+- `DELETE /api/projects/:projectId`: delete a project owned by the signed-in user.
 - `GET /api/usage/summary`: return current identity usage only. Guests see their guest/IP-hash scoped usage; signed-in users see their own `userId` scoped usage.
 
 `POST /api/chat` allows anonymous portfolio usage. Guests receive an httpOnly `qa_guest_id` cookie and are limited separately from signed-in users. The API also hashes the request IP as a fallback abuse guard. Usage credits are reserved before calling Gemini so the API key is protected from unbounded demo traffic. Successful chat responses update the reserved usage with provider token metadata when available and include a public `usage` summary with `used`, `remaining`, and `limit`.
