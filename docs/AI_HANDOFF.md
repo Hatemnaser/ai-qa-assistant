@@ -8,7 +8,7 @@ Last updated: 2026-05-30
 
 - Workspace: `C:\Users\hatem\ai-qa-assistant`
 - Local branch should start from `main`.
-- Last known clean baseline before current project assignment work: `main` synced with `origin/main` at `fb8ea0d Merge pull request #11 from Hatemnaser/feature/projects-web-foundation`.
+- Last known pushed baseline before local follow-up work: `main` synced with `origin/main` at `2747456 Add chat project assignment UI`.
 - Do not assume old root-level HTML/JS/backend structure. The app is now a monorepo:
   - `apps/web`: Vue + TypeScript + Vite frontend.
   - `apps/api`: Express + TypeScript + Prisma backend.
@@ -93,6 +93,7 @@ npm run build:api
 - Settings page/API exists for language, theme, and default model.
 - Project CRUD API exists for signed-in users with owner-only authorization.
 - Project management UI exists for signed-in users.
+- Project assignment and sidebar filtering exist for signed-in chats.
 - Gemini provider adapter and model catalog live behind provider/model routing abstractions.
 - Attachments support images and text/data files. Large file/PDF/provider Files API is future work.
 
@@ -109,6 +110,7 @@ Complete enough:
 - Projects API foundation.
 - Projects management page.
 - Project assignment controls for chats.
+- Project switcher/sidebar filtering for chats.
 - Gemini model strategy, routing, and fallback.
 - Inline image/text/data attachments.
 - Production/deployment docs are mostly in place.
@@ -117,7 +119,7 @@ Still unfinished:
 
 - Google OAuth.
 - Real forgot-password email delivery.
-- Project switcher and member authorization.
+- Project member authorization.
 - Memory UI/API and embeddings.
 - Admin usage dashboard.
 - Plans/entitlements and billing.
@@ -129,7 +131,6 @@ Still unfinished:
 Pick one track before coding:
 
 1. Product value: Projects
-   - Project switcher.
    - Member authorization tests.
 
 2. Portfolio polish:

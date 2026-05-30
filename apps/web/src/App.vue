@@ -20,6 +20,12 @@ import GuestLimitModal from "./features/chat/components/GuestLimitModal.vue";
 import ChatMessages from "./features/chat/components/ChatMessages.vue";
 import ChatSidebar from "./features/chat/components/ChatSidebar.vue";
 import ChatTopbar from "./features/chat/components/ChatTopbar.vue";
+import {
+  CHAT_PROJECT_FILTER_ALL,
+  getProjectIdForNewChat,
+  isProjectFilterAvailable,
+  type ChatProjectFilter,
+} from "./features/chat/chatProjectFilters";
 import { useTheme } from "./features/chat/chatTheme";
 import { useAccountChatSync } from "./features/chat/composables/useAccountChatSync";
 import { useChatController } from "./features/chat/composables/useChatController";
@@ -39,6 +45,7 @@ const accountSettings = ref<UserSettings | null>(null);
 const accountProjects = ref<Project[]>([]);
 const isLoadingProjects = ref(false);
 const projectLoadError = ref("");
+const selectedChatProjectFilter = ref<ChatProjectFilter>(CHAT_PROJECT_FILTER_ALL);
 
 function navigateToAuth(view: AuthView) {
   isGuestLimitModalOpen.value = false;
@@ -57,6 +64,7 @@ function handleAuthenticated(user: AuthUser) {
 
 function handleNewChat() {
   startNewChat();
+  assignActiveChatProject(getProjectIdForNewChat(selectedChatProjectFilter.value));
   navigateToChat();
 }
 
@@ -72,6 +80,7 @@ async function handleLogout() {
   accountSettings.value = null;
   accountProjects.value = [];
   projectLoadError.value = "";
+  selectedChatProjectFilter.value = CHAT_PROJECT_FILTER_ALL;
   clearGuestLimitReached();
 }
 
@@ -193,6 +202,15 @@ function handleProjectsChanged(projects: Project[]) {
   if (selectedProjectId.value && !projects.some((project) => project.id === selectedProjectId.value)) {
     assignActiveChatProject(null);
   }
+
+  if (!isProjectFilterAvailable(selectedChatProjectFilter.value, projects)) {
+    selectedChatProjectFilter.value = CHAT_PROJECT_FILTER_ALL;
+  }
+}
+
+function handleProjectFilterSelected(filter: ChatProjectFilter) {
+  selectedChatProjectFilter.value = filter;
+  navigateToChat();
 }
 
 async function loadAccountProjects() {
@@ -202,6 +220,7 @@ async function loadAccountProjects() {
   if (!userId) {
     accountProjects.value = [];
     isLoadingProjects.value = false;
+    selectedChatProjectFilter.value = CHAT_PROJECT_FILTER_ALL;
     return;
   }
 
@@ -213,6 +232,10 @@ async function loadAccountProjects() {
     if (currentUser.value?.id !== userId) return;
 
     accountProjects.value = projects;
+
+    if (!isProjectFilterAvailable(selectedChatProjectFilter.value, projects)) {
+      selectedChatProjectFilter.value = CHAT_PROJECT_FILTER_ALL;
+    }
   } catch (error) {
     if (currentUser.value?.id === userId) {
       projectLoadError.value = error instanceof Error ? error.message : "Could not load projects.";
@@ -284,6 +307,8 @@ async function persistThemeSetting() {
       :current-user="currentUser"
       :is-chat-route="currentRoute === 'chat'"
       :is-projects-route="currentRoute === 'projects'"
+      :project-filter="selectedChatProjectFilter"
+      :projects="accountProjects"
       :renaming-chat-id="renamingChatId"
       :theme-toggle-label="themeToggleLabel"
       @cancel-rename="cancelRenameChat"
@@ -294,6 +319,7 @@ async function persistThemeSetting() {
       @open-projects="navigateToProjects"
       @open-settings="navigateToSettings"
       @open-usage="navigateToUsage"
+      @select-project-filter="handleProjectFilterSelected"
       @select-chat="selectChat"
       @sign-in="navigateToAuth('login')"
       @open-chat-menu="openChatMenuForChat"

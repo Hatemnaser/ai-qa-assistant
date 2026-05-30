@@ -73,7 +73,7 @@ Small modules can start with fewer files, but should not put business logic dire
 
 ## Active Frontend Routes
 
-- `#/`: chat workspace, including the signed-in project assignment selector for active and new chats.
+- `#/`: chat workspace, including the signed-in project assignment selector and sidebar project filters for active and new chats.
 - `#/login`: sign-in page wired to cookie-backed auth.
 - `#/register`: account creation page wired to cookie-backed auth.
 - `#/forgot-password`: password reset request page.
@@ -85,7 +85,7 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 
 ## Later Backend Work
 
-- `projects`: member authorization and project switching UI.
+- `projects`: member authorization.
 - `memory`: user memory, project memory, chat summaries, and later vector search.
 
 ## Active API Routes
@@ -111,7 +111,7 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 
 `POST /api/chat` allows anonymous portfolio usage. Guests receive an httpOnly `qa_guest_id` cookie and are limited separately from signed-in users. The API also hashes the request IP as a fallback abuse guard. Usage credits are reserved before calling Gemini so the API key is protected from unbounded demo traffic. Successful chat responses update the reserved usage with provider token metadata when available and include a public `usage` summary with `used`, `remaining`, and `limit`.
 
-Signed-in chat persistence can store an optional `projectId`. The chat history service validates that linked projects are owned by the current user before saving, so a user cannot attach a chat to another user's project. The Vue chat topbar lets signed-in users assign the active chat, or the next new chat, to one of their projects. Deleting a project leaves existing chats with `projectId` set to null through the database relation.
+Signed-in chat persistence can store an optional `projectId`. The chat history service validates that linked projects are owned by the current user before saving, so a user cannot attach a chat to another user's project. The Vue chat topbar lets signed-in users assign the active chat, or the next new chat, to one of their projects. The sidebar can filter chats by all chats, unassigned chats, or a specific project, and new chats inherit the active project filter when it points to a project. Deleting a project leaves existing chats with `projectId` set to null through the database relation.
 
 ## AI Workflow Layer
 

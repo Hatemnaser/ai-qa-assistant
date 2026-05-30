@@ -66,12 +66,38 @@
   outline: 0;
 }
 
+.ui-row__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .ui-row__title {
   display: block;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.ui-row__meta {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-row--interactive:hover .ui-row__meta,
+.ui-row--interactive.active .ui-row__meta,
+.ui-row--interactive:focus-within .ui-row__meta {
+  color: currentColor;
+  opacity: 0.72;
 }
 
 .ui-row__action {

@@ -14,7 +14,7 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [x] PostgreSQL schema is established for users, sessions, chats, projects, memory, usage events, and settings.
 - [x] `npm run verify` passes:
   - API tests: 130 passing.
-- Web tests: 47 passing.
+  - Web tests: 51 passing.
   - API and web TypeScript checks passing.
 - [x] Latest pushed baseline was clean before the current project assignment work.
 
@@ -29,6 +29,7 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [x] Project CRUD API foundation with owner-only authorization.
 - [x] Project list/create/edit/delete UI for signed-in users.
 - [x] Project assignment UI for signed-in chats.
+- [x] Project switcher/sidebar filtering for signed-in chats.
 - [x] Chat persistence for signed-in users, including optional project links with ownership checks.
 - [x] Guest chats can be adopted into the signed-in user scope during login/register.
 - [x] Chat ownership checks prevent another user from updating/deleting a chat they do not own.
@@ -46,7 +47,7 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [ ] Google OAuth is not wired. The UI button is intentionally disabled.
 - [ ] Forgot password only returns a safe generic response. It does not send reset emails yet.
 - [x] Settings page/API is implemented for language, theme, and default model.
-- [ ] Project switcher is not implemented yet.
+- [x] Project switcher/sidebar filtering is implemented for signed-in chat workspaces.
 - [x] Project assignment controls are implemented for signed-in chat workspaces.
 - [ ] Memory and project memory are schema-level foundations only.
 - [ ] Admin usage dashboard does not exist. Current `My Usage` is personal only.
@@ -116,7 +117,7 @@ These should happen before large new product features.
 ### Phase 3: Projects
 
 - [x] Build project list and management page.
-- [ ] Build project switcher.
+- [x] Build project switcher.
 - [x] Add project CRUD API.
 - [x] Add chat-to-project persistence contract and ownership guard.
 - [x] Add project assignment UI for chats.

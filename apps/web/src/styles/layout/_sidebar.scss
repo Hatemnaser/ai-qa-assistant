@@ -24,6 +24,43 @@
   padding-right: var(--space-3);
 }
 
+.sidebar-project-filter {
+  margin-top: 22px;
+  padding-right: var(--space-3);
+}
+
+.sidebar-project-filter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 168px;
+  overflow-y: auto;
+  padding-right: 0;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.sidebar-project-filter-list:hover {
+  scrollbar-color: var(--border) transparent;
+}
+
+.sidebar .sidebar-filter-row {
+  justify-content: space-between;
+}
+
+.sidebar-filter-count {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  margin-left: auto;
+}
+
+.sidebar-filter-row:hover .sidebar-filter-count,
+.sidebar-filter-row.active .sidebar-filter-count {
+  color: currentColor;
+  opacity: 0.72;
+}
+
 .brand h1 {
   font-size: var(--font-size-title-md);
   font-weight: var(--font-weight-extrabold);
@@ -88,4 +125,10 @@
   flex-direction: column;
   gap: 2px;
   overflow: visible;
+}
+
+.sidebar-empty {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  padding: var(--space-2) var(--space-3);
 }
