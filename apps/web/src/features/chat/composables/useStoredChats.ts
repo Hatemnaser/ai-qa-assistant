@@ -20,6 +20,7 @@ interface StoredChatOptions {
   messageInput: Ref<string>;
   selectedMode: Ref<string>;
   selectedModel: Ref<string>;
+  selectedProjectId: Ref<string | null>;
 }
 
 export function useStoredChats({
@@ -27,6 +28,7 @@ export function useStoredChats({
   messageInput,
   selectedMode,
   selectedModel,
+  selectedProjectId,
 }: StoredChatOptions) {
   const storageScope = ref(GUEST_CHAT_STORAGE_SCOPE);
   const chats = ref<Chat[]>(loadChats(storageScope.value));
@@ -46,6 +48,7 @@ export function useStoredChats({
     clearSelectedAttachments();
     selectedMode.value = DEFAULT_MODE;
     selectedModel.value = DEFAULT_MODEL;
+    selectedProjectId.value = null;
   }
 
   function selectChat(chatId: string) {
@@ -57,6 +60,7 @@ export function useStoredChats({
     setActiveChatId(chat.id, storageScope.value);
     selectedMode.value = chat.mode;
     selectedModel.value = chat.model;
+    selectedProjectId.value = chat.projectId;
 
     return chat;
   }
@@ -90,6 +94,21 @@ export function useStoredChats({
     });
   }
 
+  function assignActiveChatProject(projectId: string | null) {
+    const nextProjectId = normalizeSelectedProjectId(projectId);
+
+    selectedProjectId.value = nextProjectId;
+
+    const chat = activeChat.value;
+
+    if (!chat || chat.projectId === nextProjectId) return;
+
+    updateChat({
+      ...chat,
+      projectId: nextProjectId,
+    });
+  }
+
   function addChatAndSelect(chat: Chat) {
     persist([chat, ...chats.value]);
     selectChat(chat.id);
@@ -103,6 +122,7 @@ export function useStoredChats({
     const chat = createChat({
       mode: selectedMode.value,
       model: selectedModel.value,
+      projectId: selectedProjectId.value,
     });
 
     addChatAndSelect(chat);
@@ -139,6 +159,7 @@ export function useStoredChats({
 
     selectedMode.value = nextActiveChat?.mode || DEFAULT_MODE;
     selectedModel.value = nextActiveChat?.model || DEFAULT_MODEL;
+    selectedProjectId.value = nextActiveChat?.projectId || null;
   }
 
   function setChatStorageOwner(userId: string | null, options: { adoptGuestChats?: boolean } = {}) {
@@ -159,6 +180,7 @@ export function useStoredChats({
 
     selectedMode.value = activeChat.value?.mode || DEFAULT_MODE;
     selectedModel.value = activeChat.value?.model || DEFAULT_MODEL;
+    selectedProjectId.value = activeChat.value?.projectId || null;
   }
 
   return {
@@ -166,6 +188,7 @@ export function useStoredChats({
     activeChatId,
     activeMessages,
     addChatAndSelect,
+    assignActiveChatProject,
     chats,
     deleteChat,
     ensureActiveChat,
@@ -176,4 +199,8 @@ export function useStoredChats({
     startNewChat,
     updateChat,
   };
+}
+
+function normalizeSelectedProjectId(projectId: string | null) {
+  return typeof projectId === "string" && projectId.trim() ? projectId.trim() : null;
 }

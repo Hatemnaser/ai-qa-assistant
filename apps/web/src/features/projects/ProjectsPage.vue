@@ -11,6 +11,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   "back-to-chat": [];
+  "projects-changed": [projects: Project[]];
   "sign-in": [];
 }>();
 
@@ -52,6 +53,7 @@ async function loadProjects() {
 
   if (!props.currentUser) {
     projects.value = [];
+    emitProjectsChanged();
     return;
   }
 
@@ -59,6 +61,7 @@ async function loadProjects() {
 
   try {
     projects.value = await fetchProjects();
+    emitProjectsChanged();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Could not load projects.";
   } finally {
@@ -109,6 +112,7 @@ async function removeProject(project: Project) {
   try {
     await deleteProject(project.id);
     projects.value = projects.value.filter((item) => item.id !== project.id);
+    emitProjectsChanged();
 
     if (editingProjectId.value === project.id) {
       resetForm();
@@ -141,10 +145,16 @@ function upsertProject(project: Project) {
 
   if (existingIndex === -1) {
     projects.value = [project, ...projects.value];
+    emitProjectsChanged();
     return;
   }
 
   projects.value = projects.value.map((item) => (item.id === project.id ? project : item));
+  emitProjectsChanged();
+}
+
+function emitProjectsChanged() {
+  emit("projects-changed", [...projects.value]);
 }
 
 function formatDate(value: string) {

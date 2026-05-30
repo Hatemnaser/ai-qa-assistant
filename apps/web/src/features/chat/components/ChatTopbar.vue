@@ -3,25 +3,51 @@ import { computed } from "vue";
 
 import { AI_MODELS, QA_MODES, getModelHint } from "../constants";
 import type { AiModelOption, ChatUsageSummary } from "../types";
+import type { Project } from "../../projects/types";
 
 const props = defineProps<{
+  isLoadingProjects?: boolean;
   mode: string;
   model: string;
   modelOptions?: AiModelOption[];
+  projectError?: string;
+  projectId?: string | null;
+  projects?: Project[];
+  showProjectSelector?: boolean;
   usageSummary?: ChatUsageSummary | null;
 }>();
 
 const emit = defineEmits<{
   "update:mode": [value: string];
   "update:model": [value: string];
+  "update:projectId": [value: string | null];
+  "open-projects": [];
 }>();
 
 const selectedModeOption = computed(() => QA_MODES.find((option) => option.value === props.mode) || QA_MODES[0]);
 const availableModelOptions = computed(() => (props.modelOptions?.length ? props.modelOptions : [...AI_MODELS]));
+const availableProjects = computed(() => props.projects || []);
+const selectedProjectId = computed(() => props.projectId || null);
+const selectedProject = computed(
+  () => availableProjects.value.find((project) => project.id === selectedProjectId.value) || null
+);
 const selectedModelOption = computed(
   () => availableModelOptions.value.find((option) => option.value === props.model) || availableModelOptions.value[0]
 );
 const modelHint = computed(() => getModelHint(props.model, props.mode, availableModelOptions.value));
+const projectButtonLabel = computed(() => {
+  if (selectedProject.value) return selectedProject.value.name;
+  if (selectedProjectId.value) return "Unavailable project";
+
+  return "No project";
+});
+const projectTitle = computed(() => {
+  if (props.projectError) return props.projectError;
+  if (selectedProject.value?.description) return selectedProject.value.description;
+  if (selectedProjectId.value) return "This project is no longer available.";
+
+  return "Assign this chat to a project.";
+});
 const usageLabel = computed(() => {
   if (!props.usageSummary) return "";
 
@@ -43,6 +69,10 @@ function selectModel(value: string) {
 function selectMode(value: string) {
   emit("update:mode", value);
 }
+
+function selectProject(value: string | null) {
+  emit("update:projectId", value);
+}
 </script>
 
 <template>
@@ -53,6 +83,63 @@ function selectMode(value: string) {
     </div>
 
     <div class="topbar-controls d-flex align-items-center justify-content-end flex-wrap gap-2">
+      <div v-if="showProjectSelector" class="topbar-field d-flex align-items-center gap-2">
+        <span class="topbar-field-label">Project</span>
+        <div class="dropdown topbar-select-dropdown">
+          <button
+            class="btn btn-sm btn-outline-secondary topbar-select-btn topbar-select-btn--project d-inline-flex align-items-center justify-content-between text-start"
+            type="button"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+            :title="projectTitle"
+          >
+            <span class="topbar-select-label">{{ projectButtonLabel }}</span>
+          </button>
+
+          <ul class="dropdown-menu dropdown-menu-end topbar-select-menu">
+            <li>
+              <button
+                class="dropdown-item"
+                :class="{ active: !selectedProjectId }"
+                type="button"
+                @click="selectProject(null)"
+              >
+                No project
+              </button>
+            </li>
+            <li><hr class="dropdown-divider" /></li>
+            <li v-if="isLoadingProjects">
+              <span class="dropdown-item-text text-muted">Loading projects...</span>
+            </li>
+            <li v-else-if="projectError">
+              <span class="dropdown-item-text text-muted" :title="projectError">Projects unavailable</span>
+            </li>
+            <li v-else-if="availableProjects.length === 0">
+              <span class="dropdown-item-text text-muted">No projects yet</span>
+            </li>
+            <template v-else>
+              <li v-for="project in availableProjects" :key="project.id">
+                <button
+                  class="dropdown-item"
+                  :class="{ active: project.id === selectedProjectId }"
+                  type="button"
+                  :title="project.description || project.name"
+                  @click="selectProject(project.id)"
+                >
+                  {{ project.name }}
+                </button>
+              </li>
+            </template>
+            <li><hr class="dropdown-divider" /></li>
+            <li>
+              <button class="dropdown-item" type="button" @click="emit('open-projects')">
+                Manage projects
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+
       <div class="topbar-field d-flex align-items-center gap-2">
         <span class="topbar-field-label">Model</span>
         <div class="dropdown topbar-select-dropdown">
@@ -63,7 +150,7 @@ function selectMode(value: string) {
             aria-expanded="false"
             :title="modelHint"
           >
-            {{ selectedModelOption.label }}
+            <span class="topbar-select-label">{{ selectedModelOption.label }}</span>
           </button>
 
           <ul class="dropdown-menu dropdown-menu-end topbar-select-menu">
@@ -91,7 +178,7 @@ function selectMode(value: string) {
             data-bs-toggle="dropdown"
             aria-expanded="false"
           >
-            {{ selectedModeOption.label }}
+            <span class="topbar-select-label">{{ selectedModeOption.label }}</span>
           </button>
 
           <ul class="dropdown-menu dropdown-menu-end topbar-select-menu">

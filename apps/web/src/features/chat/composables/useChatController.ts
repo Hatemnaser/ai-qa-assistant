@@ -14,6 +14,7 @@ export function useChatController() {
   const messageInput = ref("");
   const selectedMode = ref(DEFAULT_MODE);
   const selectedModel = ref(DEFAULT_MODEL);
+  const selectedProjectId = ref<string | null>(null);
   const chatPendingDelete = ref<Chat | null>(null);
   const renamingChatId = ref<string | null>(null);
   const quickActionMode = ref<string | null>(null);
@@ -33,6 +34,7 @@ export function useChatController() {
     activeChatId,
     activeMessages,
     addChatAndSelect,
+    assignActiveChatProject,
     chats,
     deleteChat: deleteStoredChat,
     ensureActiveChat,
@@ -47,6 +49,7 @@ export function useChatController() {
     messageInput,
     selectedMode,
     selectedModel,
+    selectedProjectId,
   });
 
   const {
@@ -163,9 +166,11 @@ export function useChatController() {
   }
 
   return {
+    activeChat,
     activeChatId,
     activeMessages,
     applyQuickAction,
+    assignActiveChatProject,
     beginRenameChat,
     cancelDeleteChat,
     cancelRenameChat,
@@ -201,6 +206,7 @@ export function useChatController() {
     selectedAttachments,
     selectedMode,
     selectedModel,
+    selectedProjectId,
     setChatStorageOwner,
     usageSummary,
     submitRenameChat,

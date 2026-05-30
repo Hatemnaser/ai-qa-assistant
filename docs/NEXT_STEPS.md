@@ -2,7 +2,7 @@
 
 This file is the working roadmap for what is done, what is still foundation work, and what should come next. Use it as the reference when asking "what is next?" or "what still needs cleanup?"
 
-Last reviewed: 2026-05-29
+Last reviewed: 2026-05-30
 
 For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 
@@ -14,9 +14,9 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [x] PostgreSQL schema is established for users, sessions, chats, projects, memory, usage events, and settings.
 - [x] `npm run verify` passes:
   - API tests: 130 passing.
-  - Web tests: 45 passing.
+- Web tests: 47 passing.
   - API and web TypeScript checks passing.
-- [x] Latest pushed baseline was clean before the current uncommitted settings work.
+- [x] Latest pushed baseline was clean before the current project assignment work.
 
 ## What Is Complete Enough For The Current Foundation
 
@@ -28,6 +28,7 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [x] `My Usage` page for the current identity only.
 - [x] Project CRUD API foundation with owner-only authorization.
 - [x] Project list/create/edit/delete UI for signed-in users.
+- [x] Project assignment UI for signed-in chats.
 - [x] Chat persistence for signed-in users, including optional project links with ownership checks.
 - [x] Guest chats can be adopted into the signed-in user scope during login/register.
 - [x] Chat ownership checks prevent another user from updating/deleting a chat they do not own.
@@ -45,7 +46,8 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [ ] Google OAuth is not wired. The UI button is intentionally disabled.
 - [ ] Forgot password only returns a safe generic response. It does not send reset emails yet.
 - [x] Settings page/API is implemented for language, theme, and default model.
-- [ ] Project switcher and project assignment controls are not implemented yet.
+- [ ] Project switcher is not implemented yet.
+- [x] Project assignment controls are implemented for signed-in chat workspaces.
 - [ ] Memory and project memory are schema-level foundations only.
 - [ ] Admin usage dashboard does not exist. Current `My Usage` is personal only.
 - [ ] Credits are configured through environment variables, not plans/entitlements from the database.
@@ -117,7 +119,7 @@ These should happen before large new product features.
 - [ ] Build project switcher.
 - [x] Add project CRUD API.
 - [x] Add chat-to-project persistence contract and ownership guard.
-- [ ] Add project assignment UI for chats.
+- [x] Add project assignment UI for chats.
 - [x] Add owner-only project authorization.
 - [ ] Add project member authorization.
 - [x] Add tests for project ownership.

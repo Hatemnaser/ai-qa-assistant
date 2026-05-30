@@ -2,13 +2,13 @@
 
 Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`.
 
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 ## Current Repo State
 
 - Workspace: `C:\Users\hatem\ai-qa-assistant`
 - Local branch should start from `main`.
-- Last known clean baseline: `main` synced with `origin/main` at `bf6edaf Add account settings foundation`.
+- Last known clean baseline before current project assignment work: `main` synced with `origin/main` at `fb8ea0d Merge pull request #11 from Hatemnaser/feature/projects-web-foundation`.
 - Do not assume old root-level HTML/JS/backend structure. The app is now a monorepo:
   - `apps/web`: Vue + TypeScript + Vite frontend.
   - `apps/api`: Express + TypeScript + Prisma backend.
@@ -108,6 +108,7 @@ Complete enough:
 - Settings foundation.
 - Projects API foundation.
 - Projects management page.
+- Project assignment controls for chats.
 - Gemini model strategy, routing, and fallback.
 - Inline image/text/data attachments.
 - Production/deployment docs are mostly in place.
@@ -116,7 +117,7 @@ Still unfinished:
 
 - Google OAuth.
 - Real forgot-password email delivery.
-- Project switcher, project assignment controls, and member authorization.
+- Project switcher and member authorization.
 - Memory UI/API and embeddings.
 - Admin usage dashboard.
 - Plans/entitlements and billing.
@@ -129,7 +130,6 @@ Pick one track before coding:
 
 1. Product value: Projects
    - Project switcher.
-   - Project assignment controls for chats.
    - Member authorization tests.
 
 2. Portfolio polish:

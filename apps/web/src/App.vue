@@ -7,6 +7,8 @@ import LoginPage from "./features/auth/pages/LoginPage.vue";
 import RegisterPage from "./features/auth/pages/RegisterPage.vue";
 import type { AuthUser } from "./features/auth/types";
 import ProjectsPage from "./features/projects/ProjectsPage.vue";
+import { fetchProjects } from "./features/projects/projectsApi";
+import type { Project } from "./features/projects/types";
 import SettingsPage from "./features/settings/SettingsPage.vue";
 import { fetchUserSettings, updateUserSettings } from "./features/settings/settingsApi";
 import type { UserSettings } from "./features/settings/types";
@@ -34,6 +36,9 @@ const {
 const { currentUser, loadCurrentUser, logoutCurrentUser, setAuthenticatedUser } = useAuthSession();
 const isGuestLimitModalOpen = ref(false);
 const accountSettings = ref<UserSettings | null>(null);
+const accountProjects = ref<Project[]>([]);
+const isLoadingProjects = ref(false);
+const projectLoadError = ref("");
 
 function navigateToAuth(view: AuthView) {
   isGuestLimitModalOpen.value = false;
@@ -65,6 +70,8 @@ async function handleLogout() {
   });
   setChatStorageOwner(null);
   accountSettings.value = null;
+  accountProjects.value = [];
+  projectLoadError.value = "";
   clearGuestLimitReached();
 }
 
@@ -72,6 +79,7 @@ const {
   activeChatId,
   activeMessages,
   applyQuickAction,
+  assignActiveChatProject,
   beginRenameChat,
   cancelDeleteChat,
   cancelRenameChat,
@@ -107,6 +115,7 @@ const {
   selectedAttachments,
   selectedMode,
   selectedModel,
+  selectedProjectId,
   setChatStorageOwner,
   submitRenameChat,
   startNewChat,
@@ -130,6 +139,17 @@ onMounted(() => {
 watch(isGuestLimitBlocked, (isBlocked) => {
   if (isBlocked) {
     isGuestLimitModalOpen.value = true;
+  }
+});
+
+watch(
+  () => currentUser.value?.id || null,
+  () => void loadAccountProjects()
+);
+
+watch(currentRoute, (route) => {
+  if (route === "chat") {
+    void loadAccountProjects();
   }
 });
 
@@ -164,6 +184,44 @@ async function applyAccountSettings() {
 
 function handleSettingsSaved(settings: UserSettings) {
   applySavedSettings(settings);
+}
+
+function handleProjectsChanged(projects: Project[]) {
+  accountProjects.value = [...projects];
+  projectLoadError.value = "";
+
+  if (selectedProjectId.value && !projects.some((project) => project.id === selectedProjectId.value)) {
+    assignActiveChatProject(null);
+  }
+}
+
+async function loadAccountProjects() {
+  const userId = currentUser.value?.id || null;
+  projectLoadError.value = "";
+
+  if (!userId) {
+    accountProjects.value = [];
+    isLoadingProjects.value = false;
+    return;
+  }
+
+  isLoadingProjects.value = true;
+
+  try {
+    const projects = await fetchProjects();
+
+    if (currentUser.value?.id !== userId) return;
+
+    accountProjects.value = projects;
+  } catch (error) {
+    if (currentUser.value?.id === userId) {
+      projectLoadError.value = error instanceof Error ? error.message : "Could not load projects.";
+    }
+  } finally {
+    if (!currentUser.value || currentUser.value.id === userId) {
+      isLoadingProjects.value = false;
+    }
+  }
 }
 
 function applySavedSettings(settings: UserSettings) {
@@ -251,6 +309,7 @@ async function persistThemeSetting() {
       <ProjectsPage
         :current-user="currentUser"
         @back-to-chat="navigateToChat"
+        @projects-changed="handleProjectsChanged"
         @sign-in="navigateToAuth('login')"
       />
     </main>
@@ -269,8 +328,15 @@ async function persistThemeSetting() {
       <ChatTopbar
         v-model:mode="selectedMode"
         v-model:model="selectedModel"
+        :is-loading-projects="isLoadingProjects"
         :model-options="modelOptions"
+        :project-error="projectLoadError"
+        :project-id="selectedProjectId"
+        :projects="accountProjects"
+        :show-project-selector="Boolean(currentUser)"
         :usage-summary="usageSummary"
+        @open-projects="navigateToProjects"
+        @update:project-id="assignActiveChatProject"
       />
 
       <ChatMessages

@@ -46,6 +46,11 @@
   min-width: 150px;
 }
 
+.chat-topbar .topbar-select-btn--project {
+  min-width: 180px;
+  max-width: 240px;
+}
+
 .topbar-select-dropdown {
   min-width: 0;
 }
@@ -56,6 +61,13 @@
   font-weight: var(--font-weight-medium);
 }
 
+.topbar-select-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .topbar-select-btn::after {
   content: "";
   width: 0;
@@ -64,6 +76,11 @@
   border-right: 4px solid transparent;
   border-top: 5px solid currentColor;
   opacity: 0.72;
+}
+
+.topbar-select-menu {
+  max-height: min(360px, calc(100vh - 120px));
+  overflow-y: auto;
 }
 
 .topbar-status {
