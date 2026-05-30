@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --configLoader runner",
     "test": "tsx --test tests/**/*.test.ts",
-    "build": "vue-tsc -b && vite build",
-    "check": "vue-tsc -b --noEmit",
+    "build": "vue-tsc -b tsconfig.app.json && vite build",
+    "check": "vue-tsc -b tsconfig.app.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
@@ -17,6 +17,7 @@
     "vue": "^3.5.25"
   },
   "devDependencies": {
+    "@types/node": "^24.10.1",
     "@vitejs/plugin-vue": "^6.0.2",
     "sass": "^1.99.0",
     "tsx": "^4.22.0",
