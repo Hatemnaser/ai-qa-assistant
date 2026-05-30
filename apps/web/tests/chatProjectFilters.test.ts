@@ -5,8 +5,11 @@ import {
   CHAT_PROJECT_FILTER_ALL,
   CHAT_PROJECT_FILTER_UNASSIGNED,
   filterChatsByProject,
+  getChatProjectFilterForProject,
+  getChatProjectFilterOptions,
   getProjectIdForNewChat,
   getProjectNameById,
+  isChatInProjectFilter,
   isProjectFilterAvailable,
 } from "../src/features/chat/chatProjectFilters";
 import { createChat } from "../src/features/chat/chatStorage";
@@ -31,15 +34,19 @@ describe("chat project filters", () => {
       filterChatsByProject(chats, "project-checkout").map((chat) => chat.id),
       ["chat-2"]
     );
+    assert.equal(isChatInProjectFilter(checkoutChat, "project-checkout"), true);
+    assert.equal(isChatInProjectFilter(checkoutChat, CHAT_PROJECT_FILTER_UNASSIGNED), false);
   });
 
   it("uses only project filters as the next chat project", () => {
     assert.equal(getProjectIdForNewChat(CHAT_PROJECT_FILTER_ALL), null);
     assert.equal(getProjectIdForNewChat(CHAT_PROJECT_FILTER_UNASSIGNED), null);
     assert.equal(getProjectIdForNewChat("project-checkout"), "project-checkout");
+    assert.equal(getChatProjectFilterForProject(null), CHAT_PROJECT_FILTER_UNASSIGNED);
+    assert.equal(getChatProjectFilterForProject("project-checkout"), "project-checkout");
   });
 
-  it("validates and names available project filters", () => {
+  it("validates, names, and counts available project filters", () => {
     const projects: Project[] = [
       {
         id: "project-checkout",
@@ -50,6 +57,10 @@ describe("chat project filters", () => {
         updatedAt: "2026-05-30T00:00:00.000Z",
       },
     ];
+    const chats = [
+      createChat({ id: "chat-1", projectId: null }),
+      createChat({ id: "chat-2", projectId: "project-checkout" }),
+    ];
 
     assert.equal(isProjectFilterAvailable(CHAT_PROJECT_FILTER_ALL, projects), true);
     assert.equal(isProjectFilterAvailable(CHAT_PROJECT_FILTER_UNASSIGNED, projects), true);
@@ -57,5 +68,22 @@ describe("chat project filters", () => {
     assert.equal(isProjectFilterAvailable("project-missing", projects), false);
     assert.equal(getProjectNameById(projects, "project-checkout"), "Checkout QA");
     assert.equal(getProjectNameById(projects, "project-missing"), null);
+    assert.deepEqual(getChatProjectFilterOptions(chats, projects), [
+      {
+        count: 2,
+        label: "All chats",
+        value: CHAT_PROJECT_FILTER_ALL,
+      },
+      {
+        count: 1,
+        label: "Unassigned",
+        value: CHAT_PROJECT_FILTER_UNASSIGNED,
+      },
+      {
+        count: 1,
+        label: "Checkout QA",
+        value: "project-checkout",
+      },
+    ]);
   });
 });

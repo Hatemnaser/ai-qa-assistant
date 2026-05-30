@@ -96,7 +96,7 @@ function getUserFacingBackendMessage(payload: BackendErrorPayload, fallback: str
 
 function getFallbackBackendMessage(response: Response, fallback: string) {
   if (response.status >= 500) {
-    return "Could not connect to the backend through the Vite /api proxy. Make sure the API server is running on http://127.0.0.1:5000 and PostgreSQL is available.";
+    return "The backend returned a server error without details. In local development, make sure the API server is running on http://127.0.0.1:5000 and PostgreSQL is available.";
   }
 
   return fallback;

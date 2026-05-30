@@ -4,9 +4,8 @@ import { computed } from "vue";
 import type { AuthUser } from "../../auth/types";
 import type { Project } from "../../projects/types";
 import {
-  CHAT_PROJECT_FILTER_ALL,
-  CHAT_PROJECT_FILTER_UNASSIGNED,
   filterChatsByProject,
+  getChatProjectFilterOptions,
   getProjectNameById,
   type ChatProjectFilter,
 } from "../chatProjectFilters";
@@ -47,23 +46,7 @@ const emit = defineEmits<{
 const projects = computed(() => props.projects || []);
 const filteredChats = computed(() => filterChatsByProject(props.chats, props.projectFilter));
 const showProjectFilters = computed(() => Boolean(props.currentUser));
-const projectFilterOptions = computed(() => [
-  {
-    count: props.chats.length,
-    label: "All chats",
-    value: CHAT_PROJECT_FILTER_ALL,
-  },
-  {
-    count: props.chats.filter((chat) => !chat.projectId).length,
-    label: "Unassigned",
-    value: CHAT_PROJECT_FILTER_UNASSIGNED,
-  },
-  ...projects.value.map((project) => ({
-    count: props.chats.filter((chat) => chat.projectId === project.id).length,
-    label: project.name,
-    value: project.id,
-  })),
-]);
+const projectFilterOptions = computed(() => getChatProjectFilterOptions(props.chats, projects.value));
 
 function getChatProjectName(chat: Chat) {
   return getProjectNameById(projects.value, chat.projectId);
@@ -98,10 +81,11 @@ function getChatProjectName(chat: Chat) {
           class="ui-row ui-row--button ui-row--interactive sidebar-filter-row"
           :class="{ active: option.value === projectFilter }"
           type="button"
+          :aria-pressed="option.value === projectFilter"
           @click="emit('select-project-filter', option.value)"
         >
           <span class="ui-row__title">{{ option.label }}</span>
-          <span class="sidebar-filter-count">{{ option.count }}</span>
+          <span class="ui-row__count">{{ option.count }}</span>
         </button>
       </div>
     </div>

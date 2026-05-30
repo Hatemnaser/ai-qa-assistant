@@ -22,7 +22,10 @@ import ChatSidebar from "./features/chat/components/ChatSidebar.vue";
 import ChatTopbar from "./features/chat/components/ChatTopbar.vue";
 import {
   CHAT_PROJECT_FILTER_ALL,
+  filterChatsByProject,
+  getChatProjectFilterForProject,
   getProjectIdForNewChat,
+  isChatInProjectFilter,
   isProjectFilterAvailable,
   type ChatProjectFilter,
 } from "./features/chat/chatProjectFilters";
@@ -85,6 +88,7 @@ async function handleLogout() {
 }
 
 const {
+  activeChat,
   activeChatId,
   activeMessages,
   applyQuickAction,
@@ -211,6 +215,32 @@ function handleProjectsChanged(projects: Project[]) {
 function handleProjectFilterSelected(filter: ChatProjectFilter) {
   selectedChatProjectFilter.value = filter;
   navigateToChat();
+
+  if (activeChat.value && isChatInProjectFilter(activeChat.value, filter)) {
+    return;
+  }
+
+  if (!activeChat.value && filter === CHAT_PROJECT_FILTER_ALL) {
+    return;
+  }
+
+  const nextChat = filterChatsByProject(chats.value, filter)[0] || null;
+
+  if (nextChat) {
+    selectChat(nextChat.id);
+    return;
+  }
+
+  startNewChat();
+  assignActiveChatProject(getProjectIdForNewChat(filter));
+}
+
+function handleActiveChatProjectAssigned(projectId: string | null) {
+  assignActiveChatProject(projectId);
+
+  if (selectedChatProjectFilter.value !== CHAT_PROJECT_FILTER_ALL) {
+    selectedChatProjectFilter.value = getChatProjectFilterForProject(projectId);
+  }
 }
 
 async function loadAccountProjects() {
@@ -362,7 +392,7 @@ async function persistThemeSetting() {
         :show-project-selector="Boolean(currentUser)"
         :usage-summary="usageSummary"
         @open-projects="navigateToProjects"
-        @update:project-id="assignActiveChatProject"
+        @update:project-id="handleActiveChatProjectAssigned"
       />
 
       <ChatMessages

@@ -45,11 +45,11 @@ describe("backend error helpers", () => {
     assert.match(error.message, /temporarily unavailable/);
   });
 
-  it("maps empty proxy failures to local backend setup guidance", async () => {
+  it("maps empty server failures to local backend setup guidance", async () => {
     const error = await createBackendApiError(emptyResponse(500), "Request failed.");
 
     assert.equal(error.status, 500);
-    assert.match(error.message, /Vite \/api proxy/);
+    assert.match(error.message, /server error without details/);
     assert.match(error.message, /127\.0\.0\.1:5000/);
     assert.match(error.message, /PostgreSQL/);
   });

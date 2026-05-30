@@ -93,9 +93,19 @@
   white-space: nowrap;
 }
 
+.ui-row__count {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  margin-left: auto;
+}
+
 .ui-row--interactive:hover .ui-row__meta,
 .ui-row--interactive.active .ui-row__meta,
-.ui-row--interactive:focus-within .ui-row__meta {
+.ui-row--interactive:focus-within .ui-row__meta,
+.ui-row--interactive:hover .ui-row__count,
+.ui-row--interactive.active .ui-row__count,
+.ui-row--interactive:focus-within .ui-row__count {
   color: currentColor;
   opacity: 0.72;
 }

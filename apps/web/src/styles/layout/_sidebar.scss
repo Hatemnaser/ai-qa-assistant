@@ -48,19 +48,6 @@
   justify-content: space-between;
 }
 
-.sidebar-filter-count {
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  margin-left: auto;
-}
-
-.sidebar-filter-row:hover .sidebar-filter-count,
-.sidebar-filter-row.active .sidebar-filter-count {
-  color: currentColor;
-  opacity: 0.72;
-}
-
 .brand h1 {
   font-size: var(--font-size-title-md);
   font-weight: var(--font-weight-extrabold);
