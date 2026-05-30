@@ -6,7 +6,6 @@ import type { Chat } from "../types";
 const props = defineProps<{
   active: boolean;
   chat: Chat;
-  projectName?: string | null;
   renaming: boolean;
 }>();
 
@@ -67,7 +66,6 @@ function handleRenameBlur() {
     >
       <span class="ui-row__copy">
         <span class="ui-row__title">{{ chat.title }}</span>
-        <span v-if="projectName" class="ui-row__meta">{{ projectName }}</span>
       </span>
     </button>
 

@@ -20,15 +20,6 @@ import GuestLimitModal from "./features/chat/components/GuestLimitModal.vue";
 import ChatMessages from "./features/chat/components/ChatMessages.vue";
 import ChatSidebar from "./features/chat/components/ChatSidebar.vue";
 import ChatTopbar from "./features/chat/components/ChatTopbar.vue";
-import {
-  CHAT_PROJECT_FILTER_ALL,
-  filterChatsByProject,
-  getChatProjectFilterForProject,
-  getProjectIdForNewChat,
-  isChatInProjectFilter,
-  isProjectFilterAvailable,
-  type ChatProjectFilter,
-} from "./features/chat/chatProjectFilters";
 import { useTheme } from "./features/chat/chatTheme";
 import { useAccountChatSync } from "./features/chat/composables/useAccountChatSync";
 import { useChatController } from "./features/chat/composables/useChatController";
@@ -48,7 +39,6 @@ const accountSettings = ref<UserSettings | null>(null);
 const accountProjects = ref<Project[]>([]);
 const isLoadingProjects = ref(false);
 const projectLoadError = ref("");
-const selectedChatProjectFilter = ref<ChatProjectFilter>(CHAT_PROJECT_FILTER_ALL);
 
 function navigateToAuth(view: AuthView) {
   isGuestLimitModalOpen.value = false;
@@ -67,7 +57,6 @@ function handleAuthenticated(user: AuthUser) {
 
 function handleNewChat() {
   startNewChat();
-  assignActiveChatProject(getProjectIdForNewChat(selectedChatProjectFilter.value));
   navigateToChat();
 }
 
@@ -83,12 +72,10 @@ async function handleLogout() {
   accountSettings.value = null;
   accountProjects.value = [];
   projectLoadError.value = "";
-  selectedChatProjectFilter.value = CHAT_PROJECT_FILTER_ALL;
   clearGuestLimitReached();
 }
 
 const {
-  activeChat,
   activeChatId,
   activeMessages,
   applyQuickAction,
@@ -202,45 +189,7 @@ function handleSettingsSaved(settings: UserSettings) {
 function handleProjectsChanged(projects: Project[]) {
   accountProjects.value = [...projects];
   projectLoadError.value = "";
-
-  if (selectedProjectId.value && !projects.some((project) => project.id === selectedProjectId.value)) {
-    assignActiveChatProject(null);
-  }
-
-  if (!isProjectFilterAvailable(selectedChatProjectFilter.value, projects)) {
-    selectedChatProjectFilter.value = CHAT_PROJECT_FILTER_ALL;
-  }
-}
-
-function handleProjectFilterSelected(filter: ChatProjectFilter) {
-  selectedChatProjectFilter.value = filter;
-  navigateToChat();
-
-  if (activeChat.value && isChatInProjectFilter(activeChat.value, filter)) {
-    return;
-  }
-
-  if (!activeChat.value && filter === CHAT_PROJECT_FILTER_ALL) {
-    return;
-  }
-
-  const nextChat = filterChatsByProject(chats.value, filter)[0] || null;
-
-  if (nextChat) {
-    selectChat(nextChat.id);
-    return;
-  }
-
-  startNewChat();
-  assignActiveChatProject(getProjectIdForNewChat(filter));
-}
-
-function handleActiveChatProjectAssigned(projectId: string | null) {
-  assignActiveChatProject(projectId);
-
-  if (selectedChatProjectFilter.value !== CHAT_PROJECT_FILTER_ALL) {
-    selectedChatProjectFilter.value = getChatProjectFilterForProject(projectId);
-  }
+  clearUnavailableSelectedProject(projects);
 }
 
 async function loadAccountProjects() {
@@ -250,7 +199,6 @@ async function loadAccountProjects() {
   if (!userId) {
     accountProjects.value = [];
     isLoadingProjects.value = false;
-    selectedChatProjectFilter.value = CHAT_PROJECT_FILTER_ALL;
     return;
   }
 
@@ -262,10 +210,7 @@ async function loadAccountProjects() {
     if (currentUser.value?.id !== userId) return;
 
     accountProjects.value = projects;
-
-    if (!isProjectFilterAvailable(selectedChatProjectFilter.value, projects)) {
-      selectedChatProjectFilter.value = CHAT_PROJECT_FILTER_ALL;
-    }
+    clearUnavailableSelectedProject(projects);
   } catch (error) {
     if (currentUser.value?.id === userId) {
       projectLoadError.value = error instanceof Error ? error.message : "Could not load projects.";
@@ -274,6 +219,12 @@ async function loadAccountProjects() {
     if (!currentUser.value || currentUser.value.id === userId) {
       isLoadingProjects.value = false;
     }
+  }
+}
+
+function clearUnavailableSelectedProject(projects: Project[]) {
+  if (selectedProjectId.value && !projects.some((project) => project.id === selectedProjectId.value)) {
+    assignActiveChatProject(null);
   }
 }
 
@@ -337,8 +288,6 @@ async function persistThemeSetting() {
       :current-user="currentUser"
       :is-chat-route="currentRoute === 'chat'"
       :is-projects-route="currentRoute === 'projects'"
-      :project-filter="selectedChatProjectFilter"
-      :projects="accountProjects"
       :renaming-chat-id="renamingChatId"
       :theme-toggle-label="themeToggleLabel"
       @cancel-rename="cancelRenameChat"
@@ -349,7 +298,6 @@ async function persistThemeSetting() {
       @open-projects="navigateToProjects"
       @open-settings="navigateToSettings"
       @open-usage="navigateToUsage"
-      @select-project-filter="handleProjectFilterSelected"
       @select-chat="selectChat"
       @sign-in="navigateToAuth('login')"
       @open-chat-menu="openChatMenuForChat"
@@ -392,7 +340,7 @@ async function persistThemeSetting() {
         :show-project-selector="Boolean(currentUser)"
         :usage-summary="usageSummary"
         @open-projects="navigateToProjects"
-        @update:project-id="handleActiveChatProjectAssigned"
+        @update:project-id="assignActiveChatProject"
       />
 
       <ChatMessages

@@ -93,7 +93,8 @@ npm run build:api
 - Settings page/API exists for language, theme, and default model.
 - Project CRUD API exists for signed-in users with owner-only authorization.
 - Project management UI exists for signed-in users.
-- Project assignment and sidebar filtering exist for signed-in chats.
+- Project assignment exists in the chat topbar for signed-in chats.
+- The sidebar `Projects` item opens the project management page; the sidebar does not filter chats by project.
 - Gemini provider adapter and model catalog live behind provider/model routing abstractions.
 - Attachments support images and text/data files. Large file/PDF/provider Files API is future work.
 
@@ -110,7 +111,7 @@ Complete enough:
 - Projects API foundation.
 - Projects management page.
 - Project assignment controls for chats.
-- Project switcher/sidebar filtering for chats.
+- Sidebar Projects navigation.
 - Gemini model strategy, routing, and fallback.
 - Inline image/text/data attachments.
 - Production/deployment docs are mostly in place.

@@ -1,27 +1,16 @@
 <script setup lang="ts">
-import { computed } from "vue";
-
 import type { AuthUser } from "../../auth/types";
-import type { Project } from "../../projects/types";
-import {
-  filterChatsByProject,
-  getChatProjectFilterOptions,
-  getProjectNameById,
-  type ChatProjectFilter,
-} from "../chatProjectFilters";
 import SidebarAccountMenu from "./SidebarAccountMenu.vue";
 import SidebarChatItem from "./SidebarChatItem.vue";
 import SidebarNavItem from "./SidebarNavItem.vue";
 import type { Chat, ExportFormat } from "../types";
 
-const props = defineProps<{
+defineProps<{
   activeChatId: string | null;
   chats: Chat[];
   currentUser?: AuthUser | null;
   isChatRoute: boolean;
   isProjectsRoute: boolean;
-  projectFilter: ChatProjectFilter;
-  projects?: Project[];
   renamingChatId: string | null;
   themeToggleLabel: string;
 }>();
@@ -35,22 +24,12 @@ const emit = defineEmits<{
   "open-projects": [];
   "open-settings": [];
   "open-usage": [];
-  "select-project-filter": [filter: ChatProjectFilter];
   "select-chat": [chatId: string];
   "sign-in": [];
   "open-chat-menu": [event: MouseEvent, chatId: string];
   "rename-chat": [chatId: string, title: string];
   "toggle-theme": [];
 }>();
-
-const projects = computed(() => props.projects || []);
-const filteredChats = computed(() => filterChatsByProject(props.chats, props.projectFilter));
-const showProjectFilters = computed(() => Boolean(props.currentUser));
-const projectFilterOptions = computed(() => getChatProjectFilterOptions(props.chats, projects.value));
-
-function getChatProjectName(chat: Chat) {
-  return getProjectNameById(projects.value, chat.projectId);
-}
 </script>
 
 <template>
@@ -71,35 +50,15 @@ function getChatProjectName(chat: Chat) {
       <SidebarNavItem icon="folder" label="Projects" :active="isProjectsRoute" @click="emit('open-projects')" />
     </nav>
 
-    <div v-if="showProjectFilters" class="sidebar-project-filter">
-      <div class="sidebar-title">Chat Scope</div>
-
-      <div class="sidebar-project-filter-list">
-        <button
-          v-for="option in projectFilterOptions"
-          :key="option.value"
-          class="ui-row ui-row--button ui-row--interactive sidebar-filter-row"
-          :class="{ active: option.value === projectFilter }"
-          type="button"
-          :aria-pressed="option.value === projectFilter"
-          @click="emit('select-project-filter', option.value)"
-        >
-          <span class="ui-row__title">{{ option.label }}</span>
-          <span class="ui-row__count">{{ option.count }}</span>
-        </button>
-      </div>
-    </div>
-
     <div class="sidebar-section">
       <div class="sidebar-title">Recent Chats</div>
 
-      <div v-if="filteredChats.length > 0" class="chat-list">
+      <div v-if="chats.length > 0" class="chat-list">
         <SidebarChatItem
-          v-for="chat in filteredChats"
+          v-for="chat in chats"
           :key="chat.id"
           :active="chat.id === activeChatId"
           :chat="chat"
-          :project-name="getChatProjectName(chat)"
           :renaming="chat.id === renamingChatId"
           @cancel-rename="emit('cancel-rename')"
           @open-menu="(event, chatId) => emit('open-chat-menu', event, chatId)"
@@ -108,7 +67,7 @@ function getChatProjectName(chat: Chat) {
         />
       </div>
 
-      <div v-else class="sidebar-empty">No chats in this scope.</div>
+      <div v-else class="sidebar-empty">No recent chats yet.</div>
     </div>
 
     <SidebarAccountMenu

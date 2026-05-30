@@ -584,5 +584,5 @@ Still intentionally open:
 - Final logo shape.
 - Product font choice.
 - Full component inventory.
-- Search and Projects nav behavior.
+- Search nav behavior.
 - Future page layout patterns for settings, projects, and memory.

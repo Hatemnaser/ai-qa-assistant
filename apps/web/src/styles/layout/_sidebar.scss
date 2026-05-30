@@ -24,30 +24,6 @@
   padding-right: var(--space-3);
 }
 
-.sidebar-project-filter {
-  margin-top: 22px;
-  padding-right: var(--space-3);
-}
-
-.sidebar-project-filter-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-height: 168px;
-  overflow-y: auto;
-  padding-right: 0;
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
-
-.sidebar-project-filter-list:hover {
-  scrollbar-color: var(--border) transparent;
-}
-
-.sidebar .sidebar-filter-row {
-  justify-content: space-between;
-}
-
 .brand h1 {
   font-size: var(--font-size-title-md);
   font-weight: var(--font-weight-extrabold);

@@ -81,35 +81,6 @@
   text-overflow: ellipsis;
 }
 
-.ui-row__meta {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ui-row__count {
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  margin-left: auto;
-}
-
-.ui-row--interactive:hover .ui-row__meta,
-.ui-row--interactive.active .ui-row__meta,
-.ui-row--interactive:focus-within .ui-row__meta,
-.ui-row--interactive:hover .ui-row__count,
-.ui-row--interactive.active .ui-row__count,
-.ui-row--interactive:focus-within .ui-row__count {
-  color: currentColor;
-  opacity: 0.72;
-}
-
 .ui-row__action {
   position: absolute;
   right: var(--space-2);
