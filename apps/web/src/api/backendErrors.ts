@@ -28,7 +28,7 @@ export async function createBackendApiError(response: Response, fallback: string
   const payload = await readBackendErrorPayload(response);
 
   if (!payload) {
-    return new BackendApiError(fallback, { status: response.status });
+    return new BackendApiError(getFallbackBackendMessage(response, fallback), { status: response.status });
   }
 
   return new BackendApiError(
@@ -92,4 +92,12 @@ function getUserFacingBackendMessage(payload: BackendErrorPayload, fallback: str
   }
 
   return serverMessage;
+}
+
+function getFallbackBackendMessage(response: Response, fallback: string) {
+  if (response.status >= 500) {
+    return "Could not connect to the backend through the Vite /api proxy. Make sure the API server is running on http://127.0.0.1:5000 and PostgreSQL is available.";
+  }
+
+  return fallback;
 }
