@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 import { ref } from "vue";
 
-import { loadChats } from "../src/features/chat/chatStorage";
+import { createChat, loadChats } from "../src/features/chat/chatStorage";
 import { DEFAULT_MODE, DEFAULT_MODEL } from "../src/features/chat/constants";
 import { useStoredChats } from "../src/features/chat/composables/useStoredChats";
 
@@ -31,6 +31,21 @@ describe("useStoredChats", () => {
 
     assert.equal(storedChats.activeChat.value?.projectId, null);
     assert.equal(loadChats()[0]?.projectId, null);
+  });
+
+  it("assigns an existing inactive chat to a project without changing the active chat", () => {
+    const { selectedProjectId, storedChats } = createStoredChatsHarness();
+    const activeChat = createChat({ id: "chat-active", projectId: null });
+    const targetChat = createChat({ id: "chat-target", projectId: null });
+
+    storedChats.addChatAndSelect(activeChat);
+    storedChats.addChatAndSelect(targetChat);
+    storedChats.selectChat(activeChat.id);
+    storedChats.assignChatProject(targetChat.id, " project-2 ");
+
+    assert.equal(storedChats.activeChat.value?.id, activeChat.id);
+    assert.equal(selectedProjectId.value, null);
+    assert.equal(loadChats().find((chat) => chat.id === targetChat.id)?.projectId, "project-2");
   });
 });
 

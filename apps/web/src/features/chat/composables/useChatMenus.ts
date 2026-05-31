@@ -6,12 +6,16 @@ import type { Chat, MenuPosition } from "../types";
 export function useChatMenus(chats: Ref<Chat[]>) {
   const openChatMenu = ref<MenuPosition | null>(null);
   const openExportMenu = ref<MenuPosition | null>(null);
+  const openProjectMenu = ref<MenuPosition | null>(null);
 
   const openMenuChat = computed(() =>
     openChatMenu.value ? chats.value.find((chat) => chat.id === openChatMenu.value?.chatId) || null : null
   );
   const openExportMenuChat = computed(() =>
     openExportMenu.value ? chats.value.find((chat) => chat.id === openExportMenu.value?.chatId) || null : null
+  );
+  const openProjectMenuChat = computed(() =>
+    openProjectMenu.value ? chats.value.find((chat) => chat.id === openProjectMenu.value?.chatId) || null : null
   );
 
   onMounted(() => {
@@ -39,6 +43,7 @@ export function useChatMenus(chats: Ref<Chat[]>) {
       top: rect.top,
     };
     openExportMenu.value = null;
+    openProjectMenu.value = null;
   }
 
   function openExportSubmenu(event: MouseEvent, chatId: string) {
@@ -50,11 +55,25 @@ export function useChatMenus(chats: Ref<Chat[]>) {
       left: rect.right + 8,
       top: rect.top,
     };
+    openProjectMenu.value = null;
+  }
+
+  function openProjectSubmenu(event: MouseEvent, chatId: string) {
+    const button = event.currentTarget as HTMLElement;
+    const rect = button.getBoundingClientRect();
+
+    openProjectMenu.value = {
+      chatId,
+      left: rect.right + 8,
+      top: rect.top,
+    };
+    openExportMenu.value = null;
   }
 
   function closeChatMenus() {
     openChatMenu.value = null;
     openExportMenu.value = null;
+    openProjectMenu.value = null;
   }
 
   return {
@@ -65,5 +84,8 @@ export function useChatMenus(chats: Ref<Chat[]>) {
     openExportMenuChat,
     openExportSubmenu,
     openMenuChat,
+    openProjectMenu,
+    openProjectMenuChat,
+    openProjectSubmenu,
   };
 }

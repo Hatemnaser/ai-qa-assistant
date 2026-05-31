@@ -95,11 +95,21 @@ export function useStoredChats({
   }
 
   function assignActiveChatProject(projectId: string | null) {
+    assignChatProject(activeChatId.value, projectId, { updateSelectedProject: true });
+  }
+
+  function assignChatProject(
+    chatId: string | null,
+    projectId: string | null,
+    options: { updateSelectedProject?: boolean } = {}
+  ) {
     const nextProjectId = normalizeSelectedProjectId(projectId);
 
-    selectedProjectId.value = nextProjectId;
+    if (options.updateSelectedProject || activeChatId.value === chatId) {
+      selectedProjectId.value = nextProjectId;
+    }
 
-    const chat = activeChat.value;
+    const chat = chats.value.find((item) => item.id === chatId);
 
     if (!chat || chat.projectId === nextProjectId) return;
 
@@ -189,6 +199,7 @@ export function useStoredChats({
     activeMessages,
     addChatAndSelect,
     assignActiveChatProject,
+    assignChatProject,
     chats,
     deleteChat,
     ensureActiveChat,

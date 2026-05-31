@@ -80,6 +80,7 @@ const {
   activeMessages,
   applyQuickAction,
   assignActiveChatProject,
+  assignChatProject,
   beginRenameChat,
   cancelDeleteChat,
   cancelRenameChat,
@@ -106,6 +107,9 @@ const {
   openExportMenuChat,
   openExportSubmenu,
   openMenuChat,
+  openProjectMenu,
+  openProjectMenuChat,
+  openProjectSubmenu,
   openSelectedAttachment,
   renamingChatId,
   requestDeleteChat,
@@ -373,9 +377,14 @@ async function persistThemeSetting() {
       :export-menu-chat="openExportMenuChat"
       :menu-chat="openMenuChat"
       :menu-position="openChatMenu"
+      :project-menu="openProjectMenu"
+      :project-menu-chat="openProjectMenuChat"
+      :projects="accountProjects"
+      @assign-chat-project="assignChatProject"
       @delete-chat="requestDeleteChat"
       @export-chat="exportChat"
       @open-export-submenu="openExportSubmenu"
+      @open-project-submenu="openProjectSubmenu"
       @rename-chat="beginRenameChat"
     />
 

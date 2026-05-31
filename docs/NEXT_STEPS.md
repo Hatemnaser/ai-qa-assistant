@@ -29,6 +29,7 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [x] Project CRUD API foundation with owner-only authorization.
 - [x] Project list/create/edit/delete UI for signed-in users.
 - [x] Project assignment UI for signed-in chats.
+- [x] Existing chat assignment from the chat context menu after the first project exists.
 - [x] Sidebar Projects navigation for opening the project management page.
 - [x] Chat persistence for signed-in users, including optional project links with ownership checks.
 - [x] Guest chats can be adopted into the signed-in user scope during login/register.
@@ -120,6 +121,7 @@ These should happen before large new product features.
 - [x] Add project CRUD API.
 - [x] Add chat-to-project persistence contract and ownership guard.
 - [x] Add project assignment UI for chats.
+- [x] Add existing-chat project assignment from the chat context menu.
 - [x] Add owner-only project authorization.
 - [ ] Add project member authorization.
 - [x] Add tests for project ownership.

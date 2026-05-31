@@ -34,7 +34,7 @@ The Vue app imports SCSS from `apps/web/src/styles/main.scss`. These styles are 
 | Forms | `.form-label`, `.form-control`, `.form-check`, `.form-check-input`, `.form-check-label` | Shared form styling on top of Bootstrap controls and `src/ui` field components. |
 | Auth layout | `.auth-page`, `.auth-brand-panel`, `.auth-content` | Auth page shell and responsive grid only. |
 | Auth UI | `.auth-card`, `.auth-brand`, `.auth-kicker`, `.auth-divider`, `.auth-switch`, `.auth-google-mark` | Reusable auth page presentation on top of shared button/form patterns. |
-| Dropdowns and context menus | `.dropdown-menu`, `.chat-dropdown-menu`, `.topbar-actions-menu`, `.topbar-select-menu`, `.composer-menu`, `.answer-export-menu`, `.chat-export-submenu`, `.dropdown-item-danger` | Shared menu surfaces, fixed-position chat context menu, and export submenu behavior. |
+| Dropdowns and context menus | `.dropdown-menu`, `.chat-dropdown-menu`, `.topbar-actions-menu`, `.topbar-select-menu`, `.composer-menu`, `.answer-export-menu`, `.chat-export-submenu`, `.chat-project-submenu`, `.dropdown-item-danger` | Shared menu surfaces, fixed-position chat context menu, and export/project submenu behavior. |
 | Chat layout | `.app`, `.chat-layout`, `.chat-area`, `.empty-chat` | Structural chat shell and empty-state layout only. |
 | Topbar | `.chat-topbar`, `.topbar-title`, `.topbar-subtitle`, `.topbar-controls`, `.topbar-field`, `.topbar-field-label`, `.topbar-select-dropdown`, `.topbar-select-btn`, `.topbar-icon-btn`, `.topbar-status` | Chat topbar presentation and responsive controls. |
 | Chat body | `.welcome-message`, `.welcome-title`, `.welcome-actions`, `.welcome-action`, `.msg`, `.answer` | Message and welcome surfaces backed by semantic tokens. |

@@ -304,6 +304,7 @@ Covered menus:
 - Composer attachment menu.
 - Assistant answer export menu.
 - Sidebar chat context menu.
+- Sidebar chat project submenu.
 - Sidebar export submenu.
 
 Rules:
@@ -313,7 +314,7 @@ Rules:
 - Menu text uses `--text-on-dropdown`.
 - Menu border uses `--border-floating`.
 - Menu shadow uses `--shadow-soft`.
-- Topbar menus, composer upload menu, sidebar context menu, and sidebar export submenu must all inherit the same local dropdown tokens from `_dropdowns.scss`.
+- Topbar menus, composer upload menu, sidebar context menu, and sidebar submenus must all inherit the same local dropdown tokens from `_dropdowns.scss`.
 - Bootstrap dropdown CSS variables must be overridden to the same tokens; do not rely on Bootstrap defaults for menu backgrounds.
 - Menu items use `--font-size-md`, `--font-weight-regular`, and `--line-height-compact`.
 - Disabled items use `--text-muted` with reduced opacity.

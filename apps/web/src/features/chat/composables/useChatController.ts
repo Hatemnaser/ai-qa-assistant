@@ -35,6 +35,7 @@ export function useChatController() {
     activeMessages,
     addChatAndSelect,
     assignActiveChatProject,
+    assignChatProject: assignStoredChatProject,
     chats,
     deleteChat: deleteStoredChat,
     ensureActiveChat,
@@ -60,6 +61,9 @@ export function useChatController() {
     openExportMenuChat,
     openExportSubmenu,
     openMenuChat,
+    openProjectMenu,
+    openProjectMenuChat,
+    openProjectSubmenu,
   } = useChatMenus(chats);
   const {
     copyAnswer,
@@ -159,6 +163,11 @@ export function useChatController() {
     closeChatMenus();
   }
 
+  function assignChatProject(chatId: string, projectId: string | null) {
+    assignStoredChatProject(chatId, projectId);
+    closeChatMenus();
+  }
+
   function applyQuickAction(action: QuickAction) {
     selectedMode.value = action.mode;
     messageInput.value = action.prompt;
@@ -171,6 +180,7 @@ export function useChatController() {
     activeMessages,
     applyQuickAction,
     assignActiveChatProject,
+    assignChatProject,
     beginRenameChat,
     cancelDeleteChat,
     cancelRenameChat,
@@ -197,6 +207,9 @@ export function useChatController() {
     openExportMenuChat,
     openExportSubmenu,
     openMenuChat,
+    openProjectMenu,
+    openProjectMenuChat,
+    openProjectSubmenu,
     openSelectedAttachment,
     renamingChatId,
     requestDeleteChat,
