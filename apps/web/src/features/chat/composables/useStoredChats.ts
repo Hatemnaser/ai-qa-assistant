@@ -51,6 +51,12 @@ export function useStoredChats({
     selectedProjectId.value = null;
   }
 
+  function prepareNewChatForProject(projectId: string) {
+    activeChatId.value = null;
+    clearActiveChatId(storageScope.value);
+    selectedProjectId.value = normalizeSelectedProjectId(projectId);
+  }
+
   function selectChat(chatId: string) {
     const chat = chats.value.find((item) => item.id === chatId);
 
@@ -207,6 +213,7 @@ export function useStoredChats({
     replaceChats,
     selectChat,
     setChatStorageOwner,
+    prepareNewChatForProject,
     startNewChat,
     updateChat,
   };

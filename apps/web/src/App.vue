@@ -6,9 +6,10 @@ import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage.vue";
 import LoginPage from "./features/auth/pages/LoginPage.vue";
 import RegisterPage from "./features/auth/pages/RegisterPage.vue";
 import type { AuthUser } from "./features/auth/types";
+import ProjectFormModal from "./features/projects/components/ProjectFormModal.vue";
 import ProjectsPage from "./features/projects/ProjectsPage.vue";
-import { fetchProjects } from "./features/projects/projectsApi";
-import type { Project } from "./features/projects/types";
+import { createProject, fetchProjects } from "./features/projects/projectsApi";
+import type { Project, ProjectInput } from "./features/projects/types";
 import SettingsPage from "./features/settings/SettingsPage.vue";
 import { fetchUserSettings, updateUserSettings } from "./features/settings/settingsApi";
 import type { UserSettings } from "./features/settings/types";
@@ -39,6 +40,11 @@ const accountSettings = ref<UserSettings | null>(null);
 const accountProjects = ref<Project[]>([]);
 const isLoadingProjects = ref(false);
 const projectLoadError = ref("");
+const projectToOpenId = ref<string | null>(null);
+const chatPendingProjectCreate = ref<string | null>(null);
+const isProjectCreateModalOpen = ref(false);
+const isCreatingProject = ref(false);
+const projectCreateModalError = ref("");
 
 function navigateToAuth(view: AuthView) {
   isGuestLimitModalOpen.value = false;
@@ -60,6 +66,32 @@ function handleNewChat() {
   navigateToChat();
 }
 
+function handleSidebarChatSelected(chatId: string) {
+  selectChat(chatId);
+  navigateToChat();
+}
+
+function handleOpenProjects() {
+  chatPendingProjectCreate.value = null;
+  projectToOpenId.value = null;
+  navigateToProjects();
+}
+
+function handleNewProject() {
+  openGlobalProjectCreateModal(null);
+}
+
+function handleOpenProject(projectId: string) {
+  chatPendingProjectCreate.value = null;
+  projectToOpenId.value = projectId;
+  navigateToProjects();
+}
+
+function handleCreateProjectForChat(chatId: string) {
+  closeChatMenus();
+  openGlobalProjectCreateModal(chatId);
+}
+
 async function handleLogout() {
   await logoutCurrentUser(async () => {
     clearScheduledChatPersist();
@@ -71,11 +103,13 @@ async function handleLogout() {
   setChatStorageOwner(null);
   accountSettings.value = null;
   accountProjects.value = [];
+  closeGlobalProjectCreateModal();
   projectLoadError.value = "";
   clearGuestLimitReached();
 }
 
 const {
+  activeChat,
   activeChatId,
   activeMessages,
   applyQuickAction,
@@ -86,6 +120,7 @@ const {
   cancelRenameChat,
   chatPendingDelete,
   chats,
+  closeChatMenus,
   clearGuestLimitReached,
   confirmDeleteChat,
   copyAnswer,
@@ -111,6 +146,7 @@ const {
   openProjectMenuChat,
   openProjectSubmenu,
   openSelectedAttachment,
+  prepareNewChatForProject,
   renamingChatId,
   requestDeleteChat,
   replaceChats,
@@ -134,6 +170,7 @@ const { clearScheduledChatPersist, deletePersistedChat, persistAccountChats, syn
   });
 const { setTheme, theme, themeToggleLabel, toggleTheme } = useTheme();
 const isGuestLimitBlocked = computed(() => !currentUser.value && guestLimitReached.value);
+const sidebarActiveProjectId = computed(() => (currentRoute.value === "projects" ? projectToOpenId.value : null));
 
 onMounted(() => {
   void loadAiModelCatalog();
@@ -193,7 +230,84 @@ function handleSettingsSaved(settings: UserSettings) {
 function handleProjectsChanged(projects: Project[]) {
   accountProjects.value = [...projects];
   projectLoadError.value = "";
-  clearUnavailableSelectedProject(projects);
+  clearUnavailableProjectAssignments(projects);
+}
+
+function openGlobalProjectCreateModal(chatId: string | null) {
+  if (!currentUser.value) {
+    chatPendingProjectCreate.value = null;
+    navigateToAuth("login");
+    return;
+  }
+
+  chatPendingProjectCreate.value = chatId;
+  projectCreateModalError.value = "";
+  isProjectCreateModalOpen.value = true;
+}
+
+function closeGlobalProjectCreateModal() {
+  if (isCreatingProject.value) return;
+
+  isProjectCreateModalOpen.value = false;
+  chatPendingProjectCreate.value = null;
+  projectCreateModalError.value = "";
+}
+
+async function handleGlobalProjectCreate(input: ProjectInput) {
+  if (!currentUser.value) {
+    closeGlobalProjectCreateModal();
+    navigateToAuth("login");
+    return;
+  }
+
+  isCreatingProject.value = true;
+  projectCreateModalError.value = "";
+
+  try {
+    const project = await createProject(input);
+    const pendingChatId = chatPendingProjectCreate.value;
+
+    accountProjects.value = [project, ...accountProjects.value.filter((item) => item.id !== project.id)];
+
+    if (pendingChatId) {
+      assignChatProject(pendingChatId, project.id);
+    }
+
+    isProjectCreateModalOpen.value = false;
+    chatPendingProjectCreate.value = null;
+    projectToOpenId.value = project.id;
+    navigateToProjects();
+  } catch (error) {
+    projectCreateModalError.value = error instanceof Error ? error.message : "Could not create this project.";
+  } finally {
+    isCreatingProject.value = false;
+  }
+}
+
+function handleProjectChatSelected(chatId: string) {
+  selectChat(chatId);
+  navigateToChat();
+}
+
+function handleAddChatsToProject(chatIds: string[], projectId: string) {
+  for (const chatId of chatIds) {
+    assignChatProject(chatId, projectId);
+  }
+
+  projectToOpenId.value = projectId;
+}
+
+function handleProjectMessageSubmit(projectId: string) {
+  const hasDraft = Boolean(messageInput.value.trim() || selectedAttachments.value.length);
+
+  if (!hasDraft || isSending.value) {
+    void handleSubmit();
+    return;
+  }
+
+  prepareNewChatForProject(projectId);
+  void handleSubmit();
+  navigateToChat();
 }
 
 async function loadAccountProjects() {
@@ -214,7 +328,7 @@ async function loadAccountProjects() {
     if (currentUser.value?.id !== userId) return;
 
     accountProjects.value = projects;
-    clearUnavailableSelectedProject(projects);
+    clearUnavailableProjectAssignments(projects);
   } catch (error) {
     if (currentUser.value?.id === userId) {
       projectLoadError.value = error instanceof Error ? error.message : "Could not load projects.";
@@ -226,9 +340,17 @@ async function loadAccountProjects() {
   }
 }
 
-function clearUnavailableSelectedProject(projects: Project[]) {
-  if (selectedProjectId.value && !projects.some((project) => project.id === selectedProjectId.value)) {
+function clearUnavailableProjectAssignments(projects: Project[]) {
+  const projectIds = new Set(projects.map((project) => project.id));
+
+  if (selectedProjectId.value && !projectIds.has(selectedProjectId.value)) {
     assignActiveChatProject(null);
+  }
+
+  for (const chat of chats.value) {
+    if (chat.projectId && !projectIds.has(chat.projectId)) {
+      assignChatProject(chat.id, null);
+    }
   }
 }
 
@@ -288,10 +410,12 @@ async function persistThemeSetting() {
   <div v-else class="app">
     <ChatSidebar
       :active-chat-id="activeChatId"
+      :active-project-id="sidebarActiveProjectId"
       :chats="chats"
       :current-user="currentUser"
       :is-chat-route="currentRoute === 'chat'"
       :is-projects-route="currentRoute === 'projects'"
+      :projects="accountProjects"
       :renaming-chat-id="renamingChatId"
       :theme-toggle-label="themeToggleLabel"
       @cancel-rename="cancelRenameChat"
@@ -299,10 +423,12 @@ async function persistThemeSetting() {
       @import-chat="handleImportChat"
       @logout="handleLogout"
       @new-chat="handleNewChat"
-      @open-projects="navigateToProjects"
+      @new-project="handleNewProject"
+      @open-project="handleOpenProject"
+      @open-projects="handleOpenProjects"
       @open-settings="navigateToSettings"
       @open-usage="navigateToUsage"
-      @select-chat="selectChat"
+      @select-chat="handleSidebarChatSelected"
       @sign-in="navigateToAuth('login')"
       @open-chat-menu="openChatMenuForChat"
       @rename-chat="submitRenameChat"
@@ -315,10 +441,26 @@ async function persistThemeSetting() {
 
     <main v-else-if="currentRoute === 'projects'" class="chat-layout">
       <ProjectsPage
+        v-model:message="messageInput"
+        :chats="chats"
         :current-user="currentUser"
-        @back-to-chat="navigateToChat"
+        :disabled="isGuestLimitBlocked"
+        disabled-message="Guest demo limit reached. Sign in or create a free account to continue."
+        :is-sending="isSending"
+        :mode="selectedMode"
+        :project-to-open-id="projectToOpenId"
+        :selected-attachments="selectedAttachments"
+        @active-project-changed="projectToOpenId = $event"
+        @add-chats-to-project="handleAddChatsToProject"
+        @attachments-selected="handleAttachmentsSelected"
+        @disabled-click="isGuestLimitModalOpen = true"
+        @open-chat="handleProjectChatSelected"
+        @open-selected-attachment="openSelectedAttachment"
         @projects-changed="handleProjectsChanged"
+        @quick-action="applyQuickAction"
+        @remove-selected-attachment="removeSelectedAttachment"
         @sign-in="navigateToAuth('login')"
+        @submit-project-message="handleProjectMessageSubmit"
       />
     </main>
 
@@ -334,6 +476,7 @@ async function persistThemeSetting() {
 
     <main v-else class="chat-layout" :class="{ 'empty-chat': activeMessages.length === 0 }">
       <ChatTopbar
+        :chat-title="activeChat?.title"
         v-model:mode="selectedMode"
         v-model:model="selectedModel"
         :is-loading-projects="isLoadingProjects"
@@ -341,9 +484,8 @@ async function persistThemeSetting() {
         :project-error="projectLoadError"
         :project-id="selectedProjectId"
         :projects="accountProjects"
-        :show-project-selector="Boolean(currentUser)"
         :usage-summary="usageSummary"
-        @open-projects="navigateToProjects"
+        @open-projects="handleOpenProjects"
         @update:project-id="assignActiveChatProject"
       />
 
@@ -381,6 +523,7 @@ async function persistThemeSetting() {
       :project-menu-chat="openProjectMenuChat"
       :projects="accountProjects"
       @assign-chat-project="assignChatProject"
+      @create-project-for-chat="handleCreateProjectForChat"
       @delete-chat="requestDeleteChat"
       @export-chat="exportChat"
       @open-export-submenu="openExportSubmenu"
@@ -388,6 +531,14 @@ async function persistThemeSetting() {
       @rename-chat="beginRenameChat"
     />
 
+    <ProjectFormModal
+      :error-message="projectCreateModalError"
+      :is-open="isProjectCreateModalOpen"
+      :is-saving="isCreatingProject"
+      :project="null"
+      @cancel="closeGlobalProjectCreateModal"
+      @save="handleGlobalProjectCreate"
+    />
     <ChatDeleteModal :chat="chatPendingDelete" @cancel="cancelDeleteChat" @confirm="confirmDeleteChatAndSync" />
     <GuestLimitModal
       v-if="isGuestLimitBlocked && isGuestLimitModalOpen"

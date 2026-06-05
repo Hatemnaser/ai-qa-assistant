@@ -2,13 +2,13 @@
 
 Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`.
 
-Last updated: 2026-05-30
+Last updated: 2026-06-05
 
 ## Current Repo State
 
 - Workspace: `C:\Users\hatem\ai-qa-assistant`
 - Local branch should start from `main`.
-- Last known pushed baseline before local follow-up work: `main` synced with `origin/main` at `2747456 Add chat project assignment UI`.
+- Last known pushed baseline before local follow-up work: `main` synced with `origin/main` at `14f8f1f Add chat project assignment menu`.
 - Do not assume old root-level HTML/JS/backend structure. The app is now a monorepo:
   - `apps/web`: Vue + TypeScript + Vite frontend.
   - `apps/api`: Express + TypeScript + Prisma backend.
@@ -92,10 +92,16 @@ npm run build:api
 - `My Usage` is personal only. Do not expose global usage until admin roles exist.
 - Settings page/API exists for language, theme, and default model.
 - Project CRUD API exists for signed-in users with owner-only authorization.
-- Project management UI exists for signed-in users.
+- Project management UI exists for signed-in users with a searchable/sortable card grid, project detail view, project chat list, project Add Chats modal, and app-modal create/edit/delete flow.
+- The project detail composer reuses the main chat composer. Submitting from a project prepares a new chat linked to that project, then opens the normal chat workspace.
+- After the first project exists, the sidebar shows a collapsible Projects section inside the scroll area above collapsible Recent Chats. The Projects section starts with New Project and All Projects rows, then the project folders. Project rows expand to show their linked chats; Recent Chats shows ordinary non-project chats. Before the first project, Projects stays as a top workspace nav item.
+- Sidebar row hover and active states are intentionally separate. A project folder should look active only when the active chat belongs to that project and the folder is collapsed.
+- Projects are workspace containers. Recent Chats is only a shortcut list, not a separate managed entity. If a full chat-history page is needed later, it should grow out of Search rather than mirroring the Projects page.
 - Project assignment exists in the chat topbar for signed-in chats.
-- Existing chats can be assigned to a project from the chat context menu once at least one project exists.
-- The sidebar `Projects` item opens the project management page; the sidebar does not filter chats by project.
+- Existing chats can be assigned or moved to projects through the chat context menu once at least one project exists.
+- Existing chats can also be added or moved into a project from the project detail Add Chats modal with search and multi-select.
+- Project-linked chats show a chat topbar breadcrumb instead of a visible "no project" selector.
+- Sidebar project navigation opens the project management page; the sidebar does not filter chats by project.
 - Gemini provider adapter and model catalog live behind provider/model routing abstractions.
 - Attachments support images and text/data files. Large file/PDF/provider Files API is future work.
 
@@ -110,9 +116,9 @@ Complete enough:
 - Personal usage page.
 - Settings foundation.
 - Projects API foundation.
-- Projects management page.
+- Projects management page with modal create/edit/delete flow, project detail view, project-scoped chat creation, and multi-select Add Chats workflow.
 - Project assignment controls for chats.
-- Context-menu project assignment for existing chats.
+- Context-menu project assignment/removal for existing chats.
 - Sidebar Projects navigation.
 - Gemini model strategy, routing, and fallback.
 - Inline image/text/data attachments.
@@ -134,7 +140,7 @@ Still unfinished:
 Pick one track before coding:
 
 1. Product value: Projects
-   - Member authorization tests.
+   - Run a focused Projects demo/UX pass and keep only the workflow polish that still feels necessary.
 
 2. Portfolio polish:
    - README screenshots/GIFs.
@@ -151,13 +157,13 @@ Pick one track before coding:
    - Admin role model before admin usage dashboards.
 
 5. Long-term intelligence:
-   - User/project memory with embeddings.
+   - User/project memory with embeddings. Keep account memory and project memory as separate retrieval scopes.
    - Retrieval, isolation tests, and manual memory controls.
 
 ## Styling And Frontend Rules
 
 - Prefer Vue templates and Bootstrap utilities.
-- Use shared UI classes like `.btn-control`, `.form-control`, `.form-label`, `.form-check`, `.ui-row`, and `.ui-icon-btn`.
+- Use shared UI classes like `.btn-primary`, `.btn-secondary`, `.btn-success`, `.btn-danger`, `.btn-control`, `.form-control`, `.form-label`, `.form-check`, `.ui-row`, and `.ui-icon-btn`.
 - Keep styling in `apps/web/src/styles`.
 - Use semantic tokens such as `--surface-*`, `--text-*`, `--border-*`, `--action-*`, and `--status-*`.
 - Do not add raw hex colors in component SCSS unless updating tokens.

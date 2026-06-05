@@ -47,19 +47,47 @@ describe("useStoredChats", () => {
     assert.equal(selectedProjectId.value, null);
     assert.equal(loadChats().find((chat) => chat.id === targetChat.id)?.projectId, "project-2");
   });
+
+  it("removes an existing chat from a project", () => {
+    const { storedChats } = createStoredChatsHarness();
+    const chat = createChat({ id: "chat-project", projectId: "project-1" });
+
+    storedChats.addChatAndSelect(chat);
+    storedChats.assignChatProject(chat.id, null);
+
+    assert.equal(storedChats.activeChat.value?.projectId, null);
+    assert.equal(loadChats().find((item) => item.id === chat.id)?.projectId, null);
+  });
+
+  it("prepares a new project chat without clearing the draft", () => {
+    const { messageInput, selectedProjectId, storedChats } = createStoredChatsHarness();
+    const existingChat = createChat({ id: "chat-active", projectId: null });
+
+    storedChats.addChatAndSelect(existingChat);
+    messageInput.value = "Draft project prompt";
+
+    storedChats.prepareNewChatForProject(" project-3 ");
+    const projectChat = storedChats.ensureActiveChat();
+
+    assert.equal(projectChat.projectId, "project-3");
+    assert.equal(selectedProjectId.value, "project-3");
+    assert.equal(messageInput.value, "Draft project prompt");
+  });
 });
 
 function createStoredChatsHarness() {
+  const messageInput = ref("");
   const selectedProjectId = ref<string | null>(null);
   const storedChats = useStoredChats({
     clearSelectedAttachments: () => {},
-    messageInput: ref(""),
+    messageInput,
     selectedMode: ref(DEFAULT_MODE),
     selectedModel: ref(DEFAULT_MODEL),
     selectedProjectId,
   });
 
   return {
+    messageInput,
     selectedProjectId,
     storedChats,
   };

@@ -2,7 +2,7 @@
 
 This file is the working roadmap for what is done, what is still foundation work, and what should come next. Use it as the reference when asking "what is next?" or "what still needs cleanup?"
 
-Last reviewed: 2026-05-30
+Last reviewed: 2026-06-05
 
 For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 
@@ -27,9 +27,18 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [x] Credit tracking with token-based completion updates when provider usage metadata is available.
 - [x] `My Usage` page for the current identity only.
 - [x] Project CRUD API foundation with owner-only authorization.
-- [x] Project list/create/edit/delete UI for signed-in users.
+- [x] Modal-based project list/create/edit/delete UI for signed-in users.
+- [x] Searchable/sortable project card grid.
+- [x] Project detail view with project chat list.
+- [x] Project detail composer starts a new chat linked to the current project.
+- [x] Project detail Add Chats modal with search, multi-select, and immediate assignment/move.
+- [x] Collapsible sidebar Projects section after the first project exists.
+- [x] Sidebar Projects section has an All Projects row once projects exist.
+- [x] Nested project chats inside the sidebar Projects section.
+- [x] Collapsible sidebar Recent Chats section.
 - [x] Project assignment UI for signed-in chats.
-- [x] Existing chat assignment from the chat context menu after the first project exists.
+- [x] Existing chat assignment/move from the chat context menu after the first project exists.
+- [x] Project-linked chat breadcrumb in the chat topbar.
 - [x] Sidebar Projects navigation for opening the project management page.
 - [x] Chat persistence for signed-in users, including optional project links with ownership checks.
 - [x] Guest chats can be adopted into the signed-in user scope during login/register.
@@ -117,19 +126,28 @@ These should happen before large new product features.
 ### Phase 3: Projects
 
 - [x] Build project list and management page.
+- [x] Add modal-based project create/edit/delete flow.
+- [x] Add searchable/sortable project card grid.
+- [x] Add project detail view with empty/filled chat states.
+- [x] Reuse the main chat composer to start new chats inside a project.
 - [x] Build sidebar navigation to the project management page.
+- [x] Add All Projects row to the collapsible sidebar Projects section.
 - [x] Add project CRUD API.
 - [x] Add chat-to-project persistence contract and ownership guard.
 - [x] Add project assignment UI for chats.
-- [x] Add existing-chat project assignment from the chat context menu.
+- [x] Add existing-chat project assignment/removal from the chat context menu.
+- [x] Replace project delete browser confirm with an app modal.
 - [x] Add owner-only project authorization.
-- [ ] Add project member authorization.
+- [x] Add project detail Add Chats modal with search, multi-select, and immediate assignment.
+- [ ] Add popup-based project/chat workflow polish when the UX direction is settled.
+- [ ] Add project member authorization only when collaboration/members become an active product requirement.
 - [x] Add tests for project ownership.
 
 ### Phase 4: Memory
 
 - [ ] Add user memory service/API.
 - [ ] Add project memory service/API.
+- [ ] Keep account memory and project memory as separate retrieval scopes.
 - [ ] Decide what memory is manually saved versus AI-extracted.
 - [ ] Add memory controls in UI.
 - [ ] Add tests for memory isolation by user/project.
@@ -247,6 +265,8 @@ This section is based on the model screenshots shared in the chat. Availability 
 - Do not add new providers directly inside chat service. Add providers through the adapter/registry pattern.
 - Do not add billing before plan/credit rules are stable.
 - Do not add projects/memory UI without authorization tests.
+- Treat Projects as workspace containers and Recent Chats as a shortcut list. If full chat browsing is needed, build it as Search/Chat History rather than a Recent Chats page.
+- Future retrieval order should be current chat first, then project memory/docs when a project is active, then account memory.
 
 ## Next-Step Decision Guide
 
@@ -255,7 +275,7 @@ When asking "what is next?", choose the first unfinished item that matches the c
 1. If the goal is foundation quality:
    - Finish reviewing the current uncommitted settings work, apply the database migration locally, then commit/push the batch.
 2. If the goal is user product value:
-   - Continue Projects: member authorization and project UX polish.
+   - Continue Projects only with focused demo/UX polish; do not add collaboration authorization until members become real product scope.
 3. If the goal is portfolio/demo polish:
    - Add README screenshots/GIFs and run a portfolio demo pass.
 4. If the goal is SaaS direction:
@@ -263,4 +283,4 @@ When asking "what is next?", choose the first unfinished item that matches the c
 5. If the goal is AI quality:
    - Expand AI behavior evals and tune workflow routing.
 6. If the goal is long-term intelligence:
-   - Build memory with embeddings, not just prompt history.
+   - Build memory with embeddings, keeping project memory and account memory isolated.

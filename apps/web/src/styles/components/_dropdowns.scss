@@ -78,8 +78,12 @@
   cursor: pointer;
 }
 
-.dropdown-menu .dropdown-divider {
-  border-top-color: var(--border-floating);
+.dropdown-menu .dropdown-divider,
+.chat-dropdown-menu .dropdown-divider {
+  height: 0;
+  overflow: hidden;
+  border: 0;
+  border-top: 1px solid var(--border-floating);
   margin: 6px 0;
   opacity: 1;
 }

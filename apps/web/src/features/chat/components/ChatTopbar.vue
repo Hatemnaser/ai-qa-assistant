@@ -6,6 +6,7 @@ import type { AiModelOption, ChatUsageSummary } from "../types";
 import type { Project } from "../../projects/types";
 
 const props = defineProps<{
+  chatTitle?: string | null;
   isLoadingProjects?: boolean;
   mode: string;
   model: string;
@@ -13,7 +14,6 @@ const props = defineProps<{
   projectError?: string;
   projectId?: string | null;
   projects?: Project[];
-  showProjectSelector?: boolean;
   usageSummary?: ChatUsageSummary | null;
 }>();
 
@@ -35,19 +35,7 @@ const selectedModelOption = computed(
   () => availableModelOptions.value.find((option) => option.value === props.model) || availableModelOptions.value[0]
 );
 const modelHint = computed(() => getModelHint(props.model, props.mode, availableModelOptions.value));
-const projectButtonLabel = computed(() => {
-  if (selectedProject.value) return selectedProject.value.name;
-  if (selectedProjectId.value) return "Unavailable project";
-
-  return "No project";
-});
-const projectTitle = computed(() => {
-  if (props.projectError) return props.projectError;
-  if (selectedProject.value?.description) return selectedProject.value.description;
-  if (selectedProjectId.value) return "This project is no longer available.";
-
-  return "Assign this chat to a project.";
-});
+const chatTitleLabel = computed(() => props.chatTitle?.trim() || "New QA Chat");
 const usageLabel = computed(() => {
   if (!props.usageSummary) return "";
 
@@ -77,45 +65,34 @@ function selectProject(value: string | null) {
 
 <template>
   <header class="chat-topbar d-flex align-items-center justify-content-between">
-    <div>
-      <h2 class="topbar-title">QA Chat</h2>
-      <p class="topbar-subtitle">Describe a feature, bug, or user story.</p>
-    </div>
-
-    <div class="topbar-controls d-flex align-items-center justify-content-end flex-wrap gap-2">
-      <div v-if="showProjectSelector" class="topbar-field d-flex align-items-center gap-2">
-        <span class="topbar-field-label">Project</span>
-        <div class="dropdown topbar-select-dropdown">
+    <div class="topbar-copy">
+      <div v-if="selectedProject" class="topbar-breadcrumb">
+        <button
+          class="topbar-breadcrumb__project"
+          type="button"
+          :title="selectedProject.description || selectedProject.name"
+          @click="emit('open-projects')"
+        >
+          {{ selectedProject.name }}
+        </button>
+        <span class="topbar-breadcrumb__separator" aria-hidden="true">/</span>
+        <div class="dropdown">
           <button
-            class="btn btn-sm btn-outline-secondary topbar-select-btn topbar-select-btn--project d-inline-flex align-items-center justify-content-between text-start"
+            class="topbar-breadcrumb__chat"
             type="button"
             data-bs-toggle="dropdown"
             aria-expanded="false"
-            :title="projectTitle"
+            :title="chatTitleLabel"
           >
-            <span class="topbar-select-label">{{ projectButtonLabel }}</span>
+            <span>{{ chatTitleLabel }}</span>
           </button>
 
-          <ul class="dropdown-menu dropdown-menu-end topbar-select-menu">
-            <li>
-              <button
-                class="dropdown-item"
-                :class="{ active: !selectedProjectId }"
-                type="button"
-                @click="selectProject(null)"
-              >
-                No project
-              </button>
-            </li>
-            <li><hr class="dropdown-divider" /></li>
+          <ul class="dropdown-menu topbar-select-menu">
             <li v-if="isLoadingProjects">
               <span class="dropdown-item-text text-muted">Loading projects...</span>
             </li>
             <li v-else-if="projectError">
               <span class="dropdown-item-text text-muted" :title="projectError">Projects unavailable</span>
-            </li>
-            <li v-else-if="availableProjects.length === 0">
-              <span class="dropdown-item-text text-muted">No projects yet</span>
             </li>
             <template v-else>
               <li v-for="project in availableProjects" :key="project.id">
@@ -140,6 +117,13 @@ function selectProject(value: string | null) {
         </div>
       </div>
 
+      <template v-else>
+        <h2 class="topbar-title">QA Chat</h2>
+        <p class="topbar-subtitle">Describe a feature, bug, or user story.</p>
+      </template>
+    </div>
+
+    <div class="topbar-controls d-flex align-items-center justify-content-end flex-wrap gap-2">
       <div class="topbar-field d-flex align-items-center gap-2">
         <span class="topbar-field-label">Model</span>
         <div class="dropdown topbar-select-dropdown">

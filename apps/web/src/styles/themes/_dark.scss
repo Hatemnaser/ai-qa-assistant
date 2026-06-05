@@ -25,16 +25,33 @@ html[data-theme="dark"] {
   --color-brand-contrast: #11100f;
 
   --color-success-50: #10281e;
+  --color-success-100: #143524;
+  --color-success-200: #1b4930;
+  --color-success-300: #25633f;
+  --color-success-400: #66c58f;
   --color-success-500: #8fd0a7;
+  --color-success-600: #a8ddb8;
   --color-success-700: #b4e4c4;
+  --color-success-contrast: #11100f;
 
   --color-warning-50: #2b2410;
+  --color-warning-100: #3a2d12;
+  --color-warning-200: #574219;
+  --color-warning-300: #7a5d21;
+  --color-warning-400: #d8a84a;
   --color-warning-500: #f4c96b;
+  --color-warning-600: #f6d681;
   --color-warning-700: #f7dc91;
+  --color-warning-contrast: #11100f;
 
   --color-danger-50: #2d1719;
+  --color-danger-100: #3a1c1f;
+  --color-danger-200: #52252a;
+  --color-danger-300: #76343a;
+  --color-danger-400: #c86b72;
   --color-danger-500: #e7a2a6;
   --color-danger-600: #dc3f45;
+  --color-danger-700: #f0b9bd;
   --color-danger-contrast: #ffffff;
 
   --text-main: #f3f0ea;
@@ -52,6 +69,8 @@ html[data-theme="dark"] {
   --surface-floating-hover: var(--color-neutral-400);
   --surface-interactive: var(--color-neutral-200);
   --surface-interactive-hover: var(--color-neutral-400);
+  --surface-row-hover: var(--color-neutral-300);
+  --surface-row-active: var(--color-neutral-400);
   --surface-primary: var(--color-neutral-400);
   --surface-primary-hover: var(--color-neutral-600);
   --surface-user-message: var(--color-neutral-400);
@@ -72,6 +91,7 @@ html[data-theme="dark"] {
   --bs-body-bg: var(--surface-app);
   --bs-body-color: var(--text-main);
   --bs-primary-rgb: 163, 163, 163;
+  --bs-success-rgb: 143, 208, 167;
   --bs-danger-rgb: 220, 63, 69;
 }
 

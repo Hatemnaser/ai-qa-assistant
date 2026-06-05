@@ -26,6 +26,73 @@
   min-width: 0;
 }
 
+.topbar-copy {
+  min-width: 0;
+}
+
+.topbar-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--text-main);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+}
+
+.topbar-breadcrumb__project,
+.topbar-breadcrumb__chat {
+  appearance: none;
+  min-width: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  text-align: left;
+}
+
+.topbar-breadcrumb__project,
+.topbar-breadcrumb__chat {
+  cursor: pointer;
+}
+
+.topbar-breadcrumb__project:hover,
+.topbar-breadcrumb__project:focus,
+.topbar-breadcrumb__chat:hover,
+.topbar-breadcrumb__chat:focus {
+  color: var(--text-main);
+  outline: 0;
+}
+
+.topbar-breadcrumb__separator {
+  color: var(--text-muted);
+}
+
+.topbar-breadcrumb__chat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+}
+
+.topbar-breadcrumb__chat span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-breadcrumb__chat::after {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  opacity: 0.72;
+}
+
 .topbar-field {
   min-width: 0;
 }

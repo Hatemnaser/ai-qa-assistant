@@ -82,14 +82,31 @@ These are the token families the app standardizes around:
 --color-brand-contrast
 
 --color-success-50
+--color-success-100
+--color-success-200
+--color-success-300
+--color-success-400
 --color-success-500
+--color-success-600
 --color-success-700
+--color-success-contrast
 --color-warning-50
+--color-warning-100
+--color-warning-200
+--color-warning-300
+--color-warning-400
 --color-warning-500
+--color-warning-600
 --color-warning-700
+--color-warning-contrast
 --color-danger-50
+--color-danger-100
+--color-danger-200
+--color-danger-300
+--color-danger-400
 --color-danger-500
 --color-danger-600
+--color-danger-700
 --color-danger-contrast
 
 --space-1
@@ -201,8 +218,14 @@ These are the token families the app standardizes around:
 
 --status-success-bg
 --status-success-text
+--status-success
+--status-success-hover
+--status-success-contrast
 --status-warning-bg
 --status-warning-text
+--status-warning
+--status-warning-hover
+--status-warning-contrast
 --status-danger-bg
 --status-danger-text
 --status-danger
@@ -220,6 +243,11 @@ These are the token families the app standardizes around:
 --action-secondary-text-hover
 --action-secondary-border
 --action-secondary-border-hover
+--action-success-bg
+--action-success-bg-hover
+--action-success-text
+--action-success-border
+--action-success-border-hover
 --action-danger-bg
 --action-danger-bg-hover
 --action-danger-text
@@ -242,7 +270,8 @@ The active UI foundation is intentionally small:
 - Radius uses `--radius-*` tokens; pills use `--radius-pill`.
 - Repeated icon buttons use `.ui-icon-btn`; smaller message actions add `.ui-icon-btn--sm`, and send buttons add `.ui-icon-btn--send`.
 - Primary actions use Bootstrap `.btn-primary`, backed by `--action-primary-*` tokens.
-- Secondary actions use Bootstrap outline variants or `.ui-row`, backed by `--action-secondary-*` and interactive surface tokens.
+- Secondary actions use Bootstrap `.btn-secondary`, outline variants, or `.ui-row`, backed by `--action-secondary-*` and interactive surface tokens.
+- Success actions use Bootstrap `.btn-success` or `.btn-outline-success`, backed by `--action-success-*` and `--status-success-*` tokens.
 - Destructive actions use Bootstrap `.btn-danger`, backed by `--action-danger-*` tokens.
 - Repeated full-width action buttons use `.btn-control` with Bootstrap button variants.
 - Text-only links use Bootstrap `.btn-link`, backed by muted/text tokens.
@@ -565,7 +594,7 @@ Implemented now:
 - Neutral graphite primary actions instead of default blue.
 - Matte black dark mode with warm neutral surfaces.
 - Separate neutral surfaces for user messages, dropdowns, and secondary interactive rows.
-- Primary, secondary, and danger buttons now consume `--action-*` tokens.
+- Primary, secondary, success, and danger buttons now consume `--action-*` tokens.
 - Secondary interactive controls now share `--surface-interactive`, `--surface-interactive-hover`, and border interaction tokens.
 - Dark-mode interactive controls avoid beige surfaces; dropdowns, action buttons, and list items use gray surfaces with explicit hover states.
 - Sidebar now uses a compact workspace nav for `New Chat`, `Search`, and `Projects`, inspired by Claude/ChatGPT sidebar density.

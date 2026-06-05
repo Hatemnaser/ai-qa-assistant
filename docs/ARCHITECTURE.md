@@ -73,20 +73,20 @@ Small modules can start with fewer files, but should not put business logic dire
 
 ## Active Frontend Routes
 
-- `#/`: chat workspace, including the signed-in project assignment selector. The sidebar keeps workspace navigation and recent chats only; the `Projects` item opens project management.
+- `#/`: chat workspace. Project-linked chats show a breadcrumb in the topbar; ordinary chats do not show a project state. Before the first project exists, the sidebar keeps `Projects` in the top workspace navigation. After projects exist, the sidebar shows a collapsible Projects section inside the scroll area above collapsible Recent Chats. The Projects section starts with New Project and All Projects rows before the project folders. Project chats are nested under their project instead of being mixed into Recent Chats.
 - `#/login`: sign-in page wired to cookie-backed auth.
 - `#/register`: account creation page wired to cookie-backed auth.
 - `#/forgot-password`: password reset request page.
 - `#/usage`: personal `My Usage` page for the current guest or signed-in user.
 - `#/settings`: signed-in user preferences for language, theme, and default model.
-- `#/projects`: signed-in project management page for listing, creating, editing, and deleting owned projects.
+- `#/projects`: signed-in project management page with a searchable/sortable project grid, project detail view, project chat list, project Add Chats modal, project-scoped composer, and modal create/edit/delete flows.
 
 The frontend auth pages call the API with `credentials: "include"` so sessions stay in the httpOnly cookie. Google OAuth and real reset emails are still future integrations.
 
 ## Later Backend Work
 
 - `projects`: member authorization.
-- `memory`: user memory, project memory, chat summaries, and later vector search.
+- `memory`: account memory, project memory, chat summaries, and later vector search. Account memory and project memory should remain separate retrieval scopes.
 
 ## Active API Routes
 
@@ -111,7 +111,9 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 
 `POST /api/chat` allows anonymous portfolio usage. Guests receive an httpOnly `qa_guest_id` cookie and are limited separately from signed-in users. The API also hashes the request IP as a fallback abuse guard. Usage credits are reserved before calling Gemini so the API key is protected from unbounded demo traffic. Successful chat responses update the reserved usage with provider token metadata when available and include a public `usage` summary with `used`, `remaining`, and `limit`.
 
-Signed-in chat persistence can store an optional `projectId`. The chat history service validates that linked projects are owned by the current user before saving, so a user cannot attach a chat to another user's project. The Vue chat topbar lets signed-in users assign the active chat, or the next new chat, to one of their projects. Existing chats can also be assigned from the chat context menu once the account has at least one project. The sidebar keeps project UX simple: its `Projects` item navigates to the project management page and recent chats are not project-filtered. Deleting a project leaves existing chats with `projectId` set to null through the database relation.
+Signed-in chat persistence can store an optional `projectId`. The chat history service validates that linked projects are owned by the current user before saving, so a user cannot attach a chat to another user's project. Existing chats can be assigned or moved to projects through the chat context menu once the account has at least one project. Project-linked chats show a topbar breadcrumb with the project and chat title; ordinary chats do not show a project state. The Projects page lists owned projects with search/sort controls and app-modal create/edit/delete flows. Opening a project shows its project chat list, a search/multi-select Add Chats modal for moving existing chats into the project, and the main chat composer; submitting there prepares a new chat linked to that project and opens the normal chat workspace. If a signed-in user opens Projects with no projects yet, the create-project modal opens and the page also shows a no-projects empty state. The sidebar moves project navigation into a collapsible scroll-area section once projects exist, above a collapsible Recent Chats section. The Projects section includes New Project and All Projects rows before the project folders; project rows expand to show chats linked to that project. Recent Chats shows chats without a project and remains a shortcut list, not a separate managed entity. Deleting a project leaves existing chats with `projectId` set to null through the database relation and the frontend clears stale local project assignments after project reloads.
+
+Projects are workspace containers. They can later own project memory, imported files, and retrieval-ready reference material. Recent Chats should not grow into a parallel management surface. If full chat browsing is needed later, the Search entry should become a Search/Chat History experience with filters for all chats, project chats, and non-project chats. For retrieval, the intended priority is current chat context first, project memory/docs when a project is active, then account memory.
 
 ## AI Workflow Layer
 

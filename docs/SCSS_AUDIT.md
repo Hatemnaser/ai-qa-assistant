@@ -29,14 +29,15 @@ The Vue app imports SCSS from `apps/web/src/styles/main.scss`. These styles are 
 | Area | Selectors | Usage |
 | --- | --- | --- |
 | App shell | `.app` | Small mobile layout override around the Vue shell. |
-| Sidebar shell | `.sidebar`, `.brand`, `.sidebar-nav`, `.sidebar-section`, `.sidebar-title`, `.chat-list` | Product-specific sidebar sizing, spacing, scroll, and panel behavior. |
-| Rows | `.ui-row`, `.ui-row--button`, `.ui-row--compact`, `.ui-row__button`, `.ui-row__title`, `.ui-row__action`, `.ui-row__input`, `.ui-row__icon` | Shared row system used by `SidebarNavItem` and `SidebarChatItem`, ready for settings/projects lists later. |
+| Sidebar shell | `.sidebar`, `.brand`, `.sidebar-nav`, `.sidebar-scroll`, `.sidebar-section`, `.sidebar-section-toggle`, `.sidebar-project-row`, `.sidebar-project-chats`, `.chat-list` | Product-specific sidebar sizing, scroll area, collapsible sections, nested project chats, and panel behavior. |
+| Rows | `.ui-row`, `.ui-row--button`, `.ui-row--compact`, `.ui-row__button`, `.ui-row__title`, `.ui-row__action`, `.ui-row__input`, `.ui-row__icon` | Shared row system used by sidebar items. Hover and active colors use separate row tokens. |
 | Forms | `.form-label`, `.form-control`, `.form-check`, `.form-check-input`, `.form-check-label` | Shared form styling on top of Bootstrap controls and `src/ui` field components. |
 | Auth layout | `.auth-page`, `.auth-brand-panel`, `.auth-content` | Auth page shell and responsive grid only. |
 | Auth UI | `.auth-card`, `.auth-brand`, `.auth-kicker`, `.auth-divider`, `.auth-switch`, `.auth-google-mark` | Reusable auth page presentation on top of shared button/form patterns. |
+| Workspace pages | `.workspace-page`, `.workspace-panel`, `.workspace-header`, `.workspace-feedback`, `.projects-page`, `.projects-search`, `.project-card`, `.project-detail`, `.project-chat-item`, `.project-form-modal`, `.project-add-chats-modal`, `.project-add-chat-item` | Shared settings/projects page structure, project grid/detail views, and app-modal project forms/add-chat workflow. |
 | Dropdowns and context menus | `.dropdown-menu`, `.chat-dropdown-menu`, `.topbar-actions-menu`, `.topbar-select-menu`, `.composer-menu`, `.answer-export-menu`, `.chat-export-submenu`, `.chat-project-submenu`, `.dropdown-item-danger` | Shared menu surfaces, fixed-position chat context menu, and export/project submenu behavior. |
 | Chat layout | `.app`, `.chat-layout`, `.chat-area`, `.empty-chat` | Structural chat shell and empty-state layout only. |
-| Topbar | `.chat-topbar`, `.topbar-title`, `.topbar-subtitle`, `.topbar-controls`, `.topbar-field`, `.topbar-field-label`, `.topbar-select-dropdown`, `.topbar-select-btn`, `.topbar-icon-btn`, `.topbar-status` | Chat topbar presentation and responsive controls. |
+| Topbar | `.chat-topbar`, `.topbar-title`, `.topbar-subtitle`, `.topbar-breadcrumb`, `.topbar-controls`, `.topbar-field`, `.topbar-field-label`, `.topbar-select-dropdown`, `.topbar-select-btn`, `.topbar-icon-btn`, `.topbar-status` | Chat topbar presentation, project breadcrumb, and responsive controls. |
 | Chat body | `.welcome-message`, `.welcome-title`, `.welcome-actions`, `.welcome-action`, `.msg`, `.answer` | Message and welcome surfaces backed by semantic tokens. |
 | Composer | `.chat-form`, `.composer`, `.drag-over`, `.composer-row`, `.composer-icon-btn`, `.composer-send-btn`, `.composer-textarea`, `.composer-menu`, `.quick-actions` | Custom chat input behavior, sticky form shell, quick actions, and dropup styling. |
 | Icon buttons | `.ui-icon-btn`, `.ui-icon-btn--xs`, `.ui-icon-btn--sm`, `.ui-icon-btn--ghost`, `.ui-icon-btn--send` | Shared icon-button base for composer, message actions, and compact row menus. |
@@ -45,7 +46,7 @@ The Vue app imports SCSS from `apps/web/src/styles/main.scss`. These styles are 
 | Markdown output | `.answer h1`, `.answer h2`, `.answer h3`, `.answer p`, `.answer li`, `.answer table`, `.answer th`, `.answer td`, `.answer code`, `.answer ul`, `.answer ol` | Required for AI markdown readability. |
 | Modals | `.app-modal` plus Bootstrap modal descendants | Keeps modal colors aligned with theme variables. |
 | Theme | `:root`, `html[data-theme="dark"]` | Primitive color scales, semantic surfaces, text, borders, actions, status, typography, spacing, layout widths, and Bootstrap variable bridge. |
-| Bootstrap theme overrides | `.btn-primary`, `.btn-outline-primary`, `.btn-outline-secondary`, `.btn-danger`, `.btn-link`, `.btn-control`, Bootstrap CSS variables | Needed for token-backed primary, secondary, danger, link, and reusable control sizing. |
+| Bootstrap theme overrides | `.btn-primary`, `.btn-secondary`, `.btn-success`, `.btn-outline-primary`, `.btn-outline-secondary`, `.btn-outline-success`, `.btn-danger`, `.btn-link`, `.btn-control`, Bootstrap CSS variables | Needed for token-backed primary, secondary, success, danger, link, and reusable control sizing. |
 
 ## Later Cleanup
 

@@ -1,58 +1,150 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
+import ChatComposer from "../chat/components/ChatComposer.vue";
+import type { QuickAction } from "../chat/constants";
+import type { Chat, SelectedAttachment } from "../chat/types";
+import ProjectAddChatsModal from "./components/ProjectAddChatsModal.vue";
+import ProjectCard from "./components/ProjectCard.vue";
+import ProjectChatList from "./components/ProjectChatList.vue";
+import ProjectDeleteModal from "./components/ProjectDeleteModal.vue";
+import ProjectFormModal from "./components/ProjectFormModal.vue";
+import Icon from "../../ui/Icon.vue";
 import { createProject, deleteProject, fetchProjects, updateProject } from "./projectsApi";
-import type { Project } from "./types";
+import type { Project, ProjectInput } from "./types";
 import type { AuthUser } from "../auth/types";
 
+type SortKey = "activity" | "updated" | "created";
+type ProjectMenuPosition = {
+  left: number;
+  projectId: string;
+  top: number;
+};
+
 const props = defineProps<{
+  chats: Chat[];
   currentUser?: AuthUser | null;
+  disabled?: boolean;
+  disabledMessage?: string;
+  isSending: boolean;
+  message: string;
+  mode: string;
+  projectToOpenId?: string | null;
+  selectedAttachments: SelectedAttachment[];
 }>();
 
 const emit = defineEmits<{
-  "back-to-chat": [];
+  "active-project-changed": [projectId: string | null];
+  "add-chats-to-project": [chatIds: string[], projectId: string];
+  "attachments-selected": [files: File[]];
+  "disabled-click": [];
+  "open-chat": [chatId: string];
+  "open-selected-attachment": [index: number];
   "projects-changed": [projects: Project[]];
+  "quick-action": [action: QuickAction];
+  "remove-selected-attachment": [index: number];
   "sign-in": [];
+  "submit-project-message": [projectId: string];
+  "update:message": [value: string];
 }>();
 
+const sortOptions: Array<{ key: SortKey; label: string }> = [
+  { key: "activity", label: "Last activity" },
+  { key: "updated", label: "Last edited" },
+  { key: "created", label: "Created date" },
+];
+
 const projects = ref<Project[]>([]);
+const searchQuery = ref("");
+const sortKey = ref<SortKey>("activity");
 const errorMessage = ref("");
 const successMessage = ref("");
+const modalErrorMessage = ref("");
 const isLoading = ref(false);
 const isSaving = ref(false);
 const isDeleting = ref(false);
-const editingProjectId = ref<string | null>(null);
-const form = reactive({
-  description: "",
-  name: "",
+const isAddChatsModalOpen = ref(false);
+const isProjectModalOpen = ref(false);
+const hasOpenedEmptyCreateModal = ref(false);
+const activeProjectId = ref<string | null>(null);
+const openProjectMenu = ref<ProjectMenuPosition | null>(null);
+const projectToEdit = ref<Project | null>(null);
+const projectPendingDelete = ref<Project | null>(null);
+
+const selectedSortLabel = computed(() => {
+  if (sortKey.value === "activity") return "Activity";
+
+  return sortOptions.find((option) => option.key === sortKey.value)?.label || "Activity";
 });
+const openMenuProject = computed(() => {
+  if (!openProjectMenu.value) return null;
 
-const selectedProject = computed(() =>
-  editingProjectId.value ? projects.value.find((project) => project.id === editingProjectId.value) || null : null
+  return projects.value.find((project) => project.id === openProjectMenu.value?.projectId) || null;
+});
+const activeProject = computed(() =>
+  activeProjectId.value ? projects.value.find((project) => project.id === activeProjectId.value) || null : null
 );
-const canSave = computed(() => Boolean(props.currentUser && form.name.trim() && !isLoading.value && !isSaving.value));
-const saveLabel = computed(() => {
-  if (isSaving.value) return selectedProject.value ? "Saving..." : "Creating...";
+const activeProjectChats = computed(() => {
+  if (!activeProject.value) return [];
 
-  return selectedProject.value ? "Save changes" : "Create project";
+  return props.chats
+    .filter((chat) => chat.projectId === activeProject.value?.id)
+    .sort((first, second) => new Date(second.updatedAt).getTime() - new Date(first.updatedAt).getTime());
+});
+const filteredProjects = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase();
+  const matchedProjects = query
+    ? projects.value.filter((project) => {
+        const description = project.description || "";
+
+        return `${project.name} ${description}`.toLowerCase().includes(query);
+      })
+    : [...projects.value];
+
+  return matchedProjects.sort((first, second) => {
+    const firstDate = getSortDate(first, sortKey.value);
+    const secondDate = getSortDate(second, sortKey.value);
+
+    return secondDate - firstDate;
+  });
 });
 
 onMounted(() => {
+  document.addEventListener("click", closeProjectMenu);
+  document.addEventListener("scroll", closeProjectMenu, true);
+
   void loadProjects();
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", closeProjectMenu);
+  document.removeEventListener("scroll", closeProjectMenu, true);
 });
 
 watch(
   () => props.currentUser?.id,
-  () => void loadProjects()
+  () => {
+    hasOpenedEmptyCreateModal.value = false;
+    void loadProjects();
+  }
+);
+
+watch(
+  () => props.projectToOpenId,
+  () => {
+    syncRequestedProject();
+  }
 );
 
 async function loadProjects() {
   errorMessage.value = "";
   successMessage.value = "";
-  resetForm();
 
   if (!props.currentUser) {
     projects.value = [];
+    activeProjectId.value = null;
+    closeAddChatsModal();
+    closeProjectModal();
     emitProjectsChanged();
     return;
   }
@@ -61,7 +153,10 @@ async function loadProjects() {
 
   try {
     projects.value = await fetchProjects();
+    syncActiveProject();
+    syncRequestedProject();
     emitProjectsChanged();
+    openCreateModalForEmptyWorkspace();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Could not load projects.";
   } finally {
@@ -69,41 +164,144 @@ async function loadProjects() {
   }
 }
 
-async function saveProject() {
+function openCreateModalForEmptyWorkspace() {
+  if (projects.value.length > 0 || hasOpenedEmptyCreateModal.value) return;
+
+  hasOpenedEmptyCreateModal.value = true;
+  openCreateProjectModal();
+}
+
+function openProject(project: Project) {
+  closeProjectMenu();
+  closeAddChatsModal();
+  activeProjectId.value = project.id;
+  emit("active-project-changed", project.id);
+}
+
+function syncRequestedProject() {
+  if (!props.projectToOpenId) return;
+
+  if (projects.value.some((project) => project.id === props.projectToOpenId)) {
+    activeProjectId.value = props.projectToOpenId;
+    emit("active-project-changed", props.projectToOpenId);
+  }
+}
+
+function closeActiveProject() {
+  closeProjectMenu();
+  closeAddChatsModal();
+  activeProjectId.value = null;
+  emit("active-project-changed", null);
+}
+
+function openAddChatsModal() {
+  closeProjectMenu();
+  isAddChatsModalOpen.value = true;
+}
+
+function closeAddChatsModal() {
+  isAddChatsModalOpen.value = false;
+}
+
+function addChatsToActiveProject(chatIds: string[]) {
+  if (!activeProject.value || chatIds.length === 0) return;
+
+  emit("add-chats-to-project", chatIds, activeProject.value.id);
+  closeAddChatsModal();
+}
+
+function openCreateProjectModal() {
+  closeProjectMenu();
+  projectToEdit.value = null;
+  modalErrorMessage.value = "";
+  isProjectModalOpen.value = true;
+}
+
+function openEditProjectModal(project: Project) {
+  closeProjectMenu();
+  projectToEdit.value = project;
+  modalErrorMessage.value = "";
+  isProjectModalOpen.value = true;
+}
+
+function closeProjectModal() {
+  isProjectModalOpen.value = false;
+  projectToEdit.value = null;
+  modalErrorMessage.value = "";
+}
+
+function cancelProjectModal() {
+  closeProjectModal();
+}
+
+async function saveProject(input: ProjectInput) {
   if (!props.currentUser) {
     emit("sign-in");
     return;
   }
 
-  if (!form.name.trim()) return;
-
   isSaving.value = true;
   errorMessage.value = "";
+  modalErrorMessage.value = "";
   successMessage.value = "";
 
   try {
-    const projectToEdit = selectedProject.value;
-    const input = {
-      description: form.description.trim() || null,
-      name: form.name.trim(),
-    };
-    const savedProject = projectToEdit
-      ? await updateProject(projectToEdit.id, input)
+    const isEditing = Boolean(projectToEdit.value);
+    const savedProject = projectToEdit.value
+      ? await updateProject(projectToEdit.value.id, input)
       : await createProject(input);
 
     upsertProject(savedProject);
-    resetForm();
-    successMessage.value = projectToEdit ? "Project updated." : "Project created.";
+    closeProjectModal();
+    successMessage.value = isEditing ? "Project updated." : "Project created.";
+
+    if (!isEditing) {
+      openProject(savedProject);
+    }
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Could not save this project.";
+    modalErrorMessage.value = error instanceof Error ? error.message : "Could not save this project.";
   } finally {
     isSaving.value = false;
   }
 }
 
-async function removeProject(project: Project) {
+function requestRemoveProject(project: Project) {
   if (isDeleting.value) return;
-  if (!window.confirm(`Delete "${project.name}"?`)) return;
+
+  closeProjectMenu();
+  projectPendingDelete.value = project;
+}
+
+function openProjectActionsMenu(event: MouseEvent, projectId: string) {
+  const button = event.currentTarget as HTMLElement;
+  const rect = button.getBoundingClientRect();
+
+  if (openProjectMenu.value?.projectId === projectId) {
+    closeProjectMenu();
+    return;
+  }
+
+  const menuWidth = 168;
+
+  openProjectMenu.value = {
+    left: Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)),
+    projectId,
+    top: rect.bottom + 8,
+  };
+}
+
+function closeProjectMenu() {
+  openProjectMenu.value = null;
+}
+
+function cancelRemoveProject() {
+  projectPendingDelete.value = null;
+}
+
+async function confirmRemoveProject() {
+  if (!projectPendingDelete.value || isDeleting.value) return;
+
+  const project = projectPendingDelete.value;
 
   isDeleting.value = true;
   errorMessage.value = "";
@@ -112,32 +310,16 @@ async function removeProject(project: Project) {
   try {
     await deleteProject(project.id);
     projects.value = projects.value.filter((item) => item.id !== project.id);
+    closeAddChatsModal();
+    syncActiveProject();
     emitProjectsChanged();
-
-    if (editingProjectId.value === project.id) {
-      resetForm();
-    }
-
     successMessage.value = "Project deleted.";
+    projectPendingDelete.value = null;
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Could not delete this project.";
   } finally {
     isDeleting.value = false;
   }
-}
-
-function editProject(project: Project) {
-  editingProjectId.value = project.id;
-  form.name = project.name;
-  form.description = project.description || "";
-  errorMessage.value = "";
-  successMessage.value = "";
-}
-
-function resetForm() {
-  editingProjectId.value = null;
-  form.name = "";
-  form.description = "";
 }
 
 function upsertProject(project: Project) {
@@ -150,6 +332,7 @@ function upsertProject(project: Project) {
   }
 
   projects.value = projects.value.map((item) => (item.id === project.id ? project : item));
+  syncActiveProject();
   emitProjectsChanged();
 }
 
@@ -157,112 +340,202 @@ function emitProjectsChanged() {
   emit("projects-changed", [...projects.value]);
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-  }).format(new Date(value));
+function syncActiveProject() {
+  if (!activeProjectId.value) return;
+
+  if (!projects.value.some((project) => project.id === activeProjectId.value)) {
+    closeAddChatsModal();
+    activeProjectId.value = null;
+    emit("active-project-changed", null);
+  }
 }
+
+function getSortDate(project: Project, key: SortKey) {
+  if (key === "created") return new Date(project.createdAt).getTime();
+
+  return new Date(project.updatedAt).getTime();
+}
+
 </script>
 
 <template>
-  <section class="workspace-page">
-    <header class="workspace-header d-flex align-items-start justify-content-between gap-3">
+  <section class="workspace-page projects-page" :class="{ 'projects-page--detail': activeProject }">
+    <header v-if="!activeProject" class="workspace-header projects-page__header">
       <div>
-        <p class="workspace-eyebrow text-uppercase fw-bold mb-1">Projects</p>
-        <h2 class="workspace-title mb-1">QA project spaces</h2>
-        <p class="workspace-subtitle mb-0">Group account chats around products, releases, or test areas.</p>
+        <h1 class="workspace-title mb-0">Projects</h1>
       </div>
 
-      <button class="btn btn-outline-secondary" type="button" @click="emit('back-to-chat')">
-        Back
-      </button>
+      <div class="projects-page__actions">
+        <span class="projects-page__sort-label">Sort by</span>
+        <div class="dropdown">
+          <button
+            class="btn btn-outline-secondary dropdown-toggle"
+            type="button"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+          >
+            {{ selectedSortLabel }}
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li v-for="option in sortOptions" :key="option.key">
+              <button
+                class="dropdown-item d-flex align-items-center justify-content-between gap-3"
+                :class="{ active: option.key === sortKey }"
+                type="button"
+                @click="sortKey = option.key"
+              >
+                <span>{{ option.label }}</span>
+                <span v-if="option.key === sortKey" aria-hidden="true">&#10003;</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        <button class="btn btn-primary" type="button" @click="openCreateProjectModal">
+          New Project
+        </button>
+      </div>
     </header>
 
-    <section v-if="!currentUser" class="workspace-panel">
-      <h3 class="workspace-section-title">Sign in required</h3>
+    <section v-if="!currentUser" class="workspace-panel projects-page__auth">
+      <h2 class="workspace-section-title">Sign in required</h2>
       <p class="workspace-note mb-3">Projects are saved to your account with your persisted chats.</p>
       <button class="btn btn-primary" type="button" @click="emit('sign-in')">Sign in</button>
     </section>
 
     <template v-else>
-      <section class="workspace-panel project-editor">
-        <form class="project-form" @submit.prevent="saveProject">
-          <div class="settings-grid">
-            <label class="settings-field">
-              <span class="form-label">Name</span>
-              <input v-model="form.name" class="form-control" maxlength="120" placeholder="Mobile app QA" />
-            </label>
+      <template v-if="activeProject">
+        <section class="project-detail">
+          <button class="btn btn-link project-detail__back" type="button" @click="closeActiveProject">
+            &larr; All Projects
+          </button>
 
-            <label class="settings-field settings-field--wide">
-              <span class="form-label">Description</span>
-              <textarea
-                v-model="form.description"
-                class="form-control project-description"
-                maxlength="1000"
-                placeholder="Release scope, test areas, or project notes"
-              ></textarea>
-            </label>
-          </div>
-
-          <p v-if="errorMessage" class="workspace-feedback workspace-feedback--error mb-0" role="alert">
-            {{ errorMessage }}
-          </p>
-          <p v-else-if="successMessage" class="workspace-feedback workspace-feedback--success mb-0" role="status">
-            {{ successMessage }}
-          </p>
-
-          <div class="d-flex align-items-center justify-content-between gap-3">
-            <p class="workspace-note mb-0">
-              <span v-if="selectedProject">Editing {{ selectedProject.name }}</span>
-              <span v-else>{{ projects.length }} projects in your workspace</span>
-            </p>
-
-            <div class="d-flex gap-2">
-              <button
-                v-if="selectedProject"
-                class="btn btn-outline-secondary"
-                type="button"
-                :disabled="isSaving"
-                @click="resetForm"
-              >
-                Cancel
-              </button>
-              <button class="btn btn-primary" type="submit" :disabled="!canSave">
-                {{ saveLabel }}
-              </button>
-            </div>
-          </div>
-        </form>
-      </section>
-
-      <section class="workspace-panel project-list-panel">
-        <div v-if="isLoading" class="workspace-note">Loading projects...</div>
-        <div v-else-if="projects.length === 0" class="workspace-empty">No projects yet.</div>
-
-        <div v-else class="project-list">
-          <article v-for="project in projects" :key="project.id" class="project-row">
+          <header class="project-detail__header">
             <div>
-              <h3>{{ project.name }}</h3>
-              <p v-if="project.description">{{ project.description }}</p>
-              <small>{{ project.role }} · Updated {{ formatDate(project.updatedAt) }}</small>
+              <h1>{{ activeProject.name }}</h1>
+              <p v-if="activeProject.description">{{ activeProject.description }}</p>
             </div>
 
-            <div class="project-row-actions">
-              <button class="btn btn-outline-secondary btn-sm" type="button" @click="editProject(project)">
-                Edit
+            <div class="project-detail__actions">
+              <button class="btn btn-outline-secondary" type="button" @click="openAddChatsModal">
+                Add Chats
               </button>
               <button
-                class="btn btn-outline-danger btn-sm"
+                class="ui-icon-btn ui-icon-btn--xs ui-icon-btn--ghost"
                 type="button"
-                :disabled="isDeleting"
-                @click="removeProject(project)"
+                aria-label="Project options"
+                @click.stop="openProjectActionsMenu($event, activeProject.id)"
               >
-                Delete
+                &hellip;
               </button>
             </div>
-          </article>
+          </header>
+
+          <div class="project-detail__composer">
+            <ChatComposer
+              :disabled="disabled"
+              :disabled-message="disabledMessage"
+              :is-sending="isSending"
+              :message="message"
+              :mode="mode"
+              :selected-attachments="selectedAttachments"
+              @attachments-selected="emit('attachments-selected', $event)"
+              @disabled-click="emit('disabled-click')"
+              @open-selected-attachment="emit('open-selected-attachment', $event)"
+              @quick-action="emit('quick-action', $event)"
+              @remove-selected-attachment="emit('remove-selected-attachment', $event)"
+              @submit="emit('submit-project-message', activeProject.id)"
+              @update:message="emit('update:message', $event)"
+            />
+          </div>
+
+          <ProjectChatList :chats="activeProjectChats" @open-chat="emit('open-chat', $event)" />
+        </section>
+      </template>
+
+      <template v-else>
+        <div class="projects-search">
+          <Icon name="search" />
+          <input v-model="searchQuery" type="search" placeholder="Search projects ..." aria-label="Search projects" />
         </div>
-      </section>
+
+        <p v-if="errorMessage" class="workspace-feedback workspace-feedback--error" role="alert">
+          {{ errorMessage }}
+        </p>
+        <p v-else-if="successMessage" class="workspace-feedback workspace-feedback--success" role="status">
+          {{ successMessage }}
+        </p>
+
+        <div v-if="isLoading" class="workspace-empty">Loading projects...</div>
+
+        <div v-else-if="projects.length === 0" class="projects-empty">
+          <h2>No projects yet</h2>
+          <p>Create your first project to organize QA chats by product, release, or test area.</p>
+        </div>
+
+        <div v-else-if="filteredProjects.length === 0" class="projects-empty">
+          <h2>No matching projects</h2>
+          <p>Try a different search term.</p>
+        </div>
+
+        <div v-else class="project-card-grid">
+          <ProjectCard
+            v-for="project in filteredProjects"
+            :key="project.id"
+            :is-menu-open="openProjectMenu?.projectId === project.id"
+            :project="project"
+            @open="openProject"
+            @open-menu="openProjectActionsMenu"
+          />
+        </div>
+      </template>
     </template>
+
+    <Teleport to="body">
+      <ul
+        v-if="openProjectMenu && openMenuProject"
+        class="chat-dropdown-menu show"
+        :style="{ left: `${openProjectMenu.left}px`, top: `${openProjectMenu.top}px` }"
+        @click.stop
+      >
+        <li>
+          <button class="dropdown-item" type="button" @click="openEditProjectModal(openMenuProject)">
+            Edit
+          </button>
+        </li>
+        <li>
+          <button
+            class="dropdown-item dropdown-item-danger"
+            type="button"
+            :disabled="isDeleting"
+            @click="requestRemoveProject(openMenuProject)"
+          >
+            Delete
+          </button>
+        </li>
+      </ul>
+    </Teleport>
+
+    <ProjectFormModal
+      :error-message="modalErrorMessage"
+      :is-open="isProjectModalOpen"
+      :is-saving="isSaving"
+      :project="projectToEdit"
+      @cancel="cancelProjectModal"
+      @save="saveProject"
+    />
+    <ProjectAddChatsModal
+      :chats="chats"
+      :is-open="isAddChatsModalOpen"
+      :project="activeProject"
+      @add="addChatsToActiveProject"
+      @cancel="closeAddChatsModal"
+    />
+    <ProjectDeleteModal
+      :is-deleting="isDeleting"
+      :project="projectPendingDelete"
+      @cancel="cancelRemoveProject"
+      @confirm="confirmRemoveProject"
+    />
   </section>
 </template>
