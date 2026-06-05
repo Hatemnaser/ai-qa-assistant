@@ -1,4 +1,4 @@
-import type { AiChatInput, AiChatResponse, AiTextAttachment } from "../ai/ai.types.js";
+import type { AiChatInput, AiChatResponse, AiMemoryContext, AiTextAttachment } from "../ai/ai.types.js";
 import { chatWithAiFallback } from "../ai/model-fallback.js";
 import { routeAiModel } from "../ai/routing/model-router.js";
 import {
@@ -10,6 +10,7 @@ import {
 import { analyzeQaWorkflowWithRouter } from "../ai/routing/workflow-router.js";
 import { shouldUseAiWorkflowRouter, type WorkflowRouter } from "../ai/routing/workflow-router.js";
 import { env } from "../../config/env.js";
+import { memoryContextService } from "../memory/memory-context.service.js";
 import { estimateChatCredits, type ChatCreditEstimate } from "../usage/credit-policy.js";
 import {
   usageService,
@@ -32,11 +33,16 @@ type ChatUsageFailureHandler = (
   reservation: UsageReservation,
   failure?: ChatUsageFailureInput
 ) => Promise<UsageReservation>;
+type ChatMemoryContextLoader = (input: {
+  projectId?: string | null;
+  userId?: string;
+}) => Promise<AiMemoryContext | undefined>;
 
 export interface ChatServiceDependencies {
   chatWithAi: ChatAiProvider;
   completeUsage?: ChatUsageCompleter;
   failUsage?: ChatUsageFailureHandler;
+  loadMemoryContext?: ChatMemoryContextLoader;
   reserveUsage?: ChatUsageGuard;
   routeWorkflow?: WorkflowRouter;
 }
@@ -45,6 +51,7 @@ export function createChatService({
   chatWithAi,
   completeUsage,
   failUsage,
+  loadMemoryContext,
   reserveUsage,
   routeWorkflow,
 }: ChatServiceDependencies) {
@@ -79,11 +86,18 @@ export function createChatService({
       images: providerAttachments.images.length > 0,
       textAttachments: providerAttachments.attachments.length > 0,
     });
+    const memoryContext = context.userId
+      ? await loadMemoryContext?.({
+          projectId: input.projectId || null,
+          userId: context.userId,
+        })
+      : undefined;
 
     const creditEstimate = estimateChatCredits({
       attachments: providerAttachments.attachments,
       history: input.history,
       imageCount: providerAttachments.images.length,
+      memoryContext,
       message: input.message,
       mode: input.mode,
       model: preflightModelRouting.model.model,
@@ -129,6 +143,7 @@ export function createChatService({
           history: input.history,
           ...(providerAttachments.attachments.length > 0 ? { attachments: providerAttachments.attachments } : {}),
           ...(providerAttachments.images.length > 0 ? { images: providerAttachments.images } : {}),
+          ...(memoryContext ? { memoryContext } : {}),
           message: input.message,
           mode: input.mode,
           model: modelRouting.model.model,
@@ -264,6 +279,7 @@ export const { createChatReply } = createChatService({
   chatWithAi,
   completeUsage: usageService.completeChatCredits,
   failUsage: usageService.failChatCredits,
+  loadMemoryContext: memoryContextService.loadChatMemoryContext,
   routeWorkflow: routeWorkflowWithAi,
   reserveUsage: usageService.reserveChatCredits,
 });

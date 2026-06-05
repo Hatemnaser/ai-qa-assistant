@@ -2,13 +2,13 @@
 
 Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`.
 
-Last updated: 2026-06-05
+Last updated: 2026-06-06
 
 ## Current Repo State
 
 - Workspace: `C:\Users\hatem\ai-qa-assistant`
 - Local branch should start from `main`.
-- Last known pushed baseline before local follow-up work: `main` synced with `origin/main` at `14f8f1f Add chat project assignment menu`.
+- Last known pushed baseline before local follow-up work: `main` synced with `origin/main`.
 - Do not assume old root-level HTML/JS/backend structure. The app is now a monorepo:
   - `apps/web`: Vue + TypeScript + Vite frontend.
   - `apps/api`: Express + TypeScript + Prisma backend.
@@ -87,7 +87,7 @@ npm run build:api
 
 - Frontend uses Vue components, composables, feature folders, and shared UI classes.
 - Backend uses thin routes/controllers and service modules.
-- Prisma/PostgreSQL stores users, sessions, chats, usage, settings, and foundations for projects/memory.
+- Prisma/PostgreSQL stores users, sessions, chats, usage, settings, projects, and manual memory.
 - Auth foundation exists with password auth, httpOnly cookies, sessions, guest mode, and chat adoption on login/register.
 - `My Usage` is personal only. Do not expose global usage until admin roles exist.
 - Settings page/API exists for language, theme, and default model.
@@ -102,6 +102,9 @@ npm run build:api
 - Existing chats can also be added or moved into a project from the project detail Add Chats modal with search and multi-select.
 - Project-linked chats show a chat topbar breadcrumb instead of a visible "no project" selector.
 - Sidebar project navigation opens the project management page; the sidebar does not filter chats by project.
+- Manual account memory exists for signed-in users through `GET/POST/PUT/DELETE /api/memories` and the Settings page.
+- Manual project memory exists through `/api/projects/:projectId/memories` and the Project detail page, with owner-only project checks.
+- Memory v1 stores user-provided notes and injects compact manual memory into signed-in chat prompts. Normal chats use account memory; project chats use owned project memory before account memory. Guest chats do not load memory.
 - Gemini provider adapter and model catalog live behind provider/model routing abstractions.
 - Attachments support images and text/data files. Large file/PDF/provider Files API is future work.
 
@@ -119,6 +122,7 @@ Complete enough:
 - Projects management page with modal create/edit/delete flow, project detail view, project-scoped chat creation, and multi-select Add Chats workflow.
 - Project assignment controls for chats.
 - Context-menu project assignment/removal for existing chats.
+- Manual account/project memory CRUD and signed-in prompt retrieval with isolated scopes.
 - Sidebar Projects navigation.
 - Gemini model strategy, routing, and fallback.
 - Inline image/text/data attachments.
@@ -129,7 +133,7 @@ Still unfinished:
 - Google OAuth.
 - Real forgot-password email delivery.
 - Project member authorization.
-- Memory UI/API and embeddings.
+- Project docs/files retrieval, embeddings, AI extraction, chat summaries, and smart memory import/export.
 - Admin usage dashboard.
 - Plans/entitlements and billing.
 - PDF/video/large file support.
@@ -157,8 +161,8 @@ Pick one track before coding:
    - Admin role model before admin usage dashboards.
 
 5. Long-term intelligence:
-   - User/project memory with embeddings. Keep account memory and project memory as separate retrieval scopes.
-   - Retrieval, isolation tests, and manual memory controls.
+   - Add project docs/files into the project retrieval layer.
+   - Add embeddings, AI-extracted memory proposals, chat summaries, and smart memory import/export after retrieval isolation stays covered by tests.
 
 ## Styling And Frontend Rules
 

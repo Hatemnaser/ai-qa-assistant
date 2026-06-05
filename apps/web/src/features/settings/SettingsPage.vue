@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
+import MemoryPanel from "../memory/components/MemoryPanel.vue";
+import {
+  createAccountMemory,
+  deleteAccountMemory,
+  fetchAccountMemories,
+  updateAccountMemory,
+} from "../memory/memoryApi";
+import type { Memory } from "../memory/types";
 import { fetchUserSettings, updateUserSettings } from "./settingsApi";
 import type { UserSettings, UserThemePreference } from "./types";
 import type { AuthUser } from "../auth/types";
@@ -23,9 +31,13 @@ const form = reactive({
   theme: "light" as UserThemePreference,
 });
 const errorMessage = ref("");
+const memoryErrorMessage = ref("");
 const successMessage = ref("");
 const isLoading = ref(false);
+const isLoadingMemory = ref(false);
 const isSaving = ref(false);
+const isSavingMemory = ref(false);
+const accountMemories = ref<Memory[]>([]);
 const savedSettings = ref<UserSettings | null>(null);
 
 const canSave = computed(() =>
@@ -42,11 +54,15 @@ const updatedAtLabel = computed(() => {
 
 onMounted(() => {
   void loadSettings();
+  void loadAccountMemories();
 });
 
 watch(
   () => props.currentUser?.id,
-  () => void loadSettings()
+  () => {
+    void loadSettings();
+    void loadAccountMemories();
+  }
 );
 
 async function loadSettings() {
@@ -66,6 +82,25 @@ async function loadSettings() {
     errorMessage.value = error instanceof Error ? error.message : "Could not load settings.";
   } finally {
     isLoading.value = false;
+  }
+}
+
+async function loadAccountMemories() {
+  memoryErrorMessage.value = "";
+
+  if (!props.currentUser) {
+    accountMemories.value = [];
+    return;
+  }
+
+  isLoadingMemory.value = true;
+
+  try {
+    accountMemories.value = await fetchAccountMemories();
+  } catch (error) {
+    memoryErrorMessage.value = error instanceof Error ? error.message : "Could not load memory.";
+  } finally {
+    isLoadingMemory.value = false;
   }
 }
 
@@ -93,6 +128,55 @@ async function saveSettings() {
     errorMessage.value = error instanceof Error ? error.message : "Could not save settings.";
   } finally {
     isSaving.value = false;
+  }
+}
+
+async function addAccountMemory(content: string) {
+  if (!props.currentUser) {
+    emit("sign-in");
+    return;
+  }
+
+  isSavingMemory.value = true;
+  memoryErrorMessage.value = "";
+
+  try {
+    const memory = await createAccountMemory({ content });
+
+    accountMemories.value = [memory, ...accountMemories.value];
+  } catch (error) {
+    memoryErrorMessage.value = error instanceof Error ? error.message : "Could not save memory.";
+  } finally {
+    isSavingMemory.value = false;
+  }
+}
+
+async function saveAccountMemory(memoryId: string, content: string) {
+  isSavingMemory.value = true;
+  memoryErrorMessage.value = "";
+
+  try {
+    const memory = await updateAccountMemory(memoryId, { content });
+
+    accountMemories.value = accountMemories.value.map((item) => (item.id === memory.id ? memory : item));
+  } catch (error) {
+    memoryErrorMessage.value = error instanceof Error ? error.message : "Could not update memory.";
+  } finally {
+    isSavingMemory.value = false;
+  }
+}
+
+async function removeAccountMemory(memoryId: string) {
+  isSavingMemory.value = true;
+  memoryErrorMessage.value = "";
+
+  try {
+    await deleteAccountMemory(memoryId);
+    accountMemories.value = accountMemories.value.filter((memory) => memory.id !== memoryId);
+  } catch (error) {
+    memoryErrorMessage.value = error instanceof Error ? error.message : "Could not delete memory.";
+  } finally {
+    isSavingMemory.value = false;
   }
 }
 
@@ -175,5 +259,18 @@ function applySettingsToForm(settings: UserSettings) {
         </div>
       </form>
     </section>
+
+    <MemoryPanel
+      v-if="currentUser"
+      :empty-message="'No account memory yet.'"
+      :error-message="memoryErrorMessage"
+      :is-loading="isLoadingMemory"
+      :is-saving="isSavingMemory"
+      :memories="accountMemories"
+      title="Account memory"
+      @create="addAccountMemory"
+      @delete="removeAccountMemory"
+      @update="saveAccountMemory"
+    />
   </section>
 </template>

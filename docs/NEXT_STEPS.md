@@ -2,7 +2,7 @@
 
 This file is the working roadmap for what is done, what is still foundation work, and what should come next. Use it as the reference when asking "what is next?" or "what still needs cleanup?"
 
-Last reviewed: 2026-06-05
+Last reviewed: 2026-06-06
 
 For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 
@@ -40,6 +40,9 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [x] Existing chat assignment/move from the chat context menu after the first project exists.
 - [x] Project-linked chat breadcrumb in the chat topbar.
 - [x] Sidebar Projects navigation for opening the project management page.
+- [x] Manual account memory API and UI for signed-in users.
+- [x] Manual project memory API and UI with owner-only project checks.
+- [x] Manual memory retrieval is injected into signed-in chat prompts with account/project scope isolation.
 - [x] Chat persistence for signed-in users, including optional project links with ownership checks.
 - [x] Guest chats can be adopted into the signed-in user scope during login/register.
 - [x] Chat ownership checks prevent another user from updating/deleting a chat they do not own.
@@ -58,7 +61,7 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [ ] Forgot password only returns a safe generic response. It does not send reset emails yet.
 - [x] Settings page/API is implemented for language, theme, and default model.
 - [x] Project assignment controls are implemented for signed-in chat workspaces.
-- [ ] Memory and project memory are schema-level foundations only.
+- [ ] Memory v1 is manual CRUD plus prompt retrieval only. Embeddings, AI extraction, chat summaries, project docs, and smart import/export are not implemented yet.
 - [ ] Admin usage dashboard does not exist. Current `My Usage` is personal only.
 - [ ] Credits are configured through environment variables, not plans/entitlements from the database.
 - [ ] Billing/subscriptions are not implemented.
@@ -145,12 +148,19 @@ These should happen before large new product features.
 
 ### Phase 4: Memory
 
-- [ ] Add user memory service/API.
-- [ ] Add project memory service/API.
-- [ ] Keep account memory and project memory as separate retrieval scopes.
-- [ ] Decide what memory is manually saved versus AI-extracted.
-- [ ] Add memory controls in UI.
-- [ ] Add tests for memory isolation by user/project.
+- [x] Add user memory service/API.
+- [x] Add project memory service/API.
+- [x] Keep account memory and project memory as separate retrieval scopes.
+- [x] Decide what memory is manually saved versus AI-extracted.
+  - V1 is manual `USER_PROVIDED` memory only. AI-extracted memory stays future work.
+- [x] Add memory controls in UI.
+- [x] Add tests for memory isolation by user/project.
+- [x] Inject memory into chat prompts with retrieval order: current chat, then project memory when a project is active, then account memory.
+- [ ] Add embeddings/vector retrieval for semantic memory.
+- [ ] Add project docs/files to the project retrieval layer.
+- [ ] Add AI-extracted memory proposals with explicit user review.
+- [ ] Add chat summaries as a separate memory source.
+- [ ] Add smart memory import/export.
 
 ### Phase 5: Credits, Plans, And Admin
 
@@ -264,9 +274,9 @@ This section is based on the model screenshots shared in the chat. Availability 
 - Do not add large SCSS blocks for each new page if a shared UI component or Bootstrap utility can handle it.
 - Do not add new providers directly inside chat service. Add providers through the adapter/registry pattern.
 - Do not add billing before plan/credit rules are stable.
-- Do not add projects/memory UI without authorization tests.
+- Do not add projects/memory UI or retrieval behavior without authorization/isolation tests.
 - Treat Projects as workspace containers and Recent Chats as a shortcut list. If full chat browsing is needed, build it as Search/Chat History rather than a Recent Chats page.
-- Future retrieval order should be current chat first, then project memory/docs when a project is active, then account memory.
+- Memory retrieval order is current chat first, then project memory when a project is active, then account memory. Future project docs should join the project retrieval layer before account memory.
 
 ## Next-Step Decision Guide
 
@@ -283,4 +293,4 @@ When asking "what is next?", choose the first unfinished item that matches the c
 5. If the goal is AI quality:
    - Expand AI behavior evals and tune workflow routing.
 6. If the goal is long-term intelligence:
-   - Build memory with embeddings, keeping project memory and account memory isolated.
+   - Extend project retrieval with docs/files, then add embeddings and AI-extracted memory after isolation remains covered by tests.
