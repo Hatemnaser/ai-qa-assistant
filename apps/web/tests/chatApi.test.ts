@@ -83,6 +83,50 @@ describe("chat api", () => {
     });
   });
 
+  it("sends project id through the chat request contract", async () => {
+    mockFetch(async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+
+      assert.equal(body.projectId, "project-1");
+
+      return jsonResponse({
+        reply: "ok",
+        mode: "general",
+        model: "gemini-2.5-flash",
+      });
+    });
+
+    await sendMessageToAI({
+      history: [],
+      message: "hello",
+      mode: "general",
+      model: "gemini-2.5-flash",
+      projectId: "project-1",
+    });
+  });
+
+  it("omits empty project ids from the chat request contract", async () => {
+    mockFetch(async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+
+      assert.equal("projectId" in body, false);
+
+      return jsonResponse({
+        reply: "ok",
+        mode: "general",
+        model: "gemini-2.5-flash",
+      });
+    });
+
+    await sendMessageToAI({
+      history: [],
+      message: "hello",
+      mode: "general",
+      model: "gemini-2.5-flash",
+      projectId: null,
+    });
+  });
+
   it("surfaces structured backend errors", async () => {
     mockFetch(async (input, init) => {
       assert.equal(input, "/api/chat");

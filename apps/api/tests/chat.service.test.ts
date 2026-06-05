@@ -384,6 +384,162 @@ describe("chat service", () => {
     assert.deepEqual(calls, ["usage", "ai"]);
   });
 
+  it("passes signed-in account memory to the AI provider", async () => {
+    const service = createChatService({
+      chatWithAi: async (input) => {
+        assert.deepEqual(input.memoryContext, {
+          account: ["Prefer concise QA steps."],
+          project: [],
+        });
+
+        return {
+          reply: "Hi from test AI",
+          model: "gemini-3.1-flash-lite",
+          provider: "gemini",
+        };
+      },
+      loadMemoryContext: async (input) => {
+        assert.deepEqual(input, {
+          projectId: null,
+          userId: "user-1",
+        });
+
+        return {
+          account: ["Prefer concise QA steps."],
+          project: [],
+        };
+      },
+    });
+
+    await service.createChatReply(
+      {
+        history: [],
+        message: "hello",
+        mode: "general",
+        model: "gemini-2.5-flash",
+      },
+      {
+        userId: "user-1",
+      }
+    );
+  });
+
+  it("passes project and account memory to the AI provider for project chats", async () => {
+    const service = createChatService({
+      chatWithAi: async (input) => {
+        assert.deepEqual(input.memoryContext, {
+          account: ["Prefer concise QA steps."],
+          project: ["Checkout supports PayPal."],
+        });
+
+        return {
+          reply: "Hi from test AI",
+          model: "gemini-3.1-flash-lite",
+          provider: "gemini",
+        };
+      },
+      loadMemoryContext: async (input) => {
+        assert.deepEqual(input, {
+          projectId: "project-1",
+          userId: "user-1",
+        });
+
+        return {
+          account: ["Prefer concise QA steps."],
+          project: ["Checkout supports PayPal."],
+        };
+      },
+    });
+
+    await service.createChatReply(
+      {
+        history: [],
+        message: "hello",
+        mode: "general",
+        model: "gemini-2.5-flash",
+        projectId: "project-1",
+      },
+      {
+        userId: "user-1",
+      }
+    );
+  });
+
+  it("does not load memory for guest chats", async () => {
+    let memoryWasLoaded = false;
+    const service = createChatService({
+      chatWithAi: async (input) => {
+        assert.equal(input.memoryContext, undefined);
+
+        return {
+          reply: "Hi from test AI",
+          model: "gemini-3.1-flash-lite",
+          provider: "gemini",
+        };
+      },
+      loadMemoryContext: async () => {
+        memoryWasLoaded = true;
+      },
+    });
+
+    await service.createChatReply(
+      {
+        history: [],
+        message: "hello",
+        mode: "general",
+        model: "gemini-2.5-flash",
+        projectId: "project-1",
+      },
+      {
+        guestId: "guest-1",
+      }
+    );
+
+    assert.equal(memoryWasLoaded, false);
+  });
+
+  it("rejects inaccessible project memory before reserving usage", async () => {
+    const calls: string[] = [];
+    const service = createChatService({
+      chatWithAi: async () => {
+        calls.push("ai");
+        return {
+          reply: "should not happen",
+          model: "gemini-3.1-flash-lite",
+          provider: "gemini",
+        };
+      },
+      loadMemoryContext: async () => {
+        calls.push("memory");
+        throw new AppError("Project was not found.", 404, "PROJECT_NOT_FOUND");
+      },
+      reserveUsage: async () => {
+        calls.push("usage");
+      },
+    });
+
+    await assert.rejects(
+      () =>
+        service.createChatReply(
+          {
+            history: [],
+            message: "hello",
+            mode: "general",
+            model: "gemini-2.5-flash",
+            projectId: "project-1",
+          },
+          {
+            userId: "user-1",
+          }
+        ),
+      {
+        code: "PROJECT_NOT_FOUND",
+        statusCode: 404,
+      }
+    );
+    assert.deepEqual(calls, ["memory"]);
+  });
+
   it("uses the workflow router for ambiguous selected-mode follow-ups", async () => {
     const service = createChatService({
       chatWithAi: async (input) => {

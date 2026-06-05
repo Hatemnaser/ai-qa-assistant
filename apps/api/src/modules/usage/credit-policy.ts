@@ -1,11 +1,12 @@
 import { env } from "../../config/env.js";
-import type { AiHistoryMessage, AiModelRouting, AiTextAttachment } from "../ai/ai.types.js";
+import type { AiHistoryMessage, AiMemoryContext, AiModelRouting, AiTextAttachment } from "../ai/ai.types.js";
 import type { QaWorkflowAnalysis } from "../ai/qa-workflow.js";
 
 export interface ChatCreditEstimateInput {
   attachments: AiTextAttachment[];
   history: AiHistoryMessage[];
   imageCount: number;
+  memoryContext?: AiMemoryContext;
   message: string;
   mode: string;
   model: string;
@@ -43,10 +44,11 @@ export function estimateChatCredits(input: ChatCreditEstimateInput): ChatCreditE
   const messageTokens = estimateTextTokens(input.message);
   const historyTokens = estimateTextTokens(input.history.map((item) => item.content).join("\n"));
   const attachmentTokens = estimateTextTokens(input.attachments.map((attachment) => attachment.content).join("\n"));
+  const memoryTokens = estimateMemoryTokens(input.memoryContext);
   const imageTokens = input.imageCount * 700;
   const usesWorkflowRouter = Boolean(input.usesWorkflowRouter || input.workflow.source === "ai_router");
   const routerTokens = usesWorkflowRouter ? 250 : 0;
-  const estimatedPromptTokens = messageTokens + historyTokens + attachmentTokens + imageTokens + routerTokens;
+  const estimatedPromptTokens = messageTokens + historyTokens + attachmentTokens + memoryTokens + imageTokens + routerTokens;
   const estimatedOutputTokens = estimateOutputTokens(input.mode, input.workflow.intent);
   const estimatedTotalTokens = estimatedPromptTokens + estimatedOutputTokens;
   const attachmentCredits =
@@ -99,6 +101,12 @@ function estimateOutputTokens(mode: string, intent: string) {
   if (mode === "test_cases" || intent === "test_cases") return 1100;
 
   return 700;
+}
+
+function estimateMemoryTokens(memoryContext?: AiMemoryContext) {
+  if (!memoryContext) return 0;
+
+  return estimateTextTokens([...memoryContext.project, ...memoryContext.account].join("\n"));
 }
 
 function sumKnownTokens(inputTokens?: number, outputTokens?: number) {

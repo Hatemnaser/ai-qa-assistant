@@ -65,6 +65,7 @@ export const chatRequestSchema = z.object({
   mode: z.string().default("general"),
   model: z.string().trim().optional(),
   provider: z.string().trim().optional(),
+  projectId: z.preprocess(normalizeOptionalString, z.string().min(1).max(191).optional()),
   history: z.array(chatHistoryMessageSchema).max(env.maxHistoryMessages).default([]),
   attachments: z.preprocess(
     (value) => (value === null ? undefined : value),
@@ -78,3 +79,12 @@ export const chatRequestSchema = z.object({
   ),
   image: z.preprocess((value) => (value === null ? undefined : value), chatImageSchema.optional()),
 });
+
+function normalizeOptionalString(value: unknown) {
+  if (value === null) return undefined;
+  if (typeof value !== "string") return value;
+
+  const trimmed = value.trim();
+
+  return trimmed || undefined;
+}

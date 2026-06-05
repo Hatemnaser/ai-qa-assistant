@@ -69,6 +69,7 @@ Small modules can start with fewer files, but should not put business logic dire
 - `ai`: provider registry, provider adapters, model catalog, QA workflow intent analysis, prompt building, model normalization, AI error mapping.
 - `chat`: chat API contract and orchestration.
 - `projects`: signed-in project CRUD, owner-only authorization, and owner membership foundation records.
+- `memory`: signed-in manual account memory and project memory CRUD with owner-only project checks. V1 stores user-provided notes and injects them into signed-in chat prompts through isolated retrieval scopes.
 - `usage`: portfolio/demo credit limits, credit reservations before AI provider calls, completed token usage updates, and personal usage summaries.
 
 ## Active Frontend Routes
@@ -86,7 +87,7 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 ## Later Backend Work
 
 - `projects`: member authorization.
-- `memory`: account memory, project memory, chat summaries, and later vector search. Account memory and project memory should remain separate retrieval scopes.
+- `memory`: project docs/files, chat summaries, AI-extracted memory proposals, and embeddings/vector search. Account memory and project memory should remain separate retrieval scopes.
 
 ## Active API Routes
 
@@ -97,23 +98,33 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 - `GET /api/auth/me`: read the current user from the session cookie.
 - `POST /api/auth/logout`: delete the current session when present and clear the cookie.
 - `GET /api/ai/models`: expose the active provider/model catalog for the frontend model selector.
-- `POST /api/chat`: generate a QA assistant reply.
+- `POST /api/chat`: generate a QA assistant reply. Signed-in requests may include `projectId` so the backend can retrieve owned project memory before account memory.
 - `GET /api/chats`: list saved signed-in user chats, including optional `projectId`.
 - `PUT /api/chats/:chatId`: save a signed-in user chat and validate any `projectId` belongs to that user.
 - `DELETE /api/chats/:chatId`: delete a signed-in user chat.
 - `GET /api/settings`: return the signed-in user's preferences.
 - `PUT /api/settings`: update language, theme, and default model for the signed-in user.
+- `GET /api/memories`: list the signed-in user's manual account memory notes.
+- `POST /api/memories`: create a manual account memory note.
+- `PUT /api/memories/:memoryId`: update a manual account memory note owned by the signed-in user.
+- `DELETE /api/memories/:memoryId`: delete a manual account memory note owned by the signed-in user.
 - `GET /api/projects`: list projects owned by the signed-in user.
 - `POST /api/projects`: create a signed-in user's project.
 - `PUT /api/projects/:projectId`: update a project owned by the signed-in user.
 - `DELETE /api/projects/:projectId`: delete a project owned by the signed-in user.
+- `GET /api/projects/:projectId/memories`: list manual memory notes for an owned project.
+- `POST /api/projects/:projectId/memories`: create a manual memory note for an owned project.
+- `PUT /api/projects/:projectId/memories/:memoryId`: update a manual memory note for an owned project.
+- `DELETE /api/projects/:projectId/memories/:memoryId`: delete a manual memory note for an owned project.
 - `GET /api/usage/summary`: return current identity usage only. Guests see their guest/IP-hash scoped usage; signed-in users see their own `userId` scoped usage.
 
 `POST /api/chat` allows anonymous portfolio usage. Guests receive an httpOnly `qa_guest_id` cookie and are limited separately from signed-in users. The API also hashes the request IP as a fallback abuse guard. Usage credits are reserved before calling Gemini so the API key is protected from unbounded demo traffic. Successful chat responses update the reserved usage with provider token metadata when available and include a public `usage` summary with `used`, `remaining`, and `limit`.
 
 Signed-in chat persistence can store an optional `projectId`. The chat history service validates that linked projects are owned by the current user before saving, so a user cannot attach a chat to another user's project. Existing chats can be assigned or moved to projects through the chat context menu once the account has at least one project. Project-linked chats show a topbar breadcrumb with the project and chat title; ordinary chats do not show a project state. The Projects page lists owned projects with search/sort controls and app-modal create/edit/delete flows. Opening a project shows its project chat list, a search/multi-select Add Chats modal for moving existing chats into the project, and the main chat composer; submitting there prepares a new chat linked to that project and opens the normal chat workspace. If a signed-in user opens Projects with no projects yet, the create-project modal opens and the page also shows a no-projects empty state. The sidebar moves project navigation into a collapsible scroll-area section once projects exist, above a collapsible Recent Chats section. The Projects section includes New Project and All Projects rows before the project folders; project rows expand to show chats linked to that project. Recent Chats shows chats without a project and remains a shortcut list, not a separate managed entity. Deleting a project leaves existing chats with `projectId` set to null through the database relation and the frontend clears stale local project assignments after project reloads.
 
-Projects are workspace containers. They can later own project memory, imported files, and retrieval-ready reference material. Recent Chats should not grow into a parallel management surface. If full chat browsing is needed later, the Search entry should become a Search/Chat History experience with filters for all chats, project chats, and non-project chats. For retrieval, the intended priority is current chat context first, project memory/docs when a project is active, then account memory.
+Projects are workspace containers. They own project memory now and can later own imported files and retrieval-ready reference material. Recent Chats should not grow into a parallel management surface. If full chat browsing is needed later, the Search entry should become a Search/Chat History experience with filters for all chats, project chats, and non-project chats. For retrieval, the intended priority is current chat context first, project memory/docs when a project is active, then account memory.
+
+Signed-in account memory is stored in `Memory` with `scope: USER`, `source: USER_PROVIDED`, and the current `userId`. Project memory is stored with `scope: PROJECT`, `source: USER_PROVIDED`, and a `projectId` after confirming that the signed-in user owns the project. This keeps account memory and project memory separate for retrieval. Memory retrieval v1 injects compact manual notes into chat prompts only for signed-in users. Normal chats use current chat context, then account memory. Project chats use current chat context, latest attached file context when present, project memory, then account memory. Guest chats do not load memory. Memory v1 is not embedded, summarized, AI-extracted, or smart-imported/exported yet.
 
 ## AI Workflow Layer
 

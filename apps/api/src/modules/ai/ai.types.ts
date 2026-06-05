@@ -22,6 +22,11 @@ export interface AiTextAttachment {
   content: string;
 }
 
+export interface AiMemoryContext {
+  account: string[];
+  project: string[];
+}
+
 export interface AiChatInput {
   message: string;
   mode: string;
@@ -31,6 +36,7 @@ export interface AiChatInput {
   attachments?: AiTextAttachment[];
   image?: AiImage;
   images?: AiImage[];
+  memoryContext?: AiMemoryContext;
   workflow?: QaWorkflowAnalysis;
 }
 

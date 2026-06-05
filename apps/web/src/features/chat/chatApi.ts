@@ -16,6 +16,7 @@ export async function sendMessageToAI(input: {
   mode: string;
   model: string;
   provider?: string;
+  projectId?: string | null;
   history: ChatHistoryItem[];
   attachments?: RequestAttachment[] | null;
 }): Promise<ChatApiResponse> {
@@ -27,6 +28,7 @@ export async function sendMessageToAI(input: {
     mode: input.mode,
     model: input.model,
     ...(input.provider ? { provider: input.provider } : {}),
+    ...(input.projectId ? { projectId: input.projectId } : {}),
     ...(input.attachments?.length ? { attachments: input.attachments } : {}),
   };
 

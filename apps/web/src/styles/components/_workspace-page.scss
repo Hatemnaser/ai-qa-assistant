@@ -331,6 +331,81 @@
   font-size: var(--font-size-sm);
 }
 
+.memory-panel {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.memory-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.memory-panel__form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.memory-panel__form textarea,
+.memory-item textarea {
+  min-height: 86px;
+  resize: vertical;
+}
+
+.memory-panel__form .btn {
+  justify-self: end;
+}
+
+.memory-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.memory-item {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.memory-item p {
+  margin: 0;
+  color: var(--text-main);
+  line-height: var(--line-height-readable);
+  white-space: pre-wrap;
+}
+
+.memory-item__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.memory-item__meta small {
+  color: var(--text-subtle);
+  font-size: var(--font-size-xs);
+}
+
+.memory-item__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.memory-item__delete {
+  color: var(--status-danger-text);
+}
+
+.memory-item__delete:hover,
+.memory-item__delete:focus-visible {
+  color: var(--status-danger);
+}
+
 .project-form-dialog {
   max-width: 520px;
 }
@@ -475,6 +550,11 @@
   .project-detail__header,
   .project-detail__actions {
     flex-wrap: wrap;
+  }
+
+  .memory-item__meta {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .settings-field + .settings-field {

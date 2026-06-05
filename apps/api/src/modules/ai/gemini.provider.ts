@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 
 import { env } from "../../config/env.js";
 import { AppError } from "../../lib/errors.js";
-import type { AiChatInput, AiChatResponse, AiHistoryMessage, AiProviderAdapter } from "./ai.types.js";
+import type { AiChatInput, AiChatResponse, AiProviderAdapter } from "./ai.types.js";
 import { normalizeGeminiError } from "./gemini.errors.js";
 import {
   GEMINI_DEFAULT_MODEL,
@@ -10,7 +10,7 @@ import {
   GEMINI_PROVIDER_ID,
   normalizeGeminiModel,
 } from "./gemini.models.js";
-import { buildPrompt } from "./prompt-templates.js";
+import { buildAiPromptWithContext, getInputImages } from "./prompt-context.js";
 
 export async function chatWithGemini(input: AiChatInput): Promise<AiChatResponse> {
   if (!env.geminiApiKey) {
@@ -26,20 +26,7 @@ export async function chatWithGemini(input: AiChatInput): Promise<AiChatResponse
     apiKey: env.geminiApiKey,
   });
   const images = getInputImages(input);
-  const textAttachments = getTextAttachments(input);
-
-  const prompt = addHistoryContext(
-    addAttachmentContext(
-      buildPrompt(input.mode, input.message, {
-        analysis: input.workflow,
-        hasImage: images.length > 0,
-        hasTextAttachment: textAttachments.length > 0,
-        history: input.history,
-      }),
-      textAttachments
-    ),
-    input.history
-  );
+  const prompt = buildAiPromptWithContext(input);
   const contents =
     images.length > 0
       ? [
@@ -94,56 +81,6 @@ export const geminiProvider = {
   label: "Gemini",
   models: GEMINI_MODELS,
 } satisfies AiProviderAdapter;
-
-function addHistoryContext(prompt: string, history: AiHistoryMessage[]) {
-  const textHistory = Array.isArray(history)
-    ? history
-        .filter((item) => item && typeof item.content === "string" && item.content.trim())
-        .slice(-8)
-    : [];
-
-  if (textHistory.length === 0) return prompt;
-
-  const context = textHistory
-    .map((item) => `${item.role === "assistant" ? "Assistant" : "User"}: ${item.content}`)
-    .join("\n");
-
-  return `Recent conversation context:\n${context}\n\n${prompt}`;
-}
-
-function getInputImages(input: AiChatInput) {
-  const images = input.images?.length ? input.images : input.image ? [input.image] : [];
-
-  return images.filter((image) => image.data && image.mimeType);
-}
-
-function getTextAttachments(input: AiChatInput) {
-  return (input.attachments || []).filter((attachment) => attachment.content.trim());
-}
-
-function addAttachmentContext(prompt: string, attachments: AiChatInput["attachments"] = []) {
-  const textAttachments = attachments;
-
-  if (textAttachments.length === 0) return prompt;
-
-  const attachmentContext = textAttachments.map(formatTextAttachment).join("\n\n");
-
-  return `Attached file context:
-${attachmentContext}
-
-Use the attached file content as context for the latest user request. If the user only uploaded the file without a specific task, briefly summarize what the file appears to contain and ask which QA workflow they want next.
-
-${prompt}`;
-}
-
-function formatTextAttachment(attachment: NonNullable<AiChatInput["attachments"]>[number]) {
-  return `File: ${attachment.name || "attachment"}
-MIME type: ${attachment.mimeType}
-Content:
-<<<ATTACHMENT_CONTENT
-${attachment.content}
-ATTACHMENT_CONTENT`;
-}
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   let timeout: ReturnType<typeof setTimeout>;

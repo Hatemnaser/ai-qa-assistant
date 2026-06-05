@@ -80,6 +80,7 @@ export function useChatSubmit({
         message,
         mode,
         model,
+        projectId: chat.projectId,
       });
 
       updateChat({
