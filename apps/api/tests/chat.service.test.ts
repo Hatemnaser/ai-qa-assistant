@@ -389,7 +389,7 @@ describe("chat service", () => {
       chatWithAi: async (input) => {
         assert.deepEqual(input.memoryContext, {
           account: ["Prefer concise QA steps."],
-          project: [],
+          projectInstruction: "",
         });
 
         return {
@@ -406,7 +406,7 @@ describe("chat service", () => {
 
         return {
           account: ["Prefer concise QA steps."],
-          project: [],
+          projectInstruction: "",
         };
       },
     });
@@ -424,12 +424,12 @@ describe("chat service", () => {
     );
   });
 
-  it("passes project and account memory to the AI provider for project chats", async () => {
+  it("passes project instructions and account memory to the AI provider for project chats", async () => {
     const service = createChatService({
       chatWithAi: async (input) => {
         assert.deepEqual(input.memoryContext, {
           account: ["Prefer concise QA steps."],
-          project: ["Checkout supports PayPal."],
+          projectInstruction: "Checkout supports PayPal.",
         });
 
         return {
@@ -446,7 +446,7 @@ describe("chat service", () => {
 
         return {
           account: ["Prefer concise QA steps."],
-          project: ["Checkout supports PayPal."],
+          projectInstruction: "Checkout supports PayPal.",
         };
       },
     });
@@ -498,7 +498,7 @@ describe("chat service", () => {
     assert.equal(memoryWasLoaded, false);
   });
 
-  it("rejects inaccessible project memory before reserving usage", async () => {
+  it("rejects inaccessible project context before reserving usage", async () => {
     const calls: string[] = [];
     const service = createChatService({
       chatWithAi: async () => {

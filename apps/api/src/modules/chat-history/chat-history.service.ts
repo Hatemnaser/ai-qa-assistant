@@ -6,14 +6,23 @@ import {
   type StoredChatRecord,
   type StoredMessageRecord,
 } from "./chat-history.repository.js";
+import {
+  projectAccessService,
+  type ProjectAccessService,
+} from "../projects/project-access.service.js";
 import type { StoredChatDto, StoredChatInput, StoredChatMessageDto } from "./chat-history.types.js";
 
 export interface ChatHistoryServiceDependencies {
   now?: () => Date;
+  projectAccess: ProjectAccessService;
   repository: ChatHistoryRepository;
 }
 
-export function createChatHistoryService({ now = () => new Date(), repository }: ChatHistoryServiceDependencies) {
+export function createChatHistoryService({
+  now = () => new Date(),
+  projectAccess,
+  repository,
+}: ChatHistoryServiceDependencies) {
   async function listUserChats(userId: string): Promise<StoredChatDto[]> {
     const chats = await repository.listUserChats(userId);
 
@@ -29,11 +38,7 @@ export function createChatHistoryService({ now = () => new Date(), repository }:
     }
 
     if (projectId) {
-      const project = await repository.findProjectOwner(projectId);
-
-      if (!project || project.ownerId !== userId) {
-        throw new AppError("Project was not found.", 404, "PROJECT_NOT_FOUND");
-      }
+      await projectAccess.assertProjectAccess(userId, projectId);
     }
 
     const fallbackDate = now();
@@ -150,5 +155,6 @@ function toDate(value: string | undefined, fallback: Date) {
 }
 
 export const chatHistoryService = createChatHistoryService({
+  projectAccess: projectAccessService,
   repository: chatHistoryRepository,
 });

@@ -150,6 +150,9 @@
   --surface-attachment-hover: var(--surface-floating-hover);
   --surface-code: var(--color-neutral-200);
   --surface-table-header: var(--color-neutral-200);
+  --code-preview-surface: #11100f;
+  --code-preview-gutter-surface: #181714;
+  --code-preview-border: #302e2a;
 
   --text-main: #1f2933;
   --text-muted: #667085;
@@ -165,6 +168,15 @@
   --text-on-row-active: var(--text-main);
   --text-on-attachment: var(--text-main);
   --text-code: var(--color-neutral-700);
+  --code-preview-text: #f3f0ea;
+  --code-preview-gutter-text: #777168;
+  --code-syntax-comment: #8d9388;
+  --code-syntax-keyword: #ff7b72;
+  --code-syntax-string: #a5d6ff;
+  --code-syntax-number: #d2a8ff;
+  --code-syntax-title: #d2a8ff;
+  --code-syntax-variable: #ffa657;
+  --code-syntax-meta: #79c0ff;
 
   --border: var(--color-neutral-400);
   --border-subtle: var(--color-neutral-300);

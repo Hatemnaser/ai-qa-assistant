@@ -8,9 +8,10 @@ AI QA Assistant is a QA-focused chat workspace for test cases, bug reports, edge
 - Supports guest demo usage with backend credit limits before AI calls.
 - Supports password accounts with httpOnly session cookies.
 - Persists signed-in user chats in PostgreSQL with ownership checks.
-- Links signed-in chats to owned projects through the persistence API.
-- Provides a signed-in project CRUD API foundation with owner-only authorization.
-- Provides a signed-in projects page for listing, creating, editing, and deleting projects.
+- Links signed-in chats to owned projects through the persistence API and project access boundary.
+- Provides signed-in project management with project-scoped chats, instructions, and documents.
+- Injects isolated Account Memory, Project Instructions, and Project Documents into AI prompts.
+- Imports and safely previews supported text, data, and code files as project knowledge.
 - Accepts inline image and text/data attachments for QA context.
 - Tracks credits by model, workflow, attachment count, and provider token metadata when available.
 - Routes AI workflows and model selection through backend services instead of hardcoded frontend prompts.
@@ -31,13 +32,15 @@ Vue app
   -> /api/auth       cookie-backed password sessions
   -> /api/chat       chat orchestration, usage guard, workflow routing
   -> /api/chats      signed-in user chat persistence and project links
-  -> /api/projects   signed-in project CRUD foundation
+  -> /api/projects   projects, instructions, and project documents
+  -> /api/memories   signed-in account memory
   -> /api/ai/models  active provider model catalog
   -> /api/settings   signed-in user preferences
   -> /api/usage      current identity usage summary
 
 Express API
-  -> Prisma/PostgreSQL for users, sessions, chats, messages, usage events
+  -> Prisma/PostgreSQL for users, sessions, chats, projects, knowledge, and usage
+  -> shared project access boundary for project-owned resources
   -> AI provider registry for Gemini today and future providers later
   -> model router + fallback for general, visual, and fallback model choices
   -> workflow router for multilingual and ambiguous QA intent detection
@@ -151,18 +154,19 @@ Before sharing or deploying the app, use [docs/PRODUCTION_READINESS.md](docs/PRO
 
 Current expected local verification:
 
-- API tests: 130 passing
-- Web tests: 45 passing
+- API tests: 169 passing
+- Web tests: 81 passing
 - API and web TypeScript checks passing
 
 ## Current Gaps
 
 - Google OAuth is not wired yet; the UI button is disabled intentionally.
 - Forgot password returns a safe generic response, but reset emails are not implemented yet.
-- Project switcher, chat project assignment UI, memory, admin usage, billing, and provider file uploads are roadmap items.
+- Project member authorization, document chunking/embeddings, AI-extracted memory, and smart import/export are future work.
+- Admin usage, plans/billing, PDF/video, and provider file uploads are roadmap items.
 
 ## Styling
 
 Edit SCSS under `apps/web/src/styles/`. Vite compiles it directly from `apps/web/src/main.ts`, so there is no separate root CSS build step.
 
-Prefer Bootstrap utilities for generic spacing, display, and controls. Keep custom SCSS for product-specific surfaces like the sidebar, chat bubbles, composer, markdown output, modals, and themes.
+Prefer Bootstrap utilities for generic spacing, display, and controls. Keep custom SCSS for product-specific surfaces like the sidebar, chat bubbles, composer, Project Knowledge, markdown output, modals, and themes.

@@ -9,6 +9,7 @@ import type {
   StoredMessageRecord,
 } from "../src/modules/chat-history/chat-history.repository.ts";
 import type { StoredChatInput } from "../src/modules/chat-history/chat-history.types.ts";
+import { createFakeProjectAccess } from "./helpers/projectAccess.ts";
 
 const NOW = new Date("2026-05-21T10:00:00.000Z");
 
@@ -238,9 +239,10 @@ function setupChatHistoryService(
   initialChats: FakeChatRecord[] = [],
   projectOwners = new Map<string, string>()
 ): ChatHistoryServiceTestContext {
-  const repository = createFakeChatHistoryRepository(initialChats, projectOwners);
+  const repository = createFakeChatHistoryRepository(initialChats);
   const service = createChatHistoryService({
     now: () => NOW,
+    projectAccess: createFakeProjectAccess(projectOwners),
     repository,
   });
 
@@ -257,20 +259,15 @@ interface ChatHistoryServiceTestContext {
 
 interface FakeChatHistoryRepository extends ChatHistoryRepository {
   chats: FakeChatRecord[];
-  projectOwners: Map<string, string>;
 }
 
 interface FakeChatRecord extends StoredChatRecord {
   userId: string;
 }
 
-function createFakeChatHistoryRepository(
-  initialChats: FakeChatRecord[] = [],
-  projectOwners = new Map<string, string>()
-): FakeChatHistoryRepository {
+function createFakeChatHistoryRepository(initialChats: FakeChatRecord[] = []): FakeChatHistoryRepository {
   const repository: FakeChatHistoryRepository = {
     chats: [...initialChats],
-    projectOwners,
 
     async deleteUserChat(userId, chatId): Promise<number> {
       const chatIndex = repository.chats.findIndex((chat) => chat.id === chatId && chat.userId === userId);
@@ -286,12 +283,6 @@ function createFakeChatHistoryRepository(
       const chat = repository.chats.find((item) => item.id === chatId);
 
       return chat ? { userId: chat.userId } : null;
-    },
-
-    async findProjectOwner(projectId) {
-      const ownerId = repository.projectOwners.get(projectId);
-
-      return ownerId ? { ownerId } : null;
     },
 
     async listUserChats(userId) {

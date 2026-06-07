@@ -1,14 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
-import MemoryPanel from "../memory/components/MemoryPanel.vue";
-import {
-  createProjectMemory as createProjectMemoryRecord,
-  deleteProjectMemory as deleteProjectMemoryRecord,
-  fetchProjectMemories,
-  updateProjectMemory as updateProjectMemoryRecord,
-} from "../memory/memoryApi";
-import type { Memory } from "../memory/types";
+import ProjectDocumentsPanel from "../project-documents/components/ProjectDocumentsPanel.vue";
+import ProjectInstructionsPanel from "../project-instructions/components/ProjectInstructionsPanel.vue";
 import ChatComposer from "../chat/components/ChatComposer.vue";
 import type { QuickAction } from "../chat/constants";
 import type { Chat, SelectedAttachment } from "../chat/types";
@@ -18,6 +12,7 @@ import ProjectChatList from "./components/ProjectChatList.vue";
 import ProjectDeleteModal from "./components/ProjectDeleteModal.vue";
 import ProjectFormModal from "./components/ProjectFormModal.vue";
 import Icon from "../../ui/Icon.vue";
+import { useProjectKnowledge } from "./composables/useProjectKnowledge";
 import { createProject, deleteProject, fetchProjects, updateProject } from "./projectsApi";
 import type { Project, ProjectInput } from "./types";
 import type { AuthUser } from "../auth/types";
@@ -66,22 +61,34 @@ const projects = ref<Project[]>([]);
 const searchQuery = ref("");
 const sortKey = ref<SortKey>("activity");
 const errorMessage = ref("");
-const memoryErrorMessage = ref("");
 const successMessage = ref("");
 const modalErrorMessage = ref("");
 const isLoading = ref(false);
-const isLoadingMemory = ref(false);
 const isSaving = ref(false);
-const isSavingMemory = ref(false);
 const isDeleting = ref(false);
 const isAddChatsModalOpen = ref(false);
 const isProjectModalOpen = ref(false);
 const hasOpenedEmptyCreateModal = ref(false);
 const activeProjectId = ref<string | null>(null);
 const openProjectMenu = ref<ProjectMenuPosition | null>(null);
-const projectMemories = ref<Memory[]>([]);
 const projectToEdit = ref<Project | null>(null);
 const projectPendingDelete = ref<Project | null>(null);
+const {
+  addProjectDocument,
+  documentErrorMessage,
+  importProjectFiles,
+  instructionErrorMessage,
+  isImportingDocuments,
+  isLoadingDocuments,
+  isLoadingInstruction,
+  isSavingDocument,
+  isSavingInstruction,
+  projectDocuments,
+  projectInstruction,
+  removeProjectDocument,
+  saveProjectDocument,
+  saveProjectInstruction,
+} = useProjectKnowledge(activeProjectId);
 
 const selectedSortLabel = computed(() => {
   if (sortKey.value === "activity") return "Activity";
@@ -148,23 +155,6 @@ watch(
   }
 );
 
-watch(
-  () => activeProject.value?.id || null,
-  (projectId) => {
-    memoryErrorMessage.value = "";
-    projectMemories.value = [];
-
-    if (!projectId) {
-      isLoadingMemory.value = false;
-      return;
-    }
-
-    if (projectId) {
-      void loadProjectMemory(projectId);
-    }
-  }
-);
-
 async function loadProjects() {
   errorMessage.value = "";
   successMessage.value = "";
@@ -223,26 +213,6 @@ function closeActiveProject() {
   emit("active-project-changed", null);
 }
 
-async function loadProjectMemory(projectId: string) {
-  isLoadingMemory.value = true;
-
-  try {
-    const memories = await fetchProjectMemories(projectId);
-
-    if (activeProjectId.value === projectId) {
-      projectMemories.value = memories;
-    }
-  } catch (error) {
-    if (activeProjectId.value === projectId) {
-      memoryErrorMessage.value = error instanceof Error ? error.message : "Could not load memory.";
-    }
-  } finally {
-    if (activeProjectId.value === projectId) {
-      isLoadingMemory.value = false;
-    }
-  }
-}
-
 function openAddChatsModal() {
   closeProjectMenu();
   isAddChatsModalOpen.value = true;
@@ -257,69 +227,6 @@ function addChatsToActiveProject(chatIds: string[]) {
 
   emit("add-chats-to-project", chatIds, activeProject.value.id);
   closeAddChatsModal();
-}
-
-async function addProjectMemory(content: string) {
-  if (!activeProject.value) return;
-
-  const projectId = activeProject.value.id;
-
-  isSavingMemory.value = true;
-  memoryErrorMessage.value = "";
-
-  try {
-    const memory = await createProjectMemoryRecord(projectId, { content });
-
-    if (activeProjectId.value === projectId) {
-      projectMemories.value = [memory, ...projectMemories.value];
-    }
-  } catch (error) {
-    memoryErrorMessage.value = error instanceof Error ? error.message : "Could not save memory.";
-  } finally {
-    isSavingMemory.value = false;
-  }
-}
-
-async function saveProjectMemory(memoryId: string, content: string) {
-  if (!activeProject.value) return;
-
-  const projectId = activeProject.value.id;
-
-  isSavingMemory.value = true;
-  memoryErrorMessage.value = "";
-
-  try {
-    const memory = await updateProjectMemoryRecord(projectId, memoryId, { content });
-
-    if (activeProjectId.value === projectId) {
-      projectMemories.value = projectMemories.value.map((item) => (item.id === memory.id ? memory : item));
-    }
-  } catch (error) {
-    memoryErrorMessage.value = error instanceof Error ? error.message : "Could not update memory.";
-  } finally {
-    isSavingMemory.value = false;
-  }
-}
-
-async function removeProjectMemory(memoryId: string) {
-  if (!activeProject.value) return;
-
-  const projectId = activeProject.value.id;
-
-  isSavingMemory.value = true;
-  memoryErrorMessage.value = "";
-
-  try {
-    await deleteProjectMemoryRecord(projectId, memoryId);
-
-    if (activeProjectId.value === projectId) {
-      projectMemories.value = projectMemories.value.filter((memory) => memory.id !== memoryId);
-    }
-  } catch (error) {
-    memoryErrorMessage.value = error instanceof Error ? error.message : "Could not delete memory.";
-  } finally {
-    isSavingMemory.value = false;
-  }
 }
 
 function openCreateProjectModal() {
@@ -543,37 +450,51 @@ function getSortDate(project: Project, key: SortKey) {
             </div>
           </header>
 
-          <div class="project-detail__composer">
-            <ChatComposer
-              :disabled="disabled"
-              :disabled-message="disabledMessage"
-              :is-sending="isSending"
-              :message="message"
-              :mode="mode"
-              :selected-attachments="selectedAttachments"
-              @attachments-selected="emit('attachments-selected', $event)"
-              @disabled-click="emit('disabled-click')"
-              @open-selected-attachment="emit('open-selected-attachment', $event)"
-              @quick-action="emit('quick-action', $event)"
-              @remove-selected-attachment="emit('remove-selected-attachment', $event)"
-              @submit="emit('submit-project-message', activeProject.id)"
-              @update:message="emit('update:message', $event)"
-            />
+          <div class="project-detail__workspace">
+            <div class="project-detail__main">
+              <div class="project-detail__composer">
+                <ChatComposer
+                  :disabled="disabled"
+                  :disabled-message="disabledMessage"
+                  :is-sending="isSending"
+                  :message="message"
+                  :mode="mode"
+                  :selected-attachments="selectedAttachments"
+                  @attachments-selected="emit('attachments-selected', $event)"
+                  @disabled-click="emit('disabled-click')"
+                  @open-selected-attachment="emit('open-selected-attachment', $event)"
+                  @quick-action="emit('quick-action', $event)"
+                  @remove-selected-attachment="emit('remove-selected-attachment', $event)"
+                  @submit="emit('submit-project-message', activeProject.id)"
+                  @update:message="emit('update:message', $event)"
+                />
+              </div>
+
+              <ProjectChatList :chats="activeProjectChats" @open-chat="emit('open-chat', $event)" />
+            </div>
+
+            <aside class="workspace-panel project-knowledge">
+              <ProjectInstructionsPanel
+                :error-message="instructionErrorMessage"
+                :instruction="projectInstruction"
+                :is-loading="isLoadingInstruction"
+                :is-saving="isSavingInstruction"
+                @save="saveProjectInstruction"
+              />
+
+              <ProjectDocumentsPanel
+                :documents="projectDocuments"
+                :error-message="documentErrorMessage"
+                :is-importing="isImportingDocuments"
+                :is-loading="isLoadingDocuments"
+                :is-saving="isSavingDocument"
+                @create="addProjectDocument"
+                @delete="removeProjectDocument"
+                @import="importProjectFiles"
+                @update="saveProjectDocument"
+              />
+            </aside>
           </div>
-
-          <MemoryPanel
-            :empty-message="'No project memory yet.'"
-            :error-message="memoryErrorMessage"
-            :is-loading="isLoadingMemory"
-            :is-saving="isSavingMemory"
-            :memories="projectMemories"
-            title="Project memory"
-            @create="addProjectMemory"
-            @delete="removeProjectMemory"
-            @update="saveProjectMemory"
-          />
-
-          <ProjectChatList :chats="activeProjectChats" @open-chat="emit('open-chat', $event)" />
         </section>
       </template>
 

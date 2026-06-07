@@ -210,6 +210,12 @@ function createFakeProjectsRepository(initialProjects: FakeProjectRecord[] = [])
       return 1;
     },
 
+    async findProjectOwner(projectId) {
+      const project = repository.projects.find((item) => item.id === projectId);
+
+      return project ? { ownerId: project.ownerId } : null;
+    },
+
     async listUserProjects(userId) {
       return repository.projects
         .filter((project) => project.ownerId === userId)

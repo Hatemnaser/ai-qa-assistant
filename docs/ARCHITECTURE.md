@@ -69,7 +69,9 @@ Small modules can start with fewer files, but should not put business logic dire
 - `ai`: provider registry, provider adapters, model catalog, QA workflow intent analysis, prompt building, model normalization, AI error mapping.
 - `chat`: chat API contract and orchestration.
 - `projects`: signed-in project CRUD, owner-only authorization, and owner membership foundation records.
-- `memory`: signed-in manual account memory and project memory CRUD with owner-only project checks. V1 stores user-provided notes and injects them into signed-in chat prompts through isolated retrieval scopes.
+- `memory`: signed-in manual Account Memory CRUD. V1 stores user-provided account notes and injects compact records into signed-in chat prompts.
+- `project-instructions`: one optional instructions record per owned project. It is edited as one document and applied to every chat in that project.
+- `project-documents`: signed-in manual project document CRUD and text/data/code file import with owner-only project checks. V1 stores user-provided or imported project context and exposes compact records to project chat retrieval.
 - `usage`: portfolio/demo credit limits, credit reservations before AI provider calls, completed token usage updates, and personal usage summaries.
 
 ## Active Frontend Routes
@@ -87,7 +89,9 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 ## Later Backend Work
 
 - `projects`: member authorization.
-- `memory`: project docs/files, chat summaries, AI-extracted memory proposals, and embeddings/vector search. Account memory and project memory should remain separate retrieval scopes.
+- `memory`: AI-extracted Account Memory proposals and chat summaries.
+- `project-documents`: deterministic chunking, embeddings, and vector search. Account Memory, Project Instructions, and Project Documents must remain separate retrieval layers.
+- `projects/project-access.service.ts`: the current owner-only authorization boundary for project-linked chats, instructions, documents, and retrieval. Future member/role rules must evolve here instead of being duplicated across feature repositories.
 
 ## Active API Routes
 
@@ -98,7 +102,7 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 - `GET /api/auth/me`: read the current user from the session cookie.
 - `POST /api/auth/logout`: delete the current session when present and clear the cookie.
 - `GET /api/ai/models`: expose the active provider/model catalog for the frontend model selector.
-- `POST /api/chat`: generate a QA assistant reply. Signed-in requests may include `projectId` so the backend can retrieve owned project memory before account memory.
+- `POST /api/chat`: generate a QA assistant reply. Signed-in requests may include `projectId` so the backend can retrieve owned Project Instructions and Project Documents before Account Memory.
 - `GET /api/chats`: list saved signed-in user chats, including optional `projectId`.
 - `PUT /api/chats/:chatId`: save a signed-in user chat and validate any `projectId` belongs to that user.
 - `DELETE /api/chats/:chatId`: delete a signed-in user chat.
@@ -112,19 +116,28 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 - `POST /api/projects`: create a signed-in user's project.
 - `PUT /api/projects/:projectId`: update a project owned by the signed-in user.
 - `DELETE /api/projects/:projectId`: delete a project owned by the signed-in user.
-- `GET /api/projects/:projectId/memories`: list manual memory notes for an owned project.
-- `POST /api/projects/:projectId/memories`: create a manual memory note for an owned project.
-- `PUT /api/projects/:projectId/memories/:memoryId`: update a manual memory note for an owned project.
-- `DELETE /api/projects/:projectId/memories/:memoryId`: delete a manual memory note for an owned project.
+- `GET /api/projects/:projectId/instructions`: return the optional instructions record for an owned project.
+- `PUT /api/projects/:projectId/instructions`: create, update, or clear the instructions record for an owned project.
+- `GET /api/projects/:projectId/documents`: list manual and imported documents for an owned project.
+- `POST /api/projects/:projectId/documents`: create a manual document for an owned project.
+- `POST /api/projects/:projectId/documents/import`: import up to four supported text/data files into an owned project.
+- `PUT /api/projects/:projectId/documents/:documentId`: update a manual document for an owned project.
+- `DELETE /api/projects/:projectId/documents/:documentId`: delete a manual or imported document for an owned project.
 - `GET /api/usage/summary`: return current identity usage only. Guests see their guest/IP-hash scoped usage; signed-in users see their own `userId` scoped usage.
 
 `POST /api/chat` allows anonymous portfolio usage. Guests receive an httpOnly `qa_guest_id` cookie and are limited separately from signed-in users. The API also hashes the request IP as a fallback abuse guard. Usage credits are reserved before calling Gemini so the API key is protected from unbounded demo traffic. Successful chat responses update the reserved usage with provider token metadata when available and include a public `usage` summary with `used`, `remaining`, and `limit`.
 
 Signed-in chat persistence can store an optional `projectId`. The chat history service validates that linked projects are owned by the current user before saving, so a user cannot attach a chat to another user's project. Existing chats can be assigned or moved to projects through the chat context menu once the account has at least one project. Project-linked chats show a topbar breadcrumb with the project and chat title; ordinary chats do not show a project state. The Projects page lists owned projects with search/sort controls and app-modal create/edit/delete flows. Opening a project shows its project chat list, a search/multi-select Add Chats modal for moving existing chats into the project, and the main chat composer; submitting there prepares a new chat linked to that project and opens the normal chat workspace. If a signed-in user opens Projects with no projects yet, the create-project modal opens and the page also shows a no-projects empty state. The sidebar moves project navigation into a collapsible scroll-area section once projects exist, above a collapsible Recent Chats section. The Projects section includes New Project and All Projects rows before the project folders; project rows expand to show chats linked to that project. Recent Chats shows chats without a project and remains a shortcut list, not a separate managed entity. Deleting a project leaves existing chats with `projectId` set to null through the database relation and the frontend clears stale local project assignments after project reloads.
 
-Projects are workspace containers. They own project memory now and can later own imported files and retrieval-ready reference material. Recent Chats should not grow into a parallel management surface. If full chat browsing is needed later, the Search entry should become a Search/Chat History experience with filters for all chats, project chats, and non-project chats. For retrieval, the intended priority is current chat context first, project memory/docs when a project is active, then account memory.
+Projects are workspace containers. They own one optional Project Instructions record, manual Project Documents, and imported text/data/code files. Imported files are stored as read-only `ProjectDocument` records with `source: IMPORTED`, MIME type, original name, and size metadata. V1 accepts `txt`, `md`, `log`, `csv`, `json`, `html`, `css`, `js`, and `ts`, up to four files per import and 1MB per file. User-entered document text is stored as Markdown-backed `ProjectDocument` content. Recent Chats should not grow into a parallel management surface. If full chat browsing is needed later, the Search entry should become a Search/Chat History experience with filters for all chats, project chats, and non-project chats.
 
-Signed-in account memory is stored in `Memory` with `scope: USER`, `source: USER_PROVIDED`, and the current `userId`. Project memory is stored with `scope: PROJECT`, `source: USER_PROVIDED`, and a `projectId` after confirming that the signed-in user owns the project. This keeps account memory and project memory separate for retrieval. Memory retrieval v1 injects compact manual notes into chat prompts only for signed-in users. Normal chats use current chat context, then account memory. Project chats use current chat context, latest attached file context when present, project memory, then account memory. Guest chats do not load memory. Memory v1 is not embedded, summarized, AI-extracted, or smart-imported/exported yet.
+The frontend project-document registry maps extensions to MIME types, preview modes, labels, and syntax-highlight languages. Document cards open a read-only preview: Markdown is rendered through the existing sanitized Markdown pipeline, source files use a line-numbered viewer, and supported code files use `highlight.js`. Imported HTML is always displayed as escaped source and is never mounted in an iframe or executed. Files above 200,000 characters fall back to plain source rendering so the viewer remains responsive. Download, delete, and manual-Markdown edit actions stay in the card dropdown.
+
+`ProjectsPage.vue` owns project navigation and CRUD orchestration. Project Instructions and Project Documents loading/mutations live in `useProjectKnowledge`, which guards active-project changes so stale async responses cannot overwrite the newly selected project. Project Knowledge styles live in their own SCSS partial rather than the generic workspace partial.
+
+Signed-in Account Memory is stored in `Memory` with `scope: USER`, `source: USER_PROVIDED`, and the current `userId`. Project Instructions are stored separately in the one-to-one `ProjectInstruction` model keyed by `projectId`. The migration combines any existing project-scoped memory notes into that singleton record, then removes the old project-scoped rows. Manual Project Documents are stored in `ProjectDocument` with `source: USER_PROVIDED`; imported text/data files use `source: IMPORTED` plus file metadata after the shared project access check. Imported records are read-only and must be deleted and re-imported to replace their source content.
+
+Prompt retrieval runs only for signed-in users. Normal chats use current chat context, current attached file context when present, then Account Memory. Project chats use current chat context, current attached file context, Project Instructions, Project Documents, then Account Memory. Structured Project Instructions and Project Document content preserve meaningful line breaks during prompt compaction so Markdown, CSV, JSON, and rule lists are not flattened. Imported files are not chunked or embedded yet, so retrieval selects the latest compact Project Documents rather than semantic matches. Guest chats do not load memory.
 
 ## AI Workflow Layer
 
@@ -223,6 +236,23 @@ Memory
   createdAt
   updatedAt
 
+ProjectDocument
+  id
+  projectId
+  title
+  content
+  source
+  mimeType
+  metadata
+  createdAt
+  updatedAt
+
+ProjectInstruction
+  projectId
+  content
+  createdAt
+  updatedAt
+
 UserSettings
   id
   userId
@@ -260,7 +290,7 @@ UsageEvent
   createdAt
 ```
 
-Billing and integrations will add their own tables only when those phases begin. The active schema should stay focused on users, sessions, settings, projects, chats, messages, memory, AI usage, and demo usage limits.
+Billing and integrations will add their own tables only when those phases begin. The active schema should stay focused on users, sessions, settings, projects, chats, messages, Account Memory, Project Instructions, Project Documents, AI usage, and demo usage limits.
 
 ## Migration Plan
 

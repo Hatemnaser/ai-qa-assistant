@@ -48,73 +48,11 @@ export function createMemoryService({ repository }: MemoryServiceDependencies) {
     }
   }
 
-  async function listProjectMemories(userId: string, projectId: string): Promise<MemoryDto[]> {
-    await assertOwnedProject(userId, projectId);
-
-    const memories = await repository.listProjectMemories(projectId);
-
-    return memories.map(toMemoryDto);
-  }
-
-  async function createProjectMemory(userId: string, projectId: string, input: MemoryInput): Promise<MemoryDto> {
-    await assertOwnedProject(userId, projectId);
-
-    const memory = await repository.createProjectMemory({
-      content: input.content,
-      projectId,
-    });
-
-    return toMemoryDto(memory);
-  }
-
-  async function updateProjectMemory(
-    userId: string,
-    projectId: string,
-    memoryId: string,
-    input: MemoryInput
-  ): Promise<MemoryDto> {
-    await assertOwnedProject(userId, projectId);
-
-    const memory = await repository.updateProjectMemory({
-      content: input.content,
-      memoryId,
-      projectId,
-    });
-
-    if (!memory) {
-      throw new AppError("Memory was not found.", 404, "MEMORY_NOT_FOUND");
-    }
-
-    return toMemoryDto(memory);
-  }
-
-  async function deleteProjectMemory(userId: string, projectId: string, memoryId: string) {
-    await assertOwnedProject(userId, projectId);
-
-    const deletedCount = await repository.deleteProjectMemory(projectId, memoryId);
-
-    if (deletedCount === 0) {
-      throw new AppError("Memory was not found.", 404, "MEMORY_NOT_FOUND");
-    }
-  }
-
-  async function assertOwnedProject(userId: string, projectId: string) {
-    const project = await repository.findProjectOwner(projectId);
-
-    if (!project || project.ownerId !== userId) {
-      throw new AppError("Project was not found.", 404, "PROJECT_NOT_FOUND");
-    }
-  }
-
   return {
     createAccountMemory,
-    createProjectMemory,
     deleteAccountMemory,
-    deleteProjectMemory,
     listAccountMemories,
-    listProjectMemories,
     updateAccountMemory,
-    updateProjectMemory,
   };
 }
 

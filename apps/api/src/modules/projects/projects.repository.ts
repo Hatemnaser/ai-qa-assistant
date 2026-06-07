@@ -22,6 +22,7 @@ export interface UpdateProjectInput extends ProjectInput {
 export interface ProjectsRepository {
   createUserProject(input: CreateProjectInput): Promise<ProjectRecord>;
   deleteOwnedProject(userId: string, projectId: string): Promise<number>;
+  findProjectOwner(projectId: string): Promise<{ ownerId: string } | null>;
   listUserProjects(userId: string): Promise<ProjectRecord[]>;
   updateOwnedProject(input: UpdateProjectInput): Promise<ProjectRecord | null>;
 }
@@ -59,6 +60,17 @@ export function createPrismaProjectsRepository(): ProjectsRepository {
       });
 
       return result.count;
+    },
+
+    async findProjectOwner(projectId) {
+      return prisma.project.findUnique({
+        select: {
+          ownerId: true,
+        },
+        where: {
+          id: projectId,
+        },
+      });
     },
 
     async listUserProjects(userId) {
