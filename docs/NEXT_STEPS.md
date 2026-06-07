@@ -41,8 +41,12 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [x] Project-linked chat breadcrumb in the chat topbar.
 - [x] Sidebar Projects navigation for opening the project management page.
 - [x] Manual account memory API and UI for signed-in users.
-- [x] Manual project memory API and UI with owner-only project checks.
-- [x] Manual memory retrieval is injected into signed-in chat prompts with account/project scope isolation.
+- [x] Singleton Project Instructions API and UI with owner-only project checks.
+- [x] Account Memory and Project Instructions are injected into signed-in chat prompts with scope isolation.
+- [x] Manual project document API and UI with owner-only project checks.
+- [x] Project Documents are injected after Project Instructions and before Account Memory.
+- [x] Import text/data/code project files as read-only project documents with source metadata and owner-only checks.
+- [x] Project Documents UI supports Add text, file picker, drag/drop, and safe read-only previews. User-entered text is stored as Markdown-backed content.
 - [x] Chat persistence for signed-in users, including optional project links with ownership checks.
 - [x] Guest chats can be adopted into the signed-in user scope during login/register.
 - [x] Chat ownership checks prevent another user from updating/deleting a chat they do not own.
@@ -61,7 +65,13 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [ ] Forgot password only returns a safe generic response. It does not send reset emails yet.
 - [x] Settings page/API is implemented for language, theme, and default model.
 - [x] Project assignment controls are implemented for signed-in chat workspaces.
-- [ ] Memory v1 is manual CRUD plus prompt retrieval only. Embeddings, AI extraction, chat summaries, project docs, and smart import/export are not implemented yet.
+- [x] Project Knowledge v1 includes singleton Project Instructions, manual/imported Project Documents, and isolated prompt retrieval.
+- [x] Project Instructions use a two-line project-panel preview; Show more opens the existing edit modal.
+- [x] Project Documents use a four-slot panel preview with a full-library modal for five or more documents.
+- [x] The compact panel and full Project Documents library share one add-menu component; the whole library modal accepts drag/drop imports.
+- [x] Project document cards open a read-only preview and expose Download/Delete actions, plus Edit for user-created Markdown documents, through a three-dot dropdown.
+- [x] Markdown previews are sanitized; code previews use syntax highlighting and line numbers; imported HTML is displayed as source and never executed.
+- [ ] Project Knowledge v2 still needs chunking, embeddings, AI extraction, chat summaries, and smart import/export.
 - [ ] Admin usage dashboard does not exist. Current `My Usage` is personal only.
 - [ ] Credits are configured through environment variables, not plans/entitlements from the database.
 - [ ] Billing/subscriptions are not implemented.
@@ -81,7 +91,10 @@ These should happen before large new product features.
   - Add provider abstraction requirements.
   - Add personal usage privacy rules.
   - Add credit/entitlement direction.
-- [ ] Keep this file updated after each meaningful feature or refactor.
+- [x] Keep this file updated after each meaningful feature or refactor.
+- [x] Centralize owner-only project access for chat assignment, instructions, documents, and retrieval.
+- [x] Extract Project Knowledge async state from `ProjectsPage.vue` into a stale-response-safe composable.
+- [x] Split Project Knowledge SCSS from the generic workspace partial.
 - [x] Split `apps/api/src/modules/usage/usage.service.ts` responsibilities:
   - `usage.service.ts` for reserve/complete/fail.
   - `usage-insights.ts` for `My Usage` summaries.
@@ -149,15 +162,17 @@ These should happen before large new product features.
 ### Phase 4: Memory
 
 - [x] Add user memory service/API.
-- [x] Add project memory service/API.
-- [x] Keep account memory and project memory as separate retrieval scopes.
+- [x] Replace multi-note project memory with one Project Instructions record per project.
+- [x] Keep Account Memory, Project Instructions, and Project Documents as separate retrieval layers.
 - [x] Decide what memory is manually saved versus AI-extracted.
   - V1 is manual `USER_PROVIDED` memory only. AI-extracted memory stays future work.
 - [x] Add memory controls in UI.
 - [x] Add tests for memory isolation by user/project.
-- [x] Inject memory into chat prompts with retrieval order: current chat, then project memory when a project is active, then account memory.
+- [x] Inject context with retrieval order: current chat, current attached file, Project Instructions, Project Documents, then Account Memory.
+- [x] Add manual project documents to the project retrieval layer.
+- [x] Add imported `txt`, `md`, `log`, `csv`, `json`, `html`, `css`, `js`, and `ts` files to the project retrieval layer.
+- [ ] Split imported project documents into retrieval chunks.
 - [ ] Add embeddings/vector retrieval for semantic memory.
-- [ ] Add project docs/files to the project retrieval layer.
 - [ ] Add AI-extracted memory proposals with explicit user review.
 - [ ] Add chat summaries as a separate memory source.
 - [ ] Add smart memory import/export.
@@ -225,10 +240,10 @@ This section is based on the model screenshots shared in the chat. Availability 
   - Important later for memory and semantic search.
   - Best use cases:
     - user memory retrieval
-    - project memory retrieval
+    - project document retrieval
     - similar bug/test-case search
     - requirement chunk retrieval
-  - Do not add until memory/project docs are actually implemented.
+  - Do not add until deterministic Project Document chunking and retrieval evaluation are defined.
 
 - Search grounding / tool-capable models
   - Useful later if QA answers need current external documentation.
@@ -276,14 +291,14 @@ This section is based on the model screenshots shared in the chat. Availability 
 - Do not add billing before plan/credit rules are stable.
 - Do not add projects/memory UI or retrieval behavior without authorization/isolation tests.
 - Treat Projects as workspace containers and Recent Chats as a shortcut list. If full chat browsing is needed, build it as Search/Chat History rather than a Recent Chats page.
-- Memory retrieval order is current chat first, then project memory when a project is active, then account memory. Future project docs should join the project retrieval layer before account memory.
+- Retrieval order is current chat, current attached file, Project Instructions, Project Documents, then Account Memory. Imported files currently use compact latest-document retrieval; future chunks and embeddings must stay inside the Project Documents layer before Account Memory.
 
 ## Next-Step Decision Guide
 
 When asking "what is next?", choose the first unfinished item that matches the current goal:
 
 1. If the goal is foundation quality:
-   - Finish reviewing the current uncommitted settings work, apply the database migration locally, then commit/push the batch.
+   - Finish reviewing the current uncommitted Project Knowledge work, apply its database migrations locally, then commit/push only when requested.
 2. If the goal is user product value:
    - Continue Projects only with focused demo/UX polish; do not add collaboration authorization until members become real product scope.
 3. If the goal is portfolio/demo polish:
@@ -293,4 +308,4 @@ When asking "what is next?", choose the first unfinished item that matches the c
 5. If the goal is AI quality:
    - Expand AI behavior evals and tune workflow routing.
 6. If the goal is long-term intelligence:
-   - Extend project retrieval with docs/files, then add embeddings and AI-extracted memory after isolation remains covered by tests.
+   - Add deterministic document chunking, then embedding-backed retrieval and AI-extracted memory after isolation remains covered by tests.

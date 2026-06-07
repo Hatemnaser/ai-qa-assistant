@@ -106,7 +106,13 @@ function estimateOutputTokens(mode: string, intent: string) {
 function estimateMemoryTokens(memoryContext?: AiMemoryContext) {
   if (!memoryContext) return 0;
 
-  return estimateTextTokens([...memoryContext.project, ...memoryContext.account].join("\n"));
+  const projectDocuments = (memoryContext.projectDocuments || [])
+    .map((document) => `${document.title}\n${document.content}`)
+    .join("\n");
+
+  return estimateTextTokens(
+    [memoryContext.projectInstruction || "", projectDocuments, ...memoryContext.account].join("\n")
+  );
 }
 
 function sumKnownTokens(inputTokens?: number, outputTokens?: number) {

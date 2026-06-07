@@ -36,6 +36,11 @@ enum MemorySource {
   IMPORTED
 }
 
+enum ProjectDocumentSource {
+  USER_PROVIDED
+  IMPORTED
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -96,6 +101,8 @@ model Project {
   members  ProjectMember[]
   chats    Chat[]
   memories Memory[]
+  documents   ProjectDocument[]
+  instruction ProjectInstruction?
 
   @@index([ownerId])
 }
@@ -172,6 +179,31 @@ model Memory {
   @@index([userId, scope])
   @@index([projectId, scope])
   @@index([chatId, scope])
+}
+
+model ProjectDocument {
+  id        String                @id @default(cuid())
+  projectId String
+  title     String
+  content   String
+  source    ProjectDocumentSource @default(USER_PROVIDED)
+  mimeType  String?
+  metadata  Json?
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, updatedAt])
+}
+
+model ProjectInstruction {
+  projectId String   @id
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model AiUsageLog {

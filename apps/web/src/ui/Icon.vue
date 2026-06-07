@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type IconName = "folder" | "folder-open" | "plus" | "search";
+type IconName = "edit" | "file-text" | "folder" | "folder-open" | "plus" | "search" | "upload";
 
 defineProps<{
   name: IconName;
@@ -16,6 +16,24 @@ defineProps<{
     <template v-else-if="name === 'search'">
       <circle cx="11" cy="11" r="7"></circle>
       <path d="M16.5 16.5 21 21"></path>
+    </template>
+
+    <template v-else-if="name === 'edit'">
+      <path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10z"></path>
+      <path d="m14.5 7.5 3 3"></path>
+    </template>
+
+    <template v-else-if="name === 'upload'">
+      <path d="M12 16V4"></path>
+      <path d="m7 9 5-5 5 5"></path>
+      <path d="M5 20h14"></path>
+    </template>
+
+    <template v-else-if="name === 'file-text'">
+      <path d="M6 3h8l4 4v14H6z"></path>
+      <path d="M14 3v5h5"></path>
+      <path d="M9 13h6"></path>
+      <path d="M9 17h6"></path>
     </template>
 
     <template v-else-if="name === 'folder-open'">

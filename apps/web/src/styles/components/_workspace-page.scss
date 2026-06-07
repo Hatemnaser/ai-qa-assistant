@@ -87,7 +87,7 @@
 }
 
 .projects-page--detail {
-  width: min(100%, 1080px);
+  width: min(100%, 1240px);
 }
 
 .projects-page__header {
@@ -246,7 +246,7 @@
 .project-detail {
   display: grid;
   gap: 22px;
-  width: min(100%, 980px);
+  width: 100%;
   margin: 0 auto;
 }
 
@@ -279,6 +279,19 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.project-detail__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  align-items: start;
+  gap: var(--space-6);
+}
+
+.project-detail__main {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
 }
 
 .project-detail__composer .chat-form {
@@ -545,6 +558,10 @@
 
   .project-detail {
     gap: 18px;
+  }
+
+  .project-detail__workspace {
+    grid-template-columns: 1fr;
   }
 
   .project-detail__header,

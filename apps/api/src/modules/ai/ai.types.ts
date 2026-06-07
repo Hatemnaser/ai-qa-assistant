@@ -24,7 +24,13 @@ export interface AiTextAttachment {
 
 export interface AiMemoryContext {
   account: string[];
-  project: string[];
+  projectInstruction?: string;
+  projectDocuments?: AiProjectDocumentContext[];
+}
+
+export interface AiProjectDocumentContext {
+  content: string;
+  title: string;
 }
 
 export interface AiChatInput {

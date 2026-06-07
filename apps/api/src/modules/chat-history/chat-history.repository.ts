@@ -46,7 +46,6 @@ export interface SaveUserChatInput {
 export interface ChatHistoryRepository {
   deleteUserChat(userId: string, chatId: string): Promise<number>;
   findChatOwner(chatId: string): Promise<{ userId: string } | null>;
-  findProjectOwner(projectId: string): Promise<{ ownerId: string } | null>;
   listUserChats(userId: string): Promise<StoredChatRecord[]>;
   saveUserChat(input: SaveUserChatInput): Promise<StoredChatRecord>;
 }
@@ -71,17 +70,6 @@ export function createPrismaChatHistoryRepository(): ChatHistoryRepository {
         },
         where: {
           id: chatId,
-        },
-      });
-    },
-
-    async findProjectOwner(projectId) {
-      return prisma.project.findUnique({
-        select: {
-          ownerId: true,
-        },
-        where: {
-          id: projectId,
         },
       });
     },

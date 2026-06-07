@@ -2,13 +2,14 @@
 
 Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`.
 
-Last updated: 2026-06-06
+Last updated: 2026-06-07
 
 ## Current Repo State
 
 - Workspace: `C:\Users\hatem\ai-qa-assistant`
-- Local branch should start from `main`.
-- Last known pushed baseline before local follow-up work: `main` synced with `origin/main`.
+- Current working branch: `feature/project-docs-foundation`.
+- The current Project Knowledge work is still uncommitted. Do not discard or overwrite it.
+- The branch started from an up-to-date `main`.
 - Do not assume old root-level HTML/JS/backend structure. The app is now a monorepo:
   - `apps/web`: Vue + TypeScript + Vite frontend.
   - `apps/api`: Express + TypeScript + Prisma backend.
@@ -103,8 +104,20 @@ npm run build:api
 - Project-linked chats show a chat topbar breadcrumb instead of a visible "no project" selector.
 - Sidebar project navigation opens the project management page; the sidebar does not filter chats by project.
 - Manual account memory exists for signed-in users through `GET/POST/PUT/DELETE /api/memories` and the Settings page.
-- Manual project memory exists through `/api/projects/:projectId/memories` and the Project detail page, with owner-only project checks.
-- Memory v1 stores user-provided notes and injects compact manual memory into signed-in chat prompts. Normal chats use account memory; project chats use owned project memory before account memory. Guest chats do not load memory.
+- Each project has one optional Project Instructions record through `GET/PUT /api/projects/:projectId/instructions`, with owner-only project checks. Saving empty content clears it.
+- The project detail panel previews two instruction lines. Longer content opens the existing edit modal through Show more.
+- Account Memory remains a separate list of user-provided notes. Normal chats use account memory; project chats add the owned Project Instructions and Project Documents layers. Guest chats do not load memory.
+- Manual project documents and imported text/data/code files exist through `/api/projects/:projectId/documents`. The Project detail page supports Add text, file picker, and drag/drop. User-entered text is stored as Markdown-backed project content.
+- The project detail panel shows at most four document slots. With five or more documents, the fourth slot becomes a `+N` control that opens the full project document library modal.
+- The compact panel and full document library modal share the same `+` dropdown component for Upload files and Create Markdown. The whole library modal is a drag/drop import target.
+- Clicking a document card opens a read-only preview. Markdown renders as sanitized HTML; code files use syntax highlighting and line numbers; text/data files use a source viewer. Imported HTML is source-only and is never executed.
+- Each document card uses the shared dropdown styling for Download and Delete, plus Edit for user-created Markdown documents.
+- Project chat context priority is: current chat, current attached file context, Project Instructions, Project Documents, then Account Memory.
+- Project File Import v1 accepts up to four `txt`, `md`, `log`, `csv`, `json`, `html`, `css`, `js`, or `ts` files per import, with a 1MB limit per file. Imported files are stored as read-only `ProjectDocument` records with source metadata; replacement is delete and re-import.
+- Rich Markdown rendering and syntax highlighting fall back to plain source for files above 200,000 characters to keep the preview responsive.
+- Project-linked chat saves, Project Instructions, Project Documents, and project retrieval all use `projects/project-access.service.ts` as the owner-only authorization boundary. Add future member/role logic there instead of duplicating ownership checks.
+- `ProjectsPage.vue` delegates Project Instructions/Documents async state to `useProjectKnowledge`, including stale-response protection when the active project changes.
+- Project Knowledge component styling is isolated in `_project-knowledge.scss`; the generic workspace partial should not absorb feature-specific document/instruction rules.
 - Gemini provider adapter and model catalog live behind provider/model routing abstractions.
 - Attachments support images and text/data files. Large file/PDF/provider Files API is future work.
 
@@ -122,7 +135,9 @@ Complete enough:
 - Projects management page with modal create/edit/delete flow, project detail view, project-scoped chat creation, and multi-select Add Chats workflow.
 - Project assignment controls for chats.
 - Context-menu project assignment/removal for existing chats.
-- Manual account/project memory CRUD and signed-in prompt retrieval with isolated scopes.
+- Manual Account Memory CRUD plus singleton Project Instructions with signed-in prompt retrieval and owner isolation.
+- Project document CRUD, text/data/code file import, safe previews, Add text, drag/drop, and signed-in project prompt retrieval.
+- Centralized project access checks and stale-response-safe Project Knowledge state.
 - Sidebar Projects navigation.
 - Gemini model strategy, routing, and fallback.
 - Inline image/text/data attachments.
@@ -133,7 +148,7 @@ Still unfinished:
 - Google OAuth.
 - Real forgot-password email delivery.
 - Project member authorization.
-- Project docs/files retrieval, embeddings, AI extraction, chat summaries, and smart memory import/export.
+- Project document chunking, embeddings, AI extraction, chat summaries, and smart memory import/export.
 - Admin usage dashboard.
 - Plans/entitlements and billing.
 - PDF/video/large file support.
@@ -161,8 +176,8 @@ Pick one track before coding:
    - Admin role model before admin usage dashboards.
 
 5. Long-term intelligence:
-   - Add project docs/files into the project retrieval layer.
-   - Add embeddings, AI-extracted memory proposals, chat summaries, and smart memory import/export after retrieval isolation stays covered by tests.
+   - Chunk imported project documents and add embedding-backed retrieval.
+   - Add embeddings, AI-extracted Account Memory proposals, chat summaries, and smart knowledge import/export after retrieval isolation stays covered by tests.
 
 ## Styling And Frontend Rules
 

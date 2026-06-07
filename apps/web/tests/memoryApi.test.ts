@@ -3,10 +3,7 @@ import { afterEach, describe, it } from "node:test";
 
 import {
   createAccountMemory,
-  createProjectMemory,
-  deleteProjectMemory,
   fetchAccountMemories,
-  fetchProjectMemories,
   updateAccountMemory,
 } from "../src/features/memory/memoryApi.ts";
 import type { Memory } from "../src/features/memory/types.ts";
@@ -59,43 +56,10 @@ describe("memory api", () => {
     assert.equal(memory.content, "Updated QA preference");
   });
 
-  it("uses project-scoped memory routes", async () => {
-    const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
-
-    mockFetch(async (input, init) => {
-      calls.push({ input, init });
-
-      if (init?.method === "GET") {
-        return jsonResponse({
-          memories: [createMemoryRecord({ projectId: "project-1", scope: "PROJECT" })],
-        });
-      }
-
-      if (init?.method === "DELETE") {
-        return jsonResponse({ ok: true });
-      }
-
-      return jsonResponse({
-        memory: createMemoryRecord({ projectId: "project-1", scope: "PROJECT" }),
-      });
-    });
-
-    await fetchProjectMemories("project/one");
-    await createProjectMemory("project/one", { content: "Checkout memory" });
-    await deleteProjectMemory("project/one", "memory/one");
-
-    assert.equal(calls[0]?.input, "/api/projects/project%2Fone/memories");
-    assert.equal(calls[0]?.init?.method, "GET");
-    assert.equal(calls[1]?.input, "/api/projects/project%2Fone/memories");
-    assert.equal(calls[1]?.init?.method, "POST");
-    assert.equal(calls[2]?.input, "/api/projects/project%2Fone/memories/memory%2Fone");
-    assert.equal(calls[2]?.init?.method, "DELETE");
-  });
-
   it("uses backend memory errors when requests fail", async () => {
-    mockFetch(async () => jsonResponse({ code: "PROJECT_NOT_FOUND", error: "Project was not found." }, 404));
+    mockFetch(async () => jsonResponse({ code: "MEMORY_NOT_FOUND", error: "Memory was not found." }, 404));
 
-    await assert.rejects(() => fetchProjectMemories("missing-project"), /Project was not found/);
+    await assert.rejects(() => updateAccountMemory("missing-memory", { content: "Missing" }), /Memory was not found/);
   });
 });
 

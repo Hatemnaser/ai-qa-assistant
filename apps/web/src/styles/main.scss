@@ -11,6 +11,7 @@
 @use "components/forms";
 @use "components/rows";
 @use "components/workspace-page";
+@use "components/project-knowledge";
 @use "components/sidebar-account";
 @use "components/topbar";
 @use "components/dropdowns";
@@ -19,6 +20,7 @@
 @use "components/modals";
 @use "components/attachments";
 @use "components/markdown";
+@use "components/document-preview";
 @use "components/auth-ui";
 @use "components/usage";
 

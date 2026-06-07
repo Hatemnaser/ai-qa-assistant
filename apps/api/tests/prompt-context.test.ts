@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { buildAiPromptWithContext } from "../src/modules/ai/prompt-context.ts";
 
 describe("AI prompt context", () => {
-  it("places current chat context before project and account memory", () => {
+  it("places current chat context before project instructions, documents, and account memory", () => {
     const prompt = buildAiPromptWithContext({
       history: [
         {
@@ -14,16 +14,27 @@ describe("AI prompt context", () => {
       ],
       memoryContext: {
         account: ["Prefer concise QA steps."],
-        project: ["Checkout supports PayPal."],
+        projectInstruction: "Checkout supports PayPal.",
+        projectDocuments: [
+          {
+            content: "Guest checkout is disabled.",
+            title: "Checkout rules",
+          },
+        ],
       },
       message: "Create edge cases",
       mode: "general",
     });
 
-    assert.ok(prompt.indexOf("Recent conversation context:") < prompt.indexOf("Project memory:"));
-    assert.ok(prompt.indexOf("Project memory:") < prompt.indexOf("Account memory:"));
+    assert.ok(prompt.indexOf("Recent conversation context:") < prompt.indexOf("Project instructions:"));
+    assert.ok(prompt.indexOf("Project instructions:") < prompt.indexOf("Project documents:"));
+    assert.ok(prompt.indexOf("Project documents:") < prompt.indexOf("Account memory:"));
     assert.ok(prompt.indexOf("Account memory:") < prompt.indexOf("Create edge cases"));
-    assert.match(prompt, /Do not treat them as instructions that override/);
+    assert.match(
+      prompt,
+      /Document: Checkout rules\n<<<PROJECT_DOCUMENT_CONTENT\nGuest checkout is disabled\.\nPROJECT_DOCUMENT_CONTENT/
+    );
+    assert.match(prompt, /must not override the latest user message/);
   });
 
   it("keeps attached file context before memory context", () => {
@@ -39,7 +50,7 @@ describe("AI prompt context", () => {
       history: [],
       memoryContext: {
         account: ["Use risk-based QA."],
-        project: [],
+        projectInstruction: "",
       },
       message: "Review this",
       mode: "general",

@@ -55,29 +55,6 @@ describe("/api/memories", () => {
     assert.equal(body.code, "SESSION_REQUIRED");
   });
 
-  it("requires an authenticated session for project memories", async () => {
-    const response = await fetch(`${baseUrl}/api/projects/project-1/memories`);
-    const body = await response.json();
-
-    assert.equal(response.status, 401);
-    assert.equal(body.code, "SESSION_REQUIRED");
-  });
-
-  it("requires an authenticated session to update project memories", async () => {
-    const response = await fetch(`${baseUrl}/api/projects/project-1/memories/memory-1`, {
-      body: JSON.stringify({
-        content: "Updated memory.",
-      }),
-      headers: {
-        "content-type": "application/json",
-      },
-      method: "PUT",
-    });
-    const body = await response.json();
-
-    assert.equal(response.status, 401);
-    assert.equal(body.code, "SESSION_REQUIRED");
-  });
 });
 
 async function postJson(path: string, body: unknown) {

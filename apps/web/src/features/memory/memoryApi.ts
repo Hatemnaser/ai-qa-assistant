@@ -27,30 +27,6 @@ export async function deleteAccountMemory(memoryId: string): Promise<void> {
   });
 }
 
-export async function fetchProjectMemories(projectId: string): Promise<Memory[]> {
-  return requestMemoryList(`/api/projects/${encodeURIComponent(projectId)}/memories`);
-}
-
-export async function createProjectMemory(projectId: string, input: MemoryInput): Promise<Memory> {
-  return requestMemory(`/api/projects/${encodeURIComponent(projectId)}/memories`, {
-    body: input,
-    method: "POST",
-  });
-}
-
-export async function updateProjectMemory(projectId: string, memoryId: string, input: MemoryInput): Promise<Memory> {
-  return requestMemory(`/api/projects/${encodeURIComponent(projectId)}/memories/${encodeURIComponent(memoryId)}`, {
-    body: input,
-    method: "PUT",
-  });
-}
-
-export async function deleteProjectMemory(projectId: string, memoryId: string): Promise<void> {
-  await requestMemoryAction(`/api/projects/${encodeURIComponent(projectId)}/memories/${encodeURIComponent(memoryId)}`, {
-    method: "DELETE",
-  });
-}
-
 async function requestMemoryList(path: string) {
   const payload = await requestMemoryAction(path, {
     method: "GET",
