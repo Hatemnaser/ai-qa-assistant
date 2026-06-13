@@ -52,6 +52,12 @@ export const env = Object.freeze({
   aiFallbackModel: process.env.AI_FALLBACK_MODEL || "gemini-2.5-flash-lite",
   aiTimeoutMs: parseNumber(process.env.AI_TIMEOUT_MS, 55000),
   aiMaxOutputTokens: parseNumber(process.env.AI_MAX_OUTPUT_TOKENS, 2048),
+  projectDocumentEmbeddingsEnabled:
+    process.env.PROJECT_DOCUMENT_EMBEDDINGS_ENABLED === "true",
+  embeddingProvider: process.env.EMBEDDING_PROVIDER || "gemini",
+  geminiEmbeddingModel: process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2",
+  embeddingDimensions: parseNumber(process.env.EMBEDDING_DIMENSIONS, 768),
+  embeddingTimeoutMs: parseNumber(process.env.EMBEDDING_TIMEOUT_MS, 15000),
   guestDailyCredits: parseNumber(process.env.GUEST_DAILY_CREDITS, 20),
   userDailyCredits: parseNumber(process.env.USER_DAILY_CREDITS, 100),
   usageTokensPerCredit: parseNumber(process.env.USAGE_TOKENS_PER_CREDIT, 1000),

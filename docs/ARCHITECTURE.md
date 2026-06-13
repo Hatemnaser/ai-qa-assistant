@@ -71,7 +71,7 @@ Small modules can start with fewer files, but should not put business logic dire
 - `projects`: signed-in project CRUD, owner-only authorization, and owner membership foundation records.
 - `memory`: signed-in manual Account Memory CRUD. V1 stores user-provided account notes and injects compact records into signed-in chat prompts.
 - `project-instructions`: one optional instructions record per owned project. It is edited as one document and applied to every chat in that project.
-- `project-documents`: signed-in manual project document CRUD and text/data/code file import with owner-only project checks. V1 stores user-provided or imported project context and exposes compact records to project chat retrieval.
+- `project-documents`: signed-in manual project document CRUD and text/data/code file import with owner-only project checks. It persists deterministic chunk indexes and ranks project context through a replaceable retrieval contract.
 - `usage`: portfolio/demo credit limits, credit reservations before AI provider calls, completed token usage updates, and personal usage summaries.
 
 ## Active Frontend Routes
@@ -89,8 +89,10 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 ## Later Backend Work
 
 - `projects`: member authorization.
-- `memory`: AI-extracted Account Memory proposals and chat summaries.
-- `project-documents`: deterministic chunking, embeddings, and vector search. Account Memory, Project Instructions, and Project Documents must remain separate retrieval layers.
+- `memory`: manual Account Memory today. Future reviewed Account Memory proposals must follow the accepted Memory Intelligence architecture.
+- `project-memory`: future project-scoped singleton for distilled facts and decisions.
+- `conversation-summary`: future chat-scoped derived continuity with an idempotent update lifecycle.
+- `project-documents`: semantic chunk selection and scalable vector search. Account Memory, Project Instructions, and Project Documents must remain separate retrieval layers.
 - `projects/project-access.service.ts`: the current owner-only authorization boundary for project-linked chats, instructions, documents, and retrieval. Future member/role rules must evolve here instead of being duplicated across feature repositories.
 
 ## Active API Routes
@@ -102,7 +104,7 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 - `GET /api/auth/me`: read the current user from the session cookie.
 - `POST /api/auth/logout`: delete the current session when present and clear the cookie.
 - `GET /api/ai/models`: expose the active provider/model catalog for the frontend model selector.
-- `POST /api/chat`: generate a QA assistant reply. Signed-in requests may include `projectId` so the backend can retrieve owned Project Instructions and Project Documents before Account Memory.
+- `POST /api/chat`: generate a QA assistant reply. Signed-in requests may include `projectId` so the backend can retrieve owned Project Instructions, durable memory, and Project Document evidence.
 - `GET /api/chats`: list saved signed-in user chats, including optional `projectId`.
 - `PUT /api/chats/:chatId`: save a signed-in user chat and validate any `projectId` belongs to that user.
 - `DELETE /api/chats/:chatId`: delete a signed-in user chat.
@@ -137,7 +139,43 @@ The frontend project-document registry maps extensions to MIME types, preview mo
 
 Signed-in Account Memory is stored in `Memory` with `scope: USER`, `source: USER_PROVIDED`, and the current `userId`. Project Instructions are stored separately in the one-to-one `ProjectInstruction` model keyed by `projectId`. The migration combines any existing project-scoped memory notes into that singleton record, then removes the old project-scoped rows. Manual Project Documents are stored in `ProjectDocument` with `source: USER_PROVIDED`; imported text/data files use `source: IMPORTED` plus file metadata after the shared project access check. Imported records are read-only and must be deleted and re-imported to replace their source content.
 
-Prompt retrieval runs only for signed-in users. Normal chats use current chat context, current attached file context when present, then Account Memory. Project chats use current chat context, current attached file context, Project Instructions, Project Documents, then Account Memory. Structured Project Instructions and Project Document content preserve meaningful line breaks during prompt compaction so Markdown, CSV, JSON, and rule lists are not flattened. Imported files are not chunked or embedded yet, so retrieval selects the latest compact Project Documents rather than semantic matches. Guest chats do not load memory.
+Server-side stored context retrieval runs only for signed-in users. Prompt serialization follows the typed context contract: system behavior, Project Instructions, Account/Project Memory, Project Document chunks, conversation context, current attachments, then the current message. Empty or inapplicable sections are omitted. Structured Project Instructions and Project Document content preserve meaningful line breaks so Markdown, CSV, JSON, and rule lists are not flattened.
+
+Project Document chunks are deterministic and stored in PostgreSQL. The chunker normalizes line endings, prefers paragraph/line/word boundaries, applies light overlap, and produces stable document/chunk metadata. `ProjectDocument` stores the source hash, chunking version, and index lifecycle. `ProjectDocumentChunk` stores chunk hashes plus provider-neutral embedding fields and per-chunk embedding status.
+
+Create, import, and update operations synchronize the deterministic chunk index. Index persistence verifies the source document update timestamp, so a late index cannot replace chunks for a newer edit or start stale embedding work. Existing documents created before the chunk-index migration start as pending and are indexed when their project document library is loaded. Failed index writes do not make the source document unusable; the original document remains authoritative.
+
+Embedding generation is isolated under `ai/embeddings`. `EmbeddingProviderAdapter` exposes model, dimensions, and one embed operation for document/query purposes. Gemini is the first adapter and defaults to `gemini-embedding-2` with 768 dimensions. It formats document and query text for asymmetric question-answering retrieval. Project Document embedding writes include the current chunk hash, model, and dimensions so stale async results cannot overwrite a newer index.
+
+Embedding generation is disabled by default. When enabled, new/re-indexed chunks are embedded after deterministic persistence, and existing pending chunks are processed when the project document library is loaded. Provider failures mark only the affected chunk embedding; document CRUD and lexical retrieval remain available. A failed chunk is retried automatically only after the embedding model or dimensions change. Explicit retry/background processing remains later work.
+
+`ProjectDocumentRetriever` owns candidate ranking and budgeted selection. Its lexical baseline derives current chunks from source documents, tokenizes the latest user message, scores document titles/content, then scores chunks from the best matching documents. It can retrieve an older relevant document ahead of newer unrelated documents. Retrieval uses up to six chunks from four documents within a 7,200-character budget. When no query term matches, it falls back to latest-document round-robin selection so project context does not disappear.
+
+The hybrid implementation reads only chunks from the already-authorized project and document set with `READY` embeddings that match the configured model and dimensions. It recomputes the current document/chunk hashes before accepting a vector and calculates cosine similarity in the API process. Fusion combines query-term coverage with cosine similarity normalized above a `0.60` floor calibrated by the controlled `gemini-embedding-2` evaluation. Strong exact lexical evidence remains authoritative when a matching chunk has no vector, while generic question terms are ignored and weak lexical coverage cannot overpower a strong semantic result.
+
+Memory/context preparation has two phases. Before usage reservation, the backend verifies project access and prepares deterministic lexical context for the credit estimate. Only after credits are reserved may the resolver read semantic candidates and call the embedding provider for the latest query. Usage rejection therefore cannot trigger query embedding work.
+
+Semantic scoring is capped at 1,000 compatible chunks per request. Empty, stale, invalid, oversized, disabled, or failed semantic candidate sets return the lexical result. This in-process approach is appropriate for the current project scale; larger collections should replace candidate scanning with PostgreSQL vector search while preserving the `ProjectDocumentRetriever` contract.
+
+Hybrid retrieval and document embedding generation use the same feature flag and remain disabled by default. The controlled real-provider evaluation passed on 2026-06-13 and supports opt-in enablement; the shared default remains an explicit quota and operational decision. Authorization, prompt ordering, budget enforcement, and lexical fallback remain stable. The acceptance contract and measurements are documented in `docs/RAG_RETRIEVAL_EVALS.md`. Guest chats do not load memory.
+
+### Memory Intelligence Boundary
+
+The accepted design is documented in
+`docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
+
+Account Memory remains a list of user-owned notes. Project Memory will be a
+dedicated project singleton for distilled facts and decisions. Conversation
+Summary will be a dedicated chat singleton for derived continuity. Recent Turns
+will be derived from persisted messages and will not get their own table.
+Project Instructions remain behavior, and Project Documents remain retrieved
+evidence.
+
+Do not store Project Memory or Conversation Summary in generic `Memory` rows.
+Do not mix Account Memory, Project Memory, and Project Document vectors in one
+index. AI extraction must create reviewable proposals instead of silently
+writing canonical memory. Do not introduce a broad Memory Orchestrator until
+the independent lifecycles require real coordination.
 
 ## AI Workflow Layer
 
@@ -244,8 +282,27 @@ ProjectDocument
   source
   mimeType
   metadata
+  contentHash
+  chunkingVersion
+  indexStatus
+  indexError
+  indexedAt
   createdAt
   updatedAt
+
+ProjectDocumentChunk
+  id
+  documentId
+  chunkIndex
+  chunkCount
+  content
+  contentHash
+  embedding
+  embeddingModel
+  embeddingDimensions
+  embeddingStatus
+  embeddingError
+  embeddedAt
 
 ProjectInstruction
   projectId

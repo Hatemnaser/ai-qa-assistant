@@ -29,6 +29,10 @@ This project is currently in foundation and migration mode. Do not add new produ
 4. If it touches UI styling, look for the matching SCSS partial first.
 5. If it touches existing chat behavior, keep localStorage keys and API contracts compatible.
 6. If it touches AI calls, check the `usage` module so guest and user limits keep protecting the Gemini key, and preserve the chat response `usage` summary.
+7. If it touches memory or conversation continuity, follow `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
+   - Keep Account Memory, Project Memory, Conversation Summary, Project Instructions, and Project Documents as separate concepts.
+   - Use complete user/assistant turns for recent context.
+   - Never write AI-extracted facts directly into canonical memory without user review.
 
 ## Frontend Pattern
 

@@ -1,5 +1,12 @@
 import type { AiMemoryContext } from "../ai/ai.types.js";
 import {
+  projectDocumentRetriever,
+} from "../project-documents/project-document-hybrid-retrieval.js";
+import {
+  retrieveProjectDocumentChunks,
+  type ProjectDocumentRetriever,
+} from "../project-documents/project-document-retrieval.js";
+import {
   projectDocumentsRepository,
   type ProjectDocumentRecord,
   type ProjectDocumentsRepository,
@@ -21,10 +28,9 @@ import {
 const MAX_MEMORY_ITEMS_PER_SCOPE = 8;
 const MAX_MEMORY_ITEM_CHARS = 700;
 const MAX_PROJECT_INSTRUCTION_CHARS = 4000;
-const MAX_PROJECT_DOCUMENTS = 4;
-const MAX_PROJECT_DOCUMENT_CHARS = 2000;
 
 export interface MemoryContextDependencies {
+  documentRetriever?: ProjectDocumentRetriever;
   documentsRepository: ProjectDocumentsRepository;
   instructionsRepository: ProjectInstructionsRepository;
   projectAccess: ProjectAccessService;
@@ -33,34 +39,86 @@ export interface MemoryContextDependencies {
 
 export interface ChatMemoryContextInput {
   projectId?: string | null;
+  query: string;
   userId?: string;
 }
 
+export interface PreparedChatMemoryContext {
+  context?: AiMemoryContext;
+  documents: ProjectDocumentRecord[];
+  projectId?: string;
+  query: string;
+}
+
 export function createMemoryContextService({
+  documentRetriever = projectDocumentRetriever,
   documentsRepository,
   instructionsRepository,
   projectAccess,
   repository,
 }: MemoryContextDependencies) {
-  async function loadChatMemoryContext(input: ChatMemoryContextInput): Promise<AiMemoryContext | undefined> {
-    if (!input.userId) return undefined;
+  async function prepareChatMemoryContext(
+    input: ChatMemoryContextInput
+  ): Promise<PreparedChatMemoryContext> {
+    if (!input.userId) {
+      return {
+        documents: [],
+        query: input.query,
+      };
+    }
 
     const accountMemories = await repository.listAccountMemories(input.userId);
     const projectContext = input.projectId ? await listOwnedProjectContext(input.userId, input.projectId) : {
       documents: [],
       instruction: null,
     };
-    const context = {
-      account: compactMemoryItems(accountMemories),
-      projectInstruction: compactProjectInstruction(projectContext.instruction?.content || ""),
-      projectDocuments: compactProjectDocuments(projectContext.documents),
-    };
+    const context = compactContext({
+      behavior: {
+        projectInstructions: compactProjectInstruction(projectContext.instruction?.content || ""),
+      },
+      durableMemory: {
+        account: compactMemoryItems(accountMemories),
+      },
+      evidence: {
+        projectDocuments: retrieveProjectDocumentChunks({
+          documents: projectContext.documents,
+          query: input.query,
+        }),
+      },
+    });
 
-    if (!context.projectInstruction && context.account.length === 0 && context.projectDocuments.length === 0) {
-      return undefined;
+    return {
+      context,
+      documents: projectContext.documents,
+      ...(input.projectId ? { projectId: input.projectId } : {}),
+      query: input.query,
+    };
+  }
+
+  async function resolveChatMemoryContext(
+    prepared: PreparedChatMemoryContext
+  ): Promise<AiMemoryContext | undefined> {
+    if (!prepared.projectId || prepared.documents.length === 0) {
+      return prepared.context;
     }
 
-    return context;
+    try {
+      return compactContext({
+        behavior: prepared.context?.behavior || {},
+        durableMemory: prepared.context?.durableMemory || {
+          account: [],
+        },
+        evidence: {
+          projectDocuments: await documentRetriever.retrieve({
+            documents: prepared.documents,
+            projectId: prepared.projectId,
+            query: prepared.query,
+          }),
+        },
+      });
+    } catch {
+      return prepared.context;
+    }
   }
 
   async function listOwnedProjectContext(userId: string, projectId: string) {
@@ -78,8 +136,22 @@ export function createMemoryContextService({
   }
 
   return {
-    loadChatMemoryContext,
+    prepareChatMemoryContext,
+    resolveChatMemoryContext,
   };
+}
+
+function compactContext(context: AiMemoryContext) {
+  if (
+    !context.behavior.projectInstructions &&
+    context.durableMemory.account.length === 0 &&
+    !context.durableMemory.project &&
+    context.evidence.projectDocuments.length === 0
+  ) {
+    return undefined;
+  }
+
+  return context;
 }
 
 function compactMemoryItems(memories: MemoryRecord[]) {
@@ -101,24 +173,6 @@ function compactProjectInstruction(content: string) {
   return compactStructuredContent(content, MAX_PROJECT_INSTRUCTION_CHARS);
 }
 
-function compactProjectDocuments(documents: ProjectDocumentRecord[]) {
-  return documents
-    .map((document) => ({
-      content: compactDocumentContent(document.content),
-      title: compactDocumentTitle(document.title),
-    }))
-    .filter((document) => document.title && document.content)
-    .slice(0, MAX_PROJECT_DOCUMENTS);
-}
-
-function compactDocumentTitle(title: string) {
-  return title.replace(/\s+/g, " ").trim();
-}
-
-function compactDocumentContent(content: string) {
-  return compactStructuredContent(content, MAX_PROJECT_DOCUMENT_CHARS);
-}
-
 function compactStructuredContent(content: string, maxChars: number) {
   const normalized = content
     .replace(/\r\n?/g, "\n")
@@ -134,6 +188,7 @@ function compactStructuredContent(content: string, maxChars: number) {
 }
 
 export const memoryContextService = createMemoryContextService({
+  documentRetriever: projectDocumentRetriever,
   documentsRepository: projectDocumentsRepository,
   instructionsRepository: projectInstructionsRepository,
   projectAccess: projectAccessService,

@@ -5,6 +5,9 @@ import { MemoryScope, MemorySource } from "../src/generated/prisma/enums.ts";
 import type { MemoryRecord, MemoryRepository } from "../src/modules/memory/memory.repository.ts";
 import { createMemoryContextService } from "../src/modules/memory/memory-context.service.ts";
 import type {
+  ChatMemoryContextInput,
+} from "../src/modules/memory/memory-context.service.ts";
+import type {
   ProjectDocumentRecord,
   ProjectDocumentsRepository,
 } from "../src/modules/project-documents/project-documents.repository.ts";
@@ -39,14 +42,21 @@ describe("memory context service", () => {
       }),
     });
 
-    const context = await service.loadChatMemoryContext({
+    const context = await loadChatMemoryContext(service, {
+      query: "hello",
       userId: "user-1",
     });
 
     assert.deepEqual(context, {
-      account: ["Prefer concise QA answers."],
-      projectInstruction: "",
-      projectDocuments: [],
+      behavior: {
+        projectInstructions: "",
+      },
+      durableMemory: {
+        account: ["Prefer concise QA answers."],
+      },
+      evidence: {
+        projectDocuments: [],
+      },
     });
   });
 
@@ -82,20 +92,30 @@ describe("memory context service", () => {
       }),
     });
 
-    const context = await service.loadChatMemoryContext({
+    const context = await loadChatMemoryContext(service, {
       projectId: "project-1",
+      query: "guest checkout",
       userId: "user-1",
     });
 
     assert.deepEqual(context, {
-      account: ["Use risk-based QA style."],
-      projectInstruction: "Checkout supports card and PayPal.",
-      projectDocuments: [
-        {
-          content: "Guest checkout is disabled for regulated products.",
-          title: "Checkout rules",
-        },
-      ],
+      behavior: {
+        projectInstructions: "Checkout supports card and PayPal.",
+      },
+      durableMemory: {
+        account: ["Use risk-based QA style."],
+      },
+      evidence: {
+        projectDocuments: [
+          {
+            chunkCount: 1,
+            chunkIndex: 0,
+            content: "Guest checkout is disabled for regulated products.",
+            documentId: "document-1",
+            title: "Checkout rules",
+          },
+        ],
+      },
     });
   });
 
@@ -109,8 +129,9 @@ describe("memory context service", () => {
 
     await assert.rejects(
       () =>
-        service.loadChatMemoryContext({
+        loadChatMemoryContext(service, {
           projectId: "project-1",
+          query: "private context",
           userId: "user-1",
         }),
       {
@@ -137,15 +158,16 @@ describe("memory context service", () => {
       }),
     });
 
-    const context = await service.loadChatMemoryContext({
+    const context = await loadChatMemoryContext(service, {
+      query: "hello",
       userId: "user-1",
     });
 
-    assert.equal(context?.account.length, 8);
-    assert.equal(context?.account[0], "Memory 1");
+    assert.equal(context?.durableMemory.account.length, 8);
+    assert.equal(context?.durableMemory.account[0], "Memory 1");
   });
 
-  it("limits and compacts project documents for prompt safety", async () => {
+  it("limits project document chunks for prompt safety", async () => {
     const service = createMemoryContextService({
       documentsRepository: createFakeProjectDocumentsRepository({
         documents: Array.from({ length: 6 }, (_, index) =>
@@ -162,16 +184,64 @@ describe("memory context service", () => {
       repository: createFakeMemoryRepository(),
     });
 
-    const context = await service.loadChatMemoryContext({
+    const context = await loadChatMemoryContext(service, {
       projectId: "project-1",
+      query: "unmatched vocabulary",
       userId: "user-1",
     });
 
-    assert.equal(context?.projectDocuments?.length, 4);
-    assert.deepEqual(context?.projectDocuments?.[0], {
+    assert.equal(context?.evidence.projectDocuments.length, 4);
+    assert.deepEqual(context?.evidence.projectDocuments[0], {
+      chunkCount: 1,
+      chunkIndex: 0,
       content: "Document\n\n  1",
+      documentId: "document-1",
       title: "Doc 1",
     });
+  });
+
+  it("splits long project documents into ordered retrieval chunks", async () => {
+    const service = createMemoryContextService({
+      documentsRepository: createFakeProjectDocumentsRepository({
+        documents: [
+          createFakeProjectDocumentRecord({
+            content: "a".repeat(1400),
+            id: "document-long",
+            projectId: "project-1",
+            title: "Long requirements",
+          }),
+        ],
+      }),
+      instructionsRepository: createFakeProjectInstructionsRepository(),
+      projectAccess: createFakeProjectAccess(new Map([["project-1", "user-1"]])),
+      repository: createFakeMemoryRepository(),
+    });
+
+    const context = await loadChatMemoryContext(service, {
+      projectId: "project-1",
+      query: "long requirements",
+      userId: "user-1",
+    });
+
+    assert.deepEqual(
+      context?.evidence.projectDocuments.map((document) => ({
+        chunkCount: document.chunkCount,
+        chunkIndex: document.chunkIndex,
+        documentId: document.documentId,
+      })),
+      [
+        {
+          chunkCount: 2,
+          chunkIndex: 0,
+          documentId: "document-long",
+        },
+        {
+          chunkCount: 2,
+          chunkIndex: 1,
+          documentId: "document-long",
+        },
+      ]
+    );
   });
 
   it("preserves meaningful line structure in project instructions", async () => {
@@ -188,17 +258,77 @@ describe("memory context service", () => {
       repository: createFakeMemoryRepository(),
     });
 
-    const context = await service.loadChatMemoryContext({
+    const context = await loadChatMemoryContext(service, {
       projectId: "project-1",
+      query: "rules",
       userId: "user-1",
     });
 
     assert.equal(
-      context?.projectInstruction,
+      context?.behavior.projectInstructions,
       "Use these rules:\n- Keep steps concise\n- Include expected results"
     );
   });
+
+  it("keeps semantic retrieval in the post-reservation resolution phase", async () => {
+    const retrievalCalls: string[] = [];
+    const service = createMemoryContextService({
+      documentRetriever: {
+        async retrieve(input) {
+          retrievalCalls.push(input.query);
+
+          return [
+            {
+              chunkCount: 1,
+              chunkIndex: 0,
+              content: "Automobile coverage is required.",
+              documentId: "document-1",
+              title: "Coverage policy",
+            },
+          ];
+        },
+      },
+      documentsRepository: createFakeProjectDocumentsRepository({
+        documents: [
+          createFakeProjectDocumentRecord({
+            content: "Automobile coverage is required.",
+            projectId: "project-1",
+            title: "Coverage policy",
+          }),
+        ],
+      }),
+      instructionsRepository: createFakeProjectInstructionsRepository(),
+      projectAccess: createFakeProjectAccess(new Map([["project-1", "user-1"]])),
+      repository: createFakeMemoryRepository(),
+    });
+
+    const prepared = await service.prepareChatMemoryContext({
+      projectId: "project-1",
+      query: "car insurance",
+      userId: "user-1",
+    });
+
+    assert.deepEqual(retrievalCalls, []);
+    assert.equal(prepared.context?.evidence.projectDocuments[0]?.documentId, "document-1");
+
+    const context = await service.resolveChatMemoryContext(prepared);
+
+    assert.deepEqual(retrievalCalls, ["car insurance"]);
+    assert.equal(
+      context?.evidence.projectDocuments[0]?.content,
+      "Automobile coverage is required."
+    );
+  });
 });
+
+async function loadChatMemoryContext(
+  service: ReturnType<typeof createMemoryContextService>,
+  input: ChatMemoryContextInput
+) {
+  return service.resolveChatMemoryContext(
+    await service.prepareChatMemoryContext(input)
+  );
+}
 
 function createFakeMemoryRepository(input: {
   memories?: FakeMemoryRecord[];
@@ -296,7 +426,12 @@ function createFakeMemoryRecord(overrides: Partial<FakeMemoryRecord> = {}): Fake
 
 function createFakeProjectDocumentRecord(overrides: Partial<ProjectDocumentRecord> = {}): ProjectDocumentRecord {
   return {
+    chunkingVersion: "",
+    contentHash: "",
     id: "document-1",
+    indexError: null,
+    indexedAt: null,
+    indexStatus: "PENDING",
     projectId: "project-1",
     title: "Project document",
     content: "Project document content",

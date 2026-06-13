@@ -13,6 +13,11 @@ export interface ProjectDocumentRecord {
   source: ProjectDocumentSource;
   mimeType: string | null;
   metadata: unknown | null;
+  contentHash: string;
+  chunkingVersion: string;
+  indexStatus: "PENDING" | "READY" | "FAILED";
+  indexError: string | null;
+  indexedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -103,7 +108,12 @@ export function createPrismaProjectDocumentsRepository(): ProjectDocumentsReposi
     async updateProjectDocument(input) {
       const result = await prisma.projectDocument.updateMany({
         data: {
+          chunkingVersion: "",
           content: input.content,
+          contentHash: "",
+          indexError: null,
+          indexedAt: null,
+          indexStatus: "PENDING",
           mimeType: input.mimeType || null,
           title: input.title,
         },

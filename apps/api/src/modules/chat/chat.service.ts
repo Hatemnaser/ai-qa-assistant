@@ -1,4 +1,10 @@
-import type { AiChatInput, AiChatResponse, AiMemoryContext, AiTextAttachment } from "../ai/ai.types.js";
+import type {
+  AiChatInput,
+  AiChatResponse,
+  AiContextEnvelope,
+  AiMemoryContext,
+  AiTextAttachment,
+} from "../ai/ai.types.js";
 import { chatWithAiFallback } from "../ai/model-fallback.js";
 import { routeAiModel } from "../ai/routing/model-router.js";
 import {
@@ -10,7 +16,10 @@ import {
 import { analyzeQaWorkflowWithRouter } from "../ai/routing/workflow-router.js";
 import { shouldUseAiWorkflowRouter, type WorkflowRouter } from "../ai/routing/workflow-router.js";
 import { env } from "../../config/env.js";
-import { memoryContextService } from "../memory/memory-context.service.js";
+import {
+  memoryContextService,
+  type PreparedChatMemoryContext,
+} from "../memory/memory-context.service.js";
 import { estimateChatCredits, type ChatCreditEstimate } from "../usage/credit-policy.js";
 import {
   usageService,
@@ -33,17 +42,22 @@ type ChatUsageFailureHandler = (
   reservation: UsageReservation,
   failure?: ChatUsageFailureInput
 ) => Promise<UsageReservation>;
-type ChatMemoryContextLoader = (input: {
+type ChatMemoryContextPreparer = (input: {
   projectId?: string | null;
+  query: string;
   userId?: string;
-}) => Promise<AiMemoryContext | undefined>;
+}) => Promise<PreparedChatMemoryContext>;
+type ChatMemoryContextResolver = (
+  prepared: PreparedChatMemoryContext
+) => Promise<AiMemoryContext | undefined>;
 
 export interface ChatServiceDependencies {
   chatWithAi: ChatAiProvider;
   completeUsage?: ChatUsageCompleter;
   failUsage?: ChatUsageFailureHandler;
-  loadMemoryContext?: ChatMemoryContextLoader;
+  prepareMemoryContext?: ChatMemoryContextPreparer;
   reserveUsage?: ChatUsageGuard;
+  resolveMemoryContext?: ChatMemoryContextResolver;
   routeWorkflow?: WorkflowRouter;
 }
 
@@ -51,8 +65,9 @@ export function createChatService({
   chatWithAi,
   completeUsage,
   failUsage,
-  loadMemoryContext,
+  prepareMemoryContext,
   reserveUsage,
+  resolveMemoryContext,
   routeWorkflow,
 }: ChatServiceDependencies) {
   async function createChatReply(input: ChatRequest, context: ChatRequestContext = {}) {
@@ -86,9 +101,10 @@ export function createChatService({
       images: providerAttachments.images.length > 0,
       textAttachments: providerAttachments.attachments.length > 0,
     });
-    const memoryContext = context.userId
-      ? await loadMemoryContext?.({
+    const preparedMemoryContext = context.userId
+      ? await prepareMemoryContext?.({
           projectId: input.projectId || null,
+          query: input.message,
           userId: context.userId,
         })
       : undefined;
@@ -97,7 +113,7 @@ export function createChatService({
       attachments: providerAttachments.attachments,
       history: input.history,
       imageCount: providerAttachments.images.length,
-      memoryContext,
+      memoryContext: preparedMemoryContext?.context,
       message: input.message,
       mode: input.mode,
       model: preflightModelRouting.model.model,
@@ -117,6 +133,13 @@ export function createChatService({
       },
       creditEstimate
     );
+    let memoryContext = preparedMemoryContext?.context;
+
+    if (preparedMemoryContext && resolveMemoryContext) {
+      memoryContext =
+        (await resolveMemoryContext(preparedMemoryContext)) ||
+        preparedMemoryContext.context;
+    }
     const workflow = await analyzeQaWorkflowWithRouter(workflowInput, {
       enabled: env.aiWorkflowRouterEnabled,
       minConfidence: env.aiWorkflowRouterMinConfidence,
@@ -137,13 +160,19 @@ export function createChatService({
         images: providerAttachments.images.length > 0,
         textAttachments: providerAttachments.attachments.length > 0,
       });
+      const aiContext = createAiContextEnvelope({
+        attachments: providerAttachments.attachments,
+        history: input.history,
+        memoryContext,
+        message: input.message,
+      });
 
       response = await sendWithModelFallback(
         {
+          context: aiContext,
           history: input.history,
           ...(providerAttachments.attachments.length > 0 ? { attachments: providerAttachments.attachments } : {}),
           ...(providerAttachments.images.length > 0 ? { images: providerAttachments.images } : {}),
-          ...(memoryContext ? { memoryContext } : {}),
           message: input.message,
           mode: input.mode,
           model: modelRouting.model.model,
@@ -275,11 +304,34 @@ function getProviderAttachments(input: ChatRequest) {
   };
 }
 
+function createAiContextEnvelope(input: {
+  attachments: AiTextAttachment[];
+  history: AiChatInput["history"];
+  memoryContext?: AiMemoryContext;
+  message: string;
+}): AiContextEnvelope {
+  return {
+    behavior: input.memoryContext?.behavior || {},
+    conversation: {
+      recentTurns: input.history,
+    },
+    currentMessage: input.message,
+    durableMemory: input.memoryContext?.durableMemory || {
+      account: [],
+    },
+    evidence: {
+      attachments: input.attachments,
+      projectDocuments: input.memoryContext?.evidence.projectDocuments || [],
+    },
+  };
+}
+
 export const { createChatReply } = createChatService({
   chatWithAi,
   completeUsage: usageService.completeChatCredits,
   failUsage: usageService.failChatCredits,
-  loadMemoryContext: memoryContextService.loadChatMemoryContext,
+  prepareMemoryContext: memoryContextService.prepareChatMemoryContext,
   routeWorkflow: routeWorkflowWithAi,
   reserveUsage: usageService.reserveChatCredits,
+  resolveMemoryContext: memoryContextService.resolveChatMemoryContext,
 });

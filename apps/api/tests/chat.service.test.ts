@@ -387,9 +387,11 @@ describe("chat service", () => {
   it("passes signed-in account memory to the AI provider", async () => {
     const service = createChatService({
       chatWithAi: async (input) => {
-        assert.deepEqual(input.memoryContext, {
+        assert.deepEqual(input.context.durableMemory, {
           account: ["Prefer concise QA steps."],
-          projectInstruction: "",
+        });
+        assert.deepEqual(input.context.behavior, {
+          projectInstructions: "",
         });
 
         return {
@@ -398,15 +400,27 @@ describe("chat service", () => {
           provider: "gemini",
         };
       },
-      loadMemoryContext: async (input) => {
+      prepareMemoryContext: async (input) => {
         assert.deepEqual(input, {
           projectId: null,
+          query: "hello",
           userId: "user-1",
         });
 
         return {
-          account: ["Prefer concise QA steps."],
-          projectInstruction: "",
+          context: {
+            behavior: {
+              projectInstructions: "",
+            },
+            durableMemory: {
+              account: ["Prefer concise QA steps."],
+            },
+            evidence: {
+              projectDocuments: [],
+            },
+          },
+          documents: [],
+          query: input.query,
         };
       },
     });
@@ -427,9 +441,11 @@ describe("chat service", () => {
   it("passes project instructions and account memory to the AI provider for project chats", async () => {
     const service = createChatService({
       chatWithAi: async (input) => {
-        assert.deepEqual(input.memoryContext, {
+        assert.deepEqual(input.context.behavior, {
+          projectInstructions: "Checkout supports PayPal.",
+        });
+        assert.deepEqual(input.context.durableMemory, {
           account: ["Prefer concise QA steps."],
-          projectInstruction: "Checkout supports PayPal.",
         });
 
         return {
@@ -438,15 +454,28 @@ describe("chat service", () => {
           provider: "gemini",
         };
       },
-      loadMemoryContext: async (input) => {
+      prepareMemoryContext: async (input) => {
         assert.deepEqual(input, {
           projectId: "project-1",
+          query: "hello",
           userId: "user-1",
         });
 
         return {
-          account: ["Prefer concise QA steps."],
-          projectInstruction: "Checkout supports PayPal.",
+          context: {
+            behavior: {
+              projectInstructions: "Checkout supports PayPal.",
+            },
+            durableMemory: {
+              account: ["Prefer concise QA steps."],
+            },
+            evidence: {
+              projectDocuments: [],
+            },
+          },
+          documents: [],
+          projectId: "project-1",
+          query: input.query,
         };
       },
     });
@@ -469,7 +498,12 @@ describe("chat service", () => {
     let memoryWasLoaded = false;
     const service = createChatService({
       chatWithAi: async (input) => {
-        assert.equal(input.memoryContext, undefined);
+        assert.deepEqual(input.context.behavior, {});
+        assert.deepEqual(input.context.durableMemory, {
+          account: [],
+        });
+        assert.deepEqual(input.context.evidence.projectDocuments, []);
+        assert.equal(input.context.currentMessage, "hello");
 
         return {
           reply: "Hi from test AI",
@@ -477,8 +511,13 @@ describe("chat service", () => {
           provider: "gemini",
         };
       },
-      loadMemoryContext: async () => {
+      prepareMemoryContext: async () => {
         memoryWasLoaded = true;
+
+        return {
+          documents: [],
+          query: "hello",
+        };
       },
     });
 
@@ -509,7 +548,7 @@ describe("chat service", () => {
           provider: "gemini",
         };
       },
-      loadMemoryContext: async () => {
+      prepareMemoryContext: async () => {
         calls.push("memory");
         throw new AppError("Project was not found.", 404, "PROJECT_NOT_FOUND");
       },
@@ -538,6 +577,159 @@ describe("chat service", () => {
       }
     );
     assert.deepEqual(calls, ["memory"]);
+  });
+
+  it("resolves semantic project context only after usage is reserved", async () => {
+    const calls: string[] = [];
+    const prepared = {
+      context: {
+        behavior: {
+          projectInstructions: "",
+        },
+        durableMemory: {
+          account: [],
+        },
+        evidence: {
+          projectDocuments: [],
+        },
+      },
+      documents: [],
+      projectId: "project-1",
+      query: "car insurance",
+    };
+    const service = createChatService({
+      chatWithAi: async (input) => {
+        calls.push("ai");
+        assert.equal(
+          input.context.evidence.projectDocuments[0]?.documentId,
+          "document-semantic"
+        );
+
+        return {
+          reply: "Semantic answer",
+          model: "gemini-3.1-flash-lite",
+          provider: "gemini",
+        };
+      },
+      prepareMemoryContext: async () => {
+        calls.push("memory");
+        return prepared;
+      },
+      reserveUsage: async () => {
+        calls.push("usage");
+
+        return {
+          limit: 20,
+          remaining: 19,
+          unit: "credits",
+          used: 1,
+        };
+      },
+      resolveMemoryContext: async (input) => {
+        calls.push("retrieval");
+        assert.equal(input, prepared);
+
+        return {
+          behavior: {
+            projectInstructions: "",
+          },
+          durableMemory: {
+            account: [],
+          },
+          evidence: {
+            projectDocuments: [
+              {
+                chunkCount: 1,
+                chunkIndex: 0,
+                content: "Automobile coverage is required.",
+                documentId: "document-semantic",
+                title: "Coverage policy",
+              },
+            ],
+          },
+        };
+      },
+    });
+
+    await service.createChatReply(
+      {
+        history: [],
+        message: "car insurance",
+        mode: "general",
+        model: "gemini-2.5-flash-lite",
+        projectId: "project-1",
+      },
+      {
+        userId: "user-1",
+      }
+    );
+
+    assert.deepEqual(calls, ["memory", "usage", "retrieval", "ai"]);
+  });
+
+  it("does not resolve semantic project context when usage is rejected", async () => {
+    const calls: string[] = [];
+    const service = createChatService({
+      chatWithAi: async () => {
+        calls.push("ai");
+
+        return {
+          reply: "should not happen",
+          model: "gemini-3.1-flash-lite",
+          provider: "gemini",
+        };
+      },
+      prepareMemoryContext: async () => {
+        calls.push("memory");
+
+        return {
+          context: {
+            behavior: {
+              projectInstructions: "",
+            },
+            durableMemory: {
+              account: [],
+            },
+            evidence: {
+              projectDocuments: [],
+            },
+          },
+          documents: [],
+          projectId: "project-1",
+          query: "car insurance",
+        };
+      },
+      reserveUsage: async () => {
+        calls.push("usage");
+        throw new AppError("limit", 429, "USAGE_LIMIT_REACHED");
+      },
+      resolveMemoryContext: async () => {
+        calls.push("retrieval");
+        return undefined;
+      },
+    });
+
+    await assert.rejects(
+      () =>
+        service.createChatReply(
+          {
+            history: [],
+            message: "car insurance",
+            mode: "general",
+            model: "gemini-2.5-flash-lite",
+            projectId: "project-1",
+          },
+          {
+            userId: "user-1",
+          }
+        ),
+      {
+        code: "USAGE_LIMIT_REACHED",
+        statusCode: 429,
+      }
+    );
+
+    assert.deepEqual(calls, ["memory", "usage"]);
   });
 
   it("uses the workflow router for ambiguous selected-mode follow-ups", async () => {

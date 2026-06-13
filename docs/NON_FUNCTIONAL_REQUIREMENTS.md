@@ -60,6 +60,15 @@ This project should stay easy to extend while it grows from a portfolio demo int
 - Inline chat attachments are capped to 4 files per message until a provider file API is introduced.
 - Backend schemas must enforce the same attachment count, image type, and inline image/text size limits as the UI.
 - Text/data file attachment content should stay capped and should not be stored in chat export metadata unless explicit file persistence is added.
+- Project Document retrieval must keep deterministic chunk and total-context limits so imported files cannot grow prompts without bounds.
+- Project Document retrieval strategies must remain replaceable behind one contract and must provide a provider-independent fallback when embeddings or external retrieval are unavailable.
+- Project Document embeddings must be versioned by source hash, chunk hash, chunking version, and embedding model so stale vectors are never treated as current.
+- Deterministic index writes must verify the source document version so a late index cannot replace chunks for a newer edit.
+- A failed chunk-index or embedding write must not make the authoritative source document unavailable to lexical retrieval.
+- Embedding provider calls must stay behind a provider-independent adapter and be disabled by default until cost, backfill, and retrieval quality are explicitly enabled.
+- Query embedding calls must run only after usage credits are reserved.
+- Application-process vector scoring must have a hard candidate limit and fall back safely; larger collections require database vector search.
+- Late embedding responses must update a chunk only when its persisted content hash still matches the request.
 
 ## Testing Expectations
 
@@ -67,3 +76,6 @@ This project should stay easy to extend while it grows from a portfolio demo int
 - API route/controller changes need validation tests or service-level tests before feature work continues.
 - Builds and type checks must pass before merging.
 - Model routing, workflow routing, and usage accounting need tests before adding more providers or paid plans.
+- Project Document chunking needs direct tests for deterministic boundaries, progress through unstructured content, prompt budgets, and multi-document selection fairness before semantic retrieval is added.
+- Project Document indexing needs direct tests for stable hashes, version invalidation, persistence boundaries, and safe failure behavior.
+- Semantic retrieval must be compared against the lexical baseline in `docs/RAG_RETRIEVAL_EVALS.md` before it becomes the default strategy.

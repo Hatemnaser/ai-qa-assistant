@@ -1,15 +1,28 @@
 # AI Handoff
 
-Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`.
+Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`. Memory Intelligence decisions and retained review requirements live in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 
-Last updated: 2026-06-07
+Last updated: 2026-06-13
+
+## Core Documentation Map
+
+- `AI_HANDOFF.md`: short current-state entry point for a new AI session.
+- `ARCHITECTURE.md`: system-wide architecture and active module boundaries.
+- `NEXT_STEPS.md`: completed work, active release tasks, and execution order.
+- `MEMORY_INTELLIGENCE_ARCHITECTURE.md`: accepted Account/Project Memory,
+  Conversation Summary, Recent Turns, and extraction decisions.
+- `RAG_RETRIEVAL_EVALS.md`: Project Document retrieval quality contract and
+  lexical/semantic evaluation results.
 
 ## Current Repo State
 
 - Workspace: `C:\Users\hatem\ai-qa-assistant`
-- Current working branch: `feature/project-docs-foundation`.
-- The current Project Knowledge work is still uncommitted. Do not discard or overwrite it.
-- The branch started from an up-to-date `main`.
+- Current working branch: `main`.
+- Deterministic Project Document chunking, query-aware retrieval, persisted chunk indexes, and the embedding provider adapter are currently uncommitted on `main` by explicit user request. Do not discard or overwrite them.
+- Migration `20260611000100_add_project_document_chunk_index` was applied locally on 2026-06-12. Prisma reports all seven migrations are up to date.
+- Latest verification on 2026-06-13: 205 API tests, 81 web tests, both TypeScript checks, both production builds, migration status, and API health smoke passed.
+- The API development server was left running on `http://127.0.0.1:5000`.
+- `main` matched `origin/main` before the current chunking work started.
 - Do not assume old root-level HTML/JS/backend structure. The app is now a monorepo:
   - `apps/web`: Vue + TypeScript + Vite frontend.
   - `apps/api`: Express + TypeScript + Prisma backend.
@@ -112,7 +125,17 @@ npm run build:api
 - The compact panel and full document library modal share the same `+` dropdown component for Upload files and Create Markdown. The whole library modal is a drag/drop import target.
 - Clicking a document card opens a read-only preview. Markdown renders as sanitized HTML; code files use syntax highlighting and line numbers; text/data files use a source viewer. Imported HTML is source-only and is never executed.
 - Each document card uses the shared dropdown styling for Download and Delete, plus Edit for user-created Markdown documents.
-- Project chat context priority is: current chat, current attached file context, Project Instructions, Project Documents, then Account Memory.
+- Project chat prompt serialization is: system behavior, Project Instructions, Account/Project Memory, Project Document chunks, conversation context, current attachments, then the current message.
+- Project Documents are normalized and split into deterministic boundary-aware chunks. The latest user message ranks documents and chunks with a provider-independent lexical retriever.
+- Retrieval takes up to six chunks across four documents within a bounded character budget. If no query term matches, it falls back to deterministic latest-document round-robin selection.
+- Deterministic chunks are persisted in `ProjectDocumentChunk` with document/content hashes, a chunking version, indexing status, and provider-neutral embedding metadata. Create/import/update synchronizes the index; pending legacy documents are indexed when their project document library is loaded.
+- A provider-independent embedding adapter now exists with Gemini as the first implementation. It uses `gemini-embedding-2`, asymmetric question-answering/document formatting, configurable dimensions, timeouts, stale-write guards, and model-aware re-indexing.
+- Runtime embedding generation is disabled by default through `PROJECT_DOCUMENT_EMBEDDINGS_ENABLED=false`. Enabling it with a configured API key stores vectors for pending/current chunks without making document CRUD or lexical retrieval depend on provider availability.
+- `ProjectDocumentRetriever` now supports hybrid semantic/lexical selection. It reads only current owned vectors with compatible hashes, chunking version, model, and dimensions, then combines normalized cosine similarity with lexical query-term coverage.
+- The controlled Gemini retrieval eval passed on 2026-06-13: Hybrid Hit@1 was `6/6`, semantic-case Hit@1 was `5/5`, mean provider latency was `304.23 ms`, and P95 was `519.01 ms`. Exact lexical retrieval remained stable.
+- Context preparation is two-phase: ownership checks and lexical context are prepared before usage reservation; query embeddings and semantic enhancement run only after credits are reserved.
+- Hybrid retrieval remains disabled by default. Missing, stale, failed, oversized, or unavailable semantic candidate sets fall back to the deterministic lexical baseline.
+- In-process semantic scoring is capped at 1,000 compatible chunks. Larger projects require a future database vector index instead of an unbounded application-memory scan.
 - Project File Import v1 accepts up to four `txt`, `md`, `log`, `csv`, `json`, `html`, `css`, `js`, or `ts` files per import, with a 1MB limit per file. Imported files are stored as read-only `ProjectDocument` records with source metadata; replacement is delete and re-import.
 - Rich Markdown rendering and syntax highlighting fall back to plain source for files above 200,000 characters to keep the preview responsive.
 - Project-linked chat saves, Project Instructions, Project Documents, and project retrieval all use `projects/project-access.service.ts` as the owner-only authorization boundary. Add future member/role logic there instead of duplicating ownership checks.
@@ -148,7 +171,8 @@ Still unfinished:
 - Google OAuth.
 - Real forgot-password email delivery.
 - Project member authorization.
-- Project document chunking, embeddings, AI extraction, chat summaries, and smart memory import/export.
+- Project Knowledge Retrieval v2: implementation and controlled real-provider evaluation are complete. Embeddings remain disabled by default and are ready for controlled opt-in use.
+- The Memory Intelligence architecture checkpoint and typed context contract foundation are complete. The next implementation slice is chat identity/complete Recent Turns, followed by Conversation Summary and Project Memory.
 - Admin usage dashboard.
 - Plans/entitlements and billing.
 - PDF/video/large file support.
@@ -176,8 +200,11 @@ Pick one track before coding:
    - Admin role model before admin usage dashboards.
 
 5. Long-term intelligence:
-   - Chunk imported project documents and add embedding-backed retrieval.
-   - Add embeddings, AI-extracted Account Memory proposals, chat summaries, and smart knowledge import/export after retrieval isolation stays covered by tests.
+   - Project Knowledge Retrieval v2 is complete and verified. Keep shared-environment embeddings opt-in until quota and operational policy are selected.
+   - Follow the accepted decisions in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
+   - The typed context contract foundation is complete with explicit behavior, durable-memory, evidence, conversation, and current-message boundaries.
+   - Next, add signed-in chat identity and complete Recent Turns without changing guest history behavior.
+   - Do not store Project Memory or Conversation Summary in generic `Memory` rows.
 
 ## Styling And Frontend Rules
 

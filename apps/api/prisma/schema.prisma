@@ -41,6 +41,18 @@ enum ProjectDocumentSource {
   IMPORTED
 }
 
+enum ProjectDocumentIndexStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+enum ProjectDocumentEmbeddingStatus {
+  PENDING
+  READY
+  FAILED
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -182,19 +194,48 @@ model Memory {
 }
 
 model ProjectDocument {
-  id        String                @id @default(cuid())
-  projectId String
-  title     String
-  content   String
-  source    ProjectDocumentSource @default(USER_PROVIDED)
-  mimeType  String?
-  metadata  Json?
-  createdAt DateTime              @default(now())
-  updatedAt DateTime              @updatedAt
+  id              String                     @id @default(cuid())
+  projectId       String
+  title           String
+  content         String
+  source          ProjectDocumentSource      @default(USER_PROVIDED)
+  mimeType        String?
+  metadata        Json?
+  contentHash     String                     @default("")
+  chunkingVersion String                     @default("")
+  indexStatus     ProjectDocumentIndexStatus @default(PENDING)
+  indexError      String?
+  indexedAt       DateTime?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  chunks  ProjectDocumentChunk[]
 
   @@index([projectId, updatedAt])
+  @@index([projectId, indexStatus])
+}
+
+model ProjectDocumentChunk {
+  id                  String                         @id @default(cuid())
+  documentId          String
+  chunkIndex          Int
+  chunkCount          Int
+  content             String
+  contentHash         String
+  embedding           Float[]                        @default([])
+  embeddingModel      String?
+  embeddingDimensions Int?
+  embeddingStatus     ProjectDocumentEmbeddingStatus @default(PENDING)
+  embeddingError      String?
+  embeddedAt          DateTime?
+  createdAt           DateTime                       @default(now())
+  updatedAt           DateTime                       @updatedAt
+
+  document ProjectDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
+  @@index([documentId, embeddingStatus])
 }
 
 model ProjectInstruction {

@@ -13,13 +13,19 @@ import type {
   ProjectDocumentRecord,
   ProjectDocumentsRepository,
 } from "../src/modules/project-documents/project-documents.repository.ts";
+import type {
+  ProjectDocumentIndexer,
+} from "../src/modules/project-documents/project-document-index.service.ts";
 import { createFakeProjectAccess } from "./helpers/projectAccess.ts";
 
 const NOW = new Date("2026-06-06T10:00:00.000Z");
 
 describe("project documents service", () => {
   it("creates project documents for owned projects", async () => {
-    const { repository, service } = setupProjectDocumentsService([], [createFakeProject("project-1", "user-1")]);
+    const { indexer, repository, service } = setupProjectDocumentsService(
+      [],
+      [createFakeProject("project-1", "user-1")]
+    );
 
     const document = await service.createProjectDocument("user-1", "project-1", {
       title: "Checkout rules",
@@ -29,10 +35,14 @@ describe("project documents service", () => {
     assert.equal(document.projectId, "project-1");
     assert.equal(document.title, "Checkout rules");
     assert.equal(repository.documents[0]?.content, "Guest checkout is disabled.");
+    assert.deepEqual(indexer.indexedDocumentIds, ["document-1"]);
   });
 
   it("imports project files with source metadata", async () => {
-    const { repository, service } = setupProjectDocumentsService([], [createFakeProject("project-1", "user-1")]);
+    const { indexer, repository, service } = setupProjectDocumentsService(
+      [],
+      [createFakeProject("project-1", "user-1")]
+    );
 
     const documents = await service.importProjectDocuments("user-1", "project-1", {
       files: [
@@ -51,10 +61,11 @@ describe("project documents service", () => {
       sizeBytes: 23,
     });
     assert.equal(repository.documents[0]?.title, "requirements.md");
+    assert.deepEqual(indexer.indexedDocumentIds, ["document-1"]);
   });
 
   it("lists only project documents after ownership checks", async () => {
-    const { service } = setupProjectDocumentsService(
+    const { indexer, service } = setupProjectDocumentsService(
       [
         createFakeProjectDocumentRecord({
           id: "document-1",
@@ -76,6 +87,7 @@ describe("project documents service", () => {
       documents.map((document) => document.id),
       ["document-1"]
     );
+    assert.deepEqual(indexer.indexedDocumentIds, ["document-1"]);
   });
 
   it("rejects project documents for projects owned by another user", async () => {
@@ -95,7 +107,7 @@ describe("project documents service", () => {
   });
 
   it("updates and deletes only documents in the requested project", async () => {
-    const { repository, service } = setupProjectDocumentsService(
+    const { indexer, repository, service } = setupProjectDocumentsService(
       [
         createFakeProjectDocumentRecord({
           id: "document-1",
@@ -122,6 +134,7 @@ describe("project documents service", () => {
       repository.documents.map((document) => document.id),
       ["document-1"]
     );
+    assert.deepEqual(indexer.indexedDocumentIds, ["document-1"]);
   });
 
   it("keeps imported project files read-only", async () => {
@@ -254,8 +267,10 @@ describe("project documents service", () => {
 });
 
 function setupProjectDocumentsService(initialDocuments: ProjectDocumentRecord[] = [], projects: FakeProject[] = []) {
+  const indexer = createFakeProjectDocumentIndexer();
   const repository = createFakeProjectDocumentsRepository(initialDocuments);
   const service = createProjectDocumentsService({
+    indexer,
     projectAccess: createFakeProjectAccess(
       new Map(projects.map((project) => [project.id, project.ownerId]))
     ),
@@ -263,6 +278,7 @@ function setupProjectDocumentsService(initialDocuments: ProjectDocumentRecord[] 
   });
 
   return {
+    indexer,
     repository,
     service,
   };
@@ -275,6 +291,27 @@ interface FakeProject {
 
 interface FakeProjectDocumentsRepository extends ProjectDocumentsRepository {
   documents: ProjectDocumentRecord[];
+}
+
+interface FakeProjectDocumentIndexer extends ProjectDocumentIndexer {
+  indexedDocumentIds: string[];
+}
+
+function createFakeProjectDocumentIndexer(): FakeProjectDocumentIndexer {
+  const indexedDocumentIds: string[] = [];
+
+  return {
+    indexedDocumentIds,
+    async ensureDocumentsIndexed(documents) {
+      indexedDocumentIds.push(...documents.map((document) => document.id));
+    },
+    async indexDocument(document) {
+      indexedDocumentIds.push(document.id);
+    },
+    async indexDocuments(documents) {
+      indexedDocumentIds.push(...documents.map((document) => document.id));
+    },
+  };
 }
 
 function createFakeProjectDocumentsRepository(
@@ -364,7 +401,12 @@ function createFakeProjectDocumentsRepository(
 
 function createFakeProjectDocumentRecord(overrides: Partial<ProjectDocumentRecord> = {}): ProjectDocumentRecord {
   return {
+    chunkingVersion: "",
+    contentHash: "",
     id: "document-1",
+    indexError: null,
+    indexedAt: null,
+    indexStatus: "PENDING",
     projectId: "project-1",
     title: "Project document",
     content: "Project document content",

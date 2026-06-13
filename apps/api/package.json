@@ -8,6 +8,7 @@
     "test": "tsx --test tests/**/*.test.ts",
     "build": "prisma generate --no-hints && tsc -p tsconfig.json",
     "check": "prisma generate --no-hints && tsc -p tsconfig.json --noEmit",
+    "eval:retrieval": "tsx scripts/evaluate-project-document-retrieval.ts",
     "start": "node dist/server.js",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",

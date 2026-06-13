@@ -106,13 +106,20 @@ function estimateOutputTokens(mode: string, intent: string) {
 function estimateMemoryTokens(memoryContext?: AiMemoryContext) {
   if (!memoryContext) return 0;
 
-  const projectDocuments = (memoryContext.projectDocuments || [])
+  const projectDocuments = memoryContext.evidence.projectDocuments
     .map((document) => `${document.title}\n${document.content}`)
     .join("\n");
+  const memoryParts = [
+    memoryContext.behavior.projectInstructions || "",
+    projectDocuments,
+    ...memoryContext.durableMemory.account,
+  ];
 
-  return estimateTextTokens(
-    [memoryContext.projectInstruction || "", projectDocuments, ...memoryContext.account].join("\n")
-  );
+  if (memoryContext.durableMemory.project) {
+    memoryParts.push(memoryContext.durableMemory.project);
+  }
+
+  return estimateTextTokens(memoryParts.join("\n"));
 }
 
 function sumKnownTokens(inputTokens?: number, outputTokens?: number) {

@@ -5,6 +5,10 @@ import {
   type ProjectDocumentsRepository,
 } from "./project-documents.repository.js";
 import {
+  projectDocumentIndexer,
+  type ProjectDocumentIndexer,
+} from "./project-document-index.service.js";
+import {
   projectAccessService,
   type ProjectAccessService,
 } from "../projects/project-access.service.js";
@@ -16,11 +20,13 @@ import type {
 } from "./project-documents.types.js";
 
 export interface ProjectDocumentsServiceDependencies {
+  indexer: ProjectDocumentIndexer;
   projectAccess: ProjectAccessService;
   repository: ProjectDocumentsRepository;
 }
 
 export function createProjectDocumentsService({
+  indexer,
   projectAccess,
   repository,
 }: ProjectDocumentsServiceDependencies) {
@@ -28,6 +34,8 @@ export function createProjectDocumentsService({
     await projectAccess.assertProjectAccess(userId, projectId);
 
     const documents = await repository.listProjectDocuments(projectId);
+
+    await indexer.ensureDocumentsIndexed(documents);
 
     return documents.map(toProjectDocumentDto);
   }
@@ -45,6 +53,8 @@ export function createProjectDocumentsService({
       projectId,
       title: input.title,
     });
+
+    await indexer.indexDocument(document);
 
     return toProjectDocumentDto(document);
   }
@@ -69,6 +79,8 @@ export function createProjectDocumentsService({
         title: file.name,
       }))
     );
+
+    await indexer.indexDocuments(documents);
 
     return documents.map(toProjectDocumentDto);
   }
@@ -106,6 +118,8 @@ export function createProjectDocumentsService({
     if (!document) {
       throw new AppError("Project document was not found.", 404, "PROJECT_DOCUMENT_NOT_FOUND");
     }
+
+    await indexer.indexDocument(document);
 
     return toProjectDocumentDto(document);
   }
@@ -159,6 +173,7 @@ function toProjectDocumentMetadata(metadata: unknown): ProjectDocumentMetadata |
 }
 
 export const projectDocumentsService = createProjectDocumentsService({
+  indexer: projectDocumentIndexer,
   projectAccess: projectAccessService,
   repository: projectDocumentsRepository,
 });

@@ -37,6 +37,13 @@ AI_VISUAL_MODEL=gemini-2.5-flash
 AI_FALLBACK_MODEL=gemini-2.5-flash-lite
 AI_TIMEOUT_MS=55000
 AI_MAX_OUTPUT_TOKENS=2048
+
+# Keep false until semantic retrieval and embedding cost controls are intentionally enabled.
+PROJECT_DOCUMENT_EMBEDDINGS_ENABLED=false
+EMBEDDING_PROVIDER=gemini
+GEMINI_EMBEDDING_MODEL=gemini-embedding-2
+EMBEDDING_DIMENSIONS=768
+EMBEDDING_TIMEOUT_MS=15000
 ```
 
 Demo-safe credit defaults:
@@ -52,6 +59,28 @@ USAGE_WINDOW_HOURS=24
 ```
 
 Keep guest credits conservative while the Gemini API key is shared by the demo. Increase user credits only when there is enough quota or a paid plan.
+
+## Semantic Retrieval Release Gate
+
+Keep `PROJECT_DOCUMENT_EMBEDDINGS_ENABLED=false` in shared environments until:
+
+- The target database has the Project Document chunk-index migration.
+- Hybrid retrieval passes the lexical baseline cases in `docs/RAG_RETRIEVAL_EVALS.md`.
+- Only current vectors with compatible hashes, model, and dimensions are read.
+- Missing, stale, disabled, or failed embeddings fall back to lexical retrieval.
+- Project authorization and prompt-budget tests pass.
+- Provider latency and embedding cost are reviewed for the target environment.
+- A smoke test confirms that provider failure does not block document CRUD or project chat.
+
+The controlled `gemini-embedding-2` fixture evaluation passed on 2026-06-13
+with Hybrid Hit@1 `6/6`, mean provider latency `304.23 ms`, and P95
+`519.01 ms`. This approves controlled opt-in use. Keep the shared default off
+until quota, expected traffic, and the target environment's operating policy
+are intentionally selected.
+
+Enable embeddings first in a controlled environment. This release gate applies
+only to Project Document retrieval; it does not approve memory embeddings or
+automatic memory extraction.
 
 ## Web Environment
 

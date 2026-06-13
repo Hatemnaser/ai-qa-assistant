@@ -2,9 +2,11 @@
 
 This file is the working roadmap for what is done, what is still foundation work, and what should come next. Use it as the reference when asking "what is next?" or "what still needs cleanup?"
 
-Last reviewed: 2026-06-06
+Last reviewed: 2026-06-13
 
 For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
+Before future work on Project Memory, conversation summaries, AI-extracted memory,
+or memory embeddings, follow `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 
 ## Current Health
 
@@ -13,8 +15,8 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [x] Backend is modular Express + TypeScript + Prisma.
 - [x] PostgreSQL schema is established for users, sessions, chats, projects, memory, usage events, and settings.
 - [x] `npm run verify` passes:
-  - API tests passing.
-  - Web tests passing.
+  - 205 API tests passing.
+  - 81 web tests passing.
   - API and web TypeScript checks passing.
 - [x] Latest pushed baseline was clean before the current project assignment work.
 
@@ -44,7 +46,11 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [x] Singleton Project Instructions API and UI with owner-only project checks.
 - [x] Account Memory and Project Instructions are injected into signed-in chat prompts with scope isolation.
 - [x] Manual project document API and UI with owner-only project checks.
-- [x] Project Documents are injected after Project Instructions and before Account Memory.
+- [x] Project Documents remain a distinct evidence layer in the prompt context contract.
+- [x] Project Documents are split into deterministic boundary-aware chunks with bounded query-aware selection.
+- [x] Project Document retrieval uses the latest user message for deterministic lexical ranking with a no-match fallback.
+- [x] Project Document retrieval has a provider-independent `ProjectDocumentRetriever` contract and documented RAG eval cases.
+- [x] Persist deterministic Project Document chunks with document hashes, chunking version, indexing lifecycle, and provider-neutral embedding fields.
 - [x] Import text/data/code project files as read-only project documents with source metadata and owner-only checks.
 - [x] Project Documents UI supports Add text, file picker, drag/drop, and safe read-only previews. User-entered text is stored as Markdown-backed content.
 - [x] Chat persistence for signed-in users, including optional project links with ownership checks.
@@ -71,13 +77,53 @@ For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 - [x] The compact panel and full Project Documents library share one add-menu component; the whole library modal accepts drag/drop imports.
 - [x] Project document cards open a read-only preview and expose Download/Delete actions, plus Edit for user-created Markdown documents, through a three-dot dropdown.
 - [x] Markdown previews are sanitized; code previews use syntax highlighting and line numbers; imported HTML is displayed as source and never executed.
-- [ ] Project Knowledge v2 still needs chunking, embeddings, AI extraction, chat summaries, and smart import/export.
+- [x] Project Knowledge Retrieval v2 implementation and controlled real-provider evaluation are complete; shared environments remain opt-in.
+- [ ] Memory Intelligence remains a later release: Project Memory, conversation summaries, reviewed AI extraction, and smart import/export.
 - [ ] Admin usage dashboard does not exist. Current `My Usage` is personal only.
 - [ ] Credits are configured through environment variables, not plans/entitlements from the database.
 - [ ] Billing/subscriptions are not implemented.
 - [ ] PDF/video/large file upload is not implemented.
 - [ ] Provider Files API is not implemented.
 - [ ] Full i18n is not implemented. Current multilingual behavior is AI/workflow oriented only.
+
+## Active Release Plan
+
+### Project Knowledge Retrieval v2
+
+Goal: finish semantic retrieval for Project Documents without widening the scope
+into automatic memory or conversation summarization.
+
+In scope:
+
+- [x] Deterministic Project Document chunking and persisted chunk indexes.
+- [x] Provider-independent embedding adapter and guarded embedding generation.
+- [x] Lexical retrieval baseline, prompt budgets, isolation tests, and retrieval eval contract.
+- [x] Add query embeddings behind the existing provider adapter.
+- [x] Add hybrid semantic/lexical ranking behind `ProjectDocumentRetriever`.
+- [x] Read only current vectors with compatible source hash, model, and dimensions.
+- [x] Preserve lexical retrieval when embeddings are disabled, missing, stale, or unavailable.
+- [x] Compare hybrid behavior against the automated contract in `docs/RAG_RETRIEVAL_EVALS.md`.
+- [x] Run the full verification, build, migration, and local smoke-test gates.
+
+Release gates:
+
+- [x] `npm run verify`, `npm run build:api`, and `npm run build:web` pass.
+- [x] The local database is migrated and Prisma reports no pending migrations.
+- [x] Authorization tests prove that retrieval cannot cross user or project boundaries.
+- [x] Retrieval budgets remain bounded and lexical fallback remains deterministic.
+- [x] Provider failure does not block document CRUD or project chat.
+- [x] Embeddings remain disabled by default until quality, latency, and cost are reviewed.
+- [x] Handoff, architecture, eval, and production-readiness docs match the implemented behavior.
+- [x] Controlled real-provider quality, latency, and cost evaluation supports controlled opt-in enablement.
+
+Explicitly deferred from this release:
+
+- Project Memory.
+- Conversation rolling summaries.
+- AI-extracted Account Memory or Project Memory proposals.
+- Background memory update jobs or a broad Memory Orchestrator.
+- Memory embeddings and combined document/memory vector indexes.
+- Smart memory import/export.
 
 ## Immediate Cleanup Tasks
 
@@ -159,7 +205,7 @@ These should happen before large new product features.
 - [ ] Add project member authorization only when collaboration/members become an active product requirement.
 - [x] Add tests for project ownership.
 
-### Phase 4: Memory
+### Phase 4: Project Knowledge And Memory
 
 - [x] Add user memory service/API.
 - [x] Replace multi-note project memory with one Project Instructions record per project.
@@ -168,14 +214,72 @@ These should happen before large new product features.
   - V1 is manual `USER_PROVIDED` memory only. AI-extracted memory stays future work.
 - [x] Add memory controls in UI.
 - [x] Add tests for memory isolation by user/project.
-- [x] Inject context with retrieval order: current chat, current attached file, Project Instructions, Project Documents, then Account Memory.
+- [x] Preserve separate prompt layers for Project Instructions, Account Memory, Project Document chunks, conversation context, current attachments, and the current message.
 - [x] Add manual project documents to the project retrieval layer.
 - [x] Add imported `txt`, `md`, `log`, `csv`, `json`, `html`, `css`, `js`, and `ts` files to the project retrieval layer.
-- [ ] Split imported project documents into retrieval chunks.
-- [ ] Add embeddings/vector retrieval for semantic memory.
-- [ ] Add AI-extracted memory proposals with explicit user review.
-- [ ] Add chat summaries as a separate memory source.
-- [ ] Add smart memory import/export.
+- [x] Split imported project documents into retrieval chunks.
+  - The deterministic chunker was introduced before persistence and now feeds the persisted chunk index.
+  - Retrieval is capped at six chunks from the four highest-ranked documents within a fixed prompt budget.
+  - Query-aware ranking can retrieve an older relevant document ahead of newer unrelated documents.
+  - No-match retrieval remains round-robin so project context does not disappear.
+- [x] Define retrieval evaluation cases before embeddings.
+  - The contract is documented in `docs/RAG_RETRIEVAL_EVALS.md`.
+  - Automated coverage includes relevance, multilingual terms, fallback, limits, ownership, and prompt ordering.
+- [x] Add embedding persistence foundation.
+  - Deterministic chunks are stored in `ProjectDocumentChunk`.
+  - Document hashes and `boundary-v1` identify the indexed source version.
+  - Index and per-chunk embedding statuses support retries and model changes.
+  - Existing pending documents are lazily chunk-indexed when their project library is loaded.
+  - The lexical retriever remains active and provider-independent.
+  - Migration `20260611000100_add_project_document_chunk_index` was applied locally on 2026-06-12.
+- [x] Add embedding provider and generation lifecycle.
+  - Vendor calls live behind `EmbeddingProviderAdapter`.
+  - Gemini uses `gemini-embedding-2` with 768 dimensions by default.
+  - Query/document formatting follows the asymmetric question-answering retrieval contract.
+  - Runtime generation is feature-flagged off by default.
+  - Stale chunk hashes cannot receive late embedding results.
+  - Model/dimension changes make existing vectors eligible for regeneration.
+  - Failed chunks remain available to lexical retrieval and are not retried repeatedly with the same configuration.
+- [x] Add semantic/hybrid retrieval.
+  - Embed the latest user query through the provider adapter.
+  - Query embeddings run only after usage credits are reserved.
+  - Read only owned/current persisted chunks with matching source hash, chunk hash, model, dimensions, and chunking version.
+  - Blend normalized cosine similarity and lexical query-term coverage.
+  - Keep lexical matches slightly stronger when an otherwise relevant chunk has no vector.
+  - Cap in-process semantic scoring at 1,000 compatible candidates; larger sets fall back to lexical retrieval until a database vector index is introduced.
+  - Keep lexical retrieval as the failure/no-index fallback.
+- [x] Run controlled real-provider retrieval evaluation before shared-environment enablement.
+  - Compare representative semantic-only, exact-match, multilingual, stale-vector, and provider-failure queries.
+  - Record latency and embedding cost before setting `PROJECT_DOCUMENT_EMBEDDINGS_ENABLED=true`.
+  - Result on 2026-06-13: Hybrid Hit@1 `6/6`, semantic-case Hit@1 `5/5`, mean provider latency `304.23 ms`, P95 `519.01 ms`, and 12 provider calls for 1,002 input characters.
+  - The provider response did not expose billable token metadata, so calls and input characters are the recorded cost proxy.
+  - The shared default remains off; the result approves controlled opt-in use.
+- [x] Complete a Memory Intelligence architecture checkpoint after the retrieval release.
+  - Accepted decisions are documented in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
+  - The context contract separates behavior, durable memory, retrieved evidence, conversation summary, recent turns, and the current message.
+  - Recent context will use four complete turns instead of an arbitrary message count.
+  - Conversation Summary will use a dedicated chat-scoped model and lifecycle.
+  - Project Memory will use a dedicated project-scoped singleton and isolation boundary.
+  - Account Memory, Project Memory, and Project Document vectors will not share one retrieval index.
+- [x] Add the typed context contract foundation without changing current prompt behavior.
+  - Separate behavior, durable memory, evidence, conversation continuity, and the current message in API types.
+  - Preserve the current Project Document two-phase retrieval and usage-reservation boundary.
+  - Add prompt ordering, omission, and budget regression tests.
+  - Completed on 2026-06-14 with the existing guest, usage, and retrieval behavior preserved.
+- [ ] Add signed-in chat identity and complete Recent Turns retrieval.
+  - Add optional `chatId` to signed-in `/api/chat` requests.
+  - Validate existing chat ownership while allowing a new client-generated chat id on its first message.
+  - Unknown ids receive no server-side chat context until persistence succeeds.
+  - Make persisted messages authoritative for signed-in recent turns.
+  - Keep bounded client-provided history for guests.
+- [ ] Add conversation rolling summaries after the architecture checkpoint.
+  - Use a dedicated `ConversationSummary` model rather than `MemoryScope.CHAT`.
+  - Add an idempotent status/cursor lifecycle before provider generation.
+  - Do not trigger provider calls directly from debounced chat autosave.
+- [ ] Add Project Memory with explicit provenance, update/stale rules, and user controls.
+  - Use a dedicated project singleton rather than `MemoryScope.PROJECT`.
+- [ ] Add AI-extracted memory proposals with explicit user review; never auto-save assistant guesses as facts.
+- [ ] Add smart memory import/export after memory scope and provenance rules are stable.
 
 ### Phase 5: Credits, Plans, And Admin
 
@@ -291,7 +395,7 @@ This section is based on the model screenshots shared in the chat. Availability 
 - Do not add billing before plan/credit rules are stable.
 - Do not add projects/memory UI or retrieval behavior without authorization/isolation tests.
 - Treat Projects as workspace containers and Recent Chats as a shortcut list. If full chat browsing is needed, build it as Search/Chat History rather than a Recent Chats page.
-- Retrieval order is current chat, current attached file, Project Instructions, Project Documents, then Account Memory. Imported files currently use compact latest-document retrieval; future chunks and embeddings must stay inside the Project Documents layer before Account Memory.
+- Prompt serialization follows the typed context contract. Future embedding changes must replace only Project Document chunk selection and stay inside the evidence layer.
 
 ## Next-Step Decision Guide
 
@@ -308,4 +412,7 @@ When asking "what is next?", choose the first unfinished item that matches the c
 5. If the goal is AI quality:
    - Expand AI behavior evals and tune workflow routing.
 6. If the goal is long-term intelligence:
-   - Add deterministic document chunking, then embedding-backed retrieval and AI-extracted memory after isolation remains covered by tests.
+   - Project Knowledge Retrieval v2 is complete and validated against the lexical baseline and controlled real-provider fixtures.
+   - The Memory Intelligence architecture checkpoint is complete in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
+   - The typed context contract foundation is complete.
+   - Implement signed-in chat identity and complete Recent Turns before Conversation Summary or Project Memory persistence.

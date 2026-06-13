@@ -22,18 +22,52 @@ export interface AiTextAttachment {
   content: string;
 }
 
-export interface AiMemoryContext {
-  account: string[];
-  projectInstruction?: string;
-  projectDocuments?: AiProjectDocumentContext[];
-}
-
-export interface AiProjectDocumentContext {
+export interface AiProjectDocumentChunkContext {
+  chunkCount: number;
+  chunkIndex: number;
   content: string;
+  documentId: string;
   title: string;
 }
 
+export interface AiBehaviorContext {
+  projectInstructions?: string;
+}
+
+export interface AiDurableMemoryContext {
+  account: string[];
+  project?: string;
+}
+
+export interface AiStoredEvidenceContext {
+  projectDocuments: AiProjectDocumentChunkContext[];
+}
+
+export interface AiEvidenceContext extends AiStoredEvidenceContext {
+  attachments: AiTextAttachment[];
+}
+
+export interface AiConversationContext {
+  recentTurns: AiHistoryMessage[];
+  summary?: string;
+}
+
+export interface AiContextEnvelope {
+  behavior: AiBehaviorContext;
+  conversation: AiConversationContext;
+  currentMessage: string;
+  durableMemory: AiDurableMemoryContext;
+  evidence: AiEvidenceContext;
+}
+
+export interface AiMemoryContext {
+  behavior: AiBehaviorContext;
+  durableMemory: AiDurableMemoryContext;
+  evidence: AiStoredEvidenceContext;
+}
+
 export interface AiChatInput {
+  context: AiContextEnvelope;
   message: string;
   mode: string;
   model?: string;
@@ -42,7 +76,6 @@ export interface AiChatInput {
   attachments?: AiTextAttachment[];
   image?: AiImage;
   images?: AiImage[];
-  memoryContext?: AiMemoryContext;
   workflow?: QaWorkflowAnalysis;
 }
 
