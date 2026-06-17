@@ -2,7 +2,7 @@
 
 This file is the working roadmap for what is done, what is still foundation work, and what should come next. Use it as the reference when asking "what is next?" or "what still needs cleanup?"
 
-Last reviewed: 2026-06-14
+Last reviewed: 2026-06-17
 
 For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 Before future work on Project Memory, conversation summaries, AI-extracted memory,
@@ -100,8 +100,8 @@ data. `docs/PRODUCTION_READINESS.md` is the source of truth.
 - [x] Document the target web/API/managed-PostgreSQL deployment shape.
 - [x] Document production environment, cookie, CORS, AI, and usage settings.
 - [x] Document data-safety, backup, restore, rollback, and smoke-test procedures.
-- [ ] Add `db:migrate:deploy` using `prisma migrate deploy`.
-- [ ] Keep `prisma migrate dev`, `migrate reset`, and `db push` out of
+- [x] Add `db:migrate:deploy` using `prisma migrate deploy`.
+- [x] Keep `prisma migrate dev`, `migrate reset`, and `db push` out of
   production release commands.
 - [ ] Select and provision the production hosts and managed PostgreSQL plan.
 - [ ] Enable automated database backups and record retention.
@@ -378,7 +378,7 @@ These should happen before large new product features.
 - [x] Add demo-safe defaults.
 - [x] Add short architecture section to README.
 - [x] Document first deployment target shape.
-- [ ] Add production-safe Prisma migration scripts.
+- [x] Add production-safe Prisma migration scripts.
 - [ ] Provision managed PostgreSQL with automated backups.
 - [ ] Complete and record a database restore drill.
 - [ ] Deploy staging and complete the smoke/rollback checklist.
@@ -478,8 +478,7 @@ This section is based on the model screenshots shared in the chat. Availability 
 When asking "what is next?", choose the first unfinished item that matches the current goal:
 
 1. If the goal is foundation quality:
-   - Finish reviewing the current uncommitted Project Knowledge work, confirm
-     its migrations and verification, then commit/push only when requested.
+   - Keep verification, migrations, and docs clean before each commit/push.
    - Before any live deployment, complete the Production Safety Gate in
      `docs/PRODUCTION_READINESS.md`.
 2. If the goal is user product value:

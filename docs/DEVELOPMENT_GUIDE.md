@@ -97,6 +97,13 @@ Never use it against staging or production. Follow
 `docs/PRODUCTION_READINESS.md` for the production migration, backup, restore,
 deployment, and rollback gates.
 
+For staging or production releases, use only the deploy migration command from a
+controlled release step:
+
+```bash
+npm run db:migrate:deploy
+```
+
 Run this before considering a cleanup done:
 
 ```bash

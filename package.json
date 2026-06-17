@@ -21,6 +21,7 @@
     "db:validate": "npm --prefix apps/api run db:validate",
     "db:generate": "npm --prefix apps/api run db:generate",
     "db:migrate": "npm --prefix apps/api run db:migrate",
+    "db:migrate:deploy": "npm --prefix apps/api run db:migrate:deploy",
     "db:studio": "npm --prefix apps/api run db:studio"
   },
   "workspaces": [

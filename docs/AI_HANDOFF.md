@@ -22,9 +22,8 @@ Last updated: 2026-06-17
 - Current working branch: `main`.
 - Slice 2 chat identity/complete Recent Turns, Slice 3 Conversation Summary
   foundation, Slice 4 controlled Summary Generation, and Slice 5 manual
-  Project Memory are currently uncommitted on `main` by explicit user request.
-  The former Project Memory AI suggestion/review flow was removed from the MVP.
-  Do not discard or overwrite these changes.
+  Project Memory are committed on `main`. The former Project Memory AI
+  suggestion/review flow was removed from the MVP.
 - Migration `20260614000100_add_conversation_summary` was applied locally on
   2026-06-14. Migration `20260614000200_add_project_memory` was also applied
   locally. Prisma reports all nine migrations are up to date.
@@ -32,12 +31,13 @@ Last updated: 2026-06-17
   migrations were healthy, but there were zero users, projects, chats,
   messages, or sessions. Treat prior local data as unavailable unless it can
   still be recovered from browser-local chat storage or an external backup.
-- Latest verification on 2026-06-17: 238 API tests, 90 web tests, API/Web
-  TypeScript checks, `npm run build:api`, `npm run build:web`, and
-  `git diff --check` passed. Manual signed-in Project Memory UI smoke is still
-  recommended before commit.
-- The API development server was left running on `http://127.0.0.1:5000`.
-- `main` matched `origin/main` before the current chunking work started.
+- Latest verification on 2026-06-17: 238 API tests, 90 web tests,
+  `npm run db:validate`, API/Web TypeScript checks, `npm run build:api`,
+  `npm run build:web`, and `git diff --check` passed.
+- Start the API with `npm run dev:api` when needed; do not assume a server is
+  already running.
+- `main` matched `origin/main` before the current production-safety script work
+  started.
 - Do not assume old root-level HTML/JS/backend structure. The app is now a monorepo:
   - `apps/web`: Vue + TypeScript + Vite frontend.
   - `apps/api`: Express + TypeScript + Prisma backend.
@@ -80,6 +80,15 @@ Database:
 npm run db:up
 npm run db:migrate
 ```
+
+Production/staging migrations:
+
+```bash
+npm run db:migrate:deploy
+```
+
+`npm run db:migrate` is local-development only. Do not use `migrate dev`,
+`migrate reset`, or `db push` against staging or production.
 
 Frontend:
 
@@ -186,10 +195,10 @@ Complete enough:
 - Sidebar Projects navigation.
 - Gemini model strategy, routing, and fallback.
 - Inline image/text/data attachments.
-- The production runbook is documented, but real-user deployment remains
-  blocked on a production-safe `prisma migrate deploy` command, managed
-  PostgreSQL, automated backups, a tested restore drill, staging smoke tests,
-  and host/proxy rate limiting.
+- The production runbook is documented and a production-safe
+  `npm run db:migrate:deploy` command exists. Real-user deployment remains
+  blocked on managed PostgreSQL, automated backups, a tested restore drill,
+  staging smoke tests, and host/proxy rate limiting.
 
 Still unfinished:
 
@@ -221,7 +230,6 @@ Pick one track before coding:
 
 3. Production safety:
    - Follow `docs/PRODUCTION_READINESS.md`.
-   - Add the production-only migration command.
    - Provision managed PostgreSQL with backups and test a restore.
    - Run staging and production smoke/rollback rehearsals.
 

@@ -28,10 +28,10 @@ the operational data-safety gates below have not been completed.
 
 ## Production Blockers
 
-- [ ] Add a production-only migration command that runs
+- [x] Add a production-only migration command that runs
   `prisma migrate deploy`.
-- [ ] Never run `prisma migrate dev`, `prisma migrate reset`, or `prisma db push`
-  against production.
+- [x] Document that `prisma migrate dev`, `prisma migrate reset`, and
+  `prisma db push` must never run against production.
 - [ ] Select and provision a managed PostgreSQL instance with durable storage.
 - [ ] Enable automated backups and confirm the retention period.
 - [ ] Enable point-in-time recovery when the selected database plan supports it.
@@ -47,20 +47,27 @@ the operational data-safety gates below have not been completed.
 
 ### Required Migration Script
 
-The current `npm run db:migrate` command runs `prisma migrate dev`. It is for
-local development only.
-
-Before production deployment, add an API script equivalent to:
+Production-safe migration scripts are available:
 
 ```json
 "db:migrate:deploy": "prisma migrate deploy"
 ```
 
-and a root script that calls it. The production release command should then be:
+The root script delegates to the API workspace. For staging or production, use:
 
 ```bash
 npm run db:migrate:deploy
 ```
+
+The local development command remains:
+
+```bash
+npm run db:migrate
+```
+
+`npm run db:migrate` runs `prisma migrate dev` and is local-development only.
+Never run `prisma migrate dev`, `prisma migrate reset`, or `prisma db push`
+against staging or production.
 
 Run migrations from a controlled release step against the production
 `DATABASE_URL`, not automatically from every API replica at startup.
@@ -281,7 +288,7 @@ Also confirm:
 2. Confirm the database is reachable from the release runner/API host.
 3. Check migration status.
 4. Confirm a current backup exists.
-5. Run the production-safe migration command once.
+5. Run `npm run db:migrate:deploy` once.
 6. Check migration status again.
 
 Never use reset, development migration, or schema-push commands to repair a
