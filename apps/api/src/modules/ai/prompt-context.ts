@@ -103,7 +103,6 @@ function formatRecentTurns(history: AiHistoryMessage[]) {
   const textHistory = Array.isArray(history)
     ? history
         .filter((item) => item && typeof item.content === "string" && item.content.trim())
-        .slice(-8)
     : [];
 
   return textHistory.map(

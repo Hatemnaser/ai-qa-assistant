@@ -176,6 +176,20 @@ describe("POST /api/chat", () => {
     assert.equal(body.code, "UNSUPPORTED_MODEL");
   });
 
+  it("accepts an optional chat id in the request contract", async () => {
+    const response = await postJson("/api/chat", {
+      chatId: " chat-1 ",
+      message: "Continue this conversation",
+      mode: "general",
+      model: "not-a-real-model",
+      history: [],
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.code, "UNSUPPORTED_MODEL");
+  });
+
   it("rejects more than four chat attachments", async () => {
     const response = await postJson("/api/chat", {
       attachments: Array.from({ length: 5 }, (_, index) => ({

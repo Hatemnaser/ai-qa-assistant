@@ -15,6 +15,10 @@ import type {
   ProjectInstructionRecord,
   ProjectInstructionsRepository,
 } from "../src/modules/project-instructions/project-instructions.repository.ts";
+import type {
+  ProjectMemoryRecord,
+  ProjectMemoryRepository,
+} from "../src/modules/project-memory/project-memory.repository.ts";
 import { createFakeProjectAccess } from "./helpers/projectAccess.ts";
 
 const NOW = new Date("2026-06-06T10:00:00.000Z");
@@ -24,6 +28,7 @@ describe("memory context service", () => {
     const service = createMemoryContextService({
       documentsRepository: createFakeProjectDocumentsRepository(),
       instructionsRepository: createFakeProjectInstructionsRepository(),
+      projectMemoryRepository: createFakeProjectMemoryRepository(),
       projectAccess: createFakeProjectAccess(),
       repository: createFakeMemoryRepository({
         memories: [
@@ -60,7 +65,7 @@ describe("memory context service", () => {
     });
   });
 
-  it("loads project instructions and documents before account memory for owned project chats", async () => {
+  it("loads project instructions, memory, and documents as distinct owned context", async () => {
     const service = createMemoryContextService({
       documentsRepository: createFakeProjectDocumentsRepository({
         documents: [
@@ -75,6 +80,14 @@ describe("memory context service", () => {
         instructions: [
           createFakeProjectInstructionRecord({
             content: "Checkout supports card and PayPal.",
+            projectId: "project-1",
+          }),
+        ],
+      }),
+      projectMemoryRepository: createFakeProjectMemoryRepository({
+        memories: [
+          createFakeProjectMemoryRecord({
+            content: "## Decisions\nGuest checkout remains disabled.",
             projectId: "project-1",
           }),
         ],
@@ -104,6 +117,7 @@ describe("memory context service", () => {
       },
       durableMemory: {
         account: ["Use risk-based QA style."],
+        project: "## Decisions\nGuest checkout remains disabled.",
       },
       evidence: {
         projectDocuments: [
@@ -123,6 +137,7 @@ describe("memory context service", () => {
     const service = createMemoryContextService({
       documentsRepository: createFakeProjectDocumentsRepository(),
       instructionsRepository: createFakeProjectInstructionsRepository(),
+      projectMemoryRepository: createFakeProjectMemoryRepository(),
       projectAccess: createFakeProjectAccess(new Map([["project-1", "user-2"]])),
       repository: createFakeMemoryRepository(),
     });
@@ -145,6 +160,7 @@ describe("memory context service", () => {
     const service = createMemoryContextService({
       documentsRepository: createFakeProjectDocumentsRepository(),
       instructionsRepository: createFakeProjectInstructionsRepository(),
+      projectMemoryRepository: createFakeProjectMemoryRepository(),
       projectAccess: createFakeProjectAccess(),
       repository: createFakeMemoryRepository({
         memories: Array.from({ length: 10 }, (_, index) =>
@@ -180,6 +196,7 @@ describe("memory context service", () => {
         ),
       }),
       instructionsRepository: createFakeProjectInstructionsRepository(),
+      projectMemoryRepository: createFakeProjectMemoryRepository(),
       projectAccess: createFakeProjectAccess(new Map([["project-1", "user-1"]])),
       repository: createFakeMemoryRepository(),
     });
@@ -213,6 +230,7 @@ describe("memory context service", () => {
         ],
       }),
       instructionsRepository: createFakeProjectInstructionsRepository(),
+      projectMemoryRepository: createFakeProjectMemoryRepository(),
       projectAccess: createFakeProjectAccess(new Map([["project-1", "user-1"]])),
       repository: createFakeMemoryRepository(),
     });
@@ -254,6 +272,7 @@ describe("memory context service", () => {
           }),
         ],
       }),
+      projectMemoryRepository: createFakeProjectMemoryRepository(),
       projectAccess: createFakeProjectAccess(new Map([["project-1", "user-1"]])),
       repository: createFakeMemoryRepository(),
     });
@@ -298,6 +317,7 @@ describe("memory context service", () => {
         ],
       }),
       instructionsRepository: createFakeProjectInstructionsRepository(),
+      projectMemoryRepository: createFakeProjectMemoryRepository(),
       projectAccess: createFakeProjectAccess(new Map([["project-1", "user-1"]])),
       repository: createFakeMemoryRepository(),
     });
@@ -318,6 +338,38 @@ describe("memory context service", () => {
       context?.evidence.projectDocuments[0]?.content,
       "Automobile coverage is required."
     );
+  });
+
+  it("does not load project memory for guest chat context", async () => {
+    let projectMemoryReads = 0;
+    const service = createMemoryContextService({
+      documentsRepository: createFakeProjectDocumentsRepository(),
+      instructionsRepository: createFakeProjectInstructionsRepository(),
+      projectMemoryRepository: {
+        async deleteProjectMemory() {
+          throw new Error("not implemented");
+        },
+        async findProjectMemory() {
+          projectMemoryReads += 1;
+          return createFakeProjectMemoryRecord();
+        },
+        async upsertProjectMemory() {
+          throw new Error("not implemented");
+        },
+      },
+      projectAccess: createFakeProjectAccess(
+        new Map([["project-1", "user-1"]])
+      ),
+      repository: createFakeMemoryRepository(),
+    });
+
+    const context = await loadChatMemoryContext(service, {
+      projectId: "project-1",
+      query: "guest request",
+    });
+
+    assert.equal(context, undefined);
+    assert.equal(projectMemoryReads, 0);
   });
 });
 
@@ -369,6 +421,26 @@ function createFakeProjectInstructionsRepository(input: {
     },
 
     async upsertProjectInstruction() {
+      throw new Error("not implemented");
+    },
+  };
+}
+
+function createFakeProjectMemoryRepository(input: {
+  memories?: ProjectMemoryRecord[];
+} = {}): ProjectMemoryRepository {
+  const memories = input.memories || [];
+
+  return {
+    async deleteProjectMemory() {
+      throw new Error("not implemented");
+    },
+
+    async findProjectMemory(projectId) {
+      return memories.find((memory) => memory.projectId === projectId) || null;
+    },
+
+    async upsertProjectMemory() {
       throw new Error("not implemented");
     },
   };
@@ -451,6 +523,19 @@ function createFakeProjectInstructionRecord(
     projectId: "project-1",
     content: "Project instructions",
     createdAt: NOW,
+    updatedAt: NOW,
+    ...overrides,
+  };
+}
+
+function createFakeProjectMemoryRecord(
+  overrides: Partial<ProjectMemoryRecord> = {}
+): ProjectMemoryRecord {
+  return {
+    content: "## Stack\nTypeScript",
+    createdAt: NOW,
+    projectId: "project-1",
+    source: MemorySource.USER_PROVIDED,
     updatedAt: NOW,
     ...overrides,
   };

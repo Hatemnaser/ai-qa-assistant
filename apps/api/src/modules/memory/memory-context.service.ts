@@ -16,6 +16,11 @@ import {
   type ProjectInstructionsRepository,
 } from "../project-instructions/project-instructions.repository.js";
 import {
+  projectMemoryRepository,
+  type ProjectMemoryRepository,
+} from "../project-memory/project-memory.repository.js";
+import { PROJECT_MEMORY_MAX_CHARS } from "../project-memory/project-memory.types.js";
+import {
   projectAccessService,
   type ProjectAccessService,
 } from "../projects/project-access.service.js";
@@ -33,6 +38,7 @@ export interface MemoryContextDependencies {
   documentRetriever?: ProjectDocumentRetriever;
   documentsRepository: ProjectDocumentsRepository;
   instructionsRepository: ProjectInstructionsRepository;
+  projectMemoryRepository: ProjectMemoryRepository;
   projectAccess: ProjectAccessService;
   repository: MemoryRepository;
 }
@@ -54,6 +60,7 @@ export function createMemoryContextService({
   documentRetriever = projectDocumentRetriever,
   documentsRepository,
   instructionsRepository,
+  projectMemoryRepository,
   projectAccess,
   repository,
 }: MemoryContextDependencies) {
@@ -71,13 +78,18 @@ export function createMemoryContextService({
     const projectContext = input.projectId ? await listOwnedProjectContext(input.userId, input.projectId) : {
       documents: [],
       instruction: null,
+      memory: null,
     };
+    const projectMemory = compactProjectMemory(
+      projectContext.memory?.content || ""
+    );
     const context = compactContext({
       behavior: {
         projectInstructions: compactProjectInstruction(projectContext.instruction?.content || ""),
       },
       durableMemory: {
         account: compactMemoryItems(accountMemories),
+        ...(projectMemory ? { project: projectMemory } : {}),
       },
       evidence: {
         projectDocuments: retrieveProjectDocumentChunks({
@@ -124,14 +136,16 @@ export function createMemoryContextService({
   async function listOwnedProjectContext(userId: string, projectId: string) {
     await projectAccess.assertProjectAccess(userId, projectId);
 
-    const [instruction, documents] = await Promise.all([
+    const [instruction, memory, documents] = await Promise.all([
       instructionsRepository.findProjectInstruction(projectId),
+      projectMemoryRepository.findProjectMemory(projectId),
       documentsRepository.listProjectDocuments(projectId),
     ]);
 
     return {
       documents,
       instruction,
+      memory,
     };
   }
 
@@ -173,6 +187,10 @@ function compactProjectInstruction(content: string) {
   return compactStructuredContent(content, MAX_PROJECT_INSTRUCTION_CHARS);
 }
 
+function compactProjectMemory(content: string) {
+  return compactStructuredContent(content, PROJECT_MEMORY_MAX_CHARS);
+}
+
 function compactStructuredContent(content: string, maxChars: number) {
   const normalized = content
     .replace(/\r\n?/g, "\n")
@@ -191,6 +209,7 @@ export const memoryContextService = createMemoryContextService({
   documentRetriever: projectDocumentRetriever,
   documentsRepository: projectDocumentsRepository,
   instructionsRepository: projectInstructionsRepository,
+  projectMemoryRepository,
   projectAccess: projectAccessService,
   repository: memoryRepository,
 });

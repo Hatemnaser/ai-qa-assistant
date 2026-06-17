@@ -92,6 +92,11 @@ npm run db:up
 npm run db:migrate
 ```
 
+`npm run db:migrate` uses `prisma migrate dev` and is local-development only.
+Never use it against staging or production. Follow
+`docs/PRODUCTION_READINESS.md` for the production migration, backup, restore,
+deployment, and rollback gates.
+
 Run this before considering a cleanup done:
 
 ```bash

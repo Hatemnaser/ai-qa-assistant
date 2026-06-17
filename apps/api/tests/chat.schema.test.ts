@@ -10,6 +10,17 @@ import {
 import { chatRequestSchema } from "../src/modules/chat/chat.schema.ts";
 
 describe("chat request schema", () => {
+  it("normalizes optional chat identity", () => {
+    const result = chatRequestSchema.safeParse(
+      createChatRequest({
+        chatId: " chat-1 ",
+      })
+    );
+
+    assert.equal(result.success, true);
+    assert.equal(result.data?.chatId, "chat-1");
+  });
+
   it("rejects unsupported image mime types", () => {
     const result = chatRequestSchema.safeParse(
       createChatRequest({

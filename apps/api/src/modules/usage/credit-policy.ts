@@ -4,6 +4,7 @@ import type { QaWorkflowAnalysis } from "../ai/qa-workflow.js";
 
 export interface ChatCreditEstimateInput {
   attachments: AiTextAttachment[];
+  conversationSummary?: string;
   history: AiHistoryMessage[];
   imageCount: number;
   memoryContext?: AiMemoryContext;
@@ -44,11 +45,19 @@ export function estimateChatCredits(input: ChatCreditEstimateInput): ChatCreditE
   const messageTokens = estimateTextTokens(input.message);
   const historyTokens = estimateTextTokens(input.history.map((item) => item.content).join("\n"));
   const attachmentTokens = estimateTextTokens(input.attachments.map((attachment) => attachment.content).join("\n"));
+  const conversationSummaryTokens = estimateTextTokens(input.conversationSummary || "");
   const memoryTokens = estimateMemoryTokens(input.memoryContext);
   const imageTokens = input.imageCount * 700;
   const usesWorkflowRouter = Boolean(input.usesWorkflowRouter || input.workflow.source === "ai_router");
   const routerTokens = usesWorkflowRouter ? 250 : 0;
-  const estimatedPromptTokens = messageTokens + historyTokens + attachmentTokens + memoryTokens + imageTokens + routerTokens;
+  const estimatedPromptTokens =
+    messageTokens +
+    historyTokens +
+    attachmentTokens +
+    conversationSummaryTokens +
+    memoryTokens +
+    imageTokens +
+    routerTokens;
   const estimatedOutputTokens = estimateOutputTokens(input.mode, input.workflow.intent);
   const estimatedTotalTokens = estimatedPromptTokens + estimatedOutputTokens;
   const attachmentCredits =

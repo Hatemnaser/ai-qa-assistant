@@ -10,7 +10,13 @@ import {
   projectAccessService,
   type ProjectAccessService,
 } from "../projects/project-access.service.js";
+import {
+  RECENT_COMPLETE_TURN_LIMIT,
+  selectRecentCompleteTurns,
+} from "./chat-turns.js";
 import type { StoredChatDto, StoredChatInput, StoredChatMessageDto } from "./chat-history.types.js";
+
+export { RECENT_COMPLETE_TURN_LIMIT, selectRecentCompleteTurns };
 
 export interface ChatHistoryServiceDependencies {
   now?: () => Date;
@@ -27,6 +33,14 @@ export function createChatHistoryService({
     const chats = await repository.listUserChats(userId);
 
     return chats.map(toStoredChatDto);
+  }
+
+  async function loadRecentCompleteTurns(userId: string, chatId: string) {
+    const chat = await repository.findChatByIdAndUserId(chatId, userId);
+
+    if (!chat) return undefined;
+
+    return selectRecentCompleteTurns(chat.messages);
   }
 
   async function saveUserChat(userId: string, input: StoredChatInput): Promise<StoredChatDto> {
@@ -80,6 +94,7 @@ export function createChatHistoryService({
   return {
     deleteUserChat,
     listUserChats,
+    loadRecentCompleteTurns,
     saveUserChat,
   };
 }

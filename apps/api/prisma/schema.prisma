@@ -62,14 +62,15 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions           Session[]
-  settings           UserSettings?
-  ownedProjects      Project[]       @relation("ProjectOwner")
-  projectMemberships ProjectMember[]
-  chats              Chat[]
-  memories           Memory[]
-  aiUsageLogs        AiUsageLog[]
-  usageEvents        UsageEvent[]
+  sessions              Session[]
+  settings              UserSettings?
+  ownedProjects         Project[]             @relation("ProjectOwner")
+  projectMemberships    ProjectMember[]
+  chats                 Chat[]
+  conversationSummaries ConversationSummary[]
+  memories              Memory[]
+  aiUsageLogs           AiUsageLog[]
+  usageEvents           UsageEvent[]
 }
 
 model Session {
@@ -109,12 +110,13 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  owner    User            @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members  ProjectMember[]
-  chats    Chat[]
-  memories Memory[]
-  documents   ProjectDocument[]
-  instruction ProjectInstruction?
+  owner         User                @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members       ProjectMember[]
+  chats         Chat[]
+  memories      Memory[]
+  documents     ProjectDocument[]
+  instruction   ProjectInstruction?
+  projectMemory ProjectMemory?
 
   @@index([ownerId])
 }
@@ -144,11 +146,12 @@ model Chat {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project     Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  messages    Message[]
-  memories    Memory[]
-  aiUsageLogs AiUsageLog[]
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project             Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  messages            Message[]
+  conversationSummary ConversationSummary?
+  memories            Memory[]
+  aiUsageLogs         AiUsageLog[]
 
   @@index([userId, updatedAt])
   @@index([projectId, updatedAt])
@@ -169,6 +172,22 @@ model Message {
   aiUsageLogs AiUsageLog[]
 
   @@index([chatId, createdAt])
+}
+
+model ConversationSummary {
+  id               String   @id @default(cuid())
+  chatId           String   @unique
+  userId           String
+  summary          String
+  throughMessageId String?
+  openQuestions    String[] @default([])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
 }
 
 model Memory {
@@ -243,6 +262,16 @@ model ProjectInstruction {
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ProjectMemory {
+  projectId String       @id
+  content   String
+  source    MemorySource @default(USER_PROVIDED)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }

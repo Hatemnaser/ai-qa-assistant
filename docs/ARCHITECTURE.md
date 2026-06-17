@@ -22,6 +22,11 @@ Target stack:
 - Keep billing, integrations, and AI usage auditable through event tables.
 - Keep frontend styling in `apps/web/src/styles`. Do not add ad hoc CSS files for new Vue work. Prefer Bootstrap utilities for generic layout and keep SCSS for product-specific UI.
 
+Production operations are intentionally documented outside feature
+architecture. `docs/PRODUCTION_READINESS.md` is the source of truth for managed
+PostgreSQL, production-safe migrations, backups, restore drills, deployment,
+monitoring, and rollback.
+
 ## Repository Shape
 
 ```text
@@ -71,6 +76,8 @@ Small modules can start with fewer files, but should not put business logic dire
 - `projects`: signed-in project CRUD, owner-only authorization, and owner membership foundation records.
 - `memory`: signed-in manual Account Memory CRUD. V1 stores user-provided account notes and injects compact records into signed-in chat prompts.
 - `project-instructions`: one optional instructions record per owned project. It is edited as one document and applied to every chat in that project.
+- `project-memory`: one optional manually edited, 6,000-character bounded
+  distilled-memory record per owned project.
 - `project-documents`: signed-in manual project document CRUD and text/data/code file import with owner-only project checks. It persists deterministic chunk indexes and ranks project context through a replaceable retrieval contract.
 - `usage`: portfolio/demo credit limits, credit reservations before AI provider calls, completed token usage updates, and personal usage summaries.
 
@@ -90,8 +97,11 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 
 - `projects`: member authorization.
 - `memory`: manual Account Memory today. Future reviewed Account Memory proposals must follow the accepted Memory Intelligence architecture.
-- `project-memory`: future project-scoped singleton for distilled facts and decisions.
-- `conversation-summary`: future chat-scoped derived continuity with an idempotent update lifecycle.
+- `project-memory`: project-scoped singleton CRUD for manually curated
+  distilled facts and decisions. Future AI-assisted proposals should remain
+  reviewed and non-automatic.
+- `conversation-summary`: chat-scoped derived continuity with owner-scoped
+  access, bounded generation, and cursor-checked updates.
 - `project-documents`: semantic chunk selection and scalable vector search. Account Memory, Project Instructions, and Project Documents must remain separate retrieval layers.
 - `projects/project-access.service.ts`: the current owner-only authorization boundary for project-linked chats, instructions, documents, and retrieval. Future member/role rules must evolve here instead of being duplicated across feature repositories.
 
@@ -120,6 +130,10 @@ The frontend auth pages call the API with `credentials: "include"` so sessions s
 - `DELETE /api/projects/:projectId`: delete a project owned by the signed-in user.
 - `GET /api/projects/:projectId/instructions`: return the optional instructions record for an owned project.
 - `PUT /api/projects/:projectId/instructions`: create, update, or clear the instructions record for an owned project.
+- `GET /api/projects/:projectId/memory`: return the optional Project Memory
+  singleton for an owned project.
+- `PUT /api/projects/:projectId/memory`: create, update, or clear bounded manual
+  Project Memory for an owned project.
 - `GET /api/projects/:projectId/documents`: list manual and imported documents for an owned project.
 - `POST /api/projects/:projectId/documents`: create a manual document for an owned project.
 - `POST /api/projects/:projectId/documents/import`: import up to four supported text/data files into an owned project.
@@ -137,7 +151,7 @@ The frontend project-document registry maps extensions to MIME types, preview mo
 
 `ProjectsPage.vue` owns project navigation and CRUD orchestration. Project Instructions and Project Documents loading/mutations live in `useProjectKnowledge`, which guards active-project changes so stale async responses cannot overwrite the newly selected project. Project Knowledge styles live in their own SCSS partial rather than the generic workspace partial.
 
-Signed-in Account Memory is stored in `Memory` with `scope: USER`, `source: USER_PROVIDED`, and the current `userId`. Project Instructions are stored separately in the one-to-one `ProjectInstruction` model keyed by `projectId`. The migration combines any existing project-scoped memory notes into that singleton record, then removes the old project-scoped rows. Manual Project Documents are stored in `ProjectDocument` with `source: USER_PROVIDED`; imported text/data files use `source: IMPORTED` plus file metadata after the shared project access check. Imported records are read-only and must be deleted and re-imported to replace their source content.
+Signed-in Account Memory is stored in `Memory` with `scope: USER`, `source: USER_PROVIDED`, and the current `userId`. Project Instructions are stored separately in the one-to-one `ProjectInstruction` model keyed by `projectId`. Project Memory is stored in the dedicated `ProjectMemory` model keyed by `projectId`, starts with `USER_PROVIDED` provenance, is manually editable through the owner-scoped API, and is bounded to 6,000 characters. Empty content clears the record. Manual Project Documents are stored in `ProjectDocument` with `source: USER_PROVIDED`; imported text/data files use `source: IMPORTED` plus file metadata after the shared project access check. Imported records are read-only and must be deleted and re-imported to replace their source content.
 
 Server-side stored context retrieval runs only for signed-in users. Prompt serialization follows the typed context contract: system behavior, Project Instructions, Account/Project Memory, Project Document chunks, conversation context, current attachments, then the current message. Empty or inapplicable sections are omitted. Structured Project Instructions and Project Document content preserve meaningful line breaks so Markdown, CSV, JSON, and rule lists are not flattened.
 
@@ -164,18 +178,42 @@ Hybrid retrieval and document embedding generation use the same feature flag and
 The accepted design is documented in
 `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 
-Account Memory remains a list of user-owned notes. Project Memory will be a
-dedicated project singleton for distilled facts and decisions. Conversation
-Summary will be a dedicated chat singleton for derived continuity. Recent Turns
-will be derived from persisted messages and will not get their own table.
+Account Memory remains a list of user-owned notes. Project Memory is a
+dedicated, manually edited project singleton for distilled facts and decisions,
+bounded to 6,000 characters and loaded only after project access succeeds.
+The project workspace exposes Project Memory through the existing knowledge
+panel as a simple manual textarea with explicit Save memory and Clear controls.
+There is no active AI suggestion endpoint or automatic Project Memory write in
+the MVP.
+Conversation
+Summary is a dedicated optional chat singleton for derived continuity, stored
+in `ConversationSummary` rather than generic `Memory`. It is read and written
+through owner-scoped `chatId + userId` repository operations. Non-empty owned
+summaries are serialized before Recent Turns; guests and unpersisted chats do
+not load them. `throughMessageId` is cursor data, not a message foreign key.
+After a successful authenticated chat save, the controller sends the response
+and requests a best-effort in-process summary refresh. The refresh use case
+re-reads owner-scoped persisted messages, starts after six complete turns,
+keeps the latest four complete turns outside the summary, and refreshes after
+three additional eligible turns or a bounded character threshold. Stale
+results are rejected through a transactional cursor comparison; concurrent
+work for the same chat is deduplicated within one API process. Summary provider
+usage is observable through a separate zero-credit usage action. There is no
+durable queue, cross-process lock, or automatic retry yet, and summary failure
+never blocks chat persistence. Recent Turns are derived from persisted messages
+and do not get their own table. Signed-in `/api/chat` requests may include
+`chatId`; the API resolves it with one owner-scoped `chatId + userId` lookup.
+Owned chats use the latest four complete, non-error persisted turns. Missing
+and foreign ids are treated identically as new conversations, while guests and
+unpersisted chats keep bounded client-provided history.
 Project Instructions remain behavior, and Project Documents remain retrieved
 evidence.
 
 Do not store Project Memory or Conversation Summary in generic `Memory` rows.
 Do not mix Account Memory, Project Memory, and Project Document vectors in one
-index. AI extraction must create reviewable proposals instead of silently
-writing canonical memory. Do not introduce a broad Memory Orchestrator until
-the independent lifecycles require real coordination.
+index. Future AI extraction must create reviewable proposals instead of
+silently writing canonical memory. Do not introduce a broad Memory Orchestrator
+until the independent lifecycles require real coordination.
 
 ## AI Workflow Layer
 
@@ -347,7 +385,7 @@ UsageEvent
   createdAt
 ```
 
-Billing and integrations will add their own tables only when those phases begin. The active schema should stay focused on users, sessions, settings, projects, chats, messages, Account Memory, Project Instructions, Project Documents, AI usage, and demo usage limits.
+Billing and integrations will add their own tables only when those phases begin. The active schema should stay focused on users, sessions, settings, projects, chats, messages, Account Memory, Project Instructions, Project Memory, Project Documents, Conversation Summary, AI usage, and demo usage limits.
 
 ## Migration Plan
 

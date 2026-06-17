@@ -12,6 +12,10 @@ import {
   getProjectInstruction,
   saveProjectInstruction,
 } from "../project-instructions/project-instructions.controller.js";
+import {
+  getProjectMemory,
+  saveProjectMemory,
+} from "../project-memory/project-memory.controller.js";
 import { createProject, deleteProject, listProjects, updateProject } from "./projects.controller.js";
 
 export const projectsRouter = Router();
@@ -21,6 +25,8 @@ projectsRouter.get("/", listProjects);
 projectsRouter.post("/", createProject);
 projectsRouter.get("/:projectId/instructions", getProjectInstruction);
 projectsRouter.put("/:projectId/instructions", saveProjectInstruction);
+projectsRouter.get("/:projectId/memory", getProjectMemory);
+projectsRouter.put("/:projectId/memory", saveProjectMemory);
 projectsRouter.get("/:projectId/documents", listProjectDocuments);
 projectsRouter.post("/:projectId/documents", createProjectDocument);
 projectsRouter.post("/:projectId/documents/import", importProjectDocuments);

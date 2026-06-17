@@ -46,6 +46,7 @@ export interface SaveUserChatInput {
 export interface ChatHistoryRepository {
   deleteUserChat(userId: string, chatId: string): Promise<number>;
   findChatOwner(chatId: string): Promise<{ userId: string } | null>;
+  findChatByIdAndUserId(chatId: string, userId: string): Promise<StoredChatRecord | null>;
   listUserChats(userId: string): Promise<StoredChatRecord[]>;
   saveUserChat(input: SaveUserChatInput): Promise<StoredChatRecord>;
 }
@@ -70,6 +71,22 @@ export function createPrismaChatHistoryRepository(): ChatHistoryRepository {
         },
         where: {
           id: chatId,
+        },
+      });
+    },
+
+    async findChatByIdAndUserId(chatId, userId) {
+      return prisma.chat.findFirst({
+        include: {
+          messages: {
+            orderBy: {
+              createdAt: "asc",
+            },
+          },
+        },
+        where: {
+          id: chatId,
+          userId,
         },
       });
     },

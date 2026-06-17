@@ -10,6 +10,50 @@ afterEach(() => {
 });
 
 describe("chat api", () => {
+  it("sends chat identity through the chat request contract", async () => {
+    mockFetch(async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+
+      assert.equal(body.chatId, "chat-1");
+
+      return jsonResponse({
+        reply: "ok",
+        mode: "general",
+        model: "gemini-2.5-flash",
+      });
+    });
+
+    await sendMessageToAI({
+      chatId: "chat-1",
+      history: [],
+      message: "hello",
+      mode: "general",
+      model: "gemini-2.5-flash",
+    });
+  });
+
+  it("omits empty chat identity from the request contract", async () => {
+    mockFetch(async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+
+      assert.equal("chatId" in body, false);
+
+      return jsonResponse({
+        reply: "ok",
+        mode: "general",
+        model: "gemini-2.5-flash",
+      });
+    });
+
+    await sendMessageToAI({
+      chatId: null,
+      history: [],
+      message: "hello",
+      mode: "general",
+      model: "gemini-2.5-flash",
+    });
+  });
+
   it("sends attachments through the chat request contract", async () => {
     mockFetch(async (_input, init) => {
       const body = JSON.parse(String(init?.body));

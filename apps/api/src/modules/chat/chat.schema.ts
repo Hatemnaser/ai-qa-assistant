@@ -57,6 +57,7 @@ export const chatAttachmentSchema = z.union([
 ]);
 
 export const chatRequestSchema = z.object({
+  chatId: z.preprocess(normalizeOptionalString, z.string().min(1).max(191).optional()),
   message: z
     .string()
     .trim()

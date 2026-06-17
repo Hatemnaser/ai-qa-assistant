@@ -1,4 +1,5 @@
 export const CHAT_MESSAGE_ACTION = "chat_message";
+export const CONVERSATION_SUMMARY_ACTION = "conversation_summary";
 
 export interface UsageIdentity {
   guestId?: string;

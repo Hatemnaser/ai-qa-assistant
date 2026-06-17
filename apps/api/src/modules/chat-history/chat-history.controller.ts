@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 
 import { AppError } from "../../lib/errors.js";
+import { conversationSummaryRefreshService } from "../conversation-summary/conversation-summary-refresh.service.js";
 import { saveStoredChatRequestSchema } from "./chat-history.schema.js";
 import { chatHistoryService } from "./chat-history.service.js";
 
@@ -23,9 +24,14 @@ export async function saveChat(req: Request, res: Response, next: NextFunction) 
       throw new AppError("Chat id does not match the request path.", 400, "CHAT_ID_MISMATCH");
     }
 
+    const userId = req.authUser!.id;
+    const savedChat = await chatHistoryService.saveUserChat(userId, chat);
+
     res.json({
-      chat: await chatHistoryService.saveUserChat(req.authUser!.id, chat),
+      chat: savedChat,
     });
+
+    void conversationSummaryRefreshService.requestRefresh(userId, savedChat.id);
   } catch (error) {
     next(error);
   }

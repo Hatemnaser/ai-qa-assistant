@@ -438,7 +438,7 @@ describe("chat service", () => {
     );
   });
 
-  it("passes project instructions and account memory to the AI provider for project chats", async () => {
+  it("passes project instructions, account memory, and project memory to project chats", async () => {
     const service = createChatService({
       chatWithAi: async (input) => {
         assert.deepEqual(input.context.behavior, {
@@ -446,6 +446,7 @@ describe("chat service", () => {
         });
         assert.deepEqual(input.context.durableMemory, {
           account: ["Prefer concise QA steps."],
+          project: "Guest checkout remains disabled.",
         });
 
         return {
@@ -468,6 +469,7 @@ describe("chat service", () => {
             },
             durableMemory: {
               account: ["Prefer concise QA steps."],
+              project: "Guest checkout remains disabled.",
             },
             evidence: {
               projectDocuments: [],
@@ -535,6 +537,246 @@ describe("chat service", () => {
     );
 
     assert.equal(memoryWasLoaded, false);
+  });
+
+  it("uses owner-scoped server recent turns for a persisted signed-in chat", async () => {
+    const clientHistory = [
+      {
+        content: "Untrusted client history",
+        role: "user" as const,
+      },
+    ];
+    const serverHistory = [
+      {
+        content: "Stored question",
+        role: "user" as const,
+      },
+      {
+        content: "Stored answer",
+        role: "assistant" as const,
+      },
+    ];
+    const service = createChatService({
+      chatWithAi: async (input) => {
+        assert.deepEqual(input.history, serverHistory);
+        assert.deepEqual(input.context.conversation.recentTurns, serverHistory);
+        assert.equal(
+          input.context.conversation.recentTurns.some(
+            (message) => message.content === input.context.currentMessage
+          ),
+          false
+        );
+
+        return {
+          reply: "Hi from test AI",
+          model: "gemini-3.1-flash-lite",
+          provider: "gemini",
+        };
+      },
+      loadRecentTurns: async (userId, chatId) => {
+        assert.equal(userId, "user-1");
+        assert.equal(chatId, "chat-1");
+
+        return serverHistory;
+      },
+    });
+
+    await service.createChatReply(
+      {
+        chatId: "chat-1",
+        history: clientHistory,
+        message: "Current message",
+        mode: "general",
+        model: "gemini-2.5-flash",
+      },
+      {
+        userId: "user-1",
+      }
+    );
+  });
+
+  it("loads an owned persisted conversation summary into the context envelope", async () => {
+    const calls: string[] = [];
+    const recentTurns = [
+      {
+        content: "Stored question",
+        role: "user" as const,
+      },
+      {
+        content: "Stored answer",
+        role: "assistant" as const,
+      },
+    ];
+    const service = createChatService({
+      chatWithAi: async (input) => {
+        calls.push("ai");
+        assert.equal(
+          input.context.conversation.summary,
+          "The user is testing checkout."
+        );
+        assert.deepEqual(input.context.conversation.recentTurns, recentTurns);
+        assert.equal(input.context.currentMessage, "Current request");
+        assert.equal(
+          input.context.conversation.summary?.includes(input.context.currentMessage),
+          false
+        );
+
+        return {
+          reply: "Hi from test AI",
+          model: "gemini-3.1-flash-lite",
+          provider: "gemini",
+        };
+      },
+      loadConversationSummary: async (userId, chatId) => {
+        calls.push("summary");
+        assert.equal(userId, "user-1");
+        assert.equal(chatId, "chat-1");
+
+        return "The user is testing checkout.";
+      },
+      loadRecentTurns: async () => {
+        calls.push("turns");
+        return recentTurns;
+      },
+      reserveUsage: async (_identity, estimate) => {
+        calls.push("usage");
+        assert.equal(estimate.estimatedPromptTokens > 0, true);
+      },
+    });
+
+    await service.createChatReply(
+      {
+        chatId: "chat-1",
+        history: [],
+        message: "Current request",
+        mode: "general",
+        model: "gemini-2.5-flash",
+      },
+      {
+        userId: "user-1",
+      }
+    );
+
+    assert.deepEqual(calls.slice(0, 2).sort(), ["summary", "turns"]);
+    assert.deepEqual(calls.slice(2), ["usage", "ai"]);
+  });
+
+  it("treats missing and foreign chat ids as new conversations", async () => {
+    const clientHistory = [
+      {
+        content: "Bounded client context",
+        role: "user" as const,
+      },
+    ];
+
+    for (const chatId of ["missing-chat", "foreign-chat"]) {
+      const service = createChatService({
+        chatWithAi: async (input) => {
+          assert.deepEqual(input.history, clientHistory);
+          assert.deepEqual(input.context.conversation.recentTurns, clientHistory);
+          assert.equal(input.context.conversation.summary, undefined);
+
+          return {
+            reply: "Hi from test AI",
+            model: "gemini-3.1-flash-lite",
+            provider: "gemini",
+          };
+        },
+        loadConversationSummary: async () => undefined,
+        loadRecentTurns: async () => undefined,
+      });
+
+      await service.createChatReply(
+        {
+          chatId,
+          history: clientHistory,
+          message: "Current message",
+          mode: "general",
+          model: "gemini-2.5-flash",
+        },
+        {
+          userId: "user-1",
+        }
+      );
+    }
+  });
+
+  it("keeps bounded client history for guests without loading server turns", async () => {
+    let recentTurnsWereLoaded = false;
+    let summaryWasLoaded = false;
+    const clientHistory = Array.from({ length: 10 }, (_, index) => ({
+      content: `Client message ${index + 1}`,
+      role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
+    }));
+    const service = createChatService({
+      chatWithAi: async (input) => {
+        assert.deepEqual(input.history, clientHistory.slice(-8));
+        assert.deepEqual(input.context.conversation.recentTurns, clientHistory.slice(-8));
+
+        return {
+          reply: "Hi from test AI",
+          model: "gemini-3.1-flash-lite",
+          provider: "gemini",
+        };
+      },
+      loadConversationSummary: async () => {
+        summaryWasLoaded = true;
+        return "Must not be used";
+      },
+      loadRecentTurns: async () => {
+        recentTurnsWereLoaded = true;
+        return [];
+      },
+    });
+
+    await service.createChatReply(
+      {
+        chatId: "client-chat-id",
+        history: clientHistory,
+        message: "Current guest message",
+        mode: "general",
+        model: "gemini-2.5-flash",
+      },
+      {
+        guestId: "guest-1",
+      }
+    );
+
+    assert.equal(recentTurnsWereLoaded, false);
+    assert.equal(summaryWasLoaded, false);
+  });
+
+  it("does not load a server summary for a signed-in chat without chat identity", async () => {
+    let summaryWasLoaded = false;
+    const service = createChatService({
+      chatWithAi: async (input) => {
+        assert.equal(input.context.conversation.summary, undefined);
+
+        return {
+          reply: "Hi from test AI",
+          model: "gemini-3.1-flash-lite",
+          provider: "gemini",
+        };
+      },
+      loadConversationSummary: async () => {
+        summaryWasLoaded = true;
+        return "Must not be used";
+      },
+    });
+
+    await service.createChatReply(
+      {
+        history: [],
+        message: "First message",
+        mode: "general",
+        model: "gemini-2.5-flash",
+      },
+      {
+        userId: "user-1",
+      }
+    );
+
+    assert.equal(summaryWasLoaded, false);
   });
 
   it("rejects inaccessible project context before reserving usage", async () => {

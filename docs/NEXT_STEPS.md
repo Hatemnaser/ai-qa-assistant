@@ -2,11 +2,13 @@
 
 This file is the working roadmap for what is done, what is still foundation work, and what should come next. Use it as the reference when asking "what is next?" or "what still needs cleanup?"
 
-Last reviewed: 2026-06-13
+Last reviewed: 2026-06-14
 
 For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 Before future work on Project Memory, conversation summaries, AI-extracted memory,
 or memory embeddings, follow `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
+For deployment, data safety, migrations, backups, rollback, and production
+smoke tests, follow `docs/PRODUCTION_READINESS.md`.
 
 ## Current Health
 
@@ -15,8 +17,8 @@ or memory embeddings, follow `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 - [x] Backend is modular Express + TypeScript + Prisma.
 - [x] PostgreSQL schema is established for users, sessions, chats, projects, memory, usage events, and settings.
 - [x] `npm run verify` passes:
-  - 205 API tests passing.
-  - 81 web tests passing.
+  - 256 API tests passing.
+  - 94 web tests passing.
   - API and web TypeScript checks passing.
 - [x] Latest pushed baseline was clean before the current project assignment work.
 
@@ -78,7 +80,9 @@ or memory embeddings, follow `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 - [x] Project document cards open a read-only preview and expose Download/Delete actions, plus Edit for user-created Markdown documents, through a three-dot dropdown.
 - [x] Markdown previews are sanitized; code previews use syntax highlighting and line numbers; imported HTML is displayed as source and never executed.
 - [x] Project Knowledge Retrieval v2 implementation and controlled real-provider evaluation are complete; shared environments remain opt-in.
-- [ ] Memory Intelligence remains a later release: Project Memory, conversation summaries, reviewed AI extraction, and smart import/export.
+- [ ] Memory Intelligence remains incomplete: controlled Conversation Summary
+  and manual Project Memory are implemented. Smart import/export and
+  AI-assisted memory suggestions remain future work.
 - [ ] Admin usage dashboard does not exist. Current `My Usage` is personal only.
 - [ ] Credits are configured through environment variables, not plans/entitlements from the database.
 - [ ] Billing/subscriptions are not implemented.
@@ -87,6 +91,29 @@ or memory embeddings, follow `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 - [ ] Full i18n is not implemented. Current multilingual behavior is AI/workflow oriented only.
 
 ## Active Release Plan
+
+### Production Safety Gate
+
+Goal: make deployment operationally safe before real users depend on stored
+data. `docs/PRODUCTION_READINESS.md` is the source of truth.
+
+- [x] Document the target web/API/managed-PostgreSQL deployment shape.
+- [x] Document production environment, cookie, CORS, AI, and usage settings.
+- [x] Document data-safety, backup, restore, rollback, and smoke-test procedures.
+- [ ] Add `db:migrate:deploy` using `prisma migrate deploy`.
+- [ ] Keep `prisma migrate dev`, `migrate reset`, and `db push` out of
+  production release commands.
+- [ ] Select and provision the production hosts and managed PostgreSQL plan.
+- [ ] Enable automated database backups and record retention.
+- [ ] Enable point-in-time recovery if supported by the selected plan.
+- [ ] Complete a restore drill into an isolated temporary database.
+- [ ] Provision a separate staging database and environment.
+- [ ] Run the full staging deployment and smoke checklist.
+- [ ] Add host/proxy-level public API rate limiting.
+- [ ] Decide and document whether the first release is a disposable portfolio
+  demo or a real-user production release.
+- [ ] For real-user production, define account recovery, privacy/data
+  retention, account deletion, monitoring, and incident ownership.
 
 ### Project Knowledge Retrieval v2
 
@@ -211,7 +238,9 @@ These should happen before large new product features.
 - [x] Replace multi-note project memory with one Project Instructions record per project.
 - [x] Keep Account Memory, Project Instructions, and Project Documents as separate retrieval layers.
 - [x] Decide what memory is manually saved versus AI-extracted.
-  - V1 is manual `USER_PROVIDED` memory only. AI-extracted memory stays future work.
+  - Canonical Project Memory remains manual `USER_PROVIDED` content.
+  - AI-assisted replacement proposals are deferred from the MVP and must remain
+    reviewed, bounded, and non-automatic if reintroduced later.
 - [x] Add memory controls in UI.
 - [x] Add tests for memory isolation by user/project.
 - [x] Preserve separate prompt layers for Project Instructions, Account Memory, Project Document chunks, conversation context, current attachments, and the current message.
@@ -257,28 +286,69 @@ These should happen before large new product features.
 - [x] Complete a Memory Intelligence architecture checkpoint after the retrieval release.
   - Accepted decisions are documented in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
   - The context contract separates behavior, durable memory, retrieved evidence, conversation summary, recent turns, and the current message.
-  - Recent context will use four complete turns instead of an arbitrary message count.
-  - Conversation Summary will use a dedicated chat-scoped model and lifecycle.
-  - Project Memory will use a dedicated project-scoped singleton and isolation boundary.
-  - Account Memory, Project Memory, and Project Document vectors will not share one retrieval index.
+  - The checkpoint selected four complete turns instead of an arbitrary message
+    count; that policy is now implemented.
+  - Dedicated Conversation Summary and Project Memory models are now active.
+  - Account Memory, Project Memory, and Project Document vectors remain
+    separate retrieval concerns.
 - [x] Add the typed context contract foundation without changing current prompt behavior.
   - Separate behavior, durable memory, evidence, conversation continuity, and the current message in API types.
   - Preserve the current Project Document two-phase retrieval and usage-reservation boundary.
   - Add prompt ordering, omission, and budget regression tests.
   - Completed on 2026-06-14 with the existing guest, usage, and retrieval behavior preserved.
-- [ ] Add signed-in chat identity and complete Recent Turns retrieval.
+- [x] Add signed-in chat identity and complete Recent Turns retrieval.
   - Add optional `chatId` to signed-in `/api/chat` requests.
-  - Validate existing chat ownership while allowing a new client-generated chat id on its first message.
-  - Unknown ids receive no server-side chat context until persistence succeeds.
-  - Make persisted messages authoritative for signed-in recent turns.
-  - Keep bounded client-provided history for guests.
-- [ ] Add conversation rolling summaries after the architecture checkpoint.
+  - Resolve persisted chats through one owner-scoped `chatId + userId` lookup.
+  - Treat missing and foreign ids identically as new conversations without
+    server-side context or chat-existence disclosure.
+  - Use the latest four persisted complete, non-error turns as the authoritative
+    signed-in context.
+  - Keep bounded client-provided history for guests and chats not yet persisted.
+  - Completed on 2026-06-14 without changing credits, provider fallback, or
+    Project Document retrieval behavior.
+- [x] Add the Conversation Summary persistence/context foundation.
   - Use a dedicated `ConversationSummary` model rather than `MemoryScope.CHAT`.
-  - Add an idempotent status/cursor lifecycle before provider generation.
-  - Do not trigger provider calls directly from debounced chat autosave.
-- [ ] Add Project Memory with explicit provenance, update/stale rules, and user controls.
-  - Use a dedicated project singleton rather than `MemoryScope.PROJECT`.
-- [ ] Add AI-extracted memory proposals with explicit user review; never auto-save assistant guesses as facts.
+  - Keep one optional owner-scoped record per persisted chat.
+  - Store `throughMessageId` as cursor data and inject only non-empty summaries.
+  - Preserve Recent Turns, guest behavior, Project Document retrieval, and
+    provider routing.
+  - Completed on 2026-06-14 with no provider generation or background work.
+- [x] Add controlled Conversation Summary generation.
+  - Run best-effort generation only after a successful authenticated chat save
+    has sent its response.
+  - Re-read complete persisted turns through owner-scoped access and keep the
+    latest four complete turns outside the summary.
+  - Start after six complete turns; refresh after three additional eligible
+    turns or 6,000 unsummarized characters.
+  - Use in-process deduplication plus transactional cursor comparison to drop
+    concurrent or stale results.
+  - Record provider work under a separate zero-credit
+    `conversation_summary` usage action.
+  - Preserve chat responses when generation, telemetry, or summary persistence
+    fails.
+  - Completed on 2026-06-14 without a durable queue, Project Memory writes, or
+    changes to chat routing, fallback, guest behavior, or document retrieval.
+- [x] Add manual Project Memory with explicit provenance and scope isolation.
+  - Use a dedicated `ProjectMemory` singleton keyed by `projectId` rather than
+    `MemoryScope.PROJECT`.
+  - Reuse the shared owner-only project access boundary for reads and writes.
+  - Support owner-scoped GET/PUT with empty-content clear semantics.
+  - Bound content to 6,000 characters and retain the documented optional
+    Stack/Decisions/Constraints/Risks/Conventions/Open Questions template.
+  - Inject only non-empty owned Project Memory through
+    `durableMemory.project`, before Project Documents.
+  - Completed on 2026-06-14 with migration
+    `20260614000200_add_project_memory` applied locally.
+- [x] Add the Project Memory frontend manual edit workflow.
+  - Load, edit, save, and explicitly clear the singleton from the existing
+    project knowledge panel.
+  - Keep the UI close to Project Instructions: one textarea, character count,
+    explicit Save memory, and Clear after confirmation.
+  - Completed on 2026-06-17 without suggestion UI, backend route changes,
+    automatic writes, chat changes, summary changes, or retrieval changes.
+- [ ] Evaluate AI-assisted Project Memory suggestions later if the manual flow
+  proves valuable enough to justify provider cost, abuse protection, and review
+  UX. Do not add automatic canonical writes.
 - [ ] Add smart memory import/export after memory scope and provenance rules are stable.
 
 ### Phase 5: Credits, Plans, And Admin
@@ -301,12 +371,18 @@ These should happen before large new product features.
 
 ### Phase 7: Deployment And Portfolio Readiness
 
-- [x] Add production deployment guide.
+- [x] Expand the production deployment guide into the deployment source of
+  truth.
 - [x] Add `.env` production checklist.
 - [x] Add rate limit/proxy notes.
 - [x] Add demo-safe defaults.
 - [x] Add short architecture section to README.
 - [x] Document first deployment target shape.
+- [ ] Add production-safe Prisma migration scripts.
+- [ ] Provision managed PostgreSQL with automated backups.
+- [ ] Complete and record a database restore drill.
+- [ ] Deploy staging and complete the smoke/rollback checklist.
+- [ ] Add host/proxy rate limiting and production monitoring.
 - [ ] Add screenshots/GIFs to README.
 
 ## Gemini / Google AI Studio Model Strategy
@@ -402,7 +478,10 @@ This section is based on the model screenshots shared in the chat. Availability 
 When asking "what is next?", choose the first unfinished item that matches the current goal:
 
 1. If the goal is foundation quality:
-   - Finish reviewing the current uncommitted Project Knowledge work, apply its database migrations locally, then commit/push only when requested.
+   - Finish reviewing the current uncommitted Project Knowledge work, confirm
+     its migrations and verification, then commit/push only when requested.
+   - Before any live deployment, complete the Production Safety Gate in
+     `docs/PRODUCTION_READINESS.md`.
 2. If the goal is user product value:
    - Continue Projects only with focused demo/UX polish; do not add collaboration authorization until members become real product scope.
 3. If the goal is portfolio/demo polish:
@@ -415,4 +494,12 @@ When asking "what is next?", choose the first unfinished item that matches the c
    - Project Knowledge Retrieval v2 is complete and validated against the lexical baseline and controlled real-provider fixtures.
    - The Memory Intelligence architecture checkpoint is complete in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
    - The typed context contract foundation is complete.
-   - Implement signed-in chat identity and complete Recent Turns before Conversation Summary or Project Memory persistence.
+   - Signed-in chat identity and complete Recent Turns are complete.
+   - Conversation Summary persistence and prompt injection are complete.
+   - Controlled Conversation Summary generation is complete.
+   - The bounded manual Project Memory singleton and context injection are
+     complete.
+   - Project Memory frontend manual edit/save/clear is complete.
+   - Evaluate smart memory import/export next. Keep AI-assisted Account or
+     Project Memory suggestions deferred until review UX, provider cost,
+     abuse protection, and provenance policy are explicitly designed.

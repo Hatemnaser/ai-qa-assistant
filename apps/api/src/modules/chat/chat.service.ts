@@ -2,6 +2,7 @@ import type {
   AiChatInput,
   AiChatResponse,
   AiContextEnvelope,
+  AiHistoryMessage,
   AiMemoryContext,
   AiTextAttachment,
 } from "../ai/ai.types.js";
@@ -21,6 +22,8 @@ import {
   type PreparedChatMemoryContext,
 } from "../memory/memory-context.service.js";
 import { estimateChatCredits, type ChatCreditEstimate } from "../usage/credit-policy.js";
+import { chatHistoryService } from "../chat-history/chat-history.service.js";
+import { conversationSummaryService } from "../conversation-summary/conversation-summary.service.js";
 import {
   usageService,
   type ChatUsageCompletionInput,
@@ -50,11 +53,23 @@ type ChatMemoryContextPreparer = (input: {
 type ChatMemoryContextResolver = (
   prepared: PreparedChatMemoryContext
 ) => Promise<AiMemoryContext | undefined>;
+const CLIENT_HISTORY_MESSAGE_LIMIT = 8;
+
+type ChatRecentTurnsLoader = (
+  userId: string,
+  chatId: string
+) => Promise<AiHistoryMessage[] | undefined>;
+type ChatConversationSummaryLoader = (
+  userId: string,
+  chatId: string
+) => Promise<string | undefined>;
 
 export interface ChatServiceDependencies {
   chatWithAi: ChatAiProvider;
   completeUsage?: ChatUsageCompleter;
   failUsage?: ChatUsageFailureHandler;
+  loadConversationSummary?: ChatConversationSummaryLoader;
+  loadRecentTurns?: ChatRecentTurnsLoader;
   prepareMemoryContext?: ChatMemoryContextPreparer;
   reserveUsage?: ChatUsageGuard;
   resolveMemoryContext?: ChatMemoryContextResolver;
@@ -65,6 +80,8 @@ export function createChatService({
   chatWithAi,
   completeUsage,
   failUsage,
+  loadConversationSummary,
+  loadRecentTurns,
   prepareMemoryContext,
   reserveUsage,
   resolveMemoryContext,
@@ -79,10 +96,23 @@ export function createChatService({
       provider: requestedProvider,
     });
     const providerAttachments = getProviderAttachments(input);
+    const [conversationSummary, recentTurns] = await Promise.all([
+      resolveConversationSummary({
+        chatId: input.chatId,
+        loadConversationSummary,
+        userId: context.userId,
+      }),
+      resolveRecentTurns({
+        chatId: input.chatId,
+        clientHistory: input.history,
+        loadRecentTurns,
+        userId: context.userId,
+      }),
+    ]);
     const workflowInput = {
       hasImage: providerAttachments.images.length > 0,
       hasTextAttachment: providerAttachments.attachments.length > 0,
-      history: input.history,
+      history: recentTurns,
       message: input.message,
       mode: input.mode,
     };
@@ -111,7 +141,8 @@ export function createChatService({
 
     const creditEstimate = estimateChatCredits({
       attachments: providerAttachments.attachments,
-      history: input.history,
+      conversationSummary,
+      history: recentTurns,
       imageCount: providerAttachments.images.length,
       memoryContext: preparedMemoryContext?.context,
       message: input.message,
@@ -162,15 +193,16 @@ export function createChatService({
       });
       const aiContext = createAiContextEnvelope({
         attachments: providerAttachments.attachments,
-        history: input.history,
+        history: recentTurns,
         memoryContext,
         message: input.message,
+        summary: conversationSummary,
       });
 
       response = await sendWithModelFallback(
         {
           context: aiContext,
-          history: input.history,
+          history: recentTurns,
           ...(providerAttachments.attachments.length > 0 ? { attachments: providerAttachments.attachments } : {}),
           ...(providerAttachments.images.length > 0 ? { images: providerAttachments.images } : {}),
           message: input.message,
@@ -304,16 +336,53 @@ function getProviderAttachments(input: ChatRequest) {
   };
 }
 
+async function resolveRecentTurns(input: {
+  chatId?: string;
+  clientHistory: AiHistoryMessage[];
+  loadRecentTurns?: ChatRecentTurnsLoader;
+  userId?: string;
+}) {
+  if (!input.chatId || !input.userId || !input.loadRecentTurns) {
+    return getBoundedClientHistory(input.clientHistory);
+  }
+
+  const storedTurns = await input.loadRecentTurns(input.userId, input.chatId);
+
+  return storedTurns === undefined
+    ? getBoundedClientHistory(input.clientHistory)
+    : storedTurns;
+}
+
+function getBoundedClientHistory(history: AiHistoryMessage[]) {
+  return history.slice(-CLIENT_HISTORY_MESSAGE_LIMIT);
+}
+
+async function resolveConversationSummary(input: {
+  chatId?: string;
+  loadConversationSummary?: ChatConversationSummaryLoader;
+  userId?: string;
+}) {
+  if (!input.chatId || !input.userId || !input.loadConversationSummary) {
+    return undefined;
+  }
+
+  const summary = await input.loadConversationSummary(input.userId, input.chatId);
+
+  return summary?.trim() || undefined;
+}
+
 function createAiContextEnvelope(input: {
   attachments: AiTextAttachment[];
   history: AiChatInput["history"];
   memoryContext?: AiMemoryContext;
   message: string;
+  summary?: string;
 }): AiContextEnvelope {
   return {
     behavior: input.memoryContext?.behavior || {},
     conversation: {
       recentTurns: input.history,
+      ...(input.summary ? { summary: input.summary } : {}),
     },
     currentMessage: input.message,
     durableMemory: input.memoryContext?.durableMemory || {
@@ -330,6 +399,8 @@ export const { createChatReply } = createChatService({
   chatWithAi,
   completeUsage: usageService.completeChatCredits,
   failUsage: usageService.failChatCredits,
+  loadConversationSummary: conversationSummaryService.loadConversationSummaryContext,
+  loadRecentTurns: chatHistoryService.loadRecentCompleteTurns,
   prepareMemoryContext: memoryContextService.prepareChatMemoryContext,
   routeWorkflow: routeWorkflowWithAi,
   reserveUsage: usageService.reserveChatCredits,

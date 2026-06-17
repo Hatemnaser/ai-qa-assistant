@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createChatHistoryService } from "../src/modules/chat-history/chat-history.service.ts";
+import {
+  createChatHistoryService,
+  selectRecentCompleteTurns,
+} from "../src/modules/chat-history/chat-history.service.ts";
 import type {
   ChatHistoryRepository,
   SaveUserChatInput,
@@ -233,6 +236,72 @@ describe("chat history service", () => {
       },
     ]);
   });
+
+  it("loads recent turns only through an owner-scoped chat lookup", async () => {
+    const { service } = setupChatHistoryService([
+      createFakeChatRecord({
+        id: "chat-1",
+        messages: [
+          createStoredMessageRecord("message-1", "USER", "Owned question"),
+          createStoredMessageRecord("message-2", "ASSISTANT", "Owned answer"),
+        ],
+        userId: "user-1",
+      }),
+    ]);
+
+    const ownedTurns = await service.loadRecentCompleteTurns("user-1", "chat-1");
+    const foreignTurns = await service.loadRecentCompleteTurns("user-2", "chat-1");
+    const missingTurns = await service.loadRecentCompleteTurns("user-1", "missing-chat");
+
+    assert.deepEqual(
+      ownedTurns?.map(({ content, role }) => ({ content, role })),
+      [
+        {
+          content: "Owned question",
+          role: "user",
+        },
+        {
+          content: "Owned answer",
+          role: "assistant",
+        },
+      ]
+    );
+    assert.equal(foreignTurns, undefined);
+    assert.equal(missingTurns, undefined);
+  });
+
+  it("selects only the latest four complete persisted turns", () => {
+    const messages = [
+      ...createCompleteTurn(1),
+      ...createCompleteTurn(2),
+      createStoredMessageRecord("message-incomplete", "USER", "Current message"),
+      ...createCompleteTurn(3),
+      createStoredMessageRecord("message-error-user", "USER", "Request that failed"),
+      createStoredMessageRecord("message-error-assistant", "ASSISTANT", "Provider error", {
+        isError: true,
+      }),
+      ...createCompleteTurn(4),
+      ...createCompleteTurn(5),
+    ];
+
+    const turns = selectRecentCompleteTurns(messages);
+
+    assert.deepEqual(
+      turns.map(({ content, role }) => ({ content, role })),
+      [2, 3, 4, 5].flatMap((turn) => [
+        {
+          content: `Question ${turn}`,
+          role: "user" as const,
+        },
+        {
+          content: `Answer ${turn}`,
+          role: "assistant" as const,
+        },
+      ])
+    );
+    assert.equal(turns.some((message) => message.content === "Current message"), false);
+    assert.equal(turns.some((message) => message.content === "Provider error"), false);
+  });
 });
 
 function setupChatHistoryService(
@@ -283,6 +352,14 @@ function createFakeChatHistoryRepository(initialChats: FakeChatRecord[] = []): F
       const chat = repository.chats.find((item) => item.id === chatId);
 
       return chat ? { userId: chat.userId } : null;
+    },
+
+    async findChatByIdAndUserId(chatId, userId) {
+      return (
+        repository.chats.find(
+          (item) => item.id === chatId && item.userId === userId
+        ) || null
+      );
     },
 
     async listUserChats(userId) {
@@ -356,5 +433,30 @@ function toStoredMessageRecord(message: SaveUserChatInput["messages"][number]): 
     attachment: message.attachment || null,
     metadata: message.metadata || null,
     createdAt: message.createdAt,
+  };
+}
+
+function createCompleteTurn(turn: number): StoredMessageRecord[] {
+  return [
+    createStoredMessageRecord(`message-${turn}-user`, "USER", `Question ${turn}`),
+    createStoredMessageRecord(`message-${turn}-assistant`, "ASSISTANT", `Answer ${turn}`),
+  ];
+}
+
+function createStoredMessageRecord(
+  id: string,
+  role: StoredMessageRecord["role"],
+  content: string,
+  metadata: unknown = null
+): StoredMessageRecord {
+  return {
+    id,
+    role,
+    content,
+    mode: "general",
+    model: "gemini-2.5-flash",
+    attachment: null,
+    metadata,
+    createdAt: NOW,
   };
 }

@@ -4,8 +4,9 @@
 >
 > Accepted: 2026-06-13.
 >
-> This document is the source of truth for future Project Memory,
-> Conversation Summary, reviewed AI extraction, and memory retrieval work.
+> This document is the source of truth for the current manual Project Memory,
+> Conversation Summary, future reviewed AI extraction, and memory retrieval
+> design.
 > It consolidates the accepted decisions and the durable requirements from the
 > original review brief.
 
@@ -30,9 +31,12 @@ The system will keep these concepts separate:
 Project Memory and Conversation Summary must not reuse the generic `Memory`
 rows. They have different ownership, cardinality, update rules, and provenance.
 
-## Current Architecture Review
+## Baseline Architecture Review
 
-### What Already Matches
+This section records the pre-Slice 1 baseline. The delivery plan below records
+which gaps were resolved.
+
+### What Already Matched
 
 - Account Memory is owner-scoped and manually controlled.
 - Project Instructions are a dedicated singleton and are not mixed with facts.
@@ -43,7 +47,7 @@ rows. They have different ownership, cardinality, update rules, and provenance.
 - Prompt context construction is centralized in `ai/prompt-context.ts`.
 - Guest chats do not load server-side account or project memory.
 
-### Gaps To Resolve
+### Baseline Gaps
 
 - `MemoryScope.PROJECT`, `MemoryScope.CHAT`, and `MemorySource.CHAT_SUMMARY`
   exist in the schema, but active repositories use only user-scoped memory.
@@ -59,11 +63,11 @@ rows. They have different ownership, cardinality, update rules, and provenance.
   memory instead of expressing their different authority.
 - There is no idempotent summary update cursor, retry state, or usage accounting.
 
-These are incremental design gaps, not reasons for a broad rewrite.
+These were incremental design gaps, not reasons for a broad rewrite.
 
 ## Context Contract
 
-Future prompt assembly should accept one typed context envelope:
+Prompt assembly accepts one typed context envelope:
 
 ```ts
 interface AiContextEnvelope {
@@ -201,7 +205,7 @@ options include:
 - a complete `turnIndex`;
 - a stable persisted message id that survives ordinary chat updates.
 
-Initial policy target:
+Current MVP policy:
 
 - Start after six complete turns.
 - Refresh after three additional complete turns or a bounded unsummarized
@@ -230,12 +234,14 @@ Rules:
   move detailed source material into Project Documents.
 - Keep user edit, clear, and delete controls.
 - Record provenance and update time.
-- AI extraction creates proposals only.
-- A proposal becomes canonical Project Memory only after explicit user review.
+- AI-assisted Project Memory updates are not active in the MVP.
+- If AI-assisted updates are added later, they must create proposals only.
+- A future proposal becomes canonical Project Memory only after explicit user
+  review.
 - Project Memory never enters another project's context.
 - Project Memory and Project Document embeddings must remain separate indexes.
 
-The first Project Memory version should be text-based and manually editable.
+The current Project Memory version is text-based and manually editable.
 It is distilled knowledge, not a second Project Document. Detailed source
 material, requirements, files, and long-form reference content belong in
 Project Documents. Embedding retrieval is unnecessary while Project Memory is
@@ -309,7 +315,7 @@ Documents must retain separate indexes and evaluation contracts.
 
 ## Reviewed Extraction Contract
 
-Future AI extraction may inspect:
+Reviewed AI extraction may inspect:
 
 - the existing Conversation Summary;
 - newly completed user/assistant turns;
@@ -330,29 +336,25 @@ conflicts, and sensitive-data policy before showing it for review. Only an
 explicit user action may promote a candidate into canonical Account or Project
 Memory.
 
-## Data Model Direction
+## Data Model
 
-No schema migration is part of this checkpoint. When implementation starts,
-prefer dedicated models:
+The implementation uses dedicated models rather than generic `Memory` rows:
 
 ```text
 ProjectMemory
   projectId (primary key)
   content
   source
-  metadata
   createdAt
   updatedAt
 
 ConversationSummary
-  chatId (primary key)
-  content
+  id (primary key)
+  chatId (unique)
+  userId
+  summary
   openQuestions
   throughMessageId
-  status
-  error
-  model
-  generatedAt
   createdAt
   updatedAt
 ```
@@ -367,8 +369,8 @@ migration after dedicated models are active and existing data is audited.
 ## Service Boundaries
 
 - `AccountMemoryService`: current manual user memory CRUD and retrieval.
-- `ProjectMemoryService`: future project singleton CRUD and isolation.
-- `ConversationSummaryService`: future summary state and update policy.
+- `ProjectMemoryService`: project singleton CRUD and isolation.
+- `ConversationSummaryService`: summary state and update policy.
 - `RecentTurns`: a pure helper that returns complete bounded turns.
 - `ProjectDocumentRetriever`: remains responsible only for document evidence.
 - `PromptContextBuilder`: serializes the typed context envelope.
@@ -394,43 +396,123 @@ lifecycles.
 
 ### Slice 2: Chat Identity And Recent Turns
 
+- Status: completed on 2026-06-14.
 - Add optional `chatId` to signed-in `/api/chat` requests.
-- Validate existing chats by owner without breaking first-message creation.
+- Resolve existing chats through one owner-scoped `chatId + userId` lookup
+  without breaking first-message creation.
 - An unknown client-generated id has no server context and is not treated as
   owned until the chat is persisted successfully.
 - Make the backend authoritative for signed-in recent turns.
 - Replace arbitrary message slicing with four complete turns.
 - Preserve bounded client history for guests.
+- Missing and foreign chat ids intentionally produce the same new-conversation
+  behavior so chat existence is not disclosed.
+- The current implementation continues to order persisted messages by
+  `createdAt`. A stable sequence or turn index remains a future hardening option
+  if same-timestamp ordering becomes observable.
 
 ### Slice 3: Conversation Summary Foundation
 
+- Status: completed on 2026-06-14.
 - Add the dedicated summary model and migration.
 - Add owner-scoped repository/service APIs.
-- Add idempotent status/cursor lifecycle without provider generation first.
-- Add cascade, isolation, stale-cursor, and failure tests.
+- Store one optional summary per persisted chat with `throughMessageId` as
+  cursor data rather than a message foreign key.
+- Load summaries only through `chatId + userId`; missing and foreign chats
+  intentionally return the same empty result.
+- Inject a non-empty owned summary before Recent Turns without changing the
+  existing Recent Turns selection.
+- Keep summary text bounded to 3,000 characters and include it in prompt-token
+  estimation without changing credit pricing policy.
+- Add cascade at the database relation and isolation/empty-context regression
+  tests.
+- No provider generation, automatic updates, background jobs, or status/job
+  lifecycle were added in this slice.
 
 ### Slice 4: Summary Generation
 
-- Add a provider-independent summarization adapter/use case.
-- Run through an explicit job boundary with usage accounting.
-- Inject summaries without removing the latest four complete turns.
-- Add deterministic fixtures and controlled provider evals.
+- Status: completed on 2026-06-14.
+- A provider-independent `ConversationSummarizer` adapter owns structured
+  summary generation; Gemini is the first implementation and uses a dedicated
+  configurable model/timeout without changing chat routing or fallback.
+- Successful authenticated chat persistence sends its HTTP response first,
+  then requests a best-effort in-process summary refresh through an explicit
+  use-case boundary. Guest and unpersisted chats cannot enter this path.
+- The refresh use case re-reads chat messages through owner-scoped
+  `chatId + userId` access, summarizes complete non-error turns only, and keeps
+  the latest four complete turns outside the summary.
+- Generation starts after six complete turns. Existing summaries refresh after
+  three additional summarizable turns or 6,000 unsummarized characters.
+- `throughMessageId` is computed from the last persisted assistant message in
+  the summarized range. Cursor comparison inside the write transaction drops
+  stale results, while an in-process chat key deduplicates concurrent refreshes
+  in one API process.
+- Summary provider usage is recorded under the separate
+  `conversation_summary` action with provider token metadata and zero chat
+  credit units, preserving the current user-facing credit policy.
+- Provider, telemetry, stale-cursor, or persistence failures never reject chat
+  persistence or the already-sent HTTP response.
+- Summary output and open questions are bounded and validated. Persisted turn
+  data is serialized as untrusted JSON so instructions inside chat content are
+  not treated as summarizer instructions.
+- There is intentionally no durable queue, cross-process lock, automatic retry,
+  or AI write into Project Memory in this slice. Those are operational
+  hardening decisions, not hidden background behavior.
 
 ### Slice 5: Project Memory
 
-- Add the singleton model, CRUD API, and user controls.
-- Inject it only into chats for the same authorized project.
-- Add provenance and scope-isolation tests.
+- Status: completed on 2026-06-14.
+- Add a dedicated `ProjectMemory` model keyed by `projectId`, with cascade
+  deletion and `USER_PROVIDED` provenance. It does not reuse generic `Memory`
+  rows.
+- Expose owner-scoped `GET/PUT /api/projects/:projectId/memory`. Saving empty
+  content clears the singleton record.
+- Bound manual content to 6,000 characters. The optional section template
+  remains guidance rather than a required storage shape.
+- Load Project Memory only after the shared project access check and serialize
+  it through `durableMemory.project`, after Project Instructions and before
+  Project Document evidence.
+- Keep Project Memory absent from guest, normal non-project, missing-project,
+  and foreign-project contexts.
+- Add singleton, manual CRUD, input-boundary, route-authentication,
+  scope-isolation, empty-context, prompt-ordering, and chat-envelope tests.
+- No AI extraction, automatic writes, embeddings, document-index reuse,
+  MemoryOrchestrator, or background jobs were added.
 
-### Slice 6: Reviewed AI Extraction
+### Slice 6: Manual Project Memory UI
 
-- Add proposals and review actions.
-- Never write assistant guesses directly to Account or Project Memory.
-- Add duplicate, conflict, stale, and sensitive-data policies.
+- Status: completed on 2026-06-17 after MVP simplification.
+- Add Project Memory to the existing project knowledge panel between
+  Instructions and Documents. The panel shows the saved singleton or a clear
+  empty state and opens one focused management dialog.
+- Load and save through the existing owner-scoped Project Memory `GET/PUT`
+  endpoints. Clearing requires explicit confirmation and persists empty
+  content through `PUT`.
+- Keep the UI simple and close to Project Instructions: one textarea, a
+  character count, explicit Save memory, and explicit Clear memory.
+- There is no active AI suggestion endpoint, provider call, rate limiter,
+  usage action, or review/apply UI in the MVP.
+- No Project Memory CRUD, Conversation Summary, `/api/chat`, Project Document
+  retrieval, automatic write, Redis, or BullMQ behavior changed.
+
+### Deferred: Reviewed AI-Assisted Memory Suggestions
+
+- Status: future idea, not implemented in the current MVP.
+- If reintroduced, AI-assisted suggestions must remain owner-scoped,
+  review-only, bounded to the Project Memory character limit, and unable to
+  call canonical upsert, update, or delete paths directly.
+- Optional chat context must use owner-scoped lookups and same-project checks.
+  Missing, foreign, and different-project chats must be ignored without
+  disclosing existence.
+- Stored Project Documents, Project Instructions, Conversation Summary, Recent
+  Turns, and current memory must be treated as untrusted context against prompt
+  injection.
+- Any provider usage and rate limiting must be explicit before exposing the
+  feature again.
 
 ## Implementation Map
 
-The first context-contract slice should stay concentrated in:
+The completed context-contract slice stayed concentrated in:
 
 - `apps/api/src/modules/ai/ai.types.ts`
 - `apps/api/src/modules/ai/prompt-context.ts`
@@ -440,7 +522,7 @@ The first context-contract slice should stay concentrated in:
 - `apps/api/tests/memory-context.service.test.ts`
 - `apps/api/tests/chat.service.test.ts`
 
-The chat-identity and Recent Turns slice will likely touch:
+The completed chat-identity and Recent Turns slice touched:
 
 - `apps/api/src/modules/chat/chat.schema.ts`
 - `apps/api/src/modules/chat/chat.types.ts`
@@ -452,8 +534,8 @@ The chat-identity and Recent Turns slice will likely touch:
 - focused API and web tests for ownership, first-message behavior, and complete
   turn selection
 
-Do not create Project Memory or Conversation Summary files during the
-context-contract slice.
+Project Memory and Conversation Summary were intentionally added only in their
+later dedicated slices, not during the context-contract slice.
 
 ## Required Tests And Evals
 

@@ -50,7 +50,7 @@ Key architecture docs:
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Development Guide](docs/DEVELOPMENT_GUIDE.md)
-- [Production Readiness](docs/PRODUCTION_READINESS.md)
+- [Production Deployment And Readiness](docs/PRODUCTION_READINESS.md)
 - [Next Steps](docs/NEXT_STEPS.md)
 
 ## Project Structure
@@ -115,7 +115,9 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ai_qa_assistant?schem
 
 If `DATABASE_URL` is omitted, the API uses the local PostgreSQL URL above.
 
-For split web/API deployments, review `COOKIE_SAME_SITE`, `COOKIE_SECURE`, and `CORS_ORIGIN` in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
+For split web/API deployments, review `COOKIE_SAME_SITE`, `COOKIE_SECURE`, and
+`CORS_ORIGIN` in
+[docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
 
 ## Database
 
@@ -150,20 +152,24 @@ npm run build:api
 npm run build:web
 ```
 
-Before sharing or deploying the app, use [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
+Before sharing or deploying the app, use
+[docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). The current
+`db:migrate` script is for local development; production must use a dedicated
+`prisma migrate deploy` release command after it is added.
 
-Current expected local verification:
-
-- API tests: 169 passing
-- Web tests: 81 passing
-- API and web TypeScript checks passing
+Current verification status and exact test counts are tracked in
+[docs/AI_HANDOFF.md](docs/AI_HANDOFF.md) so this README does not become stale.
 
 ## Current Gaps
 
 - Google OAuth is not wired yet; the UI button is disabled intentionally.
 - Forgot password returns a safe generic response, but reset emails are not implemented yet.
-- Project member authorization, document chunking/embeddings, AI-extracted memory, and smart import/export are future work.
+- Project member authorization, smart memory import/export, and broader
+  attachment support are future work.
 - Admin usage, plans/billing, PDF/video, and provider file uploads are roadmap items.
+- Real-user production remains gated on managed PostgreSQL, automated backups,
+  a tested restore, production-safe migrations, staging smoke tests, and
+  host/proxy rate limiting.
 
 ## Styling
 

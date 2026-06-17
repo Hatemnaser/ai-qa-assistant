@@ -101,6 +101,39 @@ describe("AI prompt context", () => {
     assert.equal(prompt.split(currentMessage).length - 1, 1);
   });
 
+  it("omits a blank conversation summary", () => {
+    const prompt = buildAiPromptWithContext(
+      createPromptInput({
+        behavior: {},
+        conversation: {
+          recentTurns: [
+            {
+              content: "Stored question",
+              role: "user",
+            },
+            {
+              content: "Stored answer",
+              role: "assistant",
+            },
+          ],
+          summary: "   ",
+        },
+        currentMessage: "Current request",
+        durableMemory: {
+          account: [],
+        },
+        evidence: {
+          attachments: [],
+          projectDocuments: [],
+        },
+      })
+    );
+
+    assert.doesNotMatch(prompt, /Conversation summary:/);
+    assert.match(prompt, /Recent conversation context:/);
+    assert.match(prompt, /Current user message:\nCurrent request$/);
+  });
+
   it("keeps behavior, durable memory, and evidence in distinct sections", () => {
     const prompt = buildAiPromptWithContext(
       createPromptInput({

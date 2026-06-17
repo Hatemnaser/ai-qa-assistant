@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import ProjectDocumentsPanel from "../project-documents/components/ProjectDocumentsPanel.vue";
 import ProjectInstructionsPanel from "../project-instructions/components/ProjectInstructionsPanel.vue";
+import ProjectMemoryPanel from "../project-memory/components/ProjectMemoryPanel.vue";
+import { useProjectMemory } from "../project-memory/useProjectMemory";
 import ChatComposer from "../chat/components/ChatComposer.vue";
 import type { QuickAction } from "../chat/constants";
 import type { Chat, SelectedAttachment } from "../chat/types";
@@ -89,6 +91,17 @@ const {
   saveProjectDocument,
   saveProjectInstruction,
 } = useProjectKnowledge(activeProjectId);
+const {
+  clearProjectMemory,
+  isLoadingProjectMemory,
+  isSavingProjectMemory,
+  projectMemory,
+  projectMemoryDraft,
+  projectMemoryErrorMessage,
+  projectMemoryStatusMessage,
+  saveProjectMemory,
+  updateProjectMemoryDraft,
+} = useProjectMemory(activeProjectId);
 
 const selectedSortLabel = computed(() => {
   if (sortKey.value === "activity") return "Activity";
@@ -480,6 +493,18 @@ function getSortDate(project: Project, key: SortKey) {
                 :is-loading="isLoadingInstruction"
                 :is-saving="isSavingInstruction"
                 @save="saveProjectInstruction"
+              />
+
+              <ProjectMemoryPanel
+                :draft-content="projectMemoryDraft"
+                :error-message="projectMemoryErrorMessage"
+                :is-loading="isLoadingProjectMemory"
+                :is-saving="isSavingProjectMemory"
+                :memory="projectMemory"
+                :status-message="projectMemoryStatusMessage"
+                @clear="clearProjectMemory"
+                @save="saveProjectMemory"
+                @update:draft-content="updateProjectMemoryDraft"
               />
 
               <ProjectDocumentsPanel

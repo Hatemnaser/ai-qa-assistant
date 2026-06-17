@@ -76,6 +76,7 @@ export function useChatSubmit({
     try {
       const response = await sendMessageToAI({
         attachments: attachmentsForRequest,
+        chatId: chat.id,
         history,
         message,
         mode,

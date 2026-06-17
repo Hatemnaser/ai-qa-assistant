@@ -12,6 +12,7 @@ export class ChatApiError extends BackendApiError {
 }
 
 export async function sendMessageToAI(input: {
+  chatId?: string | null;
   message: string;
   mode: string;
   model: string;
@@ -23,6 +24,7 @@ export async function sendMessageToAI(input: {
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const body = {
+    ...(input.chatId ? { chatId: input.chatId } : {}),
     history: input.history,
     message: input.message,
     mode: input.mode,

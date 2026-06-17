@@ -1,20 +1,137 @@
-# Production And Demo Readiness
+# Production Deployment And Readiness
 
-Use this checklist before sharing the app as a portfolio demo or deploying it outside local development.
+This document is the source of truth for preparing, deploying, verifying, and
+operating AI QA Assistant outside local development.
 
-## Required Checks
+It separates three different states:
 
-- Run `npm run verify`.
-- Run `npm run build:api`.
-- Run `npm run build:web`.
-- Confirm PostgreSQL is reachable.
-- Run `npm run db:migrate` against the target database.
-- Check `GET /api/health` after deployment.
-- Confirm the web app talks to the API through the deployed `VITE_API_BASE_URL`.
+- **Local development:** data may be disposable and PostgreSQL may run in Docker.
+- **Portfolio demo:** limited public traffic with explicit product gaps and
+  conservative AI credits.
+- **Production:** real user data requires durable storage, tested backups,
+  production-safe migrations, monitoring, and a rollback plan.
 
-## API Environment
+Do not call a release production-ready while any item in **Production
+Blockers** remains open.
 
-Required or strongly recommended for deployed API environments:
+## Current Release Status
+
+The application architecture can be deployed as:
+
+- `apps/web`: static Vite build.
+- `apps/api`: long-running Node/Express service.
+- PostgreSQL: managed durable database.
+- Gemini: server-side provider integration.
+
+The repository is not yet approved for real-user production traffic because
+the operational data-safety gates below have not been completed.
+
+## Production Blockers
+
+- [ ] Add a production-only migration command that runs
+  `prisma migrate deploy`.
+- [ ] Never run `prisma migrate dev`, `prisma migrate reset`, or `prisma db push`
+  against production.
+- [ ] Select and provision a managed PostgreSQL instance with durable storage.
+- [ ] Enable automated backups and confirm the retention period.
+- [ ] Enable point-in-time recovery when the selected database plan supports it.
+- [ ] Complete and document one real restore drill before accepting user data.
+- [ ] Keep local, staging, and production databases and credentials separate.
+- [ ] Confirm that deleting or redeploying the API cannot delete the production
+  database.
+- [ ] Deploy a staging environment and run the full smoke checklist.
+- [ ] Add host/proxy-level rate limiting for public API traffic.
+- [ ] Decide whether the first release is a portfolio demo or a real-user
+  product. Real-user production also needs an account recovery decision,
+  privacy/data-retention policy, and user-data deletion path.
+
+### Required Migration Script
+
+The current `npm run db:migrate` command runs `prisma migrate dev`. It is for
+local development only.
+
+Before production deployment, add an API script equivalent to:
+
+```json
+"db:migrate:deploy": "prisma migrate deploy"
+```
+
+and a root script that calls it. The production release command should then be:
+
+```bash
+npm run db:migrate:deploy
+```
+
+Run migrations from a controlled release step against the production
+`DATABASE_URL`, not automatically from every API replica at startup.
+
+## Target Deployment Shape
+
+Recommended first deployment:
+
+- Static host for `apps/web/dist`.
+- Managed long-running Node host for `apps/api/dist/server.js`.
+- Managed PostgreSQL with backups enabled.
+- HTTPS for both web and API.
+- Exact public origins in CORS and cookie configuration.
+
+Avoid:
+
+- A local Docker volume as the production database.
+- Ephemeral container or application filesystems for user data.
+- A static-only deployment for the whole application.
+- A serverless API platform if long Gemini requests or Prisma connection
+  management are unreliable there.
+- Public Prisma Studio access.
+- Sharing one database between local development, staging, and production.
+
+## Data Safety
+
+### Database Requirements
+
+- Use a managed PostgreSQL service or an independently managed durable database.
+- Store `DATABASE_URL` as a deployment secret.
+- Require encrypted database connections when the provider supports or requires
+  them.
+- Restrict database network access to the API and trusted operational access.
+- Confirm storage persists across API restarts, redeployments, scaling, and
+  host replacement.
+- Record the production database name, region, owner, provider, and retention
+  policy in the private deployment configuration.
+
+### Backup Policy
+
+Before accepting real user data:
+
+- Enable automatic daily backups at minimum.
+- Prefer point-in-time recovery for production.
+- Keep backups outside the API container lifecycle.
+- Define retention appropriate to the release; 7-30 days is a practical MVP
+  starting range.
+- Take or confirm a fresh backup before a risky schema migration.
+- Protect backup access with the same care as the live database.
+
+### Restore Drill
+
+A backup is not considered ready until restoration has been tested.
+
+The restore drill must:
+
+1. Restore a backup into a separate temporary database.
+2. Run `prisma migrate status` against the restored database.
+3. Start the API against the restored database.
+4. Verify users, projects, chats, messages, documents, and memory records.
+5. Run representative login, project, chat, and document smoke tests.
+6. Record the restore date, duration, operator, and result.
+7. Delete the temporary restored environment after verification.
+
+Never test a restore by overwriting the active production database.
+
+## Environment Configuration
+
+### API Secrets And Core Configuration
+
+Required:
 
 ```text
 NODE_ENV=production
@@ -25,7 +142,38 @@ GEMINI_API_KEY=...
 USAGE_IP_HASH_SALT=long_random_secret
 ```
 
-Model and routing configuration:
+Do not use local defaults or committed placeholder secrets in production.
+
+### Cookies
+
+Same-site web/API deployment:
+
+```text
+COOKIE_SAME_SITE=lax
+COOKIE_SECURE=true
+COOKIE_DOMAIN=
+```
+
+Cross-site HTTPS web/API deployment:
+
+```text
+COOKIE_SAME_SITE=none
+COOKIE_SECURE=true
+COOKIE_DOMAIN=
+```
+
+Rules:
+
+- `CORS_ORIGIN` must list exact trusted origins. Do not use `*` with cookies.
+- Keep `COOKIE_SECURE=true` in production.
+- Set `COOKIE_DOMAIN` only when intentionally sharing cookies across
+  subdomains of the same parent domain.
+- Verify login, logout, session refresh, and guest cookies in the deployed
+  browser environment.
+
+### AI And Retrieval
+
+Recommended controlled defaults:
 
 ```text
 AI_PROVIDER=gemini
@@ -35,10 +183,11 @@ AI_MODEL_ROUTER_ENABLED=true
 AI_GENERAL_MODEL=gemini-3.1-flash-lite
 AI_VISUAL_MODEL=gemini-2.5-flash
 AI_FALLBACK_MODEL=gemini-2.5-flash-lite
+AI_SUMMARY_MODEL=gemini-3.1-flash-lite
+AI_SUMMARY_TIMEOUT_MS=15000
 AI_TIMEOUT_MS=55000
 AI_MAX_OUTPUT_TOKENS=2048
 
-# Keep false until semantic retrieval and embedding cost controls are intentionally enabled.
 PROJECT_DOCUMENT_EMBEDDINGS_ENABLED=false
 EMBEDDING_PROVIDER=gemini
 GEMINI_EMBEDDING_MODEL=gemini-embedding-2
@@ -46,7 +195,13 @@ EMBEDDING_DIMENSIONS=768
 EMBEDDING_TIMEOUT_MS=15000
 ```
 
-Demo-safe credit defaults:
+Keep `PROJECT_DOCUMENT_EMBEDDINGS_ENABLED=false` for the first shared
+deployment unless the release intentionally accepts the evaluated quota,
+latency, and cost behavior in `docs/RAG_RETRIEVAL_EVALS.md`.
+
+### Usage Protection
+
+Conservative demo defaults:
 
 ```text
 GUEST_DAILY_CREDITS=20
@@ -56,114 +211,228 @@ USAGE_IMAGE_CREDITS=4
 USAGE_TEXT_FILE_CREDITS=1
 USAGE_ROUTER_CREDITS=1
 USAGE_WINDOW_HOURS=24
+MAX_MESSAGE_CHARS=3000
+MAX_HISTORY_MESSAGES=10
+REQUEST_BODY_LIMIT=25mb
 ```
 
-Keep guest credits conservative while the Gemini API key is shared by the demo. Increase user credits only when there is enough quota or a paid plan.
+Review provider quota and billing before increasing limits. Application
+credits protect Gemini usage, but they do not replace host/proxy rate limiting.
+Review request and message limits against the selected host's proxy limits
+before enabling larger uploads.
 
-## Semantic Retrieval Release Gate
+### Web Configuration
 
-Keep `PROJECT_DOCUMENT_EMBEDDINGS_ENABLED=false` in shared environments until:
-
-- The target database has the Project Document chunk-index migration.
-- Hybrid retrieval passes the lexical baseline cases in `docs/RAG_RETRIEVAL_EVALS.md`.
-- Only current vectors with compatible hashes, model, and dimensions are read.
-- Missing, stale, disabled, or failed embeddings fall back to lexical retrieval.
-- Project authorization and prompt-budget tests pass.
-- Provider latency and embedding cost are reviewed for the target environment.
-- A smoke test confirms that provider failure does not block document CRUD or project chat.
-
-The controlled `gemini-embedding-2` fixture evaluation passed on 2026-06-13
-with Hybrid Hit@1 `6/6`, mean provider latency `304.23 ms`, and P95
-`519.01 ms`. This approves controlled opt-in use. Keep the shared default off
-until quota, expected traffic, and the target environment's operating policy
-are intentionally selected.
-
-Enable embeddings first in a controlled environment. This release gate applies
-only to Project Document retrieval; it does not approve memory embeddings or
-automatic memory extraction.
-
-## Web Environment
-
-For local development:
-
-```text
-VITE_API_BASE_URL=http://127.0.0.1:5000
-```
-
-For production, set it to the public API origin:
+Build the frontend with:
 
 ```text
 VITE_API_BASE_URL=https://your-api-origin.example
 ```
 
-## First Deploy Target
+The value is embedded at build time. Rebuild the web app when it changes.
 
-The first portfolio deployment should optimize for reliability and low operational work, not custom infrastructure.
+## Release Preparation
 
-Recommended first target:
+### Code And Documentation Gate
 
-- Static web host for `apps/web/dist`.
-- Managed Node API host for `apps/api/dist/server.js`.
-- Managed PostgreSQL database.
-- Exact HTTPS origins for both web and API.
+- [ ] Working tree contains only intended release changes.
+- [ ] No `.env`, secrets, database dumps, `.vscode/changelists.json`, generated
+  output, or unrelated local files are included.
+- [ ] All intended migrations are committed exactly once.
+- [ ] `schema.prisma` matches the migration history.
+- [ ] `AI_HANDOFF.md`, `ARCHITECTURE.md`, `NEXT_STEPS.md`, and this guide match
+  implemented behavior.
+- [ ] Known product gaps are explicitly accepted for the selected release type.
 
-This keeps the architecture close to the local monorepo while avoiding server maintenance. It also lets the API stay stateful enough for httpOnly cookies and Prisma while the frontend remains a simple static build.
+### Verification Gate
 
-Good candidates to evaluate:
+Run:
 
-- Web: Vercel static/Vite deployment or any static host that can serve `apps/web/dist`.
-- API and PostgreSQL: Render, Railway, Fly.io, or another Node-capable host with managed Postgres.
+```bash
+npm ci
+npm run verify
+npm run build:api
+npm run build:web
+git diff --check
+```
 
-Before choosing, verify current pricing, sleep limits, database backups, region availability, and environment variable support. Provider free tiers change often.
+Also confirm:
 
-Avoid for the first deploy:
+- API and web TypeScript checks pass.
+- API and web tests pass.
+- Production builds complete without warnings that hide real failures.
+- No pending or duplicated Prisma migration exists.
+- The release commit and version are recorded.
 
-- A pure static-only host for the whole app. The API needs Node, PostgreSQL, cookies, and server-side Gemini key protection.
-- A serverless-only API if it makes Prisma connection management or long AI requests painful.
-- A public Prisma Studio instance.
+## Deployment Procedure
+
+### 1. Provision Infrastructure
+
+1. Provision managed PostgreSQL.
+2. Enable backups and point-in-time recovery when available.
+3. Create separate staging and production databases.
+4. Configure API and web deployment targets.
+5. Configure HTTPS domains.
+6. Store all secrets in the host secret manager.
+
+### 2. Validate The Target Database
+
+1. Confirm `DATABASE_URL` targets the intended environment.
+2. Confirm the database is reachable from the release runner/API host.
+3. Check migration status.
+4. Confirm a current backup exists.
+5. Run the production-safe migration command once.
+6. Check migration status again.
+
+Never use reset, development migration, or schema-push commands to repair a
+production deployment.
+
+### 3. Deploy The API
+
+1. Build `apps/api`.
+2. Start `apps/api/dist/server.js` with `NODE_ENV=production`.
+3. Confirm the process remains healthy after startup.
+4. Check `GET /api/health`.
+5. Inspect logs for database, migration, CORS, cookie, or provider errors.
+
+### 4. Deploy The Web App
+
+1. Set the production `VITE_API_BASE_URL`.
+2. Build `apps/web`.
+3. Deploy `apps/web/dist`.
+4. Open the public URL in a clean browser session.
+5. Verify frontend requests target the production API.
+
+### 5. Run Post-Deploy Smoke Tests
+
+- [ ] Health endpoint returns success.
+- [ ] Registration creates a user.
+- [ ] Login succeeds and survives refresh.
+- [ ] Logout clears the session.
+- [ ] Guest chat works within its configured credit limit.
+- [ ] Signed-in chat is saved and reopens after refresh.
+- [ ] Project create/edit/delete works.
+- [ ] Project chat assignment and project access work.
+- [ ] Project Instructions load and save.
+- [ ] Project Documents upload, preview, download, and retrieval work.
+- [ ] Project Memory load, edit, save, and clear work through explicit user
+  actions.
+- [ ] Conversation Summary failure does not block the main chat response.
+- [ ] Usage page shows only the current identity.
+- [ ] Unsupported uploads and oversized requests return safe errors.
+- [ ] A second test user cannot access the first user's chats, projects,
+  documents, or memory.
+- [ ] Light/dark themes and mobile layout remain usable.
+
+After smoke testing, remove test accounts and data when appropriate.
+
+## Monitoring And Operations
+
+At minimum, monitor:
+
+- API availability and response errors.
+- Database connectivity and storage capacity.
+- Migration failures.
+- Authentication failures and unusual request volume.
+- Gemini quota, timeout, and provider errors.
+- `429`, `5xx`, and database error rates.
+- Backup success and restore readiness.
+
+Do not log:
+
+- Passwords or password hashes.
+- Session cookies or tokens.
+- Gemini API keys or database credentials.
+- Full private user documents unless explicitly required for a secured support
+  workflow.
+
+The current API uses normal process logging and does not yet provide a complete
+production observability stack. Select host logging, retention, and alerting
+before real-user launch.
+
+## Rollback Plan
+
+Before deployment, record:
+
+- Previous known-good application release.
+- Database backup or point-in-time recovery position.
+- Migration list included in the new release.
+- Person responsible for the rollback decision.
+
+If the application release fails:
+
+1. Stop or route traffic away from the failing release.
+2. Roll the API/web application back to the previous compatible build.
+3. Do not run `prisma migrate reset`.
+4. Prefer a forward-fix migration for schema issues.
+5. Restore the database only when data/schema damage requires it and the
+  recovery impact is understood.
+6. Re-run health and smoke checks.
+7. Record the incident and corrective action.
+
+Migrations should follow expand-and-contract compatibility when possible so an
+application rollback does not require an immediate destructive database
+rollback.
 
 ## Error UX Contract
 
-The API returns JSON errors with `code` and `error`. The web app maps infrastructure/provider codes into clearer user-facing messages.
+Important API error codes:
 
-Important codes:
+- `VALIDATION_ERROR`
+- `PAYLOAD_TOO_LARGE`
+- `DATABASE_UNAVAILABLE`
+- `DATABASE_SCHEMA_OUT_OF_DATE`
+- `USAGE_LIMIT_REACHED`
+- `RATE_LIMITED`
+- `QUOTA_EXCEEDED`
+- `MODEL_UNAVAILABLE`
+- `UNSUPPORTED_MODEL`
+- `SESSION_REQUIRED`
 
-- `VALIDATION_ERROR`: request shape is invalid.
-- `PAYLOAD_TOO_LARGE`: upload/request body exceeded the configured API limit.
-- `DATABASE_UNAVAILABLE`: PostgreSQL is not reachable.
-- `DATABASE_SCHEMA_OUT_OF_DATE`: migrations are missing.
-- `USAGE_LIMIT_REACHED`: guest or signed-in credit window is exhausted.
-- `QUOTA_EXCEEDED`: selected provider/model quota is exhausted.
-- `MODEL_UNAVAILABLE`: selected provider/model is temporarily unavailable.
-- `UNSUPPORTED_MODEL`: requested model is not in the backend catalog.
-- `SESSION_REQUIRED`: the endpoint needs an authenticated session.
+Do not expose raw provider stack traces, database credentials, or Prisma
+internals to users.
 
-Do not expose raw provider stack traces or Prisma internals to users.
+## Release Decision
 
-## Deployment Notes
+### Acceptable Portfolio Demo
 
-- Serve the web app through Vite build output from `apps/web/dist`.
-- Run the API from `apps/api/dist/server.js` after `npm run build:api`.
-- Put the API behind HTTPS before sharing auth flows publicly.
-- Keep `CORS_ORIGIN` exact. Do not use `*` with cookie-based auth.
-- If web and API are on the same site, keep `COOKIE_SAME_SITE=lax`.
-- If web and API are on different HTTPS sites, set `COOKIE_SAME_SITE=none` and `COOKIE_SECURE=true`.
-- Set `COOKIE_DOMAIN` only when intentionally sharing cookies across subdomains of the same parent domain.
-- Keep Prisma Studio local-only. Do not expose it on a public host.
-- Add host-level rate limiting before serious public sharing; app credits protect Gemini usage, but proxy limits still protect the API process.
+A portfolio demo may launch with:
 
-Reference docs to check when choosing a host:
+- Google OAuth disabled.
+- Generic forgot-password response without email delivery.
+- Conservative guest/user credits.
+- Embeddings disabled.
+- Clearly disposable demo accounts and data.
 
-- Vite static deployment: https://vite.dev/guide/static-deploy
-- Vercel Vite deployment: https://vercel.com/docs/frameworks/vite
-- Render Node/Express deployment: https://render.com/docs/deploy-node-express-app
-- Render PostgreSQL: https://render.com/docs/postgresql-creating-connecting
-- Railway Node deployment: https://docs.railway.com/guides/node
-- Railway PostgreSQL: https://docs.railway.com/guides/postgresql
+It still requires durable database storage, HTTPS, secrets, safe migrations,
+and backups if visitors can create accounts or content.
 
-## Current Intentional Gaps
+### Real-User Production
 
-- Google OAuth button is disabled until OAuth is implemented.
-- Forgot password returns a safe generic response but does not send email yet.
-- Admin dashboards and global usage views should wait for roles/permissions.
-- Billing should wait until credit plans/entitlements are modeled in the database.
+Before inviting users to rely on stored data, also resolve or explicitly design:
+
+- Working account recovery.
+- Privacy policy and data-retention rules.
+- Account and user-data deletion.
+- Support and incident response ownership.
+- Monitoring and alerting.
+- Backup retention and tested recovery objectives.
+- Provider budget and abuse controls.
+
+## External Provider Checks
+
+Provider plans and limits change. Before deployment, verify current:
+
+- Database backup/PITR support.
+- Region and data-residency options.
+- API process sleep and timeout limits.
+- Persistent storage guarantees.
+- Build/release command support.
+- Secret management.
+- Logging and alerting.
+- Pricing and quota limits.
+
+Possible hosts include Vercel or another static host for the web app, and
+Render, Railway, Fly.io, or another managed Node/PostgreSQL platform for the
+API and database. Select providers based on verified current capabilities, not
+this document alone.

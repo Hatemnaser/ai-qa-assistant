@@ -46,6 +46,11 @@ export const env = Object.freeze({
   aiWorkflowRouterModel: process.env.AI_WORKFLOW_ROUTER_MODEL || "gemini-3.1-flash-lite",
   aiWorkflowRouterMinConfidence: parseNumber(process.env.AI_WORKFLOW_ROUTER_MIN_CONFIDENCE, 0.72),
   aiWorkflowRouterTimeoutMs: parseNumber(process.env.AI_WORKFLOW_ROUTER_TIMEOUT_MS, 8000),
+  aiSummaryModel:
+    process.env.AI_SUMMARY_MODEL ||
+    process.env.AI_GENERAL_MODEL ||
+    "gemini-3.1-flash-lite",
+  aiSummaryTimeoutMs: parseNumber(process.env.AI_SUMMARY_TIMEOUT_MS, 15000),
   aiModelRouterEnabled: process.env.AI_MODEL_ROUTER_ENABLED !== "false",
   aiGeneralModel: process.env.AI_GENERAL_MODEL || "gemini-3.1-flash-lite",
   aiVisualModel: process.env.AI_VISUAL_MODEL || "gemini-2.5-flash",
