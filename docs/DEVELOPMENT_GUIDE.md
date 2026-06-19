@@ -25,7 +25,12 @@ This project is currently in foundation and migration mode. Do not add new produ
 
 1. Check whether the change is a feature, a migration cleanup, or a bug fix.
 2. If it is a future feature like settings, projects, memory, billing, or integrations, document it instead of adding active code unless the task explicitly starts that phase.
-3. Auth has a backend module now. Keep password auth, httpOnly session cookies, session records, and reset request contracts there; keep Google OAuth and reset email delivery out until that phase starts.
+3. Auth has a backend module now. Keep password auth, httpOnly session cookies,
+   session records, and reset request contracts there until auth hardening
+   becomes the active workstream. Before real-user production, explicitly
+   decide whether to harden the owned auth module or migrate to a maintained
+   auth library such as Better Auth/Auth.js. Do not mix auth migration into
+   unrelated feature work.
 4. If it touches UI styling, look for the matching SCSS partial first.
 5. If it touches existing chat behavior, keep localStorage keys and API contracts compatible.
 6. If it touches AI calls, check the `usage` module so guest and user limits keep protecting the Gemini key, and preserve the chat response `usage` summary.

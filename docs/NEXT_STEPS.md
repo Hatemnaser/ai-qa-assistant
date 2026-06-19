@@ -103,6 +103,10 @@ data. `docs/PRODUCTION_READINESS.md` is the source of truth.
 - [x] Add `db:migrate:deploy` using `prisma migrate deploy`.
 - [x] Keep `prisma migrate dev`, `migrate reset`, and `db push` out of
   production release commands.
+- [ ] Keep deployment provider selection deferred until the core releasable
+  feature set is closer to done.
+- [ ] Keep the app compatible with static web hosting, a long-running Node API,
+  and managed PostgreSQL.
 - [ ] Select and provision the production hosts and managed PostgreSQL plan.
 - [ ] Enable automated database backups and record retention.
 - [ ] Enable point-in-time recovery if supported by the selected plan.
@@ -110,6 +114,7 @@ data. `docs/PRODUCTION_READINESS.md` is the source of truth.
 - [ ] Provision a separate staging database and environment.
 - [ ] Run the full staging deployment and smoke checklist.
 - [ ] Add host/proxy-level public API rate limiting.
+- [ ] Complete the auth security checkpoint before real-user launch.
 - [ ] Decide and document whether the first release is a disposable portfolio
   demo or a real-user production release.
 - [ ] For real-user production, define account recovery, privacy/data
@@ -143,14 +148,50 @@ Release gates:
 - [x] Handoff, architecture, eval, and production-readiness docs match the implemented behavior.
 - [x] Controlled real-provider quality, latency, and cost evaluation supports controlled opt-in enablement.
 
-Explicitly deferred from this release:
+Still deferred from automatic intelligence scope:
 
-- Project Memory.
-- Conversation rolling summaries.
 - AI-extracted Account Memory or Project Memory proposals.
 - Background memory update jobs or a broad Memory Orchestrator.
 - Memory embeddings and combined document/memory vector indexes.
 - Smart memory import/export.
+
+Project Memory and Conversation Summary now exist as separate scoped layers:
+manual Project Memory is user-edited only, and Conversation Summary generation
+is chat-scoped, bounded, and not Project Memory.
+
+### Auth Security Checkpoint
+
+Goal: decide whether the current owned auth module is sufficient after
+hardening, or whether to migrate to a maintained auth library before real-user
+production.
+
+Current state:
+
+- [x] Password register/login/logout with server-side sessions.
+- [x] httpOnly cookie-backed sessions with configurable secure/sameSite/domain
+  settings.
+- [x] Opaque session tokens are hashed before database storage.
+- [x] Passwords are hashed with Node crypto `scrypt`.
+- [x] Forgot-password endpoint returns a generic response.
+
+Required before real-user launch:
+
+- [ ] Decide custom hardening vs Better Auth/Auth.js migration.
+- [ ] Add auth route rate limiting for login, register, and forgot password.
+- [ ] Implement real password reset tokens and email delivery.
+- [ ] Invalidate existing sessions after password reset.
+- [ ] Review password policy against OWASP/NIST-style guidance.
+- [ ] Review CSRF risk for cookie-authenticated state-changing routes.
+- [ ] Verify production cookie settings over HTTPS.
+- [ ] Consider email verification before enabling real user accounts broadly.
+
+Library direction:
+
+- Prefer no immediate auth migration while product features are still moving.
+- Re-evaluate Better Auth first if the app needs email/password plus OAuth,
+  organization roles, MFA/passkeys, or managed account/session flows.
+- Re-evaluate Auth.js if OAuth/social login becomes the main driver.
+- Do not mix auth migration with unrelated project, memory, or retrieval work.
 
 ## Immediate Cleanup Tasks
 

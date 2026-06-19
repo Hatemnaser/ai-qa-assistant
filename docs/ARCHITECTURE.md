@@ -93,9 +93,37 @@ Small modules can start with fewer files, but should not put business logic dire
 
 The frontend auth pages call the API with `credentials: "include"` so sessions stay in the httpOnly cookie. Google OAuth and real reset emails are still future integrations.
 
+### Auth Security Direction
+
+The current auth module is an owned foundation, not a final production security
+certification. It intentionally keeps authentication server-side with httpOnly
+cookies, hashed opaque session tokens, database-backed sessions, generic
+forgot-password responses, and password hashing through Node crypto `scrypt`.
+
+Do not replace it casually during unrelated feature work. Before a real-user
+production release, run an explicit auth security checkpoint and choose one of
+these paths:
+
+1. Keep the owned auth module and harden it against OWASP guidance.
+2. Migrate auth to a maintained TypeScript auth library such as Better Auth or
+   Auth.js if the project needs OAuth, email verification, password reset
+   delivery, MFA/passkeys, organization roles, or managed session/account
+   flows.
+
+The current recommendation is to defer the library migration decision until
+auth becomes the active workstream. If we keep custom auth, the minimum
+hardening backlog is login/register/forgot-password rate limiting, real reset
+tokens and email delivery, optional email verification, password policy review,
+session rotation/invalidating all sessions after password reset, CSRF review for
+cookie-authenticated state-changing routes, and production cookie settings
+verified over HTTPS.
+
 ## Later Backend Work
 
 - `projects`: member authorization.
+- `auth`: security hardening and library evaluation before real-user
+  production. Keep the current owned auth module until this is a focused
+  workstream; do not mix an auth migration into unrelated product slices.
 - `memory`: manual Account Memory today. Future reviewed Account Memory proposals must follow the accepted Memory Intelligence architecture.
 - `project-memory`: project-scoped singleton CRUD for manually curated
   distilled facts and decisions. Future AI-assisted proposals should remain

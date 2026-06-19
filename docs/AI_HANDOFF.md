@@ -127,6 +127,9 @@ npm run build:api
 - Backend uses thin routes/controllers and service modules.
 - Prisma/PostgreSQL stores users, sessions, chats, usage, settings, projects, and manual memory.
 - Auth foundation exists with password auth, httpOnly cookies, sessions, guest mode, and chat adoption on login/register.
+- Auth is an owned foundation, not a final production security sign-off. Before
+  real-user production, choose custom hardening or a maintained auth library
+  migration. Do not mix that decision into unrelated feature work.
 - `My Usage` is personal only. Do not expose global usage until admin roles exist.
 - Settings page/API exists for language, theme, and default model.
 - Project CRUD API exists for signed-in users with owner-only authorization.
@@ -197,13 +200,16 @@ Complete enough:
 - Inline image/text/data attachments.
 - The production runbook is documented and a production-safe
   `npm run db:migrate:deploy` command exists. Real-user deployment remains
-  blocked on managed PostgreSQL, automated backups, a tested restore drill,
-  staging smoke tests, and host/proxy rate limiting.
+  blocked on deployment provider selection, managed PostgreSQL, automated
+  backups, a tested restore drill, staging smoke tests, host/proxy rate
+  limiting, and the auth security checkpoint.
 
 Still unfinished:
 
 - Google OAuth.
 - Real forgot-password email delivery.
+- Auth security checkpoint: decide whether to keep and harden owned auth or
+  migrate to Better Auth/Auth.js before real-user production.
 - Project member authorization.
 - Project Knowledge Retrieval v2: implementation and controlled real-provider evaluation are complete. Embeddings remain disabled by default and are ready for controlled opt-in use.
 - The Memory Intelligence architecture checkpoint, typed context contract,
@@ -230,8 +236,12 @@ Pick one track before coding:
 
 3. Production safety:
    - Follow `docs/PRODUCTION_READINESS.md`.
+   - Keep provider selection deferred while product features are still moving,
+     but preserve the target shape: static web, long-running Node API, managed
+     PostgreSQL.
    - Provision managed PostgreSQL with backups and test a restore.
    - Run staging and production smoke/rollback rehearsals.
+   - Complete the auth security checkpoint before real-user launch.
 
 4. AI quality:
    - Expand AI behavior evals.

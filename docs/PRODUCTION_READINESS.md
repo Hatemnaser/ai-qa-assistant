@@ -41,6 +41,8 @@ the operational data-safety gates below have not been completed.
   database.
 - [ ] Deploy a staging environment and run the full smoke checklist.
 - [ ] Add host/proxy-level rate limiting for public API traffic.
+- [ ] Complete the auth security checkpoint: decide whether to keep and harden
+  owned auth or migrate to a maintained auth library before real-user launch.
 - [ ] Decide whether the first release is a portfolio demo or a real-user
   product. Real-user production also needs an account recovery decision,
   privacy/data-retention policy, and user-data deletion path.
@@ -74,13 +76,28 @@ Run migrations from a controlled release step against the production
 
 ## Target Deployment Shape
 
-Recommended first deployment:
+The hosting provider decision is intentionally deferred while product features
+are still moving. Keep the app deployment-agnostic and compatible with a low-cost
+shape:
 
 - Static host for `apps/web/dist`.
 - Managed long-running Node host for `apps/api/dist/server.js`.
 - Managed PostgreSQL with backups enabled.
 - HTTPS for both web and API.
 - Exact public origins in CORS and cookie configuration.
+
+Preferred low-cost candidates when deployment becomes active:
+
+- Web: Vercel Hobby or Cloudflare Pages static hosting.
+- API: Railway Hobby, Render Starter, or another long-running Node host.
+- Database: Neon Free/Launch or another managed PostgreSQL provider with a
+  documented restore path.
+- Domain: use provider subdomains first; buy a custom domain only when the
+  release target is stable.
+
+Do not commit to a provider-specific architecture until the product is closer to
+release. Provider-specific setup belongs in a deployment decision record or this
+runbook once selected.
 
 Avoid:
 
