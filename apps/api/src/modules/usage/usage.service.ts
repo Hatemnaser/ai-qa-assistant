@@ -1,5 +1,9 @@
 import { AppError } from "../../lib/errors.js";
 import { env } from "../../config/env.js";
+import {
+  logGlobalAiLimitReached,
+  logUsageLimitReached,
+} from "../../lib/security-events.js";
 import { calculateCreditsFromTokenUsage, type ChatCreditEstimate } from "./credit-policy.js";
 import { createUsageInsightsService } from "./usage-insights.js";
 import { usageRepository, type UsageRepository } from "./usage.repository.js";
@@ -144,12 +148,25 @@ export function createUsageService({
 
     if (!reservation.accepted) {
       if (reservation.rejectionReason === "global_limit") {
+        logGlobalAiLimitReached({
+          operation: "chat",
+          userId: scope.userId,
+        });
+
         throw new AppError(
           "AI usage is temporarily limited. Please try again later.",
           429,
           "AI_USAGE_LIMIT_REACHED"
         );
       }
+
+      logUsageLimitReached({
+        guestId: scope.guestId,
+        ipHash: scope.ipHash,
+        operation: "chat",
+        scope: scope.isSignedIn ? "user" : "guest",
+        userId: scope.userId,
+      });
 
       throw new AppError(getLimitMessage(scope.isSignedIn), 429, "USAGE_LIMIT_REACHED");
     }
@@ -265,6 +282,11 @@ export function createUsageService({
     });
 
     if (!reservation.accepted) {
+      logGlobalAiLimitReached({
+        operation: input.action,
+        userId: input.userId,
+      });
+
       throw new AppError(
         "AI usage is temporarily limited. Please try again later.",
         429,

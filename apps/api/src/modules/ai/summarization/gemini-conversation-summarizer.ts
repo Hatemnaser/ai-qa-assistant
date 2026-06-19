@@ -82,7 +82,10 @@ export const geminiConversationSummarizer: ConversationSummarizer = {
         },
       };
     } catch (error) {
-      throw normalizeGeminiError(error, model);
+      throw normalizeGeminiError(error, model, {
+        operation: "conversation_summary",
+        provider: GEMINI_PROVIDER_ID,
+      });
     }
   },
 };

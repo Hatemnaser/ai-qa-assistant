@@ -70,7 +70,10 @@ export async function chatWithGemini(input: AiChatInput): Promise<AiChatResponse
       ...(input.workflow ? { workflow: input.workflow } : {}),
     };
   } catch (error) {
-    throw normalizeGeminiError(error, selectedModel);
+    throw normalizeGeminiError(error, selectedModel, {
+      operation: "chat",
+      provider: GEMINI_PROVIDER_ID,
+    });
   }
 }
 

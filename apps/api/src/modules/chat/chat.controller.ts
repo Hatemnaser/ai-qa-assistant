@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 
+import { logChatRateLimited } from "../../lib/security-events.js";
 import { clearAuthCookie, getAuthCookie } from "../auth/auth.cookies.js";
 import { authService } from "../auth/auth.service.js";
 import { getOrCreateGuestId } from "../usage/usage.cookies.js";
@@ -16,6 +17,10 @@ export async function sendChatMessage(req: Request, res: Response, next: NextFun
     const ipAddress = req.ip || req.socket.remoteAddress;
 
     if (isChatIpRateLimited({ ipAddress })) {
+      logChatRateLimited({
+        identityType: "anonymous",
+        ipAddress,
+      });
       sendRateLimitedResponse(res);
       return;
     }
@@ -35,6 +40,12 @@ export async function sendChatMessage(req: Request, res: Response, next: NextFun
         userId: currentUser?.id,
       })
     ) {
+      logChatRateLimited({
+        guestId,
+        identityType: currentUser ? "user" : guestId ? "guest" : "anonymous",
+        ipAddress,
+        userId: currentUser?.id,
+      });
       sendRateLimitedResponse(res);
       return;
     }

@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 
 import { env } from "../../config/env.js";
+import { logAuthRateLimited } from "../../lib/security-events.js";
 
 const RATE_LIMITED_MESSAGE = "Too many attempts. Please try again later.";
 
@@ -67,6 +68,12 @@ function createAuthRateLimitMiddleware(maxAttempts: number) {
     const isEmailLimited = keys.emailKey ? emailLimiter.consume(keys.emailKey) : false;
 
     if (isIpLimited || isEmailLimited) {
+      logAuthRateLimited({
+        email: keys.normalizedEmail,
+        ipAddress: keys.ipAddress,
+        method: req.method,
+        route: req.originalUrl || req.path,
+      });
       res.status(429).json({
         code: "RATE_LIMITED",
         error: RATE_LIMITED_MESSAGE,
@@ -86,6 +93,8 @@ function createRateLimitKeys(req: Request) {
   return {
     emailKey: email ? `ip-email:${ipAddress}:${email}` : "",
     ipKey: `ip:${ipAddress}`,
+    ipAddress,
+    normalizedEmail: email,
   };
 }
 

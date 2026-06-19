@@ -1,6 +1,7 @@
 import type { GoogleGenAI } from "@google/genai";
 
 import { env } from "../../../config/env.js";
+import { normalizeGeminiError } from "../gemini.errors.js";
 import { GEMINI_PROVIDER_ID, normalizeGeminiModel } from "../gemini.models.js";
 import {
   buildWorkflowRouterPrompt,
@@ -17,23 +18,30 @@ export async function routeWorkflowWithGemini(
   const model = normalizeGeminiModel(env.aiWorkflowRouterModel);
   const prompt = buildWorkflowRouterPrompt(input);
 
-  const response = await withRouterTimeout(
-    ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        maxOutputTokens: 256,
-        responseMimeType: "application/json",
-        temperature: 0,
-        thinkingConfig: {
-          thinkingBudget: 0,
+  try {
+    const response = await withRouterTimeout(
+      ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          maxOutputTokens: 256,
+          responseMimeType: "application/json",
+          temperature: 0,
+          thinkingConfig: {
+            thinkingBudget: 0,
+          },
         },
-      },
-    }),
-    env.aiWorkflowRouterTimeoutMs
-  );
+      }),
+      env.aiWorkflowRouterTimeoutMs
+    );
 
-  return parseRouterDecision(response.text || "");
+    return parseRouterDecision(response.text || "");
+  } catch (error) {
+    throw normalizeGeminiError(error, model, {
+      operation: "chat",
+      provider: GEMINI_PROVIDER_ID,
+    });
+  }
 }
 
 function parseRouterDecision(text: string): WorkflowRouterDecision | undefined {

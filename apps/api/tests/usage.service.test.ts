@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { after, before, describe, it } from "node:test";
 
 import {
   createUsageService,
   type GlobalAiUsageGuardConfig,
 } from "../src/modules/usage/usage.service.ts";
+import { setSecurityEventLoggerForTests } from "../src/lib/security-events.ts";
 import type { UsageRepository } from "../src/modules/usage/usage.repository.ts";
 import type {
   UsageCleanupStaleReservedInput,
@@ -38,6 +39,15 @@ const CHAT_CREDIT_ESTIMATE = {
   workflowIntent: "general_qa",
   workflowSource: "fallback",
 };
+let restoreSecurityEventLogger: (() => void) | undefined;
+
+before(() => {
+  restoreSecurityEventLogger = setSecurityEventLoggerForTests(() => {});
+});
+
+after(() => {
+  restoreSecurityEventLogger?.();
+});
 
 describe("usage service", () => {
   it("reserves guest chat credits with both guest and IP tracking", async () => {

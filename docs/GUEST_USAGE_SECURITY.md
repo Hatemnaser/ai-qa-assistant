@@ -364,6 +364,10 @@ when a `projectId` is present.
   provider.
 - Non-chat global AI operation limit rejections do not call the summarization
   or embedding providers.
+- Slice 1.8 adds basic structured security logs for auth/chat rate limits,
+  usage-limit rejections, global AI limit rejections, and provider
+  quota/model errors. Logs use hashed IP/email/guest identifiers and avoid
+  prompt, password, cookie, token, and raw email content.
 - Production cookie/CORS safety guards exist from Auth Hardening Slice 1.
 
 Current rate limits:
@@ -412,9 +416,9 @@ Current rate limits:
 - A DB-backed global AI usage guard now covers chat plus known non-chat AI
   operations, but no provider-budget circuit breaker, billing dashboard, or
   provider-side budget integration exists.
-- No dedicated `/api/chat` abuse logging, alerting, or bot-monitoring pipeline
-  exists. Usage events and rate-limit responses provide telemetry surfaces but
-  not active detection.
+- Basic structured abuse logs now exist for key rejection/provider events, but
+  there is still no alerting, dashboard, bot-monitoring pipeline, or active
+  detection.
 - Atomic reservation depends on the PostgreSQL database and advisory locks.
   It protects normal multi-process API deployments that share the same
   database, but still needs load testing under realistic hosting/proxy
@@ -497,7 +501,7 @@ Implemented.
   validation.
 - [ ] Decide and document deployment `trust proxy` settings so `req.ip` is
   reliable behind the selected host/proxy.
-- [ ] Add basic abuse logging for `/api/chat` quota/rate-limit rejections.
+- [x] Add basic abuse logging for `/api/chat` quota/rate-limit rejections.
 
 ### Should Have Before Real Users
 
@@ -508,6 +512,8 @@ Implemented.
 - [x] Add a first-pass global provider spend/call guard for `/api/chat`.
 - [x] Extend the global AI guard to known non-chat AI operations.
 - [ ] Add provider-side budget integration or a stronger circuit breaker.
+- [x] Add basic structured logs for `USAGE_LIMIT_REACHED`, provider quota
+  errors, global AI limits, and rate-limit rejections.
 - [ ] Add monitoring and alerts for `USAGE_LIMIT_REACHED`, provider quota
   errors, high request volume, and unusual guest/IP patterns.
 - [x] Slice 1.5B: add atomic quota reservation for chat usage.

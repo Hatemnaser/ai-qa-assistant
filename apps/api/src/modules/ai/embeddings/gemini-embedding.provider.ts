@@ -97,7 +97,10 @@ export function createGeminiEmbeddingProvider({
         values,
       };
     } catch (error) {
-      throw normalizeGeminiError(error, model);
+      throw normalizeGeminiError(error, model, {
+        operation: input.purpose === "query" ? "rag_query_embedding" : "document_embedding",
+        provider: GEMINI_PROVIDER_ID,
+      });
     }
   }
 

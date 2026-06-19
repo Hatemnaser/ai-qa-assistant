@@ -1,24 +1,42 @@
 import { AppError, readErrorField } from "../../lib/errors.js";
+import { logProviderAiError } from "../../lib/security-events.js";
 import type { AiErrorDetails } from "./ai.types.js";
 
-export function normalizeGeminiError(error: unknown, selectedModel: string) {
+export interface GeminiErrorContext {
+  operation?: string;
+  provider?: string;
+}
+
+export function normalizeGeminiError(
+  error: unknown,
+  selectedModel: string,
+  context: GeminiErrorContext = {}
+) {
   if (error instanceof AppError) {
+    logProviderQuotaOrModelError(error, context);
+
     return error;
   }
 
   if (isQuotaError(error)) {
-    return new AppError(
-      `Gemini quota exceeded for ${selectedModel}. Please wait for the quota reset or manually select another Gemini model.`,
-      429,
-      "QUOTA_EXCEEDED"
+    return withProviderQuotaOrModelLog(
+      new AppError(
+        `Gemini quota exceeded for ${selectedModel}. Please wait for the quota reset or manually select another Gemini model.`,
+        429,
+        "QUOTA_EXCEEDED"
+      ),
+      context
     );
   }
 
   if (isTemporaryUnavailableError(error)) {
-    return new AppError(
-      `Gemini model ${selectedModel} is temporarily overloaded. Please try again later or manually select another Gemini model.`,
-      503,
-      "MODEL_UNAVAILABLE"
+    return withProviderQuotaOrModelLog(
+      new AppError(
+        `Gemini model ${selectedModel} is temporarily overloaded. Please try again later or manually select another Gemini model.`,
+        503,
+        "MODEL_UNAVAILABLE"
+      ),
+      context
     );
   }
 
@@ -37,6 +55,22 @@ export function normalizeGeminiError(error: unknown, selectedModel: string) {
   return error instanceof Error
     ? error
     : new AppError("Server error while processing the AI request.", 500, "AI_PROVIDER_ERROR");
+}
+
+function withProviderQuotaOrModelLog(error: AppError, context: GeminiErrorContext) {
+  logProviderQuotaOrModelError(error, context);
+
+  return error;
+}
+
+function logProviderQuotaOrModelError(error: AppError, context: GeminiErrorContext) {
+  if (error.code !== "QUOTA_EXCEEDED" && error.code !== "MODEL_UNAVAILABLE") return;
+
+  logProviderAiError({
+    errorCode: error.code,
+    operation: context.operation || "unknown",
+    provider: context.provider || "gemini",
+  });
 }
 
 function getHttpStatus(error: unknown, fallbackStatus = 500) {

@@ -600,6 +600,9 @@ Signed-in-only UX is handled at page/component level:
 - Login, register, and forgot-password have initial rate limiting with a
   general per-IP limiter plus an IP/normalized-email limiter when email is
   present.
+- Auth rate-limit rejections emit structured security logs with hashed email
+  and IP identifiers; raw emails, passwords, cookies, and session tokens are
+  not logged by this path.
 - Production startup fails fast for unsafe credentialed CORS/cookie settings
   such as `CORS_ORIGIN=*`, missing explicit production CORS origins, or
   insecure production cookies.
@@ -630,8 +633,8 @@ Signed-in-only UX is handled at page/component level:
   when the matching token is presented.
 - Password policy exists, but alignment with current OWASP/NIST guidance needs
   verification.
-- Auth-specific logging, alerting, and brute-force monitoring need
-  verification.
+- Basic auth abuse logging exists for rate-limit rejections, but alerting,
+  dashboards, and brute-force monitoring rules are not implemented.
 - Tests cover important service and API basics, but do not yet cover full
   register/login HTTP success flows against a test database, CSRF behavior,
   rate limiting, reset tokens, or production cookie config guards.
@@ -657,7 +660,8 @@ Signed-in-only UX is handled at page/component level:
 ### Should Have Soon
 
 - [ ] Add email verification before broadly enabling real accounts.
-- [ ] Add auth failure logging and monitoring for unusual request volume.
+- [x] Add basic auth rate-limit security logging.
+- [ ] Add auth monitoring/alerting rules for unusual request volume.
 - [ ] Add expired-session cleanup.
 - [ ] Review password policy against current guidance.
 - [x] Add initial tests for production cookie flags and CORS safety.
