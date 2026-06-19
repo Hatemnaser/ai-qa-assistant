@@ -21,7 +21,9 @@ import {
   selectProjectDocumentChunksWithinBudget,
 } from "../src/modules/project-documents/project-document-retrieval.js";
 import type { ProjectDocumentRecord } from "../src/modules/project-documents/project-documents.repository.js";
+import type { AiOperationUsageService } from "../src/modules/usage/usage.service.js";
 
+const ALLOW_REAL_AI_EVALS_ENV = "ALLOW_REAL_AI_EVALS";
 const PROJECT_ID = "retrieval-eval-project";
 const NOW = new Date("2026-06-13T00:00:00.000Z");
 
@@ -111,9 +113,15 @@ const CASES: EvalCase[] = [
 ];
 
 async function main() {
+  assertRealAiEvalAllowed();
+
   if (!env.geminiApiKey) {
     throw new Error("GEMINI_API_KEY is required for the real-provider retrieval evaluation.");
   }
+
+  console.warn(
+    "Running real-provider retrieval evaluation. This calls the embedding provider and may consume provider credits."
+  );
 
   const calls: TimedEmbeddingCall[] = [];
   const capturedEmbeddings = new Map<string, number[]>();
@@ -129,6 +137,7 @@ async function main() {
     enabled: true,
     provider,
     repository,
+    usage: createEvalUsageService(),
   });
   const results = [];
 
@@ -398,6 +407,29 @@ function formatRatio(hits: number, total: number) {
 
 function round(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function assertRealAiEvalAllowed() {
+  if (process.env[ALLOW_REAL_AI_EVALS_ENV] === "true") return;
+
+  throw new Error(
+    `Real-provider retrieval evaluation is disabled. This script calls the real embedding provider and may consume provider credits. Set ${ALLOW_REAL_AI_EVALS_ENV}=true only when you intentionally want to run it.`
+  );
+}
+
+function createEvalUsageService(): AiOperationUsageService {
+  return {
+    async completeAiOperation() {},
+    async failAiOperation() {},
+    async reserveAiOperation(input) {
+      return {
+        action: input.action,
+        model: input.model,
+        provider: input.provider,
+        reserved: input.credits || 1,
+      };
+    },
+  };
 }
 
 void main().catch((error) => {

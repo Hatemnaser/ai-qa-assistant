@@ -1,4 +1,11 @@
 import { env } from "../../config/env.js";
+import {
+  isAiUsageLimitError,
+  usageService,
+  type AiOperationReservation,
+  type AiOperationUsageService,
+} from "../usage/usage.service.js";
+import { RAG_QUERY_EMBEDDING_ACTION } from "../usage/usage.types.js";
 import { resolveEmbeddingProvider } from "../ai/embeddings/embedding-provider-registry.js";
 import type { EmbeddingProviderAdapter } from "../ai/embeddings/embedding.types.js";
 import type { ProjectDocumentChunk } from "./project-document-chunks.js";
@@ -30,6 +37,7 @@ export interface ProjectDocumentHybridRetrieverDependencies {
   enabled: boolean;
   provider?: EmbeddingProviderAdapter;
   repository: ProjectDocumentRetrievalRepository;
+  usage?: AiOperationUsageService;
 }
 
 interface CurrentSemanticChunk {
@@ -57,11 +65,13 @@ export function createProjectDocumentHybridRetriever({
   enabled,
   provider,
   repository,
+  usage = usageService,
 }: ProjectDocumentHybridRetrieverDependencies): ProjectDocumentRetriever {
   async function retrieve(
     input: ProjectDocumentRetrievalInput & { projectId: string }
   ): Promise<ProjectDocumentChunk[]> {
     const lexicalFallback = retrieveProjectDocumentChunks(input);
+    let usageReservation: AiOperationReservation | undefined;
 
     if (
       !enabled ||
@@ -96,10 +106,21 @@ export function createProjectDocumentHybridRetriever({
 
       if (currentCandidates.length === 0) return lexicalFallback;
 
+      usageReservation = await usage.reserveAiOperation({
+        action: RAG_QUERY_EMBEDDING_ACTION,
+        credits: 1,
+        model: provider.model,
+        provider: provider.id,
+      });
       const queryEmbedding = await provider.embed({
         content: input.query,
         purpose: "query",
       });
+      await ignoreUsageFailure(() =>
+        usage.completeAiOperation(usageReservation, {
+          creditsUsed: 1,
+        })
+      );
 
       if (
         queryEmbedding.model !== provider.model ||
@@ -119,6 +140,21 @@ export function createProjectDocumentHybridRetriever({
         fuseSemanticAndLexicalRanks(input, semanticChunks)
       );
     } catch (error) {
+      await ignoreUsageFailure(() =>
+        usage.failAiOperation(usageReservation, {
+          model: provider?.model,
+          provider: provider?.id,
+        })
+      );
+
+      if (isAiUsageLimitError(error)) {
+        console.warn("Project document semantic retrieval skipped by AI usage guard:", {
+          projectId: input.projectId,
+        });
+
+        return lexicalFallback;
+      }
+
       console.warn("Project document semantic retrieval failed:", {
         error: getErrorMessage(error),
         projectId: input.projectId,
@@ -339,4 +375,13 @@ export const projectDocumentRetriever = createProjectDocumentHybridRetriever({
       ? resolveEmbeddingProvider()
       : undefined,
   repository: projectDocumentRetrievalRepository,
+  usage: usageService,
 });
+
+async function ignoreUsageFailure(operation: () => Promise<void>) {
+  try {
+    await operation();
+  } catch {
+    // Retrieval telemetry must not block lexical fallback behavior.
+  }
+}

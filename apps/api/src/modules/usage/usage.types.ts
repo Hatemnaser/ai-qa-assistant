@@ -1,5 +1,13 @@
 export const CHAT_MESSAGE_ACTION = "chat_message";
 export const CONVERSATION_SUMMARY_ACTION = "conversation_summary";
+export const DOCUMENT_EMBEDDING_ACTION = "document_embedding";
+export const RAG_QUERY_EMBEDDING_ACTION = "rag_query_embedding";
+export const AI_USAGE_ACTIONS = [
+  CHAT_MESSAGE_ACTION,
+  CONVERSATION_SUMMARY_ACTION,
+  DOCUMENT_EMBEDDING_ACTION,
+  RAG_QUERY_EMBEDDING_ACTION,
+] as const;
 
 export interface UsageIdentity {
   guestId?: string;
@@ -41,6 +49,44 @@ export interface UsageRecordInput {
   userId?: string;
   workflowIntent?: string;
   workflowSource?: string;
+}
+
+export interface UsageReservationInput {
+  action: string;
+  event: UsageRecordInput;
+  globalGuard?: UsageGlobalGuardInput;
+  guestId?: string;
+  ipHash?: string;
+  isSignedIn: boolean;
+  limit: number;
+  requestedUnits: number;
+  since: Date;
+  userId?: string;
+}
+
+export interface UsageGlobalGuardInput {
+  creditLimit: number;
+  requestLimit: number;
+  since: Date;
+  staleReservedCutoff: Date;
+}
+
+export type UsageReservationRejectionReason = "global_limit" | "identity_limit";
+
+export interface UsageReservationRecord {
+  accepted: boolean;
+  eventId?: string;
+  rejectionReason?: UsageReservationRejectionReason;
+  usedAfter: number;
+  usedBefore: number;
+}
+
+export interface UsageCleanupStaleReservedInput {
+  action: string;
+  cutoff: Date;
+  guestId?: string;
+  ipHash?: string;
+  userId?: string;
 }
 
 export interface UsageEventRecord {

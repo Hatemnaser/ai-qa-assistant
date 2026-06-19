@@ -2,9 +2,17 @@ import dotenv from "dotenv";
 
 dotenv.config({ quiet: true });
 
+type CookieSameSite = "lax" | "none" | "strict";
+type EnvSource = Record<string, string | undefined>;
+
 function parseNumber(value: string | undefined, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parsePositiveInteger(value: string | undefined, fallback: number) {
+  const parsed = Math.floor(Number(value));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function parseBoolean(value: string | undefined, fallback: boolean) {
@@ -22,58 +30,148 @@ function parseList(value: string | undefined, fallback: string[]) {
     .filter(Boolean);
 }
 
-function parseCookieSameSite(value: string | undefined, fallback: "lax" | "none" | "strict") {
+function parseCookieSameSite(value: string | undefined, fallback: CookieSameSite) {
   if (value === "lax" || value === "none" || value === "strict") return value;
 
   return fallback;
 }
 
-export const env = Object.freeze({
-  nodeEnv: process.env.NODE_ENV || "development",
-  port: parseNumber(process.env.PORT, 5000),
-  corsOrigins: parseList(process.env.CORS_ORIGIN, [
-    "http://127.0.0.1:5173",
-    "http://localhost:5173",
-  ]),
-  requestBodyLimit: process.env.REQUEST_BODY_LIMIT || "25mb",
-  databaseUrl:
-    process.env.DATABASE_URL ||
-    "postgresql://postgres:postgres@localhost:5432/ai_qa_assistant?schema=public",
-  aiProvider: process.env.AI_PROVIDER || "gemini",
-  geminiApiKey: process.env.GEMINI_API_KEY || "",
-  geminiModel: process.env.GEMINI_MODEL || "",
-  aiWorkflowRouterEnabled: process.env.AI_WORKFLOW_ROUTER_ENABLED !== "false",
-  aiWorkflowRouterModel: process.env.AI_WORKFLOW_ROUTER_MODEL || "gemini-3.1-flash-lite",
-  aiWorkflowRouterMinConfidence: parseNumber(process.env.AI_WORKFLOW_ROUTER_MIN_CONFIDENCE, 0.72),
-  aiWorkflowRouterTimeoutMs: parseNumber(process.env.AI_WORKFLOW_ROUTER_TIMEOUT_MS, 8000),
-  aiSummaryModel:
-    process.env.AI_SUMMARY_MODEL ||
-    process.env.AI_GENERAL_MODEL ||
-    "gemini-3.1-flash-lite",
-  aiSummaryTimeoutMs: parseNumber(process.env.AI_SUMMARY_TIMEOUT_MS, 15000),
-  aiModelRouterEnabled: process.env.AI_MODEL_ROUTER_ENABLED !== "false",
-  aiGeneralModel: process.env.AI_GENERAL_MODEL || "gemini-3.1-flash-lite",
-  aiVisualModel: process.env.AI_VISUAL_MODEL || "gemini-2.5-flash",
-  aiFallbackModel: process.env.AI_FALLBACK_MODEL || "gemini-2.5-flash-lite",
-  aiTimeoutMs: parseNumber(process.env.AI_TIMEOUT_MS, 55000),
-  aiMaxOutputTokens: parseNumber(process.env.AI_MAX_OUTPUT_TOKENS, 2048),
-  projectDocumentEmbeddingsEnabled:
-    process.env.PROJECT_DOCUMENT_EMBEDDINGS_ENABLED === "true",
-  embeddingProvider: process.env.EMBEDDING_PROVIDER || "gemini",
-  geminiEmbeddingModel: process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2",
-  embeddingDimensions: parseNumber(process.env.EMBEDDING_DIMENSIONS, 768),
-  embeddingTimeoutMs: parseNumber(process.env.EMBEDDING_TIMEOUT_MS, 15000),
-  guestDailyCredits: parseNumber(process.env.GUEST_DAILY_CREDITS, 20),
-  userDailyCredits: parseNumber(process.env.USER_DAILY_CREDITS, 100),
-  usageTokensPerCredit: parseNumber(process.env.USAGE_TOKENS_PER_CREDIT, 1000),
-  usageImageCredits: parseNumber(process.env.USAGE_IMAGE_CREDITS, 4),
-  usageTextFileCredits: parseNumber(process.env.USAGE_TEXT_FILE_CREDITS, 1),
-  usageRouterCredits: parseNumber(process.env.USAGE_ROUTER_CREDITS, 1),
-  usageWindowHours: parseNumber(process.env.USAGE_WINDOW_HOURS, 24),
-  maxMessageChars: parseNumber(process.env.MAX_MESSAGE_CHARS, 3000),
-  maxHistoryMessages: parseNumber(process.env.MAX_HISTORY_MESSAGES, 10),
-  usageIpHashSalt: process.env.USAGE_IP_HASH_SALT || "development-usage-salt",
-  cookieDomain: process.env.COOKIE_DOMAIN?.trim() || "",
-  cookieSameSite: parseCookieSameSite(process.env.COOKIE_SAME_SITE, "lax"),
-  cookieSecure: parseBoolean(process.env.COOKIE_SECURE, process.env.NODE_ENV === "production"),
-});
+export function loadEnv(source: EnvSource = process.env) {
+  const loadedEnv = Object.freeze({
+    nodeEnv: source.NODE_ENV || "development",
+    port: parseNumber(source.PORT, 5000),
+    corsOrigins: parseList(source.CORS_ORIGIN, [
+      "http://127.0.0.1:5173",
+      "http://localhost:5173",
+    ]),
+    requestBodyLimit: source.REQUEST_BODY_LIMIT || "25mb",
+    databaseUrl:
+      source.DATABASE_URL ||
+      "postgresql://postgres:postgres@localhost:5432/ai_qa_assistant?schema=public",
+    aiProvider: source.AI_PROVIDER || "gemini",
+    geminiApiKey: source.GEMINI_API_KEY || "",
+    geminiModel: source.GEMINI_MODEL || "",
+    aiWorkflowRouterEnabled: source.AI_WORKFLOW_ROUTER_ENABLED !== "false",
+    aiWorkflowRouterModel: source.AI_WORKFLOW_ROUTER_MODEL || "gemini-3.1-flash-lite",
+    aiWorkflowRouterMinConfidence: parseNumber(source.AI_WORKFLOW_ROUTER_MIN_CONFIDENCE, 0.72),
+    aiWorkflowRouterTimeoutMs: parseNumber(source.AI_WORKFLOW_ROUTER_TIMEOUT_MS, 8000),
+    aiSummaryModel:
+      source.AI_SUMMARY_MODEL ||
+      source.AI_GENERAL_MODEL ||
+      "gemini-3.1-flash-lite",
+    aiSummaryTimeoutMs: parseNumber(source.AI_SUMMARY_TIMEOUT_MS, 15000),
+    aiModelRouterEnabled: source.AI_MODEL_ROUTER_ENABLED !== "false",
+    aiGeneralModel: source.AI_GENERAL_MODEL || "gemini-3.1-flash-lite",
+    aiVisualModel: source.AI_VISUAL_MODEL || "gemini-2.5-flash",
+    aiFallbackModel: source.AI_FALLBACK_MODEL || "gemini-2.5-flash-lite",
+    aiTimeoutMs: parseNumber(source.AI_TIMEOUT_MS, 55000),
+    aiMaxOutputTokens: parseNumber(source.AI_MAX_OUTPUT_TOKENS, 2048),
+    aiGlobalUsageWindowMs: parsePositiveInteger(source.AI_GLOBAL_USAGE_WINDOW_MS, 60 * 60 * 1000),
+    aiGlobalRequestLimit: parsePositiveInteger(source.AI_GLOBAL_REQUEST_LIMIT, 1000),
+    aiGlobalCreditLimit: parsePositiveInteger(source.AI_GLOBAL_CREDIT_LIMIT, 5000),
+    projectDocumentEmbeddingsEnabled:
+      source.PROJECT_DOCUMENT_EMBEDDINGS_ENABLED === "true",
+    embeddingProvider: source.EMBEDDING_PROVIDER || "gemini",
+    geminiEmbeddingModel: source.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2",
+    embeddingDimensions: parseNumber(source.EMBEDDING_DIMENSIONS, 768),
+    embeddingTimeoutMs: parseNumber(source.EMBEDDING_TIMEOUT_MS, 15000),
+    guestDailyCredits: parseNumber(source.GUEST_DAILY_CREDITS, 20),
+    userDailyCredits: parseNumber(source.USER_DAILY_CREDITS, 100),
+    usageTokensPerCredit: parseNumber(source.USAGE_TOKENS_PER_CREDIT, 1000),
+    usageImageCredits: parseNumber(source.USAGE_IMAGE_CREDITS, 4),
+    usageTextFileCredits: parseNumber(source.USAGE_TEXT_FILE_CREDITS, 1),
+    usageRouterCredits: parseNumber(source.USAGE_ROUTER_CREDITS, 1),
+    usageWindowHours: parseNumber(source.USAGE_WINDOW_HOURS, 24),
+    usageStaleReservedMinutes: parsePositiveInteger(source.USAGE_STALE_RESERVED_MINUTES, 30),
+    maxMessageChars: parseNumber(source.MAX_MESSAGE_CHARS, 3000),
+    maxHistoryMessages: parseNumber(source.MAX_HISTORY_MESSAGES, 10),
+    usageIpHashSalt: source.USAGE_IP_HASH_SALT || "development-usage-salt",
+    cookieDomain: source.COOKIE_DOMAIN?.trim() || "",
+    cookieSameSite: parseCookieSameSite(source.COOKIE_SAME_SITE, "lax"),
+    cookieSecure: parseBoolean(source.COOKIE_SECURE, source.NODE_ENV === "production"),
+    authRateLimitWindowMs: parsePositiveInteger(source.AUTH_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
+    authLoginRateLimitMax: parsePositiveInteger(source.AUTH_LOGIN_RATE_LIMIT_MAX, 10),
+    authRegisterRateLimitMax: parsePositiveInteger(source.AUTH_REGISTER_RATE_LIMIT_MAX, 5),
+    authForgotPasswordRateLimitMax: parsePositiveInteger(
+      source.AUTH_FORGOT_PASSWORD_RATE_LIMIT_MAX,
+      5
+    ),
+    chatRateLimitWindowMs: parsePositiveInteger(source.CHAT_RATE_LIMIT_WINDOW_MS, 60 * 1000),
+    chatRateLimitMax: parsePositiveInteger(source.CHAT_RATE_LIMIT_MAX, 60),
+    guestChatRateLimitMax: parsePositiveInteger(source.GUEST_CHAT_RATE_LIMIT_MAX, 30),
+  });
+
+  validateRuntimeEnv(loadedEnv, {
+    corsOriginProvided: Boolean(source.CORS_ORIGIN?.trim()),
+  });
+
+  return loadedEnv;
+}
+
+export type AppEnv = ReturnType<typeof loadEnv>;
+
+interface EnvValidationContext {
+  corsOriginProvided: boolean;
+}
+
+export function validateRuntimeEnv(config: AppEnv, context: EnvValidationContext) {
+  if (config.cookieDomain && !isValidCookieDomain(config.cookieDomain)) {
+    throw new Error(
+      "Unsafe auth configuration: COOKIE_DOMAIN must be a plain domain without protocol, port, path, or wildcard."
+    );
+  }
+
+  if (config.nodeEnv !== "production") {
+    return;
+  }
+
+  if (config.cookieSameSite === "none" && !config.cookieSecure) {
+    throw new Error("Unsafe production auth configuration: COOKIE_SAME_SITE=none requires COOKIE_SECURE=true.");
+  }
+
+  if (!config.cookieSecure) {
+    throw new Error("Unsafe production auth configuration: COOKIE_SECURE must be true.");
+  }
+
+  if (!context.corsOriginProvided) {
+    throw new Error("Unsafe production auth configuration: CORS_ORIGIN must be explicitly configured.");
+  }
+
+  if (config.corsOrigins.includes("*")) {
+    throw new Error(
+      "Unsafe production auth configuration: CORS_ORIGIN=* is not allowed with credentialed requests."
+    );
+  }
+
+  for (const origin of config.corsOrigins) {
+    if (!isExplicitOrigin(origin)) {
+      throw new Error(
+        `Unsafe production auth configuration: CORS_ORIGIN contains an invalid origin (${origin}).`
+      );
+    }
+  }
+}
+
+function isExplicitOrigin(origin: string) {
+  try {
+    const parsed = new URL(origin);
+
+    return (parsed.protocol === "http:" || parsed.protocol === "https:") && parsed.origin === origin;
+  } catch {
+    return false;
+  }
+}
+
+function isValidCookieDomain(domain: string) {
+  const normalizedDomain = domain.startsWith(".") ? domain.slice(1) : domain;
+
+  return (
+    normalizedDomain.length > 0 &&
+    !normalizedDomain.includes("*") &&
+    !normalizedDomain.includes("/") &&
+    !normalizedDomain.includes(":") &&
+    /^[a-z0-9.-]+$/i.test(normalizedDomain)
+  );
+}
+
+export const env = loadEnv();

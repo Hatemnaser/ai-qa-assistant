@@ -8,6 +8,7 @@ import {
   conversationSummaryUsageService,
   type ConversationSummaryUsageTracker,
 } from "../usage/conversation-summary-usage.service.js";
+import { isAiUsageLimitError, type AiOperationReservation } from "../usage/usage.service.js";
 import {
   conversationSummaryRepository,
   type ConversationSummaryGenerationState,
@@ -85,17 +86,21 @@ export function createConversationSummaryRefreshService({
     if (!plan) return "skipped";
     if (plan === "stale") return "stale";
 
-    let usageEventId: string | undefined;
+    let usageReservation: AiOperationReservation | undefined;
 
     try {
-      usageEventId = await usage.start({
+      usageReservation = await usage.start({
         estimatedPromptTokens: estimateGenerationTokens(plan.input),
         model: summarizer.model,
         provider: summarizer.provider,
         userId,
       });
-    } catch {
-      usageEventId = undefined;
+    } catch (error) {
+      if (isAiUsageLimitError(error)) {
+        return "skipped";
+      }
+
+      usageReservation = undefined;
     }
 
     let generated;
@@ -103,13 +108,13 @@ export function createConversationSummaryRefreshService({
     try {
       generated = await summarizer.generate(plan.input);
     } catch {
-      await ignoreUsageFailure(() => usage.fail(usageEventId));
+      await ignoreUsageFailure(() => usage.fail(usageReservation));
 
       return "failed";
     }
 
     await ignoreUsageFailure(() =>
-      usage.complete(usageEventId, generated.usage)
+      usage.complete(usageReservation, generated.usage)
     );
 
     const saved = await service.saveGeneratedConversationSummary(

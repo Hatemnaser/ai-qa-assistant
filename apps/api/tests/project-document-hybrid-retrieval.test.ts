@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { AppError } from "../src/lib/errors.ts";
 import type {
   EmbeddingProviderAdapter,
 } from "../src/modules/ai/embeddings/embedding.types.ts";
@@ -23,6 +24,14 @@ import {
 import type {
   ProjectDocumentRecord,
 } from "../src/modules/project-documents/project-documents.repository.ts";
+import type {
+  AiOperationCompletionInput,
+  AiOperationFailureInput,
+  AiOperationReservation,
+  AiOperationReservationInput,
+  AiOperationUsageService,
+} from "../src/modules/usage/usage.service.ts";
+import { RAG_QUERY_EMBEDDING_ACTION } from "../src/modules/usage/usage.types.ts";
 
 const NOW = new Date("2026-06-13T10:00:00.000Z");
 
@@ -46,6 +55,7 @@ describe("project document hybrid retrieval", () => {
       enabled: true,
       provider: createFakeProvider([1, 0]),
       repository,
+      usage: createFakeOperationUsageService(),
     });
 
     const chunks = await retriever.retrieve({
@@ -83,6 +93,7 @@ describe("project document hybrid retrieval", () => {
         createCandidate(exact, [0.95, 0.05]),
         createCandidate(semanticOnly, [1, 0]),
       ]),
+      usage: createFakeOperationUsageService(),
     });
 
     const chunks = await retriever.retrieve({
@@ -116,6 +127,7 @@ describe("project document hybrid retrieval", () => {
         createCandidate(weakLexical, [0.59, Math.sqrt(1 - 0.59 ** 2)]),
         createCandidate(semanticMatch, [0.8, 0.6]),
       ]),
+      usage: createFakeOperationUsageService(),
     });
 
     const chunks = await retriever.retrieve({
@@ -141,6 +153,7 @@ describe("project document hybrid retrieval", () => {
       enabled: true,
       provider: createFakeProvider([1, 0]),
       repository: createFakeRepository([staleCandidate]),
+      usage: createFakeOperationUsageService(),
     });
 
     const chunks = await retriever.retrieve({
@@ -170,6 +183,7 @@ describe("project document hybrid retrieval", () => {
       repository: createFakeRepository([
         createCandidate(semanticOnly, [1, 0]),
       ]),
+      usage: createFakeOperationUsageService(),
     });
 
     const chunks = await retriever.retrieve({
@@ -191,6 +205,7 @@ describe("project document hybrid retrieval", () => {
       enabled: true,
       provider: createFakeProvider([], new Error("Provider unavailable")),
       repository: createFakeRepository([]),
+      usage: createFakeOperationUsageService(),
     });
     const originalConsoleWarn = console.warn;
     console.warn = () => {};
@@ -208,6 +223,49 @@ describe("project document hybrid retrieval", () => {
     }
   });
 
+  it("falls back lexically without calling the provider when the global AI operation guard rejects", async () => {
+    let providerCalls = 0;
+    const checkout = createReadyDocument(
+      "document-checkout",
+      "Checkout rules",
+      "Card payments require 3DS verification."
+    );
+    const usage = createFakeOperationUsageService(
+      new AppError(
+        "AI usage is temporarily limited. Please try again later.",
+        429,
+        "AI_USAGE_LIMIT_REACHED"
+      )
+    );
+    const retriever = createProjectDocumentHybridRetriever({
+      enabled: true,
+      provider: createFakeProvider([1, 0], undefined, () => {
+        providerCalls += 1;
+      }),
+      repository: createFakeRepository([createCandidate(checkout, [1, 0])]),
+      usage,
+    });
+    const originalConsoleWarn = console.warn;
+    console.warn = () => {};
+
+    try {
+      const chunks = await retriever.retrieve({
+        documents: [checkout],
+        projectId: "project-1",
+        query: "card payment verification",
+      });
+
+      assert.equal(chunks[0]?.documentId, "document-checkout");
+    } finally {
+      console.warn = originalConsoleWarn;
+    }
+
+    assert.equal(providerCalls, 0);
+    assert.equal(usage.reservations[0]?.action, RAG_QUERY_EMBEDDING_ACTION);
+    assert.equal(usage.completions.length, 0);
+    assert.equal(usage.failures.length, 0);
+  });
+
   it("does not call the provider or repository while semantic retrieval is disabled", async () => {
     let providerCalls = 0;
     const repository = createFakeRepository([]);
@@ -222,6 +280,7 @@ describe("project document hybrid retrieval", () => {
         providerCalls += 1;
       }),
       repository,
+      usage: createFakeOperationUsageService(),
     });
 
     const chunks = await retriever.retrieve({
@@ -254,6 +313,7 @@ describe("project document hybrid retrieval", () => {
           () => candidate
         )
       ),
+      usage: createFakeOperationUsageService(),
     });
 
     const chunks = await retriever.retrieve({
@@ -282,6 +342,7 @@ describe("project document hybrid retrieval", () => {
           createCandidate(document, [1, index / 10])
         )
       ),
+      usage: createFakeOperationUsageService(),
     });
 
     const chunks = await retriever.retrieve({
@@ -323,6 +384,59 @@ function createFakeRepository(
       return candidates;
     },
   };
+}
+
+interface FakeOperationUsageService extends AiOperationUsageService {
+  completions: Array<{
+    completion?: AiOperationCompletionInput;
+    reservation?: AiOperationReservation;
+  }>;
+  failures: Array<{
+    failure?: AiOperationFailureInput;
+    reservation?: AiOperationReservation;
+  }>;
+  reservations: AiOperationReservationInput[];
+}
+
+function createFakeOperationUsageService(error?: Error): FakeOperationUsageService {
+  const usage: FakeOperationUsageService = {
+    completions: [],
+    failures: [],
+    reservations: [],
+
+    async completeAiOperation(reservation, completion) {
+      if (!reservation) return;
+
+      usage.completions.push({
+        completion,
+        reservation,
+      });
+    },
+
+    async failAiOperation(reservation, failure) {
+      if (!reservation) return;
+
+      usage.failures.push({
+        failure,
+        reservation,
+      });
+    },
+
+    async reserveAiOperation(input) {
+      usage.reservations.push(input);
+      if (error) throw error;
+
+      return {
+        action: input.action,
+        eventId: `usage-${usage.reservations.length}`,
+        model: input.model,
+        provider: input.provider,
+        reserved: input.credits || 1,
+      };
+    },
+  };
+
+  return usage;
 }
 
 function createFakeProvider(

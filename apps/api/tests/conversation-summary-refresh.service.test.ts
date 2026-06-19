@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ChatRole } from "../src/generated/prisma/enums.ts";
+import { AppError } from "../src/lib/errors.ts";
 import type { StoredMessageRecord } from "../src/modules/chat-history/chat-history.repository.ts";
 import type {
   ConversationSummaryGenerationState,
@@ -133,6 +134,27 @@ describe("conversation summary refresh service", () => {
     assert.equal(context.usage.failed, 1);
   });
 
+  it("skips summary generation when the global AI operation guard rejects it", async () => {
+    const context = setupRefreshService({
+      messages: createCompleteTurns(6),
+      ownerId: "user-1",
+      usageStartError: new AppError(
+        "AI usage is temporarily limited. Please try again later.",
+        429,
+        "AI_USAGE_LIMIT_REACHED"
+      ),
+    });
+
+    const result = await context.refresh.requestRefresh("user-1", "chat-1");
+
+    assert.equal(result, "skipped");
+    assert.equal(context.summarizer.inputs.length, 0);
+    assert.equal(context.repository.summaries.size, 0);
+    assert.equal(context.usage.started, 1);
+    assert.equal(context.usage.completed, 0);
+    assert.equal(context.usage.failed, 0);
+  });
+
   it("drops stale generated results when the stored cursor changes", async () => {
     const existing = createSummaryRecord({
       chatId: "chat-1",
@@ -230,6 +252,7 @@ function setupRefreshService(options: {
   generationGate?: Promise<void>;
   messages: StoredMessageRecord[];
   ownerId: string;
+  usageStartError?: Error;
 }) {
   const repository = createFakeRepository(options.ownerId, options.messages);
 
@@ -273,7 +296,13 @@ function setupRefreshService(options: {
 
     async start() {
       usage.started += 1;
-      return `usage-${usage.started}`;
+      if (options.usageStartError) throw options.usageStartError;
+
+      return {
+        action: "conversation_summary",
+        eventId: `usage-${usage.started}`,
+        reserved: 1,
+      };
     },
   };
   const service = createConversationSummaryService({

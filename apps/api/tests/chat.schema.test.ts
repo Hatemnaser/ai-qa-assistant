@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { env } from "../src/config/env.ts";
 import {
   CHAT_ATTACHMENT_LIMITS,
   CHAT_SUPPORTED_IMAGE_MIME_TYPES,
@@ -19,6 +20,45 @@ describe("chat request schema", () => {
 
     assert.equal(result.success, true);
     assert.equal(result.data?.chatId, "chat-1");
+  });
+
+  it("strips frontend-supplied identity fields", () => {
+    const result = chatRequestSchema.parse(
+      createChatRequest({
+        accountId: "account-from-body",
+        guestId: "guest-from-body",
+        ownerId: "owner-from-body",
+        userId: "user-from-body",
+      })
+    ) as Record<string, unknown>;
+
+    assert.equal("accountId" in result, false);
+    assert.equal("guestId" in result, false);
+    assert.equal("ownerId" in result, false);
+    assert.equal("userId" in result, false);
+  });
+
+  it("rejects messages over the configured message limit", () => {
+    const result = chatRequestSchema.safeParse(
+      createChatRequest({
+        message: "a".repeat(env.maxMessageChars + 1),
+      })
+    );
+
+    assert.equal(result.success, false);
+  });
+
+  it("rejects history over the configured history limit", () => {
+    const result = chatRequestSchema.safeParse(
+      createChatRequest({
+        history: Array.from({ length: env.maxHistoryMessages + 1 }, (_, index) => ({
+          content: `Message ${index}`,
+          role: index % 2 === 0 ? "user" : "assistant",
+        })),
+      })
+    );
+
+    assert.equal(result.success, false);
   });
 
   it("rejects unsupported image mime types", () => {

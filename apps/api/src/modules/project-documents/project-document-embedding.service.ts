@@ -1,4 +1,11 @@
 import { env } from "../../config/env.js";
+import {
+  isAiUsageLimitError,
+  usageService,
+  type AiOperationReservation,
+  type AiOperationUsageService,
+} from "../usage/usage.service.js";
+import { DOCUMENT_EMBEDDING_ACTION } from "../usage/usage.types.js";
 import { resolveEmbeddingProvider } from "../ai/embeddings/embedding-provider-registry.js";
 import type { EmbeddingProviderAdapter } from "../ai/embeddings/embedding.types.js";
 import type { PreparedProjectDocumentIndex } from "./project-document-index.js";
@@ -17,12 +24,14 @@ export interface ProjectDocumentEmbeddingServiceDependencies {
   enabled: boolean;
   provider?: EmbeddingProviderAdapter;
   repository: ProjectDocumentIndexRepository;
+  usage?: AiOperationUsageService;
 }
 
 export function createProjectDocumentEmbeddingService({
   enabled,
   provider,
   repository,
+  usage = usageService,
 }: ProjectDocumentEmbeddingServiceDependencies): ProjectDocumentEmbeddingService {
   async function embedPreparedIndex(index: PreparedProjectDocumentIndex) {
     if (!enabled || !provider) return;
@@ -64,12 +73,22 @@ export function createProjectDocumentEmbeddingService({
     activeProvider: EmbeddingProviderAdapter
   ) {
     for (const chunk of chunks) {
+      let providerWasCalled = false;
+      let usageReservation: AiOperationReservation | undefined;
+
       try {
+        usageReservation = await usage.reserveAiOperation({
+          action: DOCUMENT_EMBEDDING_ACTION,
+          credits: 1,
+          model: activeProvider.model,
+          provider: activeProvider.id,
+        });
         const result = await activeProvider.embed({
           content: chunk.content,
           purpose: "document",
           title: chunk.title,
         });
+        providerWasCalled = true;
 
         await repository.saveChunkEmbedding({
           chunkIndex: chunk.chunkIndex,
@@ -79,7 +98,36 @@ export function createProjectDocumentEmbeddingService({
           model: result.model,
           values: result.values,
         });
+        await ignoreUsageFailure(() =>
+          usage.completeAiOperation(usageReservation, {
+            creditsUsed: 1,
+          })
+        );
       } catch (error) {
+        if (providerWasCalled) {
+          await ignoreUsageFailure(() =>
+            usage.completeAiOperation(usageReservation, {
+              creditsUsed: 1,
+            })
+          );
+        } else {
+          await ignoreUsageFailure(() =>
+            usage.failAiOperation(usageReservation, {
+              model: activeProvider.model,
+              provider: activeProvider.id,
+            })
+          );
+        }
+
+        if (isAiUsageLimitError(error)) {
+          console.warn("Project document embedding skipped by AI usage guard:", {
+            chunkIndex: chunk.chunkIndex,
+            documentId: chunk.documentId,
+          });
+
+          continue;
+        }
+
         const message = getErrorMessage(error);
 
         try {
@@ -119,8 +167,17 @@ export const projectDocumentEmbeddingService =
         ? resolveEmbeddingProvider()
         : undefined,
     repository: projectDocumentIndexRepository,
+    usage: usageService,
   });
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown embedding error";
+}
+
+async function ignoreUsageFailure(operation: () => Promise<void>) {
+  try {
+    await operation();
+  } catch {
+    // Embedding telemetry must not block document indexing fallbacks.
+  }
 }

@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
-import { after, before, describe, it } from "node:test";
+import { after, afterEach, before, describe, it } from "node:test";
 
+import { env } from "../src/config/env.ts";
 import { createApp } from "../src/app.ts";
+import {
+  CHAT_RATE_LIMITED_MESSAGE,
+  isChatRateLimited,
+  resetChatRateLimitersForTests,
+} from "../src/modules/chat/chat.rateLimit.ts";
+import { GUEST_COOKIE_NAME } from "../src/modules/usage/usage.cookies.ts";
 
 let server: Server;
 let baseUrl: string;
@@ -34,6 +41,10 @@ after(async () => {
     });
   });
   console.warn = originalConsoleWarn;
+});
+
+afterEach(() => {
+  resetChatRateLimitersForTests();
 });
 
 describe("POST /api/chat", () => {
@@ -206,14 +217,77 @@ describe("POST /api/chat", () => {
     assert.equal(response.status, 400);
     assert.equal(body.code, "VALIDATION_ERROR");
   });
+
+  it("rate limits chat attempts by IP even when the guest cookie changes", async () => {
+    const response = await exhaustChatIpRateLimitWithRotatingGuestCookies();
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.code, "RATE_LIMITED");
+    assert.equal(body.error, CHAT_RATE_LIMITED_MESSAGE);
+    assert.equal(body.message, CHAT_RATE_LIMITED_MESSAGE);
+  });
+
+  it("rate limits guest identity even when the IP changes", () => {
+    let limited = false;
+
+    for (let attempt = 0; attempt <= env.guestChatRateLimitMax; attempt += 1) {
+      limited = isChatRateLimited({
+        guestId: "guest-identity-limit-test",
+        ipAddress: `203.0.113.${attempt}`,
+      });
+    }
+
+    assert.equal(limited, true);
+  });
+
+  it("rate limits signed-in user identity even when the IP changes", () => {
+    let limited = false;
+
+    for (let attempt = 0; attempt <= env.chatRateLimitMax; attempt += 1) {
+      limited = isChatRateLimited({
+        ipAddress: `198.51.100.${attempt}`,
+        userId: "user-identity-limit-test",
+      });
+    }
+
+    assert.equal(limited, true);
+  });
 });
 
-async function postJson(path: string, body: unknown) {
+async function postJson(path: string, body: unknown, headers: Record<string, string> = {}) {
   return fetch(`${baseUrl}${path}`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
+      ...headers,
     },
     method: "POST",
   });
+}
+
+async function exhaustChatIpRateLimitWithRotatingGuestCookies() {
+  let response: Response | null = null;
+
+  for (let attempt = 0; attempt <= env.chatRateLimitMax; attempt += 1) {
+    response = await postJson(
+      "/api/chat",
+      {
+        history: [],
+        message: "Generate test cases for login",
+        mode: "test_cases",
+        model: "not-a-real-model",
+      },
+      {
+        cookie: `${GUEST_COOKIE_NAME}=${createGuestCookieValue(attempt)}`,
+      }
+    );
+  }
+
+  assert.ok(response);
+  return response;
+}
+
+function createGuestCookieValue(attempt: number) {
+  return `guestlimit${String(attempt).padStart(14, "0")}`;
 }

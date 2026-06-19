@@ -99,10 +99,21 @@ prompt inspection alone.
 
 ## Controlled Real-Provider Result
 
-The controlled Gemini evaluation passed on 2026-06-13:
+The controlled Gemini evaluation passed on 2026-06-13.
+
+This command uses the real embedding provider and may consume provider credits.
+It is intentionally disabled unless `ALLOW_REAL_AI_EVALS=true` is set.
+
+PowerShell:
+
+```powershell
+$env:ALLOW_REAL_AI_EVALS="true"; npm run eval:retrieval
+```
+
+Bash:
 
 ```bash
-npm run eval:retrieval
+ALLOW_REAL_AI_EVALS=true npm run eval:retrieval
 ```
 
 - Model: `gemini-embedding-2`

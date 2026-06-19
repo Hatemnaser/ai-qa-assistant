@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
-import { after, before, describe, it } from "node:test";
+import { after, afterEach, before, describe, it } from "node:test";
 
+import { env } from "../src/config/env.ts";
 import { createApp } from "../src/app.ts";
+import { resetAuthRateLimitersForTests } from "../src/modules/auth/auth.rateLimit.ts";
 
 let server: Server;
 let baseUrl: string;
@@ -34,6 +36,10 @@ after(async () => {
     });
   });
   console.warn = originalConsoleWarn;
+});
+
+afterEach(() => {
+  resetAuthRateLimitersForTests();
 });
 
 describe("POST /api/auth", () => {
@@ -85,6 +91,90 @@ describe("POST /api/auth", () => {
     assert.match(setCookie, /HttpOnly/);
     assert.match(setCookie, /SameSite=Lax/);
   });
+
+  it("rate limits login attempts", async () => {
+    const response = await exhaustRateLimit("/api/auth/login", env.authLoginRateLimitMax, {
+      email: "limited-login@example.com",
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.code, "RATE_LIMITED");
+    assert.equal(body.error, "Too many attempts. Please try again later.");
+    assert.equal(body.message, "Too many attempts. Please try again later.");
+  });
+
+  it("rate limits login attempts even when the submitted email changes", async () => {
+    const response = await exhaustRateLimitWithBodyFactory(
+      "/api/auth/login",
+      env.authLoginRateLimitMax,
+      (attempt) => ({
+        email: `rotated-login-${attempt}@example.com`,
+      })
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.code, "RATE_LIMITED");
+  });
+
+  it("rate limits register attempts", async () => {
+    const response = await exhaustRateLimit("/api/auth/register", env.authRegisterRateLimitMax, {
+      email: "limited-register@example.com",
+      password: "short",
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.code, "RATE_LIMITED");
+    assert.equal(body.error, "Too many attempts. Please try again later.");
+    assert.equal(body.message, "Too many attempts. Please try again later.");
+  });
+
+  it("rate limits register attempts even when the submitted email changes", async () => {
+    const response = await exhaustRateLimitWithBodyFactory(
+      "/api/auth/register",
+      env.authRegisterRateLimitMax,
+      (attempt) => ({
+        email: `rotated-register-${attempt}@example.com`,
+        password: "short",
+      })
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.code, "RATE_LIMITED");
+  });
+
+  it("rate limits forgot-password attempts", async () => {
+    const response = await exhaustRateLimit(
+      "/api/auth/forgot-password",
+      env.authForgotPasswordRateLimitMax,
+      {
+        email: "not-an-email",
+      }
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.code, "RATE_LIMITED");
+    assert.equal(body.error, "Too many attempts. Please try again later.");
+    assert.equal(body.message, "Too many attempts. Please try again later.");
+  });
+
+  it("rate limits forgot-password attempts even when the submitted email changes", async () => {
+    const response = await exhaustRateLimitWithBodyFactory(
+      "/api/auth/forgot-password",
+      env.authForgotPasswordRateLimitMax,
+      (attempt) => ({
+        email: `rotated-forgot-${attempt}`,
+      })
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.code, "RATE_LIMITED");
+  });
 });
 
 async function postJson(path: string, body: unknown) {
@@ -95,4 +185,23 @@ async function postJson(path: string, body: unknown) {
     },
     method: "POST",
   });
+}
+
+async function exhaustRateLimit(path: string, maxAttempts: number, body: unknown) {
+  return exhaustRateLimitWithBodyFactory(path, maxAttempts, () => body);
+}
+
+async function exhaustRateLimitWithBodyFactory(
+  path: string,
+  maxAttempts: number,
+  createBody: (attempt: number) => unknown
+) {
+  let response: Response | null = null;
+
+  for (let attempt = 0; attempt <= maxAttempts; attempt += 1) {
+    response = await postJson(path, createBody(attempt));
+  }
+
+  assert.ok(response);
+  return response;
 }

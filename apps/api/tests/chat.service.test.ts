@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { AppError } from "../src/lib/errors.ts";
 import { createChatService } from "../src/modules/chat/chat.service.ts";
+import type { ChatRequest } from "../src/modules/chat/chat.types.ts";
 
 describe("chat service", () => {
   it("returns the stable chat response contract", async () => {
@@ -250,6 +251,126 @@ describe("chat service", () => {
       }
     );
     assert.deepEqual(calls, ["usage"]);
+  });
+
+  it("does not call the AI workflow router or provider when global usage is limited", async () => {
+    const calls: string[] = [];
+    const service = createChatService({
+      chatWithAi: async () => {
+        calls.push("ai");
+        return {
+          reply: "should not happen",
+          model: "gemini-3.1-flash-lite",
+          provider: "gemini",
+        };
+      },
+      reserveUsage: async () => {
+        calls.push("usage");
+        throw new AppError(
+          "AI usage is temporarily limited. Please try again later.",
+          429,
+          "AI_USAGE_LIMIT_REACHED"
+        );
+      },
+      routeWorkflow: async () => {
+        calls.push("router");
+        return {
+          confidence: 0.95,
+          intent: "conversational",
+          language: "english",
+        };
+      },
+    });
+
+    await assert.rejects(
+      () =>
+        service.createChatReply({
+          history: [],
+          message: "hello",
+          mode: "general",
+          model: "gemini-2.5-flash",
+        }),
+      {
+        code: "AI_USAGE_LIMIT_REACHED",
+        statusCode: 429,
+      }
+    );
+    assert.deepEqual(calls, ["usage"]);
+  });
+
+  it("rejects over-quota guests before calling the AI provider", async () => {
+    let providerWasCalled = false;
+    const service = createChatService({
+      chatWithAi: async () => {
+        providerWasCalled = true;
+        return {
+          reply: "should not happen",
+          model: "gemini-3.1-flash-lite",
+          provider: "gemini",
+        };
+      },
+      reserveUsage: async (identity) => {
+        assert.deepEqual(identity, {
+          guestId: "guest-1",
+          ipAddress: "127.0.0.1",
+          userId: undefined,
+        });
+        throw new AppError("limit", 429, "USAGE_LIMIT_REACHED");
+      },
+    });
+
+    await assert.rejects(
+      () =>
+        service.createChatReply(
+          {
+            history: [],
+            message: "hello",
+            mode: "general",
+            model: "gemini-2.5-flash",
+          },
+          {
+            guestId: "guest-1",
+            ipAddress: "127.0.0.1",
+          }
+        ),
+      {
+        code: "USAGE_LIMIT_REACHED",
+        statusCode: 429,
+      }
+    );
+    assert.equal(providerWasCalled, false);
+  });
+
+  it("uses server context identity instead of identity fields from the input body", async () => {
+    const service = createChatService({
+      chatWithAi: async () => ({
+        reply: "Hi from test AI",
+        model: "gemini-3.1-flash-lite",
+        provider: "gemini",
+      }),
+      reserveUsage: async (identity) => {
+        assert.deepEqual(identity, {
+          guestId: "server-guest",
+          ipAddress: "127.0.0.1",
+          userId: undefined,
+        });
+      },
+    });
+    const input = {
+      accountId: "body-account",
+      guestId: "body-guest",
+      history: [],
+      message: "hello",
+      mode: "general",
+      model: "gemini-2.5-flash",
+      ownerId: "body-owner",
+      userId: "body-user",
+    } as unknown as ChatRequest;
+
+    await service.createChatReply(input, {
+      guestId: "server-guest",
+      ipAddress: "127.0.0.1",
+    });
   });
 
   it("reserves credits for the workflow router before calling it", async () => {
