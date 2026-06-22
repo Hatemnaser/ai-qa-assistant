@@ -1,16 +1,19 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { resetCsrfTokenForTests } from "../src/api/csrf.ts";
 import {
   createAccountMemory,
   fetchAccountMemories,
   updateAccountMemory,
 } from "../src/features/memory/memoryApi.ts";
 import type { Memory } from "../src/features/memory/types.ts";
+import { createCsrfAwareFetch } from "./helpers/csrfFetch.ts";
 
 const originalFetch = globalThis.fetch;
 
 afterEach(() => {
+  resetCsrfTokenForTests();
   globalThis.fetch = originalFetch;
 });
 
@@ -77,7 +80,7 @@ function createMemoryRecord(overrides: Partial<Memory> = {}): Memory {
 }
 
 function mockFetch(handler: typeof fetch) {
-  globalThis.fetch = handler;
+  globalThis.fetch = createCsrfAwareFetch(handler);
 }
 
 function jsonResponse(body: unknown, status = 200) {

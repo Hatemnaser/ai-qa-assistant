@@ -10,6 +10,7 @@ import {
   resetChatRateLimitersForTests,
 } from "../src/modules/chat/chat.rateLimit.ts";
 import { GUEST_COOKIE_NAME } from "../src/modules/usage/usage.cookies.ts";
+import { getCsrfHeaders } from "./helpers/csrf.ts";
 
 let server: Server;
 let baseUrl: string;
@@ -256,11 +257,14 @@ describe("POST /api/chat", () => {
 });
 
 async function postJson(path: string, body: unknown, headers: Record<string, string> = {}) {
+  const csrfHeaders = await getCsrfHeaders(baseUrl, headers.cookie);
+
   return fetch(`${baseUrl}${path}`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
       ...headers,
+      ...csrfHeaders,
     },
     method: "POST",
   });

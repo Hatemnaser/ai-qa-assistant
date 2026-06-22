@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { resetCsrfTokenForTests } from "../src/api/csrf.ts";
 import { saveAccountChat } from "../src/features/chat/chatPersistenceApi";
 import type { Chat } from "../src/features/chat/types";
+import { createCsrfAwareFetch } from "./helpers/csrfFetch.ts";
 
 const originalFetch = globalThis.fetch;
 
 afterEach(() => {
+  resetCsrfTokenForTests();
   globalThis.fetch = originalFetch;
 });
 
@@ -67,7 +70,7 @@ function createChatWithPreview(): Chat {
 }
 
 function mockFetch(handler: typeof fetch) {
-  globalThis.fetch = handler;
+  globalThis.fetch = createCsrfAwareFetch(handler);
 }
 
 function jsonResponse(body: unknown, status = 200) {

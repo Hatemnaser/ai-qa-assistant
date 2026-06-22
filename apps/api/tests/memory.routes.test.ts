@@ -3,6 +3,7 @@ import type { Server } from "node:http";
 import { after, before, describe, it } from "node:test";
 
 import { createApp } from "../src/app.ts";
+import { getCsrfHeaders } from "./helpers/csrf.ts";
 
 let server: Server;
 let baseUrl: string;
@@ -58,10 +59,13 @@ describe("/api/memories", () => {
 });
 
 async function postJson(path: string, body: unknown) {
+  const csrfHeaders = await getCsrfHeaders(baseUrl);
+
   return fetch(`${baseUrl}${path}`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
+      ...csrfHeaders,
     },
     method: "POST",
   });

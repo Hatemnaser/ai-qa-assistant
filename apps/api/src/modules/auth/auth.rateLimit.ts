@@ -72,7 +72,7 @@ function createAuthRateLimitMiddleware(maxAttempts: number) {
         email: keys.normalizedEmail,
         ipAddress: keys.ipAddress,
         method: req.method,
-        route: req.originalUrl || req.path,
+        route: `${req.baseUrl}${req.path}`,
       });
       res.status(429).json({
         code: "RATE_LIMITED",
@@ -117,6 +117,15 @@ export const authLoginRateLimit = createAuthRateLimitMiddleware(env.authLoginRat
 export const authRegisterRateLimit = createAuthRateLimitMiddleware(env.authRegisterRateLimitMax);
 export const authForgotPasswordRateLimit = createAuthRateLimitMiddleware(
   env.authForgotPasswordRateLimitMax
+);
+export const authResetPasswordRateLimit = createAuthRateLimitMiddleware(
+  env.authResetPasswordRateLimitMax
+);
+export const authResendVerificationRateLimit = createAuthRateLimitMiddleware(
+  env.authResendVerificationRateLimitMax
+);
+export const authVerifyEmailRateLimit = createAuthRateLimitMiddleware(
+  env.authVerifyEmailRateLimitMax
 );
 
 export function resetAuthRateLimitersForTests() {

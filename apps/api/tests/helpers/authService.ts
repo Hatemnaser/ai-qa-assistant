@@ -1,8 +1,13 @@
 import { createAuthService, type AuthSecurity } from "../../src/modules/auth/auth.service.ts";
+import type { AuthEmailService } from "../../src/modules/auth/auth.email.ts";
 import type {
   AuthRepository,
+  CreateEmailVerificationTokenInput,
+  CreatePasswordResetTokenInput,
   CreatePasswordUserInput,
   CreateSessionInput,
+  ResetPasswordWithTokenInput,
+  VerifyEmailWithTokenInput,
 } from "../../src/modules/auth/auth.repository.ts";
 import type { AuthSessionRecord, AuthUserRecord } from "../../src/modules/auth/auth.types.ts";
 
@@ -14,7 +19,12 @@ const FUTURE_SESSION = new Date("2026-05-26T00:00:00.000Z");
 export function setupAuthService(options: AuthServiceTestOptions = {}) {
   const repository = createFakeAuthRepository(options.users);
   const service = createAuthService({
+    emailService: options.emailService,
+    emailVerificationLink: options.emailVerificationLink,
+    emailVerificationTokenTtlMinutes: options.emailVerificationTokenTtlMinutes,
     now: options.now || (() => NOW),
+    passwordResetLink: options.passwordResetLink,
+    passwordResetTokenTtlMinutes: options.passwordResetTokenTtlMinutes,
     repository,
     security: createFakeSecurity(options.security),
   });
@@ -26,7 +36,18 @@ export function setupAuthService(options: AuthServiceTestOptions = {}) {
 }
 
 export interface AuthServiceTestOptions {
+  emailService?: AuthEmailService;
+  emailVerificationLink?: {
+    appOrigin?: string;
+    verificationPath?: string;
+  };
+  emailVerificationTokenTtlMinutes?: number;
   now?: () => Date;
+  passwordResetLink?: {
+    appOrigin?: string;
+    resetPath?: string;
+  };
+  passwordResetTokenTtlMinutes?: number;
   security?: Partial<AuthSecurity>;
   users?: AuthUserRecord[];
 }
@@ -37,6 +58,7 @@ export function createUserRecord(overrides: Partial<AuthUserRecord> = {}): AuthU
   return {
     createdAt,
     email: "person@example.com",
+    emailVerifiedAt: NOW,
     id: "user-1",
     locale: "en",
     name: null,
@@ -48,8 +70,12 @@ export function createUserRecord(overrides: Partial<AuthUserRecord> = {}): AuthU
 
 function createFakeSecurity(overrides: Partial<AuthSecurity> = {}): AuthSecurity {
   return {
+    createEmailVerificationToken: () => "verification-token",
+    createPasswordResetToken: () => "reset-token",
     createSessionToken: () => "session-token",
+    hashEmailVerificationToken: (token) => `hashed-verification:${token}`,
     hashPassword: async (password) => `hashed-password:${password}`,
+    hashPasswordResetToken: (token) => `hashed-reset:${token}`,
     hashSessionToken: (token) => `hashed-session:${token}`,
     verifyPassword: async () => true,
     ...overrides,
@@ -58,6 +84,20 @@ function createFakeSecurity(overrides: Partial<AuthSecurity> = {}): AuthSecurity
 
 function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
   const repository = {
+    emailVerificationTokens: [] as Array<
+      CreateEmailVerificationTokenInput & {
+        createdAt: Date;
+        id: string;
+        usedAt: Date | null;
+      }
+    >,
+    passwordResetTokens: [] as Array<
+      CreatePasswordResetTokenInput & {
+        createdAt: Date;
+        id: string;
+        usedAt: Date | null;
+      }
+    >,
     sessions: [] as CreateSessionInput[],
     users: [...initialUsers],
 
@@ -77,10 +117,35 @@ function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
         locale: input.locale,
         name: input.name ?? null,
         passwordHash: input.passwordHash,
+        emailVerifiedAt: null,
       });
 
       repository.users.push(user);
       return user;
+    },
+
+    async createPasswordResetToken(input: CreatePasswordResetTokenInput) {
+      repository.passwordResetTokens.push({
+        ...input,
+        createdAt: NOW,
+        id: `reset-token-${repository.passwordResetTokens.length + 1}`,
+        usedAt: null,
+      });
+    },
+
+    async createEmailVerificationToken(input: CreateEmailVerificationTokenInput) {
+      for (const token of repository.emailVerificationTokens) {
+        if (token.userId === input.userId && !token.usedAt) {
+          token.usedAt = input.now;
+        }
+      }
+
+      repository.emailVerificationTokens.push({
+        ...input,
+        createdAt: NOW,
+        id: `verification-token-${repository.emailVerificationTokens.length + 1}`,
+        usedAt: null,
+      });
     },
 
     async createSession(input: CreateSessionInput) {
@@ -115,8 +180,70 @@ function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
     async findUserByEmail(email: string) {
       return repository.users.find((user) => user.email === email) ?? null;
     },
+
+    async resetPasswordWithToken(input: ResetPasswordWithTokenInput) {
+      const token = repository.passwordResetTokens.find((item) => item.tokenHash === input.tokenHash);
+
+      if (!token || token.usedAt || token.expiresAt <= input.now) {
+        return false;
+      }
+
+      const user = repository.users.find((item) => item.id === token.userId);
+
+      if (!user) {
+        return false;
+      }
+
+      token.usedAt = input.now;
+      user.passwordHash = input.newPasswordHash;
+      repository.sessions = repository.sessions.filter((session) => session.userId !== token.userId);
+
+      return true;
+    },
+
+    async verifyEmailWithToken(input: VerifyEmailWithTokenInput) {
+      const token = repository.emailVerificationTokens.find((item) => item.tokenHash === input.tokenHash);
+
+      if (!token || token.usedAt || token.expiresAt <= input.now) {
+        return false;
+      }
+
+      const user = repository.users.find((item) => item.id === token.userId);
+
+      if (!user) {
+        return false;
+      }
+
+      token.usedAt = input.now;
+
+      if (!user.emailVerifiedAt) {
+        user.emailVerifiedAt = input.now;
+      }
+
+      for (const otherToken of repository.emailVerificationTokens) {
+        if (otherToken.userId === token.userId && otherToken.id !== token.id && !otherToken.usedAt) {
+          otherToken.usedAt = input.now;
+        }
+      }
+
+      return true;
+    },
   } satisfies AuthRepository & {
     addSession(user: AuthUserRecord, overrides?: Partial<CreateSessionInput>): void;
+    emailVerificationTokens: Array<
+      CreateEmailVerificationTokenInput & {
+        createdAt: Date;
+        id: string;
+        usedAt: Date | null;
+      }
+    >;
+    passwordResetTokens: Array<
+      CreatePasswordResetTokenInput & {
+        createdAt: Date;
+        id: string;
+        usedAt: Date | null;
+      }
+    >;
     sessions: CreateSessionInput[];
     users: AuthUserRecord[];
   };

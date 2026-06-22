@@ -5,7 +5,6 @@ import CheckboxField from "../../../ui/CheckboxField.vue";
 import TextField from "../../../ui/TextField.vue";
 import { register } from "../authApi";
 import AuthLayout from "../components/AuthLayout.vue";
-import type { AuthUser } from "../types";
 import { useAuthRequest } from "../useAuthRequest";
 
 defineProps<{
@@ -13,7 +12,6 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  authenticated: [user: AuthUser];
   "back-to-chat": [];
   navigate: [view: "login"];
   "toggle-theme": [];
@@ -22,10 +20,13 @@ const emit = defineEmits<{
 const email = ref("");
 const name = ref("");
 const password = ref("");
+const successMessage = ref("");
 const termsAccepted = ref(false);
 const { errorMessage, isSubmitting, submit } = useAuthRequest("Could not create the account. Please try again.");
 
 async function submitRegistration() {
+  successMessage.value = "";
+
   await submit(async () => {
     const response = await register({
       email: email.value,
@@ -34,7 +35,9 @@ async function submitRegistration() {
       password: password.value,
     });
 
-    emit("authenticated", response.user);
+    successMessage.value = response.message;
+    password.value = "";
+    termsAccepted.value = false;
   });
 }
 </script>
@@ -91,6 +94,7 @@ async function submitRegistration() {
       />
 
       <p v-if="errorMessage" class="auth-feedback auth-feedback-error" role="alert">{{ errorMessage }}</p>
+      <p v-if="successMessage" class="auth-feedback auth-feedback-success" role="status">{{ successMessage }}</p>
 
       <button class="btn btn-primary btn-control w-100" type="submit" :disabled="isSubmitting">
         {{ isSubmitting ? "Creating account..." : "Create account" }}

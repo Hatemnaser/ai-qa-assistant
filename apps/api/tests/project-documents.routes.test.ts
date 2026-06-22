@@ -3,6 +3,7 @@ import type { Server } from "node:http";
 import { after, before, describe, it } from "node:test";
 
 import { createApp } from "../src/app.ts";
+import { getCsrfHeaders } from "./helpers/csrf.ts";
 
 let server: Server;
 let baseUrl: string;
@@ -74,6 +75,7 @@ describe("/api/projects/:projectId/documents", () => {
   });
 
   it("requires an authenticated session to update project documents", async () => {
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
     const response = await fetch(`${baseUrl}/api/projects/project-1/documents/document-1`, {
       body: JSON.stringify({
         title: "Checkout rules",
@@ -81,6 +83,7 @@ describe("/api/projects/:projectId/documents", () => {
       }),
       headers: {
         "content-type": "application/json",
+        ...csrfHeaders,
       },
       method: "PUT",
     });
@@ -92,10 +95,13 @@ describe("/api/projects/:projectId/documents", () => {
 });
 
 async function postJson(path: string, body: unknown) {
+  const csrfHeaders = await getCsrfHeaders(baseUrl);
+
   return fetch(`${baseUrl}${path}`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
+      ...csrfHeaders,
     },
     method: "POST",
   });

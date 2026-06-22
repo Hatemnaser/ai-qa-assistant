@@ -1,11 +1,12 @@
 import { getBackendError } from "../../api/backendErrors";
+import { csrfFetch } from "../../api/csrf";
 import { sanitizeChatForExport } from "./chatExportFormatters";
 import type { Chat } from "./types";
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 
 export async function fetchAccountChats(): Promise<Chat[]> {
-  const response = await fetch(`${API_BASE_URL}/api/chats`, {
+  const response = await csrfFetch(`${API_BASE_URL}/api/chats`, {
     credentials: "include",
   });
 
@@ -20,7 +21,7 @@ export async function fetchAccountChats(): Promise<Chat[]> {
 
 export async function saveAccountChat(chat: Chat): Promise<Chat> {
   const chatForPersistence = sanitizeChatForExport(chat);
-  const response = await fetch(`${API_BASE_URL}/api/chats/${encodeURIComponent(chat.id)}`, {
+  const response = await csrfFetch(`${API_BASE_URL}/api/chats/${encodeURIComponent(chat.id)}`, {
     body: JSON.stringify({ chat: chatForPersistence }),
     credentials: "include",
     headers: {
@@ -39,7 +40,7 @@ export async function saveAccountChat(chat: Chat): Promise<Chat> {
 }
 
 export async function deleteAccountChat(chatId: string) {
-  const response = await fetch(`${API_BASE_URL}/api/chats/${encodeURIComponent(chatId)}`, {
+  const response = await csrfFetch(`${API_BASE_URL}/api/chats/${encodeURIComponent(chatId)}`, {
     credentials: "include",
     method: "DELETE",
   });

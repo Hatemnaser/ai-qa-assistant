@@ -5,6 +5,8 @@ dotenv.config({ quiet: true });
 type CookieSameSite = "lax" | "none" | "strict";
 type EnvSource = Record<string, string | undefined>;
 
+const DEVELOPMENT_CSRF_SECRET = "development-csrf-secret-change-before-production";
+
 function parseNumber(value: string | undefined, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -48,6 +50,17 @@ export function loadEnv(source: EnvSource = process.env) {
     databaseUrl:
       source.DATABASE_URL ||
       "postgresql://postgres:postgres@localhost:5432/ai_qa_assistant?schema=public",
+    appOrigin: source.APP_ORIGIN || "http://localhost:5173",
+    passwordResetPath: source.PASSWORD_RESET_PATH || "/reset-password",
+    passwordResetTokenTtlMinutes: parsePositiveInteger(
+      source.PASSWORD_RESET_TOKEN_TTL_MINUTES,
+      30
+    ),
+    emailVerificationPath: source.EMAIL_VERIFICATION_PATH || "/verify-email",
+    emailVerificationTokenTtlMinutes: parsePositiveInteger(
+      source.EMAIL_VERIFICATION_TOKEN_TTL_MINUTES,
+      60
+    ),
     aiProvider: source.AI_PROVIDER || "gemini",
     geminiApiKey: source.GEMINI_API_KEY || "",
     geminiModel: source.GEMINI_MODEL || "",
@@ -89,12 +102,27 @@ export function loadEnv(source: EnvSource = process.env) {
     cookieDomain: source.COOKIE_DOMAIN?.trim() || "",
     cookieSameSite: parseCookieSameSite(source.COOKIE_SAME_SITE, "lax"),
     cookieSecure: parseBoolean(source.COOKIE_SECURE, source.NODE_ENV === "production"),
+    csrfCookieName: source.CSRF_COOKIE_NAME || "qa_csrf",
+    csrfHeaderName: source.CSRF_HEADER_NAME || "X-CSRF-Token",
+    csrfSecret: source.CSRF_SECRET || DEVELOPMENT_CSRF_SECRET,
     authRateLimitWindowMs: parsePositiveInteger(source.AUTH_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
     authLoginRateLimitMax: parsePositiveInteger(source.AUTH_LOGIN_RATE_LIMIT_MAX, 10),
     authRegisterRateLimitMax: parsePositiveInteger(source.AUTH_REGISTER_RATE_LIMIT_MAX, 5),
     authForgotPasswordRateLimitMax: parsePositiveInteger(
       source.AUTH_FORGOT_PASSWORD_RATE_LIMIT_MAX,
       5
+    ),
+    authResetPasswordRateLimitMax: parsePositiveInteger(
+      source.AUTH_RESET_PASSWORD_RATE_LIMIT_MAX,
+      5
+    ),
+    authResendVerificationRateLimitMax: parsePositiveInteger(
+      source.AUTH_RESEND_VERIFICATION_RATE_LIMIT_MAX,
+      5
+    ),
+    authVerifyEmailRateLimitMax: parsePositiveInteger(
+      source.AUTH_VERIFY_EMAIL_RATE_LIMIT_MAX,
+      20
     ),
     chatRateLimitWindowMs: parsePositiveInteger(source.CHAT_RATE_LIMIT_WINDOW_MS, 60 * 1000),
     chatRateLimitMax: parsePositiveInteger(source.CHAT_RATE_LIMIT_MAX, 60),
@@ -103,6 +131,7 @@ export function loadEnv(source: EnvSource = process.env) {
 
   validateRuntimeEnv(loadedEnv, {
     corsOriginProvided: Boolean(source.CORS_ORIGIN?.trim()),
+    csrfSecretProvided: Boolean(source.CSRF_SECRET?.trim()),
   });
 
   return loadedEnv;
@@ -112,6 +141,7 @@ export type AppEnv = ReturnType<typeof loadEnv>;
 
 interface EnvValidationContext {
   corsOriginProvided: boolean;
+  csrfSecretProvided: boolean;
 }
 
 export function validateRuntimeEnv(config: AppEnv, context: EnvValidationContext) {
@@ -121,8 +151,26 @@ export function validateRuntimeEnv(config: AppEnv, context: EnvValidationContext
     );
   }
 
+  if (!isValidCookieName(config.csrfCookieName)) {
+    throw new Error("Unsafe auth configuration: CSRF_COOKIE_NAME must be a valid cookie name.");
+  }
+
+  if (!isValidHeaderName(config.csrfHeaderName)) {
+    throw new Error("Unsafe auth configuration: CSRF_HEADER_NAME must be a valid HTTP header name.");
+  }
+
   if (config.nodeEnv !== "production") {
     return;
+  }
+
+  if (!context.csrfSecretProvided) {
+    throw new Error("Unsafe production auth configuration: CSRF_SECRET must be explicitly configured.");
+  }
+
+  if (config.csrfSecret.length < 32 || config.csrfSecret === DEVELOPMENT_CSRF_SECRET) {
+    throw new Error(
+      "Unsafe production auth configuration: CSRF_SECRET must be a strong secret of at least 32 characters."
+    );
   }
 
   if (config.cookieSameSite === "none" && !config.cookieSecure) {
@@ -172,6 +220,14 @@ function isValidCookieDomain(domain: string) {
     !normalizedDomain.includes(":") &&
     /^[a-z0-9.-]+$/i.test(normalizedDomain)
   );
+}
+
+function isValidCookieName(name: string) {
+  return /^[A-Za-z0-9_-]+$/.test(name);
+}
+
+function isValidHeaderName(name: string) {
+  return /^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/.test(name);
 }
 
 export const env = loadEnv();

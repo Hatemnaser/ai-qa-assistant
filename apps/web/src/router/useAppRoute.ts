@@ -1,9 +1,9 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
-export type AuthView = "login" | "register" | "forgot-password";
+export type AuthView = "login" | "register" | "forgot-password" | "verify-email";
 export type AppRoute = "chat" | "projects" | "settings" | "usage" | AuthView;
 
-const authRoutes = new Set<AuthView>(["login", "register", "forgot-password"]);
+const authRoutes = new Set<AuthView>(["login", "register", "forgot-password", "verify-email"]);
 
 export function useAppRoute() {
   const currentRoute = ref<AppRoute>(readRoute());
@@ -51,7 +51,16 @@ export function useAppRoute() {
 }
 
 function readRoute(): AppRoute {
-  const route = window.location.hash.replace(/^#\/?/, "").split("?")[0];
+  return parseAppRoute({
+    hash: window.location.hash,
+    pathname: window.location.pathname,
+  });
+}
+
+export function parseAppRoute(input: { hash: string; pathname: string }): AppRoute {
+  const hashRoute = input.hash.replace(/^#\/?/, "").split("?")[0];
+  const pathRoute = input.pathname.replace(/^\/?/, "").split("?")[0];
+  const route = hashRoute || pathRoute;
 
   if (route === "projects") return "projects";
   if (route === "usage") return "usage";

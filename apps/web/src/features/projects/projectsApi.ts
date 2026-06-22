@@ -1,4 +1,5 @@
 import { createBackendApiError } from "../../api/backendErrors";
+import { csrfFetch } from "../../api/csrf";
 import type { Project, ProjectInput } from "./types";
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
@@ -59,7 +60,7 @@ async function requestJson<T>(
   options: { body?: unknown; fallback: string; method: "DELETE" | "GET" | "POST" | "PUT" }
 ): Promise<T> {
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await csrfFetch(`${API_BASE_URL}${path}`, {
       body: options.body ? JSON.stringify(options.body) : undefined,
       credentials: "include",
       headers: options.body

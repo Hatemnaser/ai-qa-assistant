@@ -3,6 +3,7 @@ import express from "express";
 
 import { buildCorsOptions } from "./config/cors.js";
 import { env } from "./config/env.js";
+import { csrfProtection } from "./middleware/csrf.middleware.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.middleware.js";
 import { aiRouter } from "./modules/ai/ai.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
@@ -18,6 +19,7 @@ export function createApp() {
   const app = express();
 
   app.use(cors(buildCorsOptions()));
+  app.use(csrfProtection);
   app.use(express.json({ limit: env.requestBodyLimit }));
 
   app.get("/", (req, res) => {

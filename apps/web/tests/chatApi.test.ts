@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { resetCsrfTokenForTests } from "../src/api/csrf.ts";
 import { ChatApiError, sendMessageToAI } from "../src/features/chat/chatApi.ts";
+import { createCsrfAwareFetch } from "./helpers/csrfFetch.ts";
 
 const originalFetch = globalThis.fetch;
 
 afterEach(() => {
+  resetCsrfTokenForTests();
   globalThis.fetch = originalFetch;
 });
 
@@ -206,7 +209,7 @@ describe("chat api", () => {
 });
 
 function mockFetch(handler: typeof fetch) {
-  globalThis.fetch = handler;
+  globalThis.fetch = createCsrfAwareFetch(handler);
 }
 
 function jsonResponse(body: unknown, status = 200) {

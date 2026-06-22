@@ -5,6 +5,8 @@ import { after, afterEach, before, describe, it } from "node:test";
 import { env } from "../src/config/env.ts";
 import { createApp } from "../src/app.ts";
 import { resetAuthRateLimitersForTests } from "../src/modules/auth/auth.rateLimit.ts";
+import { PASSWORD_MAX_LENGTH } from "../src/modules/auth/auth.schema.ts";
+import { getCsrfHeaders } from "./helpers/csrf.ts";
 
 let server: Server;
 let baseUrl: string;
@@ -68,6 +70,25 @@ describe("POST /api/auth", () => {
     assert.ok(Array.isArray(body.issues));
   });
 
+  it("returns validation errors for oversized login passwords", async () => {
+    const response = await postJson("/api/auth/login", {
+      email: "person@example.com",
+      password: `${"A".repeat(PASSWORD_MAX_LENGTH)}1`,
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.code, "VALIDATION_ERROR");
+    assert.equal(body.error, "Invalid request payload.");
+    assert.ok(
+      body.issues.some(
+        (issue: { message?: string; path?: string }) =>
+          issue.path === "password" &&
+          issue.message === `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer.`
+      )
+    );
+  });
+
   it("requires a session cookie for the current user route", async () => {
     const response = await fetch(`${baseUrl}/api/auth/me`);
     const body = await response.json();
@@ -77,7 +98,9 @@ describe("POST /api/auth", () => {
   });
 
   it("clears the auth cookie on logout", async () => {
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
     const response = await fetch(`${baseUrl}/api/auth/logout`, {
+      headers: csrfHeaders,
       method: "POST",
     });
     const body = await response.json();
@@ -175,13 +198,65 @@ describe("POST /api/auth", () => {
     assert.equal(response.status, 429);
     assert.equal(body.code, "RATE_LIMITED");
   });
+
+  it("rate limits reset-password attempts without logging query tokens", async () => {
+    const warnings: string[] = [];
+    console.warn = (message?: unknown) => {
+      warnings.push(String(message));
+    };
+
+    let response: Response;
+    try {
+      response = await exhaustRateLimit(
+        "/api/auth/reset-password?token=raw-reset-token",
+        env.authResetPasswordRateLimitMax,
+        {
+          newPassword: "short",
+          token: "",
+        }
+      );
+    } finally {
+      console.warn = () => {};
+    }
+
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.code, "RATE_LIMITED");
+    assert.equal(body.error, "Too many attempts. Please try again later.");
+    assert.equal(body.message, "Too many attempts. Please try again later.");
+    assert.ok(warnings.length > 0);
+    assert.ok(warnings.every((warning) => !warning.includes("raw-reset-token")));
+
+    const event = JSON.parse(warnings.at(-1) || "{}") as { route?: string };
+    assert.equal(event.route, "/api/auth/reset-password");
+  });
+
+  it("rate limits resend-verification attempts", async () => {
+    const response = await exhaustRateLimit(
+      "/api/auth/resend-verification",
+      env.authResendVerificationRateLimitMax,
+      {
+        email: "not-an-email",
+      }
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.code, "RATE_LIMITED");
+    assert.equal(body.error, "Too many attempts. Please try again later.");
+    assert.equal(body.message, "Too many attempts. Please try again later.");
+  });
 });
 
 async function postJson(path: string, body: unknown) {
+  const csrfHeaders = await getCsrfHeaders(baseUrl);
+
   return fetch(`${baseUrl}${path}`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
+      ...csrfHeaders,
     },
     method: "POST",
   });

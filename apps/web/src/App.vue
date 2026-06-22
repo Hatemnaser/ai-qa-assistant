@@ -5,6 +5,7 @@ import { useAuthSession } from "./features/auth/composables/useAuthSession";
 import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage.vue";
 import LoginPage from "./features/auth/pages/LoginPage.vue";
 import RegisterPage from "./features/auth/pages/RegisterPage.vue";
+import VerifyEmailPage from "./features/auth/pages/VerifyEmailPage.vue";
 import type { AuthUser } from "./features/auth/types";
 import ProjectFormModal from "./features/projects/components/ProjectFormModal.vue";
 import ProjectsPage from "./features/projects/ProjectsPage.vue";
@@ -393,7 +394,14 @@ async function persistThemeSetting() {
   <RegisterPage
     v-else-if="currentRoute === 'register'"
     :theme-toggle-label="themeToggleLabel"
-    @authenticated="handleAuthenticated"
+    @back-to-chat="navigateToChat"
+    @navigate="navigateToAuth"
+    @toggle-theme="toggleTheme"
+  />
+
+  <VerifyEmailPage
+    v-else-if="currentRoute === 'verify-email'"
+    :theme-toggle-label="themeToggleLabel"
     @back-to-chat="navigateToChat"
     @navigate="navigateToAuth"
     @toggle-theme="toggleTheme"

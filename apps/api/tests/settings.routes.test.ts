@@ -3,6 +3,7 @@ import type { Server } from "node:http";
 import { after, before, describe, it } from "node:test";
 
 import { createApp } from "../src/app.ts";
+import { getCsrfHeaders } from "./helpers/csrf.ts";
 
 let server: Server;
 let baseUrl: string;
@@ -46,6 +47,7 @@ describe("/api/settings", () => {
   });
 
   it("requires an authenticated session to update settings", async () => {
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
     const response = await fetch(`${baseUrl}/api/settings`, {
       body: JSON.stringify({
         defaultModel: "gemini-3.1-flash-lite",
@@ -54,6 +56,7 @@ describe("/api/settings", () => {
       }),
       headers: {
         "content-type": "application/json",
+        ...csrfHeaders,
       },
       method: "PUT",
     });

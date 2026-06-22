@@ -1,5 +1,6 @@
 import type { ChatApiResponse, ChatHistoryItem, RequestAttachment } from "./types";
 import { BackendApiError, createBackendApiError } from "../../api/backendErrors";
+import { csrfFetch } from "../../api/csrf";
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 const REQUEST_TIMEOUT_MS = 60000;
@@ -35,7 +36,7 @@ export async function sendMessageToAI(input: {
   };
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/chat`, {
+    const response = await csrfFetch(`${API_BASE_URL}/api/chat`, {
       body: JSON.stringify(body),
       credentials: "include",
       headers: {

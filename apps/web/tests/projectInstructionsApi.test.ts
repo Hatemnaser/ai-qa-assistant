@@ -1,15 +1,18 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { resetCsrfTokenForTests } from "../src/api/csrf.ts";
 import {
   fetchProjectInstruction,
   saveProjectInstruction,
 } from "../src/features/project-instructions/projectInstructionsApi.ts";
 import type { ProjectInstruction } from "../src/features/project-instructions/types.ts";
+import { createCsrfAwareFetch } from "./helpers/csrfFetch.ts";
 
 const originalFetch = globalThis.fetch;
 
 afterEach(() => {
+  resetCsrfTokenForTests();
   globalThis.fetch = originalFetch;
 });
 
@@ -69,7 +72,7 @@ function createProjectInstruction(overrides: Partial<ProjectInstruction> = {}): 
 }
 
 function mockFetch(handler: typeof fetch) {
-  globalThis.fetch = handler;
+  globalThis.fetch = createCsrfAwareFetch(handler);
 }
 
 function jsonResponse(body: unknown, status = 200) {

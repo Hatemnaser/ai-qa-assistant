@@ -3,6 +3,7 @@ import type { Server } from "node:http";
 import { after, before, describe, it } from "node:test";
 
 import { createApp } from "../src/app.ts";
+import { getCsrfHeaders } from "./helpers/csrf.ts";
 
 let server: Server;
 let baseUrl: string;
@@ -57,6 +58,7 @@ describe("/api/projects", () => {
   });
 
   it("requires an authenticated session to update projects", async () => {
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
     const response = await fetch(`${baseUrl}/api/projects/project-1`, {
       body: JSON.stringify({
         description: null,
@@ -64,6 +66,7 @@ describe("/api/projects", () => {
       }),
       headers: {
         "content-type": "application/json",
+        ...csrfHeaders,
       },
       method: "PUT",
     });
@@ -74,7 +77,9 @@ describe("/api/projects", () => {
   });
 
   it("requires an authenticated session to delete projects", async () => {
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
     const response = await fetch(`${baseUrl}/api/projects/project-1`, {
+      headers: csrfHeaders,
       method: "DELETE",
     });
     const body = await response.json();
@@ -85,10 +90,13 @@ describe("/api/projects", () => {
 });
 
 async function postJson(path: string, body: unknown) {
+  const csrfHeaders = await getCsrfHeaders(baseUrl);
+
   return fetch(`${baseUrl}${path}`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
+      ...csrfHeaders,
     },
     method: "POST",
   });

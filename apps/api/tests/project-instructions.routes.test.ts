@@ -3,6 +3,7 @@ import type { Server } from "node:http";
 import { after, before, describe, it } from "node:test";
 
 import { createApp } from "../src/app.ts";
+import { getCsrfHeaders } from "./helpers/csrf.ts";
 
 let server: Server;
 let baseUrl: string;
@@ -46,12 +47,14 @@ describe("/api/projects/:projectId/instructions", () => {
   });
 
   it("requires an authenticated session to save instructions", async () => {
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
     const response = await fetch(`${baseUrl}/api/projects/project-1/instructions`, {
       body: JSON.stringify({
         content: "Use risk-based testing.",
       }),
       headers: {
         "content-type": "application/json",
+        ...csrfHeaders,
       },
       method: "PUT",
     });
