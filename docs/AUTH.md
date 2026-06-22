@@ -27,8 +27,9 @@ The implemented auth surface supports:
   password user can sign in.
 
 Google OAuth buttons exist in the UI but are disabled and not wired to backend
-routes. A production email provider is not wired yet; the current email service
-uses a development/test sink or production no-op placeholder.
+routes. Auth email delivery is behind `AuthEmailService`; development/test use
+an in-memory sink by default, explicit non-production `EMAIL_PROVIDER=noop` is
+available for local dry runs, and production must use `EMAIL_PROVIDER=smtp`.
 
 Auth Hardening Slice 1 is implemented: login, register, and forgot-password
 have initial in-memory rate limiting, and production cookie/CORS env guards
@@ -59,6 +60,11 @@ Password reset and email verification links can use SPA hash routes such as
 raw token is placed after the URL fragment marker (`#`) to reduce exposure in
 server, hosting, and proxy logs. Ordinary path routes remain supported when
 needed.
+
+Auth Slice 6B is implemented: SMTP email delivery is available for production
+through `EMAIL_PROVIDER=smtp`, `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`,
+`SMTP_USER`, `SMTP_PASS`, and `SMTP_SECURE`. Production startup fails fast if
+email delivery is left as `noop` or required SMTP settings are missing.
 
 ## 2. Current Architecture
 
@@ -890,9 +896,10 @@ Signed-in-only UX is handled at page/component level:
 - CSRF tokens are signed double-submit tokens and are not bound to a specific
   server-side session row. Consider session-bound synchronizer tokens later if
   stricter per-session semantics are needed.
-- Password reset and email verification use an email abstraction, but no
-  production email provider is wired yet. Production delivery is not ready
-  until a real provider replaces the no-op placeholder.
+- Password reset and email verification use an email abstraction with SMTP
+  provider support. Production still needs real SMTP credentials, domain
+  verification, DNS, SPF, DKIM, DMARC, and provider smoke testing before real
+  users.
 - No frontend reset-completion page is implemented yet.
 - Google OAuth UI is present but disabled and not wired.
 - Registration returns `EMAIL_ALREADY_REGISTERED`, which can reveal whether an
@@ -925,7 +932,9 @@ Signed-in-only UX is handled at page/component level:
   and hashed token storage.
 - [x] Add reset email delivery abstraction.
 - [x] Add email verification with hashed, expiring, one-time tokens.
-- [ ] Wire a production email provider.
+- [x] Wire a production email provider implementation.
+- [ ] Configure and smoke-test the production SMTP provider, sender domain,
+  SPF, DKIM, and DMARC.
 - [ ] Add a frontend reset-completion page.
 - [x] Invalidate existing sessions after password reset.
 - [x] Add CSRF protection for cookie-authenticated state-changing routes.

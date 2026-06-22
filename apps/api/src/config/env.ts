@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 dotenv.config({ quiet: true });
 
 type CookieSameSite = "lax" | "none" | "strict";
+type EmailProvider = "" | "noop" | "smtp";
 type EnvSource = Record<string, string | undefined>;
 
 const DEVELOPMENT_CSRF_SECRET = "development-csrf-secret-change-before-production";
@@ -38,6 +39,15 @@ function parseCookieSameSite(value: string | undefined, fallback: CookieSameSite
   return fallback;
 }
 
+function parseEmailProvider(value: string | undefined): EmailProvider {
+  if (!value) return "";
+
+  const normalizedValue = value.toLowerCase();
+  if (normalizedValue === "noop" || normalizedValue === "smtp") return normalizedValue;
+
+  throw new Error("Unsafe auth configuration: EMAIL_PROVIDER must be one of: noop, smtp.");
+}
+
 export function loadEnv(source: EnvSource = process.env) {
   const loadedEnv = Object.freeze({
     nodeEnv: source.NODE_ENV || "development",
@@ -61,6 +71,13 @@ export function loadEnv(source: EnvSource = process.env) {
       source.EMAIL_VERIFICATION_TOKEN_TTL_MINUTES,
       60
     ),
+    emailProvider: parseEmailProvider(source.EMAIL_PROVIDER),
+    emailFrom: source.EMAIL_FROM?.trim() || "",
+    smtpHost: source.SMTP_HOST?.trim() || "",
+    smtpPort: parsePositiveInteger(source.SMTP_PORT, 587),
+    smtpUser: source.SMTP_USER?.trim() || "",
+    smtpPass: source.SMTP_PASS || "",
+    smtpSecure: parseBoolean(source.SMTP_SECURE, false),
     aiProvider: source.AI_PROVIDER || "gemini",
     geminiApiKey: source.GEMINI_API_KEY || "",
     geminiModel: source.GEMINI_MODEL || "",
@@ -132,6 +149,7 @@ export function loadEnv(source: EnvSource = process.env) {
   validateRuntimeEnv(loadedEnv, {
     corsOriginProvided: Boolean(source.CORS_ORIGIN?.trim()),
     csrfSecretProvided: Boolean(source.CSRF_SECRET?.trim()),
+    smtpPortProvided: Boolean(source.SMTP_PORT?.trim()),
   });
 
   return loadedEnv;
@@ -142,6 +160,7 @@ export type AppEnv = ReturnType<typeof loadEnv>;
 interface EnvValidationContext {
   corsOriginProvided: boolean;
   csrfSecretProvided: boolean;
+  smtpPortProvided: boolean;
 }
 
 export function validateRuntimeEnv(config: AppEnv, context: EnvValidationContext) {
@@ -196,6 +215,32 @@ export function validateRuntimeEnv(config: AppEnv, context: EnvValidationContext
       throw new Error(
         `Unsafe production auth configuration: CORS_ORIGIN contains an invalid origin (${origin}).`
       );
+    }
+  }
+
+  if (!config.emailProvider || config.emailProvider === "noop") {
+    throw new Error("Unsafe production email configuration: EMAIL_PROVIDER=smtp is required.");
+  }
+
+  if (!config.emailFrom) {
+    throw new Error("Unsafe production email configuration: EMAIL_FROM must be explicitly configured.");
+  }
+
+  if (config.emailProvider === "smtp") {
+    if (!config.smtpHost) {
+      throw new Error("Unsafe production email configuration: SMTP_HOST must be explicitly configured.");
+    }
+
+    if (!context.smtpPortProvided) {
+      throw new Error("Unsafe production email configuration: SMTP_PORT must be explicitly configured.");
+    }
+
+    if (!config.smtpUser) {
+      throw new Error("Unsafe production email configuration: SMTP_USER must be explicitly configured.");
+    }
+
+    if (!config.smtpPass) {
+      throw new Error("Unsafe production email configuration: SMTP_PASS must be explicitly configured.");
     }
   }
 }

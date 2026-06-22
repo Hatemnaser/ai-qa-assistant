@@ -1,4 +1,6 @@
-import { env } from "../../config/env.js";
+import nodemailer, { type SendMailOptions } from "nodemailer";
+
+import { env, type AppEnv } from "../../config/env.js";
 
 export interface PasswordResetEmailMessage {
   expiresAt: Date;
@@ -15,6 +17,10 @@ export interface EmailVerificationEmailMessage {
 export interface AuthEmailService {
   sendEmailVerificationEmail(message: EmailVerificationEmailMessage): Promise<void>;
   sendPasswordResetEmail(message: PasswordResetEmailMessage): Promise<void>;
+}
+
+export interface AuthEmailTransporter {
+  sendMail(message: SendMailOptions): Promise<unknown>;
 }
 
 export interface PasswordResetLinkConfig {
@@ -46,11 +52,38 @@ export class InMemoryAuthEmailService implements AuthEmailService {
 
 export class NoopAuthEmailService implements AuthEmailService {
   async sendEmailVerificationEmail() {
-    // Production email provider wiring is intentionally left to a later slice.
+    // Explicitly configured no-op delivery for local development only.
   }
 
   async sendPasswordResetEmail() {
-    // Production email provider wiring is intentionally left to a later slice.
+    // Explicitly configured no-op delivery for local development only.
+  }
+}
+
+export class SmtpAuthEmailService implements AuthEmailService {
+  constructor(
+    private readonly config: {
+      from: string;
+      transporter: AuthEmailTransporter;
+    }
+  ) {}
+
+  async sendEmailVerificationEmail(message: EmailVerificationEmailMessage) {
+    await this.config.transporter.sendMail({
+      from: this.config.from,
+      subject: "Verify your AI QA Assistant email",
+      text: buildEmailVerificationText(message),
+      to: message.to,
+    });
+  }
+
+  async sendPasswordResetEmail(message: PasswordResetEmailMessage) {
+    await this.config.transporter.sendMail({
+      from: this.config.from,
+      subject: "Reset your AI QA Assistant password",
+      text: buildPasswordResetText(message),
+      to: message.to,
+    });
   }
 }
 
@@ -109,8 +142,27 @@ export function buildSpaTokenUrl(
   return url.toString();
 }
 
-export function createAuthEmailService() {
-  if (env.nodeEnv === "production") {
+export function createSmtpTransporter(config: AppEnv = env): AuthEmailTransporter {
+  return nodemailer.createTransport({
+    auth: {
+      pass: config.smtpPass,
+      user: config.smtpUser,
+    },
+    host: config.smtpHost,
+    port: config.smtpPort,
+    secure: config.smtpSecure,
+  });
+}
+
+export function createAuthEmailService(config: AppEnv = env) {
+  if (config.emailProvider === "smtp") {
+    return new SmtpAuthEmailService({
+      from: config.emailFrom,
+      transporter: createSmtpTransporter(config),
+    });
+  }
+
+  if (config.emailProvider === "noop") {
     return new NoopAuthEmailService();
   }
 
@@ -119,6 +171,24 @@ export function createAuthEmailService() {
 
 function withTrailingSlash(origin: string) {
   return origin.endsWith("/") ? origin : `${origin}/`;
+}
+
+function buildPasswordResetText(message: PasswordResetEmailMessage) {
+  return [
+    "We received a request to reset your AI QA Assistant password.",
+    `Open this link to choose a new password: ${message.resetUrl}`,
+    `This link expires at ${message.expiresAt.toISOString()}.`,
+    "If you did not request a password reset, you can ignore this email.",
+  ].join("\n\n");
+}
+
+function buildEmailVerificationText(message: EmailVerificationEmailMessage) {
+  return [
+    "Please verify your AI QA Assistant email address.",
+    `Open this link to verify your email: ${message.verificationUrl}`,
+    `This link expires at ${message.expiresAt.toISOString()}.`,
+    "If you did not create an account, you can ignore this email.",
+  ].join("\n\n");
 }
 
 export const authEmailService = createAuthEmailService();

@@ -41,6 +41,8 @@ the operational data-safety gates below have not been completed.
   database.
 - [ ] Deploy a staging environment and run the full smoke checklist.
 - [ ] Add host/proxy-level rate limiting for public API traffic.
+- [ ] Configure and smoke-test a production SMTP provider for auth email,
+  including sender domain DNS, SPF, DKIM, and DMARC.
 - [ ] Complete the auth security checkpoint: decide whether to keep and harden
   owned auth or migrate to a maintained auth library before real-user launch.
 - [ ] Decide whether the first release is a portfolio demo or a real-user
@@ -164,9 +166,46 @@ CORS_ORIGIN=https://your-web-origin.example
 DATABASE_URL=postgresql://...
 GEMINI_API_KEY=...
 USAGE_IP_HASH_SALT=long_random_secret
+EMAIL_PROVIDER=smtp
+EMAIL_FROM="AI QA Assistant <no-reply@your-domain.example>"
+SMTP_HOST=smtp.your-provider.example
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASS=...
+SMTP_SECURE=false
 ```
 
 Do not use local defaults or committed placeholder secrets in production.
+
+### Auth Email
+
+Password reset and email verification require SMTP in production:
+
+```text
+EMAIL_PROVIDER=smtp
+EMAIL_FROM="AI QA Assistant <no-reply@your-domain.example>"
+SMTP_HOST=smtp.your-provider.example
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASS=...
+SMTP_SECURE=false
+PASSWORD_RESET_PATH=/#/reset-password
+EMAIL_VERIFICATION_PATH=/#/verify-email
+```
+
+Rules:
+
+- Production startup fails if `EMAIL_PROVIDER` is missing or `noop`.
+- Production startup fails if SMTP host, port, username, password, or sender is
+  missing.
+- Use a transactional email provider or trusted SMTP relay, not a personal
+  mailbox for real users.
+- Configure and verify the sender domain with the provider.
+- Publish SPF, DKIM, and DMARC records before accepting real users.
+- Smoke-test register, verify-email, forgot-password, and reset-password in the
+  deployed HTTPS environment.
+- Prefer hash-route reset and verification paths so raw tokens remain after
+  `#` and are less likely to appear in hosting or proxy logs.
 
 ### Cookies
 
