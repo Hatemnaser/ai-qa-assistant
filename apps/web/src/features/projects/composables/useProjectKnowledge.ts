@@ -1,6 +1,7 @@
 import { ref, watch } from "vue";
 import type { Ref } from "vue";
 
+import { t } from "../../../i18n/useI18n";
 import { prepareProjectDocumentFiles } from "../../project-documents/projectDocumentFiles";
 import {
   createProjectDocument,
@@ -82,7 +83,7 @@ export function useProjectKnowledge(
       }
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
-        instructionErrorMessage.value = toErrorMessage(error, "Could not load project instructions.");
+        instructionErrorMessage.value = toErrorMessage(error, t("projects.instructions.errors.load"));
       }
     } finally {
       if (isCurrentProject(projectId, generation)) {
@@ -102,7 +103,7 @@ export function useProjectKnowledge(
       }
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
-        documentErrorMessage.value = toErrorMessage(error, "Could not load project documents.");
+        documentErrorMessage.value = toErrorMessage(error, t("projects.documents.errors.load"));
       }
     } finally {
       if (isCurrentProject(projectId, generation)) {
@@ -128,7 +129,7 @@ export function useProjectKnowledge(
       }
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
-        instructionErrorMessage.value = toErrorMessage(error, "Could not save project instructions.");
+        instructionErrorMessage.value = toErrorMessage(error, t("projects.instructions.errors.save"));
       }
     } finally {
       if (isCurrentProject(projectId, generation)) {
@@ -139,7 +140,7 @@ export function useProjectKnowledge(
 
   async function addDocument(input: ProjectDocumentInput) {
     await runDocumentMutation(
-      "Could not save project document.",
+      t("projects.documents.errors.save"),
       async (projectId) => dependencies.createDocument(projectId, input),
       (document) => {
         projectDocuments.value = [document, ...projectDocuments.value];
@@ -165,7 +166,7 @@ export function useProjectKnowledge(
       }
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
-        documentErrorMessage.value = toErrorMessage(error, "Could not import project files.");
+        documentErrorMessage.value = toErrorMessage(error, t("projects.documents.errors.import"));
       }
     } finally {
       if (isCurrentProject(projectId, generation)) {
@@ -176,7 +177,7 @@ export function useProjectKnowledge(
 
   async function saveDocument(documentId: string, input: ProjectDocumentInput) {
     await runDocumentMutation(
-      "Could not update project document.",
+      t("projects.documents.errors.update"),
       async (projectId) => dependencies.updateDocument(projectId, documentId, input),
       (document) => {
         projectDocuments.value = projectDocuments.value.map((item) =>
@@ -188,7 +189,7 @@ export function useProjectKnowledge(
 
   async function removeDocument(documentId: string) {
     await runDocumentMutation(
-      "Could not delete project document.",
+      t("projects.documents.errors.delete"),
       async (projectId) => {
         await dependencies.deleteDocument(projectId, documentId);
         return documentId;

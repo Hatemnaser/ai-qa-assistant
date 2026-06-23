@@ -1,0 +1,18 @@
+{
+  "settings.eyebrow": "الإعدادات",
+  "settings.title": "تفضيلات مساحة العمل",
+  "settings.subtitle": "أدر اللغة والثيم وموديل AI الافتراضي لحسابك.",
+  "settings.signInRequired": "تسجيل الدخول مطلوب",
+  "settings.signInNote": "تُحفظ الإعدادات على حسابك لتكون متاحة عبر الأجهزة.",
+  "settings.loading": "جار تحميل الإعدادات...",
+  "settings.language": "اللغة",
+  "settings.theme": "الثيم",
+  "settings.defaultModel": "الموديل الافتراضي",
+  "settings.saved": "تم حفظ الإعدادات.",
+  "settings.lastUpdated": "آخر تحديث {date}",
+  "settings.willSave": "سيتم حفظ الإعدادات على حسابك.",
+  "settings.save": "حفظ الإعدادات",
+  "settings.saving": "جار الحفظ...",
+  "settings.accountMemory": "ذاكرة الحساب",
+  "settings.noAccountMemory": "لا توجد ذاكرة للحساب بعد."
+}

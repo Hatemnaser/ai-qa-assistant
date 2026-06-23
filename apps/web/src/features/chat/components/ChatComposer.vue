@@ -2,9 +2,10 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 
 import { ATTACHMENT_INPUT_ACCEPT } from "../chatAttachments";
-import { COMPOSER_PLACEHOLDERS_BY_MODE, QUICK_ACTIONS } from "../constants";
+import { COMPOSER_PLACEHOLDER_KEYS_BY_MODE, QUICK_ACTIONS } from "../constants";
 import type { QuickAction } from "../constants";
 import type { SelectedAttachment } from "../types";
+import { useI18n } from "../../../i18n/useI18n";
 
 const props = defineProps<{
   disabled?: boolean;
@@ -27,6 +28,7 @@ const emit = defineEmits<{
 
 const textareaInput = ref<HTMLTextAreaElement | null>(null);
 const isDraggingOver = ref(false);
+const { t } = useI18n();
 
 const draftMessage = computed({
   get: () => props.message,
@@ -36,7 +38,7 @@ const draftMessage = computed({
   },
 });
 const composerPlaceholder = computed(
-  () => COMPOSER_PLACEHOLDERS_BY_MODE[props.mode] || COMPOSER_PLACEHOLDERS_BY_MODE.general
+  () => t(COMPOSER_PLACEHOLDER_KEYS_BY_MODE[props.mode] || COMPOSER_PLACEHOLDER_KEYS_BY_MODE.general)
 );
 const isComposerDisabled = computed(() => Boolean(props.disabled));
 
@@ -145,13 +147,13 @@ function handleComposerClick() {
           <div class="attachment-preview-info">
             <div class="attachment-preview-name">{{ selectedAttachment.name }}</div>
             <div class="attachment-preview-type">
-              {{ selectedAttachment.type === "image" ? "Image" : "File" }}
+              {{ selectedAttachment.type === "image" ? t("app.common.image") : t("app.common.file") }}
             </div>
           </div>
           <button
             class="attachment-remove-btn"
             type="button"
-            aria-label="Remove attachment"
+            :aria-label="t('chat.composer.removeAttachment')"
             :disabled="isComposerDisabled"
             @click.stop="emit('remove-selected-attachment', index)"
           >
@@ -165,7 +167,7 @@ function handleComposerClick() {
           <button
             class="ui-icon-btn composer-icon-btn"
             type="button"
-            aria-label="Attach file"
+            :aria-label="t('chat.composer.attachFile')"
             data-bs-toggle="dropdown"
             aria-expanded="false"
             :disabled="isComposerDisabled"
@@ -175,7 +177,7 @@ function handleComposerClick() {
 
           <ul class="dropdown-menu composer-menu">
             <li>
-              <label class="dropdown-item mb-0" for="attachment-input">Upload image or file</label>
+              <label class="dropdown-item mb-0" for="attachment-input">{{ t("chat.composer.upload") }}</label>
             </li>
           </ul>
         </div>
@@ -223,7 +225,7 @@ function handleComposerClick() {
         :disabled="isComposerDisabled"
         @click="emit('quick-action', action)"
       >
-        {{ action.label }}
+        {{ t(action.labelKey) }}
       </button>
     </section>
   </form>

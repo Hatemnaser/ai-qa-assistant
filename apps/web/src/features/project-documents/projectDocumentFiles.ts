@@ -1,9 +1,9 @@
 import type { ProjectDocumentImportFileInput } from "./types";
+import { t } from "../../i18n/useI18n";
 import {
   getProjectDocumentFileExtension,
   getProjectDocumentTypeByFileName,
   PROJECT_DOCUMENT_SUPPORTED_EXTENSIONS,
-  PROJECT_DOCUMENT_SUPPORTED_TYPES_LABEL,
 } from "./projectDocumentTypes";
 
 export const PROJECT_DOCUMENT_FILE_POLICY = Object.freeze({
@@ -22,7 +22,7 @@ export async function prepareProjectDocumentFiles(files: File[]): Promise<Projec
   if (files.length === 0) return [];
 
   if (files.length > PROJECT_DOCUMENT_FILE_POLICY.maxFiles) {
-    throw new Error(`You can import up to ${PROJECT_DOCUMENT_FILE_POLICY.maxFiles} files at a time.`);
+    throw new Error(t("projects.documents.file.tooMany", { count: PROJECT_DOCUMENT_FILE_POLICY.maxFiles }));
   }
 
   return Promise.all(
@@ -36,7 +36,7 @@ export async function prepareProjectDocumentFiles(files: File[]): Promise<Projec
       const content = await file.text();
 
       if (!content.trim()) {
-        throw new Error(`${file.name} is empty.`);
+        throw new Error(t("projects.documents.file.empty", { file: file.name }));
       }
 
       return {
@@ -53,11 +53,14 @@ export function getProjectDocumentFileError(file: File) {
   const extension = getProjectDocumentFileExtension(file.name);
 
   if (!supportedExtensions.has(extension)) {
-    return `${file.name} is not supported. Use ${PROJECT_DOCUMENT_SUPPORTED_TYPES_LABEL}.`;
+    return t("projects.documents.file.unsupported", {
+      file: file.name,
+      types: t("projects.documents.supportedTypes"),
+    });
   }
 
   if (file.size > PROJECT_DOCUMENT_FILE_POLICY.maxFileBytes) {
-    return `${file.name} is too large. Project files must be 1MB or smaller.`;
+    return t("projects.documents.file.tooLarge", { file: file.name });
   }
 
   return "";

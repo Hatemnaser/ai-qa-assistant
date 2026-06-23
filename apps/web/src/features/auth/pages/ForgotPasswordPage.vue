@@ -2,6 +2,7 @@
 import { ref } from "vue";
 
 import TextField from "../../../ui/TextField.vue";
+import { useI18n } from "../../../i18n/useI18n";
 import { forgotPassword } from "../authApi";
 import AuthLayout from "../components/AuthLayout.vue";
 import { useAuthRequest } from "../useAuthRequest";
@@ -18,9 +19,8 @@ const emit = defineEmits<{
 
 const email = ref("");
 const successMessage = ref("");
-const { errorMessage, isSubmitting, submit } = useAuthRequest(
-  "Could not request a password reset. Please try again."
-);
+const { t } = useI18n();
+const { errorMessage, isSubmitting, submit } = useAuthRequest(t("errors.auth.forgot"));
 
 async function submitPasswordReset() {
   successMessage.value = "";
@@ -39,16 +39,16 @@ async function submitPasswordReset() {
     @toggle-theme="emit('toggle-theme')"
   >
     <div class="auth-header">
-      <p class="auth-kicker">Account help</p>
-      <h2>Reset your password</h2>
-      <p>Enter your email and we will prepare the reset flow.</p>
+      <p class="auth-kicker">{{ t("auth.forgot.kicker") }}</p>
+      <h2>{{ t("auth.forgot.title") }}</h2>
+      <p>{{ t("auth.forgot.subtitle") }}</p>
     </div>
 
     <form class="vstack gap-3" @submit.prevent="submitPasswordReset">
       <TextField
         id="forgot-email"
         v-model="email"
-        label="Email"
+        :label="t('auth.login.email')"
         type="email"
         autocomplete="email"
         placeholder="you@example.com"
@@ -60,13 +60,13 @@ async function submitPasswordReset() {
       <p v-if="successMessage" class="auth-feedback auth-feedback-success" role="status">{{ successMessage }}</p>
 
       <button class="btn btn-primary btn-control w-100" type="submit" :disabled="isSubmitting">
-        {{ isSubmitting ? "Sending..." : "Send reset link" }}
+        {{ isSubmitting ? t("auth.forgot.submitting") : t("auth.forgot.submit") }}
       </button>
     </form>
 
     <div class="auth-switch d-flex justify-content-center gap-2 flex-column flex-sm-row">
-      <span>Remembered it?</span>
-      <button class="btn btn-link" type="button" @click="emit('navigate', 'login')">Back to sign in</button>
+      <span>{{ t("auth.forgot.remembered") }}</span>
+      <button class="btn btn-link" type="button" @click="emit('navigate', 'login')">{{ t("auth.forgot.backToSignIn") }}</button>
     </div>
   </AuthLayout>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 
+import { useI18n } from "../../../i18n/useI18n";
 import Icon from "../../../ui/Icon.vue";
 import type { ProjectDocument } from "../types";
 import ProjectDocumentAddMenu from "./ProjectDocumentAddMenu.vue";
@@ -25,6 +26,7 @@ const emit = defineEmits<{
 
 const dragDepth = ref(0);
 const isDraggingOver = ref(false);
+const { t } = useI18n();
 
 watch(
   () => props.isOpen,
@@ -81,9 +83,13 @@ function resetDragState() {
         >
           <div class="modal-header">
             <div>
-              <h2 id="project-documents-title" class="modal-title">Project documents</h2>
+              <h2 id="project-documents-title" class="modal-title">{{ t("projects.documents.modalTitle") }}</h2>
               <p class="workspace-note mb-0">
-                {{ documents.length }} {{ documents.length === 1 ? "document" : "documents" }}
+                {{
+                  t(documents.length === 1 ? "projects.documents.countOne" : "projects.documents.countMany", {
+                    count: documents.length,
+                  })
+                }}
               </p>
             </div>
             <div class="project-documents-modal__header-actions">
@@ -92,14 +98,14 @@ function resetDragState() {
                 @add-text="emit('addText')"
                 @upload="emit('requestUpload')"
               />
-              <button class="btn-close" type="button" aria-label="Close" @click="emit('cancel')"></button>
+              <button class="btn-close" type="button" :aria-label="t('app.actions.close')" @click="emit('cancel')"></button>
             </div>
           </div>
 
           <div class="modal-body">
             <div v-if="isDraggingOver" class="project-documents-modal__drag-feedback" aria-hidden="true">
               <Icon name="upload" />
-              <span>Drop files to upload</span>
+              <span>{{ t("projects.documents.dropFiles") }}</span>
             </div>
 
             <p v-if="errorMessage" class="workspace-feedback workspace-feedback--error mb-0" role="alert">
@@ -120,7 +126,9 @@ function resetDragState() {
           </div>
 
           <div class="modal-footer">
-            <button class="btn btn-outline-secondary" type="button" @click="emit('cancel')">Close</button>
+            <button class="btn btn-outline-secondary" type="button" @click="emit('cancel')">
+              {{ t("app.actions.close") }}
+            </button>
           </div>
         </div>
       </div>

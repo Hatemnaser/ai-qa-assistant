@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
+import { useI18n } from "../../../i18n/useI18n";
 import Icon from "../../../ui/Icon.vue";
 import ProjectInstructionModal from "./ProjectInstructionModal.vue";
 import type { ProjectInstruction } from "../types";
@@ -21,6 +22,7 @@ const isPreviewTruncated = ref(false);
 const previewElement = ref<HTMLElement | null>(null);
 const wasSaving = ref(false);
 let previewResizeObserver: ResizeObserver | null = null;
+const { t } = useI18n();
 
 watch(
   () => props.isSaving,
@@ -89,11 +91,11 @@ function measurePreviewTruncation() {
 <template>
   <section class="project-knowledge__section">
     <header class="project-knowledge__header">
-      <h2>Instructions</h2>
+      <h2>{{ t("projects.instructions.title") }}</h2>
       <button
         class="ui-icon-btn ui-icon-btn--xs ui-icon-btn--ghost"
         type="button"
-        aria-label="Edit project instructions"
+        :aria-label="t('projects.instructions.editAria')"
         :disabled="isLoading || isSaving"
         @click="openInstructionModal"
       >
@@ -101,7 +103,7 @@ function measurePreviewTruncation() {
       </button>
     </header>
 
-    <p v-if="isLoading" class="workspace-note mb-0">Loading instructions...</p>
+    <p v-if="isLoading" class="workspace-note mb-0">{{ t("projects.instructions.loading") }}</p>
     <div v-else-if="instruction?.content" class="project-instructions-summary">
       <p ref="previewElement" class="project-instructions-preview mb-0">
         {{ instruction.content }}
@@ -112,10 +114,10 @@ function measurePreviewTruncation() {
         type="button"
         @click="openInstructionModal"
       >
-        Show more
+        {{ t("projects.instructions.showMore") }}
       </button>
     </div>
-    <p v-else class="workspace-note mb-0">Add instructions for chats in this project.</p>
+    <p v-else class="workspace-note mb-0">{{ t("projects.instructions.empty") }}</p>
 
     <ProjectInstructionModal
       :content="instruction?.content || ''"

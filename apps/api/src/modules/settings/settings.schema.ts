@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-export const USER_SETTINGS_LANGUAGES = ["en", "ar", "de"] as const;
+import { SUPPORTED_LOCALES } from "../../config/locales.js";
+
+export const USER_SETTINGS_LANGUAGES = SUPPORTED_LOCALES;
 export const USER_SETTINGS_THEMES = ["light", "dark", "system"] as const;
 
 export const updateSettingsSchema = z.object({

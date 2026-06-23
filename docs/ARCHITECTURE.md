@@ -21,6 +21,10 @@ Target stack:
 - Keep user, project, chat, and memory data in PostgreSQL instead of browser storage.
 - Keep billing, integrations, and AI usage auditable through event tables.
 - Keep frontend styling in `apps/web/src/styles`. Do not add ad hoc CSS files for new Vue work. Prefer Bootstrap utilities for generic layout and keep SCSS for product-specific UI.
+- Keep user-facing frontend copy behind the domain JSON catalogs in
+  `apps/web/src/i18n/messages/<locale>/<domain>.json`. Locale `index.ts` files
+  only load and validate catalogs. Stable internal ids such as chat modes,
+  model ids, document sources, and stored user content remain untranslated.
 
 Production operations are intentionally documented outside feature
 architecture. `docs/PRODUCTION_READINESS.md` is the source of truth for managed
@@ -70,7 +74,9 @@ Small modules can start with fewer files, but should not put business logic dire
 ## Active Backend Modules
 
 - `health`: service status and deployment checks.
-- `auth`: password registration, password login, password reset request contract, httpOnly session cookies, and server-side session records.
+- `auth`: password registration, password login, password reset request
+  contract, httpOnly session cookies, server-side session records, and
+  supported registration locale validation.
 - `ai`: provider registry, provider adapters, model catalog, QA workflow intent analysis, prompt building, model normalization, AI error mapping.
 - `chat`: chat API contract and orchestration.
 - `projects`: signed-in project CRUD, owner-only authorization, and owner membership foundation records.
@@ -88,7 +94,9 @@ Small modules can start with fewer files, but should not put business logic dire
 - `#/register`: account creation page wired to cookie-backed auth.
 - `#/forgot-password`: password reset request page.
 - `#/usage`: personal `My Usage` page for the current guest or signed-in user.
-- `#/settings`: signed-in user preferences for language, theme, and default model.
+- `#/settings`: signed-in user preferences for language, theme, and default
+  model. Language drives the core web i18n state for `en`, `ar`, and `de`,
+  including Arabic RTL through `html dir`.
 - `#/projects`: signed-in project management page with a searchable/sortable project grid, project detail view, project chat list, project Add Chats modal, project-scoped composer, and modal create/edit/delete flows.
 
 The frontend auth pages call the API with `credentials: "include"` so sessions stay in the httpOnly cookie. Google OAuth and real reset emails are still future integrations.
@@ -136,7 +144,8 @@ verified over HTTPS.
 ## Active API Routes
 
 - `GET /api/health`: health check.
-- `POST /api/auth/register`: create a password user and set a session cookie.
+- `POST /api/auth/register`: create a password user with a supported locale
+  (`en`, `ar`, or `de`) and start the email verification flow.
 - `POST /api/auth/login`: validate credentials and set a session cookie.
 - `POST /api/auth/forgot-password`: accept reset requests with a generic response.
 - `GET /api/auth/me`: read the current user from the session cookie.
@@ -147,7 +156,9 @@ verified over HTTPS.
 - `PUT /api/chats/:chatId`: save a signed-in user chat and validate any `projectId` belongs to that user.
 - `DELETE /api/chats/:chatId`: delete a signed-in user chat.
 - `GET /api/settings`: return the signed-in user's preferences.
-- `PUT /api/settings`: update language, theme, and default model for the signed-in user.
+- `PUT /api/settings`: update language, theme, and default model for the
+  signed-in user. The saved settings language is also synchronized back to
+  `User.locale` so future account/email behavior has one current locale.
 - `GET /api/memories`: list the signed-in user's manual account memory notes.
 - `POST /api/memories`: create a manual account memory note.
 - `PUT /api/memories/:memoryId`: update a manual account memory note owned by the signed-in user.
@@ -178,6 +189,26 @@ Projects are workspace containers. They own one optional Project Instructions re
 The frontend project-document registry maps extensions to MIME types, preview modes, labels, and syntax-highlight languages. Document cards open a read-only preview: Markdown is rendered through the existing sanitized Markdown pipeline, source files use a line-numbered viewer, and supported code files use `highlight.js`. Imported HTML is always displayed as escaped source and is never mounted in an iframe or executed. Files above 200,000 characters fall back to plain source rendering so the viewer remains responsive. Download, delete, and manual-Markdown edit actions stay in the card dropdown.
 
 `ProjectsPage.vue` owns project navigation and CRUD orchestration. Project Instructions and Project Documents loading/mutations live in `useProjectKnowledge`, which guards active-project changes so stale async responses cannot overwrite the newly selected project. Project Knowledge styles live in their own SCSS partial rather than the generic workspace partial.
+
+The frontend i18n foundation lives in `apps/web/src/i18n`. It supports English,
+Arabic, and German, stores anonymous display locale in local storage, applies
+`html lang` and `html dir`, and localizes the core auth/chat/settings/account
+memory/usage shell. Translation copy is stored as UTF-8 JSON under
+`apps/web/src/i18n/messages/<locale>/<domain>.json` and split into `common`,
+`auth`, `navigation`, `chat`, `settings`, `memory`, `usage`, and `projects`.
+English is the canonical key schema. Small TypeScript locale loaders merge the
+domain catalogs, preserve typed translation keys, reject duplicate keys, and
+require Arabic and German to satisfy the English message map.
+
+`npm run test:i18n` verifies exact key parity, non-empty values, interpolation
+placeholder parity, duplicate-key rejection, fallback behavior, and document
+language/direction metadata. This JSON plus typed-loader boundary keeps the
+catalogs suitable for future translation-platform import/export without
+weakening the current application contract.
+Signed-in users load language from `UserSettings.language`; settings updates
+keep `UserSettings.language` and `User.locale` aligned. The current catalog
+covers the core auth/chat/settings/account memory/usage shell plus Projects,
+Project Knowledge, and Project Documents.
 
 Signed-in Account Memory is stored in `Memory` with `scope: USER`, `source: USER_PROVIDED`, and the current `userId`. Project Instructions are stored separately in the one-to-one `ProjectInstruction` model keyed by `projectId`. Project Memory is stored in the dedicated `ProjectMemory` model keyed by `projectId`, starts with `USER_PROVIDED` provenance, is manually editable through the owner-scoped API, and is bounded to 6,000 characters. Empty content clears the record. Manual Project Documents are stored in `ProjectDocument` with `source: USER_PROVIDED`; imported text/data files use `source: IMPORTED` plus file metadata after the shared project access check. Imported records are read-only and must be deleted and re-imported to replace their source content.
 
@@ -423,7 +454,8 @@ Billing and integrations will add their own tables only when those phases begin.
 4. Add the Vue app shell in `apps/web`.
 5. Move the existing chat screen and local chat behavior into the new web app.
 6. Delete legacy code only after parity testing. Done.
-7. Continue with projects, i18n, and memory after the auth/settings foundation is stable.
+7. Continue i18n catalog audits as new admin, billing, and upload surfaces are
+   added.
 8. Add billing and integrations after the core product data model is stable.
 
 ## Prisma Setup Notes

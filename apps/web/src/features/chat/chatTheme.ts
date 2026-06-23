@@ -1,6 +1,7 @@
 import { computed, ref } from "vue";
 
 import { STORAGE_KEYS } from "./constants";
+import { t } from "../../i18n/useI18n";
 
 type Theme = "light" | "dark";
 type ThemePreference = Theme | "system";
@@ -23,7 +24,7 @@ function resolveTheme(theme: ThemePreference): Theme {
 
 export function useTheme() {
   const theme = ref<ThemePreference>(normalizeTheme(localStorage.getItem(STORAGE_KEYS.THEME)));
-  const themeToggleLabel = computed(() => (resolveTheme(theme.value) === "dark" ? "Light" : "Dark"));
+  const themeToggleLabel = computed(() => t(resolveTheme(theme.value) === "dark" ? "theme.light" : "theme.dark"));
 
   applyTheme(resolveTheme(theme.value));
 

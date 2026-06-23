@@ -1,0 +1,8 @@
+{
+  "memory.placeholder": "Add a memory note",
+  "memory.add": "Add memory",
+  "memory.saving": "Saving...",
+  "memory.loading": "Loading memory...",
+  "memory.updated": "Updated {date}",
+  "memory.edit": "Edit"
+}

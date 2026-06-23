@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from "vue";
 
+import { useI18n } from "../../../i18n/useI18n";
 import type { Project, ProjectInput } from "../types";
 
 const props = defineProps<{
@@ -20,12 +21,13 @@ const form = reactive({
   name: "",
 });
 
+const { t } = useI18n();
 const isEditing = computed(() => Boolean(props.project));
-const title = computed(() => (isEditing.value ? "Edit project" : "Create project"));
+const title = computed(() => (isEditing.value ? t("projects.form.editTitle") : t("projects.form.createTitle")));
 const submitLabel = computed(() => {
-  if (props.isSaving) return isEditing.value ? "Saving..." : "Creating...";
+  if (props.isSaving) return isEditing.value ? t("projects.form.saving") : t("projects.form.creating");
 
-  return isEditing.value ? "Save changes" : "Create project";
+  return isEditing.value ? t("projects.form.saveChanges") : t("projects.form.createSubmit");
 });
 const canSubmit = computed(() => Boolean(form.name.trim() && !props.isSaving));
 
@@ -69,28 +71,34 @@ function submitProject() {
         <form class="modal-content app-modal project-form-modal" @submit.prevent="submitProject">
           <div class="modal-header">
             <h2 id="project-form-title" class="modal-title">{{ title }}</h2>
-            <button class="btn-close" type="button" aria-label="Close" :disabled="isSaving" @click="requestCancel"></button>
+            <button
+              class="btn-close"
+              type="button"
+              :aria-label="t('app.actions.close')"
+              :disabled="isSaving"
+              @click="requestCancel"
+            ></button>
           </div>
 
           <div class="modal-body project-form-modal__body">
             <label class="project-form-modal__field">
-              <span class="form-label">What are you working on?</span>
+              <span class="form-label">{{ t("projects.form.nameLabel") }}</span>
               <input
                 v-model="form.name"
                 class="form-control"
                 maxlength="120"
-                placeholder="Name your project"
+                :placeholder="t('projects.form.namePlaceholder')"
                 autofocus
               />
             </label>
 
             <label class="project-form-modal__field">
-              <span class="form-label">What do you want to achieve?</span>
+              <span class="form-label">{{ t("projects.form.descriptionLabel") }}</span>
               <textarea
                 v-model="form.description"
                 class="form-control"
                 maxlength="1000"
-                placeholder="Describe your project, goals, or scope."
+                :placeholder="t('projects.form.descriptionPlaceholder')"
               ></textarea>
             </label>
 
@@ -101,7 +109,7 @@ function submitProject() {
 
           <div class="modal-footer">
             <button class="btn btn-outline-secondary" type="button" :disabled="isSaving" @click="requestCancel">
-              Cancel
+              {{ t("app.actions.cancel") }}
             </button>
             <button class="btn btn-primary" type="submit" :disabled="!canSubmit">
               {{ submitLabel }}

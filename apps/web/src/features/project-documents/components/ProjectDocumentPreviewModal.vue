@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import { useI18n } from "../../../i18n/useI18n";
 import { renderMarkdown } from "../../chat/markdown";
 import {
   canUseRichProjectDocumentPreview,
@@ -18,6 +19,7 @@ defineEmits<{
   cancel: [];
 }>();
 
+const { t } = useI18n();
 const documentType = computed(() => (props.document ? getProjectDocumentType(props.document) : null));
 const canUseRichPreview = computed(() =>
   props.document ? canUseRichProjectDocumentPreview(props.document) : false
@@ -56,14 +58,14 @@ const usesSourcePreview = computed(
           <header class="modal-header">
             <div class="project-document-preview__heading">
               <h2 id="project-document-preview-title" class="modal-title">{{ document.title }}</h2>
-              <span>{{ documentType?.label || "TEXT" }}</span>
+              <span>{{ documentType?.label || t("projects.documents.fallbackType") }}</span>
             </div>
-            <button class="btn-close" type="button" aria-label="Close" @click="$emit('cancel')"></button>
+            <button class="btn-close" type="button" :aria-label="t('app.actions.close')" @click="$emit('cancel')"></button>
           </header>
 
           <div class="modal-body project-document-preview__body">
             <p v-if="!canUseRichPreview" class="project-document-preview__notice mb-0">
-              This large file is shown as plain text to keep the preview responsive.
+              {{ t("projects.documents.previewPlainNotice") }}
             </p>
 
             <div

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 
+import { useI18n } from "../../i18n/useI18n";
 import { fetchUsageSummary } from "./usageApi";
 import type { UsageSummary } from "./types";
 
@@ -11,20 +12,21 @@ const emit = defineEmits<{
 const summary = ref<UsageSummary | null>(null);
 const errorMessage = ref("");
 const isLoading = ref(false);
+const { formatDate: formatLocaleDate, t } = useI18n();
 
 const usagePercent = computed(() => {
   if (!summary.value || summary.value.limit <= 0) return 0;
 
   return Math.min(100, Math.round((summary.value.used / summary.value.limit) * 100));
 });
-const usageWindowLabel = computed(() => `${summary.value?.windowHours || 24}h window`);
+const usageWindowLabel = computed(() => t("usage.window", { hours: summary.value?.windowHours || 24 }));
 const sinceLabel = computed(() => {
   if (!summary.value) return "";
 
-  return new Intl.DateTimeFormat(undefined, {
+  return formatLocaleDate(summary.value.since, {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(new Date(summary.value.since));
+  });
 });
 
 onMounted(() => {
@@ -38,7 +40,7 @@ async function loadUsageSummary() {
   try {
     summary.value = await fetchUsageSummary();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Could not load usage summary.";
+    errorMessage.value = error instanceof Error ? error.message : t("usage.loadError");
   } finally {
     isLoading.value = false;
   }
@@ -52,10 +54,10 @@ function formatStatus(status: string) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
+  return formatLocaleDate(value, {
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  });
 }
 </script>
 
@@ -63,62 +65,62 @@ function formatDate(value: string) {
   <section class="usage-page">
     <header class="usage-header d-flex align-items-start justify-content-between gap-3">
       <div>
-        <p class="usage-eyebrow text-uppercase fw-bold mb-1">My Usage</p>
-        <h2 class="usage-title mb-1">Credits and model activity</h2>
-        <p class="usage-subtitle mb-0">Track your AI usage across credits, models, and request status.</p>
+        <p class="usage-eyebrow text-uppercase fw-bold mb-1">{{ t("usage.eyebrow") }}</p>
+        <h2 class="usage-title mb-1">{{ t("usage.title") }}</h2>
+        <p class="usage-subtitle mb-0">{{ t("usage.subtitle") }}</p>
       </div>
 
       <div class="d-flex gap-2">
         <button class="btn btn-outline-secondary" type="button" @click="loadUsageSummary">
-          Refresh
+          {{ t("usage.refresh") }}
         </button>
         <button class="btn btn-outline-secondary" type="button" @click="emit('back-to-chat')">
-          Back
+          {{ t("app.actions.back") }}
         </button>
       </div>
     </header>
 
-    <div v-if="isLoading" class="usage-panel">Loading usage...</div>
+    <div v-if="isLoading" class="usage-panel">{{ t("usage.loading") }}</div>
     <div v-else-if="errorMessage" class="usage-panel usage-panel--error">{{ errorMessage }}</div>
 
     <template v-else-if="summary">
       <div class="usage-grid">
         <section class="usage-panel">
-          <span class="usage-metric-label">Credits used</span>
+          <span class="usage-metric-label">{{ t("usage.creditsUsed") }}</span>
           <strong class="usage-metric-value">{{ summary.used }} / {{ summary.limit }}</strong>
           <div class="usage-progress" aria-hidden="true">
             <span :style="{ width: `${usagePercent}%` }"></span>
           </div>
-          <p class="usage-note mb-0">{{ summary.remaining }} {{ summary.unit }} remaining · {{ usageWindowLabel }}</p>
+          <p class="usage-note mb-0">{{ t("usage.remaining", { remaining: summary.remaining, unit: summary.unit }) }} · {{ usageWindowLabel }}</p>
         </section>
 
         <section class="usage-panel">
-          <span class="usage-metric-label">Identity</span>
+          <span class="usage-metric-label">{{ t("usage.identity") }}</span>
           <strong class="usage-metric-value text-capitalize">{{ summary.identityType }}</strong>
-          <p class="usage-note mb-0">Counting usage since {{ sinceLabel }}.</p>
+          <p class="usage-note mb-0">{{ t("usage.countingSince", { date: sinceLabel }) }}</p>
         </section>
 
         <section class="usage-panel">
-          <span class="usage-metric-label">Requests</span>
+          <span class="usage-metric-label">{{ t("usage.requests") }}</span>
           <strong class="usage-metric-value">
             {{ summary.statusTotals.reduce((total, item) => total + item.requests, 0) }}
           </strong>
-          <p class="usage-note mb-0">Completed, failed, and reserved requests in the current window.</p>
+          <p class="usage-note mb-0">{{ t("usage.requestsNote") }}</p>
         </section>
       </div>
 
       <section class="usage-panel">
         <div class="usage-section-heading">
-          <h3>By Model</h3>
+          <h3>{{ t("usage.byModel") }}</h3>
         </div>
 
-        <div v-if="summary.modelTotals.length === 0" class="usage-empty">No usage recorded yet.</div>
+        <div v-if="summary.modelTotals.length === 0" class="usage-empty">{{ t("usage.noUsage") }}</div>
         <div v-else class="usage-table">
           <div class="usage-table-row usage-table-row--head">
-            <span>Model</span>
-            <span>Requests</span>
-            <span>Credits</span>
-            <span>Tokens</span>
+            <span>{{ t("usage.model") }}</span>
+            <span>{{ t("usage.requests") }}</span>
+            <span>{{ t("usage.credits") }}</span>
+            <span>{{ t("usage.tokens") }}</span>
           </div>
           <div v-for="item in summary.modelTotals" :key="`${item.provider}:${item.model}`" class="usage-table-row">
             <span>
@@ -134,31 +136,31 @@ function formatDate(value: string) {
 
       <section class="usage-panel">
         <div class="usage-section-heading">
-          <h3>Request Status</h3>
+          <h3>{{ t("usage.requestStatus") }}</h3>
         </div>
 
         <div class="usage-status-list">
           <div v-for="item in summary.statusTotals" :key="item.status" class="usage-status-item">
             <span>{{ formatStatus(item.status) }}</span>
-            <strong>{{ item.credits }} credits</strong>
-            <small>{{ item.requests }} requests</small>
+            <strong>{{ t("usage.creditsCount", { count: item.credits }) }}</strong>
+            <small>{{ t("usage.requestsCount", { count: item.requests }) }}</small>
           </div>
         </div>
       </section>
 
       <section class="usage-panel">
         <div class="usage-section-heading">
-          <h3>Recent Events</h3>
+          <h3>{{ t("usage.recentEvents") }}</h3>
         </div>
 
-        <div v-if="summary.recentEvents.length === 0" class="usage-empty">No recent usage events.</div>
+        <div v-if="summary.recentEvents.length === 0" class="usage-empty">{{ t("usage.noEvents") }}</div>
         <div v-else class="usage-event-list">
           <div v-for="event in summary.recentEvents" :key="`${event.createdAt}:${event.model}:${event.status}`" class="usage-event">
             <div>
-              <strong>{{ event.workflowIntent || event.mode || "chat" }}</strong>
-              <small>{{ formatDate(event.createdAt) }} · {{ event.model || "unknown model" }}</small>
+              <strong>{{ event.workflowIntent || event.mode || t("usage.chat") }}</strong>
+              <small>{{ formatDate(event.createdAt) }} · {{ event.model || t("usage.unknownModel") }}</small>
             </div>
-            <span>{{ event.credits }} credits</span>
+            <span>{{ t("usage.creditsCount", { count: event.credits }) }}</span>
           </div>
         </div>
       </section>

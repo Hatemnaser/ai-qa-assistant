@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from "../../../i18n/useI18n";
 import type { Chat } from "../../chat/types";
 import { formatRelativeDate } from "../projectDate";
 
@@ -9,11 +10,13 @@ defineProps<{
 const emit = defineEmits<{
   "open-chat": [chatId: string];
 }>();
+
+const { t } = useI18n();
 </script>
 
 <template>
   <div v-if="chats.length === 0" class="workspace-panel project-detail-empty">
-    Start a chat to organize conversations under this project.
+    {{ t("projects.chatList.empty") }}
   </div>
 
   <div v-else class="project-chat-list">
@@ -25,7 +28,7 @@ const emit = defineEmits<{
       @click="emit('open-chat', chat.id)"
     >
       <span>{{ chat.title }}</span>
-      <small>Last message {{ formatRelativeDate(chat.updatedAt) }}</small>
+      <small>{{ t("projects.chatList.lastMessage", { date: formatRelativeDate(chat.updatedAt) }) }}</small>
     </button>
   </div>
 </template>

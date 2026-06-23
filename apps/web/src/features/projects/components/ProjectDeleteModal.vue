@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from "../../../i18n/useI18n";
 import type { Project } from "../types";
 
 const props = defineProps<{
@@ -10,6 +11,8 @@ const emit = defineEmits<{
   cancel: [];
   confirm: [];
 }>();
+
+const { t } = useI18n();
 
 function requestCancel() {
   if (props.isDeleting) return;
@@ -32,22 +35,28 @@ function requestCancel() {
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content app-modal">
           <div class="modal-header">
-            <h5 id="delete-project-title" class="modal-title">Delete project?</h5>
-            <button class="btn-close" type="button" aria-label="Close" :disabled="isDeleting" @click="requestCancel"></button>
+            <h5 id="delete-project-title" class="modal-title">{{ t("projects.delete.title") }}</h5>
+            <button
+              class="btn-close"
+              type="button"
+              :aria-label="t('app.actions.close')"
+              :disabled="isDeleting"
+              @click="requestCancel"
+            ></button>
           </div>
 
           <div class="modal-body">
             <p class="mb-0">
-              This will delete "{{ project.name }}". Assigned chats stay saved and move back to no project.
+              {{ t("projects.delete.body", { project: project.name }) }}
             </p>
           </div>
 
           <div class="modal-footer">
             <button class="btn btn-outline-secondary" type="button" :disabled="isDeleting" @click="requestCancel">
-              Cancel
+              {{ t("app.actions.cancel") }}
             </button>
             <button class="btn btn-danger" type="button" :disabled="isDeleting" @click="emit('confirm')">
-              {{ isDeleting ? "Deleting..." : "Delete" }}
+              {{ isDeleting ? t("projects.delete.deleting") : t("app.actions.delete") }}
             </button>
           </div>
         </div>

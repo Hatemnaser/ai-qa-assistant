@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Project } from "../../projects/types";
+import { useI18n } from "../../../i18n/useI18n";
 import type { Chat, ExportFormat, MenuPosition } from "../types";
 
 const props = defineProps<{
@@ -11,6 +12,8 @@ const props = defineProps<{
   projectMenuChat: Chat | null;
   projects: Project[];
 }>();
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
   "assign-chat-project": [chatId: string, projectId: string | null];
@@ -45,28 +48,28 @@ function getProjectMenuProjects(chat: Chat) {
     >
       <li>
         <button class="dropdown-item" type="button" @click="emit('rename-chat', menuChat)">
-          Rename
+          {{ t("chat.menu.rename") }}
         </button>
       </li>
       <li @mouseenter="emit('open-project-submenu', $event, menuChat.id)">
         <button class="dropdown-item d-flex align-items-center justify-content-between gap-3" type="button">
-          <span>{{ menuChat.projectId ? "Move to project" : "Add to project" }}</span>
+          <span>{{ menuChat.projectId ? t("chat.menu.moveToProject") : t("chat.menu.addToProject") }}</span>
           <span aria-hidden="true">&rsaquo;</span>
         </button>
       </li>
       <li v-if="menuChat.projectId && getProjectName(menuChat.projectId)">
         <button class="dropdown-item" type="button" @click="emit('assign-chat-project', menuChat.id, null)">
-          Remove from {{ getProjectName(menuChat.projectId) }}
+          {{ t("chat.menu.removeFromProject", { project: getProjectName(menuChat.projectId) }) }}
         </button>
       </li>
       <li @mouseenter="emit('open-export-submenu', $event, menuChat.id)">
         <button class="dropdown-item d-flex align-items-center justify-content-between gap-3" type="button">
-          <span>Export</span><span aria-hidden="true">&rsaquo;</span>
+          <span>{{ t("chat.menu.export") }}</span><span aria-hidden="true">&rsaquo;</span>
         </button>
       </li>
       <li>
         <button class="dropdown-item dropdown-item-danger" type="button" @click="emit('delete-chat', menuChat.id)">
-          Delete
+          {{ t("app.actions.delete") }}
         </button>
       </li>
     </ul>
@@ -79,7 +82,7 @@ function getProjectMenuProjects(chat: Chat) {
     >
       <li>
         <button class="dropdown-item" type="button" @click="emit('create-project-for-chat', projectMenuChat.id)">
-          New Project
+          {{ t("sidebar.nav.newProject") }}
         </button>
       </li>
       <li v-if="getProjectMenuProjects(projectMenuChat).length > 0">

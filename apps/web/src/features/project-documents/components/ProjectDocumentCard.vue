@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import { useI18n } from "../../../i18n/useI18n";
 import { downloadProjectDocument } from "../projectDocumentDownload";
 import { getProjectDocumentType } from "../projectDocumentTypes";
 import type { ProjectDocument } from "../types";
@@ -16,8 +17,12 @@ const emit = defineEmits<{
   preview: [document: ProjectDocument];
 }>();
 
+const { t } = useI18n();
 const documentTypeLabel = computed(() => getProjectDocumentType(props.document).label);
 const lineCount = computed(() => Math.max(1, props.document.content.split(/\r?\n/).length));
+const lineCountLabel = computed(() =>
+  t(lineCount.value === 1 ? "projects.documents.lineOne" : "projects.documents.lineMany", { count: lineCount.value })
+);
 
 function requestEdit() {
   if (props.isBusy || props.document.source !== "USER_PROVIDED") return;
@@ -38,7 +43,7 @@ function requestDownload() {
     <button
       class="project-document-card__open"
       type="button"
-      :aria-label="`Preview ${document.title}`"
+      :aria-label="t('projects.documents.previewAria', { title: document.title })"
       @click="emit('preview', document)"
     ></button>
 
@@ -46,7 +51,7 @@ function requestDownload() {
       <button
         class="ui-icon-btn ui-icon-btn--xs ui-icon-btn--ghost"
         type="button"
-        aria-label="Project document options"
+        :aria-label="t('projects.documents.optionsAria')"
         data-bs-toggle="dropdown"
         data-bs-boundary="viewport"
         aria-expanded="false"
@@ -57,10 +62,14 @@ function requestDownload() {
 
       <ul class="dropdown-menu dropdown-menu-end project-document-card__dropdown">
         <li>
-          <button class="dropdown-item" type="button" @click="requestDownload">Download</button>
+          <button class="dropdown-item" type="button" @click="requestDownload">
+            {{ t("projects.documents.download") }}
+          </button>
         </li>
         <li v-if="document.source === 'USER_PROVIDED'">
-          <button class="dropdown-item" type="button" @click="requestEdit">Edit</button>
+          <button class="dropdown-item" type="button" @click="requestEdit">
+            {{ t("projects.documents.edit") }}
+          </button>
         </li>
         <li><hr class="dropdown-divider" /></li>
         <li>
@@ -69,13 +78,13 @@ function requestDownload() {
             type="button"
             @click="emit('delete', document.id)"
           >
-            Delete
+            {{ t("projects.documents.delete") }}
           </button>
         </li>
       </ul>
     </div>
     <strong>{{ document.title }}</strong>
-    <small>{{ lineCount }} {{ lineCount === 1 ? "line" : "lines" }}</small>
+    <small>{{ lineCountLabel }}</small>
     <span>{{ documentTypeLabel }}</span>
   </article>
 </template>

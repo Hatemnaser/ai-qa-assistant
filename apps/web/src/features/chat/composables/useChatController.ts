@@ -2,6 +2,7 @@ import { ref, watch } from "vue";
 
 import { fetchAiModelCatalog } from "../chatModelsApi";
 import { AI_MODELS, DEFAULT_MODE, DEFAULT_MODEL, getModelForMode } from "../constants";
+import { useI18n } from "../../../i18n/useI18n";
 import { useChatAttachments } from "./useChatAttachments";
 import { useChatExportImport } from "./useChatExportImport";
 import { useChatSubmit } from "./useChatSubmit";
@@ -19,6 +20,7 @@ export function useChatController() {
   const renamingChatId = ref<string | null>(null);
   const quickActionMode = ref<string | null>(null);
   const modelOptions = ref<AiModelOption[]>([...AI_MODELS]);
+  const { t } = useI18n();
   const {
     clearSelectedAttachments,
     getAttachmentOnlyMessage,
@@ -171,7 +173,7 @@ export function useChatController() {
 
   function applyQuickAction(action: QuickAction) {
     selectedMode.value = action.mode;
-    messageInput.value = action.prompt;
+    messageInput.value = t(action.promptKey) || action.prompt;
     quickActionMode.value = action.mode;
   }
 

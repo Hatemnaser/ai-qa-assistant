@@ -1,0 +1,17 @@
+{
+  "sidebar.nav.workspace": "Arbeitsbereich",
+  "sidebar.nav.newChat": "Neuer Chat",
+  "sidebar.nav.search": "Suche",
+  "sidebar.nav.projects": "Projekte",
+  "sidebar.nav.newProject": "Neues Projekt",
+  "sidebar.nav.allProjects": "Alle Projekte",
+  "sidebar.nav.recentChats": "Letzte Chats",
+  "sidebar.nav.noRecentChats": "Noch keine letzten Chats.",
+  "sidebar.project.openPage": "Projektseite oeffnen",
+  "sidebar.account.menu": "Kontomenue",
+  "sidebar.account.signInHelp": "Melde dich an, um deinen Arbeitsbereich zu speichern",
+  "sidebar.account.exportChat": "Chat exportieren",
+  "sidebar.account.importChat": "Chat importieren",
+  "sidebar.account.usage": "Meine Nutzung",
+  "sidebar.account.settings": "Einstellungen"
+}

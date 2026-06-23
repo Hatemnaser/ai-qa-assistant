@@ -4,6 +4,7 @@ import { ref } from "vue";
 import { QUICK_ACTIONS } from "../constants";
 import { getMessageAttachments } from "../chatMessages";
 import { renderMarkdown } from "../markdown";
+import { useI18n } from "../../../i18n/useI18n";
 import type { QuickAction } from "../constants";
 import type { ChatAttachment, ChatMessage, ExportFormat } from "../types";
 
@@ -21,33 +22,34 @@ const emit = defineEmits<{
 
 const copyFeedbackByMessageId = ref<Record<string, string>>({});
 const welcomeActions = QUICK_ACTIONS.filter((action) => action.mode !== "screenshot_review");
+const { t } = useI18n();
 
 async function copyMessage(message: ChatMessage) {
   const success = await props.copyAnswer(message.content);
 
   copyFeedbackByMessageId.value = {
     ...copyFeedbackByMessageId.value,
-    [message.id]: success ? "Copied" : "Copy failed",
+    [message.id]: success ? t("chat.messages.copied") : t("chat.messages.copyFailed"),
   };
 
   window.setTimeout(() => {
     copyFeedbackByMessageId.value = {
       ...copyFeedbackByMessageId.value,
-      [message.id]: "Copy",
+      [message.id]: t("chat.messages.copy"),
     };
   }, 1500);
 }
 
 function copyLabel(message: ChatMessage) {
-  return copyFeedbackByMessageId.value[message.id] || "Copy";
+  return copyFeedbackByMessageId.value[message.id] || t("chat.messages.copy");
 }
 </script>
 
 <template>
   <section class="chat-area">
     <div v-if="messages.length === 0" class="welcome-message text-center">
-      <h3 class="welcome-title">How can I help with QA today?</h3>
-      <p>Choose a starting point or write your own QA request.</p>
+      <h3 class="welcome-title">{{ t("chat.messages.welcomeTitle") }}</h3>
+      <p>{{ t("chat.messages.welcomeBody") }}</p>
       <div class="welcome-actions">
         <button
           v-for="action in welcomeActions"
@@ -56,7 +58,7 @@ function copyLabel(message: ChatMessage) {
           type="button"
           @click="emit('quick-action', action)"
         >
-          {{ action.label === "QA Checklist" ? "Checklist" : action.label }}
+          {{ action.mode === "checklist" ? t("chat.mode.checklistShort") : t(action.labelKey) }}
         </button>
       </div>
     </div>
@@ -69,7 +71,7 @@ function copyLabel(message: ChatMessage) {
             class="ui-icon-btn ui-icon-btn--sm message-action-btn"
             type="button"
             :title="copyLabel(message)"
-            aria-label="Copy answer"
+            :aria-label="t('chat.messages.copyAnswer')"
             @click="copyMessage(message)"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -82,8 +84,8 @@ function copyLabel(message: ChatMessage) {
             <button
               class="ui-icon-btn ui-icon-btn--sm message-action-btn"
               type="button"
-              title="Export"
-              aria-label="Export answer"
+              :title="t('chat.messages.export')"
+              :aria-label="t('chat.messages.exportAnswer')"
               data-bs-toggle="dropdown"
               aria-expanded="false"
             >
@@ -137,7 +139,7 @@ function copyLabel(message: ChatMessage) {
           <span class="chat-attachment-meta">
             <span class="chat-attachment-name">{{ attachment.name }}</span>
             <span class="chat-attachment-type">
-              {{ attachment.type === "image" ? "Image" : "File" }}
+              {{ attachment.type === "image" ? t("app.common.image") : t("app.common.file") }}
             </span>
           </span>
         </button>
@@ -145,6 +147,6 @@ function copyLabel(message: ChatMessage) {
       </div>
     </div>
 
-    <div v-if="isSending" class="answer">Thinking...</div>
+    <div v-if="isSending" class="answer">{{ t("chat.messages.thinking") }}</div>
   </section>
 </template>

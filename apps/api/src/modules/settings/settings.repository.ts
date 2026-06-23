@@ -24,21 +24,34 @@ export function createPrismaSettingsRepository(): SettingsRepository {
     },
 
     async upsertUserSettings(userId, input) {
-      return prisma.userSettings.upsert({
-        create: {
-          defaultModel: input.defaultModel,
-          language: input.language,
-          theme: input.theme,
-          userId,
-        },
-        update: {
-          defaultModel: input.defaultModel,
-          language: input.language,
-          theme: input.theme,
-        },
-        where: {
-          userId,
-        },
+      return prisma.$transaction(async (tx) => {
+        const settings = await tx.userSettings.upsert({
+          create: {
+            defaultModel: input.defaultModel,
+            language: input.language,
+            theme: input.theme,
+            userId,
+          },
+          update: {
+            defaultModel: input.defaultModel,
+            language: input.language,
+            theme: input.theme,
+          },
+          where: {
+            userId,
+          },
+        });
+
+        await tx.user.update({
+          data: {
+            locale: input.language,
+          },
+          where: {
+            id: userId,
+          },
+        });
+
+        return settings;
       });
     },
   };

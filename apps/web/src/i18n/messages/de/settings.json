@@ -1,0 +1,18 @@
+{
+  "settings.eyebrow": "Einstellungen",
+  "settings.title": "Arbeitsbereich-Einstellungen",
+  "settings.subtitle": "Verwalte Sprache, Theme und Standard-KI-Modell fuer dein Konto.",
+  "settings.signInRequired": "Anmeldung erforderlich",
+  "settings.signInNote": "Einstellungen werden in deinem Konto gespeichert und sind geraeteuebergreifend verfuegbar.",
+  "settings.loading": "Einstellungen werden geladen...",
+  "settings.language": "Sprache",
+  "settings.theme": "Theme",
+  "settings.defaultModel": "Standardmodell",
+  "settings.saved": "Einstellungen gespeichert.",
+  "settings.lastUpdated": "Zuletzt aktualisiert {date}",
+  "settings.willSave": "Einstellungen werden in deinem Konto gespeichert.",
+  "settings.save": "Einstellungen speichern",
+  "settings.saving": "Wird gespeichert...",
+  "settings.accountMemory": "Account Memory",
+  "settings.noAccountMemory": "Noch kein Account Memory."
+}

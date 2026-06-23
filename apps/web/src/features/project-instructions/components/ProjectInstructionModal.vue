@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 
+import { useI18n } from "../../../i18n/useI18n";
+
 const props = defineProps<{
   content: string;
   errorMessage?: string;
@@ -14,6 +16,7 @@ const emit = defineEmits<{
 }>();
 
 const draftContent = ref("");
+const { t } = useI18n();
 const canSave = computed(() => !props.isSaving && draftContent.value.trim() !== props.content.trim());
 
 watch(
@@ -52,15 +55,15 @@ function requestSave() {
         <form class="modal-content app-modal project-instruction-modal" @submit.prevent="requestSave">
           <div class="modal-header">
             <div>
-              <h2 id="project-instruction-title" class="modal-title">Project instructions</h2>
+              <h2 id="project-instruction-title" class="modal-title">{{ t("projects.instructions.modalTitle") }}</h2>
               <p class="workspace-note mb-0">
-                These instructions apply to every chat inside this project.
+                {{ t("projects.instructions.modalNote") }}
               </p>
             </div>
             <button
               class="btn-close"
               type="button"
-              aria-label="Close"
+              :aria-label="t('app.actions.close')"
               :disabled="isSaving"
               @click="requestCancel"
             ></button>
@@ -71,7 +74,7 @@ function requestSave() {
               v-model="draftContent"
               class="form-control"
               maxlength="12000"
-              placeholder="Add product context, QA rules, and response preferences."
+              :placeholder="t('projects.instructions.placeholder')"
               autofocus
             ></textarea>
 
@@ -82,10 +85,10 @@ function requestSave() {
 
           <div class="modal-footer">
             <button class="btn btn-outline-secondary" type="button" :disabled="isSaving" @click="requestCancel">
-              Cancel
+              {{ t("app.actions.cancel") }}
             </button>
             <button class="btn btn-primary" type="submit" :disabled="!canSave">
-              {{ isSaving ? "Saving..." : "Save instructions" }}
+              {{ isSaving ? t("projects.form.saving") : t("projects.instructions.save") }}
             </button>
           </div>
         </form>

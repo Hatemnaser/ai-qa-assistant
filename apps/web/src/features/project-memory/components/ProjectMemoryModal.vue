@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 
+import { useI18n } from "../../../i18n/useI18n";
 import type { ProjectMemory } from "../types";
 
 const props = defineProps<{
@@ -21,6 +22,7 @@ const emit = defineEmits<{
 }>();
 
 const isClearConfirmationVisible = ref(false);
+const { t } = useI18n();
 const savedContent = computed(() => props.memory?.content || "");
 const hasUnsavedChanges = computed(
   () => props.draftContent.trim() !== savedContent.value.trim()
@@ -74,15 +76,15 @@ function updateDraft(event: Event) {
         <div class="modal-content app-modal project-memory-modal">
           <div class="modal-header">
             <div>
-              <h2 id="project-memory-title" class="modal-title">Project memory</h2>
+              <h2 id="project-memory-title" class="modal-title">{{ t("projects.memory.modalTitle") }}</h2>
               <p class="workspace-note mb-0">
-                Short project facts, decisions, and constraints the assistant should remember.
+                {{ t("projects.memory.modalNote") }}
               </p>
             </div>
             <button
               class="btn-close"
               type="button"
-              aria-label="Close"
+              :aria-label="t('app.actions.close')"
               :disabled="isSaving"
               @click="requestCancel"
             ></button>
@@ -92,9 +94,15 @@ function updateDraft(event: Event) {
             <section class="project-memory-editor">
               <div class="project-memory-editor__heading">
                 <div>
-                  <h3>Memory</h3>
+                  <h3>{{ t("projects.memory.title") }}</h3>
                   <p class="workspace-note mb-0">
-                    {{ hasUnsavedChanges ? "Unsaved edits" : memory ? "Saved memory" : "No saved memory yet" }}
+                    {{
+                      hasUnsavedChanges
+                        ? t("projects.memory.unsavedEdits")
+                        : memory
+                          ? t("projects.memory.savedMemory")
+                          : t("projects.memory.noSavedMemory")
+                    }}
                   </p>
                 </div>
                 <span class="project-memory-character-count">
@@ -107,12 +115,12 @@ function updateDraft(event: Event) {
                 :value="draftContent"
                 maxlength="6000"
                 :disabled="isLoading"
-                placeholder="## Stack&#10;&#10;## Decisions&#10;&#10;## Constraints&#10;&#10;## Risks&#10;&#10;## Conventions&#10;&#10;## Open Questions"
+                :placeholder="t('projects.memory.placeholder')"
                 @input="updateDraft"
               ></textarea>
 
               <p class="workspace-note mb-0">
-                Saved memory is used by the assistant. Changes here stay as a draft until you click Save memory.
+                {{ t("projects.memory.draftNote") }}
               </p>
 
               <p v-if="errorMessage" class="workspace-feedback workspace-feedback--error mb-0" role="alert">
@@ -123,17 +131,17 @@ function updateDraft(event: Event) {
               </p>
 
               <div v-if="isClearConfirmationVisible" class="project-memory-confirmation" role="alert">
-                <span>Clear the saved project memory? This cannot be undone.</span>
+                <span>{{ t("projects.memory.clearConfirm") }}</span>
                 <div>
                   <button
                     class="btn btn-sm btn-outline-secondary"
                     type="button"
                     @click="isClearConfirmationVisible = false"
                   >
-                    Cancel
+                    {{ t("app.actions.cancel") }}
                   </button>
                   <button class="btn btn-sm btn-danger" type="button" @click="emit('clear')">
-                    Clear memory
+                    {{ t("projects.memory.clear") }}
                   </button>
                 </div>
               </div>
@@ -145,10 +153,10 @@ function updateDraft(event: Event) {
                   :disabled="isBusy || !memory"
                   @click="isClearConfirmationVisible = true"
                 >
-                  Clear memory
+                  {{ t("projects.memory.clear") }}
                 </button>
                 <button class="btn btn-primary" type="button" :disabled="!canSave" @click="requestSave">
-                  {{ isSaving ? "Saving..." : "Save memory" }}
+                  {{ isSaving ? t("projects.form.saving") : t("projects.memory.save") }}
                 </button>
               </div>
             </section>
@@ -156,7 +164,7 @@ function updateDraft(event: Event) {
 
           <div class="modal-footer">
             <button class="btn btn-outline-secondary" type="button" :disabled="isSaving" @click="requestCancel">
-              Close
+              {{ t("app.actions.close") }}
             </button>
           </div>
         </div>

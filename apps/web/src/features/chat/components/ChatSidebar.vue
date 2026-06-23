@@ -7,6 +7,7 @@ import Icon from "../../../ui/Icon.vue";
 import SidebarAccountMenu from "./SidebarAccountMenu.vue";
 import SidebarChatItem from "./SidebarChatItem.vue";
 import SidebarNavItem from "./SidebarNavItem.vue";
+import { useI18n } from "../../../i18n/useI18n";
 import type { Chat, ExportFormat } from "../types";
 
 const props = defineProps<{
@@ -42,6 +43,7 @@ const emit = defineEmits<{
 const areProjectsOpen = ref(true);
 const areRecentChatsOpen = ref(true);
 const expandedProjectIds = ref<Set<string>>(new Set());
+const { t } = useI18n();
 const activeChatProjectId = computed(
   () => props.chats.find((chat) => chat.id === props.activeChatId)?.projectId || null
 );
@@ -138,22 +140,22 @@ function expandProject(projectId: string) {
 <template>
   <aside class="sidebar">
     <div class="brand">
-      <h1>AI QA Assistant</h1>
-      <p>QA workspace for test cases, bug reports, edge cases, and checklists.</p>
+      <h1>{{ t("app.brand.name") }}</h1>
+      <p>{{ t("app.brand.description") }}</p>
     </div>
 
-    <nav class="sidebar-nav" aria-label="Workspace">
+    <nav class="sidebar-nav" :aria-label="t('sidebar.nav.workspace')">
       <SidebarNavItem
         icon="plus"
-        label="New Chat"
+        :label="t('sidebar.nav.newChat')"
         :active="isChatRoute && activeChatId === null"
         @click="emit('new-chat')"
       />
-      <SidebarNavItem icon="search" label="Search" />
+      <SidebarNavItem icon="search" :label="t('sidebar.nav.search')" />
       <SidebarNavItem
         v-if="projects.length === 0"
         icon="folder"
-        label="Projects"
+        :label="t('sidebar.nav.projects')"
         :active="isProjectsRoute"
         @click="emit('open-projects')"
       />
@@ -167,15 +169,15 @@ function expandProject(projectId: string) {
           :aria-expanded="areProjectsOpen"
           @click="areProjectsOpen = !areProjectsOpen"
         >
-          <span>Projects</span>
+          <span>{{ t("sidebar.nav.projects") }}</span>
           <span class="sidebar-section-chevron" aria-hidden="true">&rsaquo;</span>
         </button>
 
         <div v-if="areProjectsOpen" class="sidebar-section-body">
-          <SidebarNavItem icon="plus" label="New Project" @click="emit('new-project')" />
+          <SidebarNavItem icon="plus" :label="t('sidebar.nav.newProject')" @click="emit('new-project')" />
           <SidebarNavItem
             icon="folder"
-            label="All Projects"
+            :label="t('sidebar.nav.allProjects')"
             :active="isProjectsRoute && !activeProjectId"
             @click="emit('open-projects')"
           />
@@ -202,7 +204,7 @@ function expandProject(projectId: string) {
                 <button
                   class="ui-icon-btn ui-icon-btn--xs ui-icon-btn--ghost"
                   type="button"
-                  aria-label="Open project page"
+                  :aria-label="t('sidebar.project.openPage')"
                   @click.stop="emit('open-project', project.id)"
                 >
                   &#8599;
@@ -234,7 +236,7 @@ function expandProject(projectId: string) {
           :aria-expanded="areRecentChatsOpen"
           @click="areRecentChatsOpen = !areRecentChatsOpen"
         >
-          <span>Recent Chats</span>
+          <span>{{ t("sidebar.nav.recentChats") }}</span>
           <span class="sidebar-section-chevron" aria-hidden="true">&rsaquo;</span>
         </button>
 
@@ -253,7 +255,7 @@ function expandProject(projectId: string) {
             />
           </div>
 
-          <div v-else class="sidebar-empty">No recent chats yet.</div>
+          <div v-else class="sidebar-empty">{{ t("sidebar.nav.noRecentChats") }}</div>
         </template>
       </section>
     </div>

@@ -8,6 +8,7 @@ import type {
 } from "./types";
 import { createBackendApiError, getBackendError } from "../../api/backendErrors";
 import { csrfFetch } from "../../api/csrf";
+import { t } from "../../i18n/useI18n";
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 
@@ -96,9 +97,7 @@ async function requestJson<T>(path: string, options: { body?: unknown; method: "
     return response.json();
   } catch (error) {
     if (error instanceof TypeError || (error instanceof Error && error.message === "Failed to fetch")) {
-      throw new Error(
-        "Could not connect to the backend. Make sure the API server is running on http://127.0.0.1:5000."
-      );
+      throw new Error(t("errors.connectBackend"));
     }
 
     if (error instanceof Error) {

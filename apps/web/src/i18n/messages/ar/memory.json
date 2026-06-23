@@ -1,0 +1,8 @@
+{
+  "memory.placeholder": "أضف ملاحظة للذاكرة",
+  "memory.add": "إضافة ذاكرة",
+  "memory.saving": "جار الحفظ...",
+  "memory.loading": "جار تحميل الذاكرة...",
+  "memory.updated": "حُدثت {date}",
+  "memory.edit": "تعديل"
+}

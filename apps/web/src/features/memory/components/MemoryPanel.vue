@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+import { useI18n } from "../../../i18n/useI18n";
 import type { Memory } from "../types";
 
 const props = defineProps<{
@@ -21,6 +22,7 @@ const emit = defineEmits<{
 const draftContent = ref("");
 const editContent = ref("");
 const editingMemoryId = ref<string | null>(null);
+const { formatDate, t } = useI18n();
 
 const canCreate = computed(() => Boolean(draftContent.value.trim() && !props.isSaving));
 const canUpdate = computed(() => Boolean(editingMemoryId.value && editContent.value.trim() && !props.isSaving));
@@ -54,9 +56,9 @@ function requestUpdate(memoryId: string) {
 }
 
 function formatMemoryDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
+  return formatDate(value, {
     dateStyle: "medium",
-  }).format(new Date(value));
+  });
 }
 </script>
 
@@ -67,9 +69,9 @@ function formatMemoryDate(value: string) {
     </header>
 
     <form class="memory-panel__form" @submit.prevent="requestCreate">
-      <textarea v-model="draftContent" class="form-control" maxlength="4000" placeholder="Add a memory note"></textarea>
+      <textarea v-model="draftContent" class="form-control" maxlength="4000" :placeholder="t('memory.placeholder')"></textarea>
       <button class="btn btn-primary" type="submit" :disabled="!canCreate">
-        {{ isSaving ? "Saving..." : "Add memory" }}
+        {{ isSaving ? t("memory.saving") : t("memory.add") }}
       </button>
     </form>
 
@@ -77,7 +79,7 @@ function formatMemoryDate(value: string) {
       {{ errorMessage }}
     </p>
 
-    <div v-if="isLoading" class="workspace-empty">Loading memory...</div>
+    <div v-if="isLoading" class="workspace-empty">{{ t("memory.loading") }}</div>
     <div v-else-if="memories.length === 0" class="workspace-empty">{{ emptyMessage }}</div>
 
     <div v-else class="memory-list">
@@ -86,10 +88,10 @@ function formatMemoryDate(value: string) {
           <textarea v-model="editContent" class="form-control" maxlength="4000"></textarea>
           <div class="memory-item__actions">
             <button class="btn btn-outline-secondary btn-sm" type="button" :disabled="isSaving" @click="cancelEdit">
-              Cancel
+              {{ t("app.actions.cancel") }}
             </button>
             <button class="btn btn-primary btn-sm" type="button" :disabled="!canUpdate" @click="requestUpdate(memory.id)">
-              Save
+              {{ t("app.actions.save") }}
             </button>
           </div>
         </template>
@@ -97,13 +99,13 @@ function formatMemoryDate(value: string) {
         <template v-else>
           <p>{{ memory.content }}</p>
           <div class="memory-item__meta">
-            <small>Updated {{ formatMemoryDate(memory.updatedAt) }}</small>
+            <small>{{ t("memory.updated", { date: formatMemoryDate(memory.updatedAt) }) }}</small>
             <div class="memory-item__actions">
               <button class="btn btn-link btn-sm" type="button" :disabled="isSaving" @click="startEdit(memory)">
-                Edit
+                {{ t("memory.edit") }}
               </button>
               <button class="btn btn-link btn-sm memory-item__delete" type="button" :disabled="isSaving" @click="emit('delete', memory.id)">
-                Delete
+                {{ t("app.actions.delete") }}
               </button>
             </div>
           </div>

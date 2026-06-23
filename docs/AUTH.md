@@ -16,7 +16,8 @@ token.
 
 The implemented auth surface supports:
 
-- Register with email, password, optional name, and locale.
+- Register with email, password, optional name, and a supported locale
+  (`en`, `ar`, or `de`).
 - Login with email, password, and optional remember-me session length.
 - Logout by deleting the current session and clearing the cookie.
 - Current-user lookup through the session cookie.
@@ -203,12 +204,13 @@ Responsible files:
 
 Steps:
 
-1. `RegisterPage.vue` submits email, name, locale, and password through
-   `authApi.register`.
+1. `RegisterPage.vue` submits email, name, the current UI locale, and password
+   through `authApi.register`.
 2. `authApi.ts` sends a JSON `POST` request with `credentials: "include"`.
 3. `auth.controller.ts` parses the body with `registerRequestSchema`.
-4. `auth.schema.ts` trims and lowercases email, validates locale/name, and
-   applies the current password policy.
+4. `auth.schema.ts` trims and lowercases email, validates locale against the
+   shared supported-locale list, validates name, and applies the current
+   password policy.
 5. `auth.service.ts` checks for an existing user by email.
 6. If the email already exists, the service returns
    `EMAIL_ALREADY_REGISTERED` with HTTP 409.
@@ -537,7 +539,8 @@ Important fields:
 - `emailVerifiedAt`: nullable timestamp set after email verification.
 - `name`: optional display name.
 - `passwordHash`: nullable password hash. Password users have a value here.
-- `locale`: user locale, default `en`.
+- `locale`: user locale, default `en`; currently constrained to `en`, `ar`,
+  or `de`.
 - `createdAt`, `updatedAt`: audit timestamps.
 
 Auth-related relations:
@@ -635,7 +638,9 @@ Security behavior:
 
 `UserSettings` is created during registration and stores preferences such as
 language, theme, and default model. It is not an auth credential table, but it
-is created as part of the register flow.
+is created as part of the register flow. Settings updates keep
+`UserSettings.language` and `User.locale` aligned so future account/email
+behavior can read one current locale.
 
 `ProjectMember` exists with project/user/role fields, but current project
 access is owner-only for the implemented auth/authorization paths. Member-based
@@ -805,7 +810,8 @@ Signed-in-only UX is handled at page/component level:
 `RegisterPage.vue`:
 
 - Collects name, email, password, and a required terms checkbox.
-- Sends locale `en`.
+- Sends the current frontend locale from `useI18n()` instead of hardcoding
+  `en`.
 - Calls `authApi.register`.
 - Shows the pending verification message returned by the backend.
 - Does not emit `authenticated`, does not create a session, and does not

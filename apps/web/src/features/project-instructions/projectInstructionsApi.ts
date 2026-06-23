@@ -1,5 +1,6 @@
 import { createBackendApiError } from "../../api/backendErrors";
 import { csrfFetch } from "../../api/csrf";
+import { t } from "../../i18n/useI18n";
 import type { ProjectInstruction } from "./types";
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
@@ -43,21 +44,19 @@ async function requestProjectInstruction(
     });
 
     if (!response.ok) {
-      throw await createBackendApiError(response, "Could not load project instructions.");
+      throw await createBackendApiError(response, t("projects.instructions.errors.load"));
     }
 
     return (await response.json()) as { instruction?: ProjectInstruction | null };
   } catch (error) {
     if (error instanceof TypeError || (error instanceof Error && error.message === "Failed to fetch")) {
-      throw new Error(
-        "Could not connect to the backend. Make sure the API server is running on http://127.0.0.1:5000."
-      );
+      throw new Error(t("projects.errors.connectBackend"));
     }
 
     if (error instanceof Error) {
       throw error;
     }
 
-    throw new Error("Could not load project instructions.");
+    throw new Error(t("projects.instructions.errors.load"));
   }
 }

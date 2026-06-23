@@ -2,7 +2,7 @@
 
 This file is the working roadmap for what is done, what is still foundation work, and what should come next. Use it as the reference when asking "what is next?" or "what still needs cleanup?"
 
-Last reviewed: 2026-06-17
+Last reviewed: 2026-06-23
 
 For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 Before future work on Project Memory, conversation summaries, AI-extracted memory,
@@ -16,9 +16,9 @@ smoke tests, follow `docs/PRODUCTION_READINESS.md`.
 - [x] Legacy vanilla app was migrated to Vue + TypeScript.
 - [x] Backend is modular Express + TypeScript + Prisma.
 - [x] PostgreSQL schema is established for users, sessions, chats, projects, memory, usage events, and settings.
-- [x] `npm run verify` passes:
-  - 256 API tests passing.
-  - 94 web tests passing.
+- [x] Latest i18n-slice verification on 2026-06-24 passed:
+  - 339 API tests passing.
+  - 99 web tests passing.
   - API and web TypeScript checks passing.
 - [x] Latest pushed baseline was clean before the current project assignment work.
 
@@ -88,7 +88,12 @@ smoke tests, follow `docs/PRODUCTION_READINESS.md`.
 - [ ] Billing/subscriptions are not implemented.
 - [ ] PDF/video/large file upload is not implemented.
 - [ ] Provider Files API is not implemented.
-- [ ] Full i18n is not implemented. Current multilingual behavior is AI/workflow oriented only.
+- [ ] Full i18n cleanup is not complete. Core web i18n is implemented for
+  `en`, `ar`, and `de` across auth, chat shell, settings, account memory,
+  usage, Projects, Project Knowledge, Project Documents, known frontend API
+  error mappings, localized quick-action prompts, locale-aware dates, and
+  `html lang/dir`. Continue catalog audits as new admin, billing, upload, and
+  future product surfaces are added.
 
 ## Active Release Plan
 
@@ -250,6 +255,12 @@ These should happen before large new product features.
 - [x] Add API for user settings.
 - [x] Persist theme preference server-side for signed-in users.
 - [x] Persist preferred language.
+- [x] Apply preferred language to the core web UI.
+- [x] Apply Arabic RTL through document `dir`.
+- [x] Store translation copy in domain-split JSON catalogs with typed loaders,
+  duplicate-key protection, and a dedicated i18n validation command.
+- [x] Keep registration locale and saved settings language aligned with the
+  shared supported-locale list.
 - [x] Persist default model.
 - [x] Add tests for settings service and API.
 
@@ -258,6 +269,8 @@ These should happen before large new product features.
 - [x] Build project list and management page.
 - [x] Add modal-based project create/edit/delete flow.
 - [x] Add searchable/sortable project card grid.
+- [x] Localize Projects list/detail, create/edit/delete, Add Chats, and project
+  menu copy through the shared i18n catalog.
 - [x] Add project detail view with empty/filled chat states.
 - [x] Reuse the main chat composer to start new chats inside a project.
 - [x] Build sidebar navigation to the project management page.
@@ -278,6 +291,9 @@ These should happen before large new product features.
 - [x] Add user memory service/API.
 - [x] Replace multi-note project memory with one Project Instructions record per project.
 - [x] Keep Account Memory, Project Instructions, and Project Documents as separate retrieval layers.
+- [x] Localize Project Instructions, Project Memory, Project Documents, document
+  import validation, previews, and library modals through the shared i18n
+  catalog.
 - [x] Decide what memory is manually saved versus AI-extracted.
   - Canonical Project Memory remains manual `USER_PROVIDED` content.
   - AI-assisted replacement proposals are deferred from the MVP and must remain
@@ -511,6 +527,12 @@ This section is based on the model screenshots shared in the chat. Availability 
 - Do not add new providers directly inside chat service. Add providers through the adapter/registry pattern.
 - Do not add billing before plan/credit rules are stable.
 - Do not add projects/memory UI or retrieval behavior without authorization/isolation tests.
+- Do not add new user-facing frontend copy as hardcoded English. Add a key to
+  the matching domain catalog in
+  `apps/web/src/i18n/messages/<locale>/<domain>.json` and use `useI18n()` at the
+  component boundary. Keep locale `index.ts` files limited to loading catalogs.
+  Keep English as the key schema source and preserve `npm run test:i18n`
+  coverage for every supported locale.
 - Treat Projects as workspace containers and Recent Chats as a shortcut list. If full chat browsing is needed, build it as Search/Chat History rather than a Recent Chats page.
 - Prompt serialization follows the typed context contract. Future embedding changes must replace only Project Document chunk selection and stay inside the evidence layer.
 

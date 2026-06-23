@@ -81,9 +81,6 @@ const fallbackDocumentType: ProjectDocumentTypeDefinition = {
 
 export const PROJECT_DOCUMENT_SUPPORTED_EXTENSIONS = Object.freeze(Object.keys(PROJECT_DOCUMENT_TYPES));
 
-export const PROJECT_DOCUMENT_SUPPORTED_TYPES_LABEL =
-  "TXT, Markdown, LOG, CSV, JSON, HTML, CSS, JavaScript, or TypeScript";
-
 export function getProjectDocumentType(document: ProjectDocument): ProjectDocumentTypeDefinition {
   if (document.source === "USER_PROVIDED") {
     return PROJECT_DOCUMENT_TYPES.md;

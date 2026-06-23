@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from "../../../i18n/useI18n";
 import Icon from "../../../ui/Icon.vue";
 
 defineProps<{
@@ -9,6 +10,8 @@ const emit = defineEmits<{
   addText: [];
   upload: [];
 }>();
+
+const { t } = useI18n();
 </script>
 
 <template>
@@ -16,7 +19,7 @@ const emit = defineEmits<{
     <button
       class="ui-icon-btn ui-icon-btn--xs"
       type="button"
-      aria-label="Add project document"
+      :aria-label="t('projects.documents.addAria')"
       data-bs-toggle="dropdown"
       aria-expanded="false"
       :disabled="disabled"
@@ -28,13 +31,13 @@ const emit = defineEmits<{
       <li>
         <button class="dropdown-item d-flex align-items-center gap-2" type="button" @click="emit('upload')">
           <Icon name="upload" />
-          <span>Upload files</span>
+          <span>{{ t("projects.documents.uploadFiles") }}</span>
         </button>
       </li>
       <li>
         <button class="dropdown-item d-flex align-items-center gap-2" type="button" @click="emit('addText')">
           <Icon name="file-text" />
-          <span>Create Markdown</span>
+          <span>{{ t("projects.documents.createMarkdown") }}</span>
         </button>
       </li>
     </ul>

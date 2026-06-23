@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 
+import { useI18n } from "../../../i18n/useI18n";
 import Icon from "../../../ui/Icon.vue";
 import { PROJECT_DOCUMENT_FILE_ACCEPT } from "../projectDocumentFiles";
 import type { ProjectDocument, ProjectDocumentInput } from "../types";
@@ -33,6 +34,7 @@ const isLibraryModalOpen = ref(false);
 const isTextModalOpen = ref(false);
 const shouldReturnToLibrary = ref(false);
 const wasSaving = ref(false);
+const { t } = useI18n();
 
 const isBusy = computed(() => Boolean(props.isImporting || props.isSaving));
 const hasDocumentOverflow = computed(() => props.documents.length > 4);
@@ -148,9 +150,9 @@ function saveTextContent(input: ProjectDocumentInput) {
     @dragover.prevent="isDraggingOver = true"
     @dragleave.prevent="isDraggingOver = false"
     @drop.prevent="handleDrop"
-  >
+    >
     <header class="project-knowledge__header">
-      <h2>Documents</h2>
+      <h2>{{ t("projects.documents.title") }}</h2>
 
       <ProjectDocumentAddMenu :disabled="isBusy" @add-text="openCreateTextModal" @upload="openFilePicker" />
 
@@ -168,7 +170,7 @@ function saveTextContent(input: ProjectDocumentInput) {
       {{ errorMessage }}
     </p>
 
-    <div v-if="isLoading" class="project-documents-empty">Loading documents...</div>
+    <div v-if="isLoading" class="project-documents-empty">{{ t("projects.documents.loading") }}</div>
 
     <button
       v-else-if="documents.length === 0"
@@ -178,8 +180,8 @@ function saveTextContent(input: ProjectDocumentInput) {
       @click="openFilePicker"
     >
       <Icon name="upload" />
-      <span>{{ isImporting ? "Importing files..." : "Drop files here or choose files to upload" }}</span>
-      <small>Text, Markdown, data, HTML, CSS, JavaScript, or TypeScript. Up to 1MB each.</small>
+      <span>{{ isImporting ? t("projects.documents.importing") : t("projects.documents.dropOrChoose") }}</span>
+      <small>{{ t("projects.documents.supportedNote") }}</small>
     </button>
 
     <div v-else class="project-document-grid">
@@ -196,11 +198,11 @@ function saveTextContent(input: ProjectDocumentInput) {
         v-if="hasDocumentOverflow"
         class="project-document-more"
         type="button"
-        :aria-label="`View all ${documents.length} project documents`"
+        :aria-label="t('projects.documents.moreAria', { count: documents.length })"
         @click="isLibraryModalOpen = true"
       >
         <span>+{{ hiddenDocumentCount }}</span>
-        <small>View all files</small>
+        <small>{{ t("projects.documents.viewAllFiles") }}</small>
       </button>
     </div>
 

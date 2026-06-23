@@ -1,5 +1,6 @@
 import { createBackendApiError } from "../../api/backendErrors";
 import { csrfFetch } from "../../api/csrf";
+import { t } from "../../i18n/useI18n";
 import type { ProjectMemory } from "./types";
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
@@ -8,7 +9,7 @@ export async function fetchProjectMemory(projectId: string): Promise<ProjectMemo
   const body = await requestJson<{ memory?: ProjectMemory | null }>(
     `/api/projects/${encodeURIComponent(projectId)}/memory`,
     {
-      fallback: "Could not load project memory.",
+      fallback: t("projects.memory.errors.load"),
       method: "GET",
     }
   );
@@ -24,7 +25,7 @@ export async function saveProjectMemory(
     `/api/projects/${encodeURIComponent(projectId)}/memory`,
     {
       body: { content },
-      fallback: "Could not save project memory.",
+      fallback: t("projects.memory.errors.save"),
       method: "PUT",
     }
   );
@@ -63,9 +64,7 @@ async function requestJson<T>(
       error instanceof TypeError ||
       (error instanceof Error && error.message === "Failed to fetch")
     ) {
-      throw new Error(
-        "Could not connect to the backend. Make sure the API server is running on http://127.0.0.1:5000."
-      );
+      throw new Error(t("projects.errors.connectBackend"));
     }
 
     if (error instanceof Error) {

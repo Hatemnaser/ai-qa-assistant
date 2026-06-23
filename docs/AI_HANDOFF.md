@@ -2,7 +2,7 @@
 
 Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`. Memory Intelligence decisions and retained review requirements live in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 
-Last updated: 2026-06-17
+Last updated: 2026-06-23
 
 ## Core Documentation Map
 
@@ -31,9 +31,10 @@ Last updated: 2026-06-17
   migrations were healthy, but there were zero users, projects, chats,
   messages, or sessions. Treat prior local data as unavailable unless it can
   still be recovered from browser-local chat storage or an external backup.
-- Latest verification on 2026-06-17: 238 API tests, 90 web tests,
-  `npm run db:validate`, API/Web TypeScript checks, `npm run build:api`,
-  `npm run build:web`, and `git diff --check` passed.
+- Latest i18n-slice verification on 2026-06-24: 339 API tests, 99 web tests,
+  `npm run check:api`, and `npm run check:web` passed. The previous broader
+  2026-06-17 gate also included `npm run db:validate`, `npm run build:api`,
+  `npm run build:web`, and `git diff --check`.
 - Start the API with `npm run dev:api` when needed; do not assume a server is
   already running.
 - `main` matched `origin/main` before the current production-safety script work
@@ -131,7 +132,11 @@ npm run build:api
   real-user production, choose custom hardening or a maintained auth library
   migration. Do not mix that decision into unrelated feature work.
 - `My Usage` is personal only. Do not expose global usage until admin roles exist.
-- Settings page/API exists for language, theme, and default model.
+- Settings page/API exists for language, theme, and default model. Language now
+  drives the core web i18n foundation for `en`, `ar`, and `de`: the frontend
+  applies `html lang/dir`, stores guest locale locally, uses account settings
+  for signed-in users, and localizes the core auth/chat/settings/usage and
+  Projects/Knowledge/Documents surfaces.
 - Project CRUD API exists for signed-in users with owner-only authorization.
 - Project management UI exists for signed-in users with a searchable/sortable card grid, project detail view, project chat list, project Add Chats modal, and app-modal create/edit/delete flow.
 - The project detail composer reuses the main chat composer. Submitting from a project prepares a new chat linked to that project, then opens the normal chat workspace.
@@ -198,6 +203,11 @@ Complete enough:
 - Sidebar Projects navigation.
 - Gemini model strategy, routing, and fallback.
 - Inline image/text/data attachments.
+- Core web i18n foundation for English, Arabic RTL, and German across auth,
+  chat shell, settings, account memory, usage, Projects, Project Knowledge,
+  Project Documents, known frontend API error messages, localized quick-action
+  prompts, and locale-aware dates. Translation copy uses domain-split JSON
+  catalogs with typed locale loaders and a dedicated `npm run test:i18n` gate.
 - The production runbook is documented and a production-safe
   `npm run db:migrate:deploy` command exists. Real-user deployment remains
   blocked on deployment provider selection, managed PostgreSQL, automated
@@ -220,6 +230,7 @@ Still unfinished:
 - Admin usage dashboard.
 - Plans/entitlements and billing.
 - PDF/video/large file support.
+- Continue i18n audits as future admin, billing, and upload surfaces are added.
 - README screenshots/GIFs.
 
 ## Likely Next Work
@@ -279,6 +290,13 @@ Pick one track before coding:
 - Use semantic tokens such as `--surface-*`, `--text-*`, `--border-*`, `--action-*`, and `--status-*`.
 - Do not add raw hex colors in component SCSS unless updating tokens.
 - Do not add new root-level CSS build steps.
+- Add user-facing frontend copy through the matching
+  `apps/web/src/i18n/messages/<locale>/<domain>.json` file and `useI18n()`
+  instead of introducing new hardcoded English strings. Locale `index.ts`
+  files are loaders only. English is the key schema source; every supported
+  locale must satisfy the same key map and interpolation placeholders. Run
+  `npm run test:i18n` after catalog changes. Preserve stable internal values
+  such as chat mode ids, model ids, and stored user content.
 
 ## Suggested Prompt For A New Chat
 

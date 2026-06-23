@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from "vue";
 
+import { useI18n } from "../../../i18n/useI18n";
 import type { Chat } from "../types";
 
 const props = defineProps<{
@@ -19,6 +20,7 @@ const emit = defineEmits<{
 const renameDraft = ref(props.chat.title);
 const renameInput = ref<HTMLInputElement | null>(null);
 const skipNextRenameBlur = ref(false);
+const { t } = useI18n();
 
 watch(
   () => props.renaming,
@@ -65,7 +67,7 @@ function handleRenameBlur() {
       @click="emit('select', chat.id)"
     >
       <span class="ui-row__copy">
-        <span class="ui-row__title">{{ chat.title }}</span>
+        <span class="ui-row__title">{{ chat.title === "New QA Chat" ? t("chat.title.default") : chat.title }}</span>
       </span>
     </button>
 
@@ -84,7 +86,7 @@ function handleRenameBlur() {
       <button
         class="ui-icon-btn ui-icon-btn--xs ui-icon-btn--ghost"
         type="button"
-        aria-label="Chat options"
+        :aria-label="t('sidebar.account.menu')"
         @click.stop="emit('open-menu', $event, chat.id)"
       >
         &hellip;

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from "vue";
 
+import { useI18n } from "../../../i18n/useI18n";
 import type { ProjectDocument, ProjectDocumentInput } from "../types";
 
 const props = defineProps<{
@@ -19,6 +20,7 @@ const form = reactive({
   content: "",
   title: "",
 });
+const { t } = useI18n();
 const isEditing = computed(() => Boolean(props.document));
 const canSave = computed(() => Boolean(form.title.trim() && form.content.trim() && !props.isSaving));
 
@@ -63,30 +65,36 @@ function requestSave() {
         <form class="modal-content app-modal project-document-text-modal" @submit.prevent="requestSave">
           <div class="modal-header">
             <h2 id="project-document-text-title" class="modal-title">
-              {{ isEditing ? "Edit text content" : "Add text content" }}
+              {{ isEditing ? t("projects.documents.textEditTitle") : t("projects.documents.textAddTitle") }}
             </h2>
-            <button class="btn-close" type="button" aria-label="Close" :disabled="isSaving" @click="requestCancel"></button>
+            <button
+              class="btn-close"
+              type="button"
+              :aria-label="t('app.actions.close')"
+              :disabled="isSaving"
+              @click="requestCancel"
+            ></button>
           </div>
 
           <div class="modal-body project-document-text-modal__body">
             <label class="project-form-modal__field">
-              <span class="form-label">Title</span>
+              <span class="form-label">{{ t("projects.documents.titleLabel") }}</span>
               <input
                 v-model="form.title"
                 class="form-control"
                 maxlength="160"
-                placeholder="Name your content"
+                :placeholder="t('projects.documents.titlePlaceholder')"
                 autofocus
               />
             </label>
 
             <label class="project-form-modal__field">
-              <span class="form-label">Content</span>
+              <span class="form-label">{{ t("projects.documents.contentLabel") }}</span>
               <textarea
                 v-model="form.content"
                 class="form-control"
                 maxlength="50000"
-                placeholder="Type or paste text here."
+                :placeholder="t('projects.documents.contentPlaceholder')"
               ></textarea>
             </label>
 
@@ -97,10 +105,16 @@ function requestSave() {
 
           <div class="modal-footer">
             <button class="btn btn-outline-secondary" type="button" :disabled="isSaving" @click="requestCancel">
-              Cancel
+              {{ t("app.actions.cancel") }}
             </button>
             <button class="btn btn-primary" type="submit" :disabled="!canSave">
-              {{ isSaving ? "Saving..." : isEditing ? "Save changes" : "Add content" }}
+              {{
+                isSaving
+                  ? t("projects.form.saving")
+                  : isEditing
+                    ? t("projects.form.saveChanges")
+                    : t("projects.documents.addContent")
+              }}
             </button>
           </div>
         </form>

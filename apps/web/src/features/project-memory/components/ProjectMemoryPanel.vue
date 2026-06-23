@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
+import { useI18n } from "../../../i18n/useI18n";
 import type { ProjectMemory } from "../types";
 import ProjectMemoryModal from "./ProjectMemoryModal.vue";
 
@@ -20,19 +21,20 @@ const emit = defineEmits<{
 }>();
 
 const isModalOpen = ref(false);
+const { t } = useI18n();
 </script>
 
 <template>
   <section class="project-knowledge__section">
     <header class="project-knowledge__header">
-      <h2>Memory</h2>
+      <h2>{{ t("projects.memory.title") }}</h2>
     </header>
 
     <p class="workspace-note mb-0">
-      Key project facts and decisions remembered by the assistant.
+      {{ t("projects.memory.description") }}
     </p>
 
-    <p v-if="isLoading" class="workspace-note mb-0">Loading project memory...</p>
+    <p v-if="isLoading" class="workspace-note mb-0">{{ t("projects.memory.loading") }}</p>
     <p
       v-else-if="errorMessage"
       class="workspace-feedback workspace-feedback--error mb-0"
@@ -43,13 +45,13 @@ const isModalOpen = ref(false);
     <div v-else-if="memory?.content" class="project-memory-summary">
       <p class="project-memory-preview mb-0">{{ memory.content }}</p>
       <button class="project-instructions-more" type="button" @click="isModalOpen = true">
-        Review memory
+        {{ t("projects.memory.review") }}
       </button>
     </div>
     <div v-else class="project-memory-empty-state">
-      <p class="workspace-note mb-0">No memory saved yet.</p>
+      <p class="workspace-note mb-0">{{ t("projects.memory.empty") }}</p>
       <button class="project-memory-empty" type="button" @click="isModalOpen = true">
-        Review memory
+        {{ t("projects.memory.review") }}
       </button>
     </div>
 

@@ -25,6 +25,7 @@ import ChatTopbar from "./features/chat/components/ChatTopbar.vue";
 import { useTheme } from "./features/chat/chatTheme";
 import { useAccountChatSync } from "./features/chat/composables/useAccountChatSync";
 import { useChatController } from "./features/chat/composables/useChatController";
+import { useI18n } from "./i18n/useI18n";
 import { useAppRoute, type AuthView } from "./router/useAppRoute";
 
 const {
@@ -170,6 +171,7 @@ const { clearScheduledChatPersist, deletePersistedChat, persistAccountChats, syn
     replaceChats,
   });
 const { setTheme, theme, themeToggleLabel, toggleTheme } = useTheme();
+const { locale, setLocale, t } = useI18n();
 const isGuestLimitBlocked = computed(() => !currentUser.value && guestLimitReached.value);
 const sidebarActiveProjectId = computed(() => (currentRoute.value === "projects" ? projectToOpenId.value : null));
 
@@ -358,6 +360,7 @@ function clearUnavailableProjectAssignments(projects: Project[]) {
 function applySavedSettings(settings: UserSettings) {
   accountSettings.value = settings;
   selectedModel.value = settings.defaultModel;
+  setLocale(settings.language);
   setTheme(settings.theme);
 }
 
@@ -372,7 +375,7 @@ async function persistThemeSetting() {
   try {
     accountSettings.value = await updateUserSettings({
       defaultModel: accountSettings.value?.defaultModel || selectedModel.value,
-      language: accountSettings.value?.language || "en",
+      language: accountSettings.value?.language || locale.value,
       theme: theme.value,
     });
   } catch {
@@ -453,7 +456,7 @@ async function persistThemeSetting() {
         :chats="chats"
         :current-user="currentUser"
         :disabled="isGuestLimitBlocked"
-        disabled-message="Guest demo limit reached. Sign in or create a free account to continue."
+        :disabled-message="t('errors.guestLimit')"
         :is-sending="isSending"
         :mode="selectedMode"
         :project-to-open-id="projectToOpenId"
@@ -509,7 +512,7 @@ async function persistThemeSetting() {
       <ChatComposer
         v-model:message="messageInput"
         :disabled="isGuestLimitBlocked"
-        disabled-message="Guest demo limit reached. Sign in or create a free account to continue."
+        :disabled-message="t('errors.guestLimit')"
         :is-sending="isSending"
         :mode="selectedMode"
         :selected-attachments="selectedAttachments"

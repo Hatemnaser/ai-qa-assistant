@@ -14,6 +14,7 @@ import ProjectChatList from "./components/ProjectChatList.vue";
 import ProjectDeleteModal from "./components/ProjectDeleteModal.vue";
 import ProjectFormModal from "./components/ProjectFormModal.vue";
 import Icon from "../../ui/Icon.vue";
+import { useI18n } from "../../i18n/useI18n";
 import { useProjectKnowledge } from "./composables/useProjectKnowledge";
 import { createProject, deleteProject, fetchProjects, updateProject } from "./projectsApi";
 import type { Project, ProjectInput } from "./types";
@@ -53,11 +54,12 @@ const emit = defineEmits<{
   "update:message": [value: string];
 }>();
 
-const sortOptions: Array<{ key: SortKey; label: string }> = [
-  { key: "activity", label: "Last activity" },
-  { key: "updated", label: "Last edited" },
-  { key: "created", label: "Created date" },
-];
+const { t } = useI18n();
+const sortOptions = computed<Array<{ key: SortKey; label: string }>>(() => [
+  { key: "activity", label: t("projects.sort.activity") },
+  { key: "updated", label: t("projects.sort.updated") },
+  { key: "created", label: t("projects.sort.created") },
+]);
 
 const projects = ref<Project[]>([]);
 const searchQuery = ref("");
@@ -104,9 +106,9 @@ const {
 } = useProjectMemory(activeProjectId);
 
 const selectedSortLabel = computed(() => {
-  if (sortKey.value === "activity") return "Activity";
+  if (sortKey.value === "activity") return t("projects.sort.activityShort");
 
-  return sortOptions.find((option) => option.key === sortKey.value)?.label || "Activity";
+  return sortOptions.value.find((option) => option.key === sortKey.value)?.label || t("projects.sort.activityShort");
 });
 const openMenuProject = computed(() => {
   if (!openProjectMenu.value) return null;
@@ -190,7 +192,7 @@ async function loadProjects() {
     emitProjectsChanged();
     openCreateModalForEmptyWorkspace();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Could not load projects.";
+    errorMessage.value = error instanceof Error ? error.message : t("projects.errors.load");
   } finally {
     isLoading.value = false;
   }
@@ -285,13 +287,13 @@ async function saveProject(input: ProjectInput) {
 
     upsertProject(savedProject);
     closeProjectModal();
-    successMessage.value = isEditing ? "Project updated." : "Project created.";
+    successMessage.value = isEditing ? t("projects.success.updated") : t("projects.success.created");
 
     if (!isEditing) {
       openProject(savedProject);
     }
   } catch (error) {
-    modalErrorMessage.value = error instanceof Error ? error.message : "Could not save this project.";
+    modalErrorMessage.value = error instanceof Error ? error.message : t("projects.errors.save");
   } finally {
     isSaving.value = false;
   }
@@ -345,10 +347,10 @@ async function confirmRemoveProject() {
     closeAddChatsModal();
     syncActiveProject();
     emitProjectsChanged();
-    successMessage.value = "Project deleted.";
+    successMessage.value = t("projects.success.deleted");
     projectPendingDelete.value = null;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Could not delete this project.";
+    errorMessage.value = error instanceof Error ? error.message : t("projects.errors.delete");
   } finally {
     isDeleting.value = false;
   }
@@ -394,11 +396,11 @@ function getSortDate(project: Project, key: SortKey) {
   <section class="workspace-page projects-page" :class="{ 'projects-page--detail': activeProject }">
     <header v-if="!activeProject" class="workspace-header projects-page__header">
       <div>
-        <h1 class="workspace-title mb-0">Projects</h1>
+        <h1 class="workspace-title mb-0">{{ t("projects.title") }}</h1>
       </div>
 
       <div class="projects-page__actions">
-        <span class="projects-page__sort-label">Sort by</span>
+        <span class="projects-page__sort-label">{{ t("projects.sort.by") }}</span>
         <div class="dropdown">
           <button
             class="btn btn-outline-secondary dropdown-toggle"
@@ -424,22 +426,22 @@ function getSortDate(project: Project, key: SortKey) {
         </div>
 
         <button class="btn btn-primary" type="button" @click="openCreateProjectModal">
-          New Project
+          {{ t("projects.new") }}
         </button>
       </div>
     </header>
 
     <section v-if="!currentUser" class="workspace-panel projects-page__auth">
-      <h2 class="workspace-section-title">Sign in required</h2>
-      <p class="workspace-note mb-3">Projects are saved to your account with your persisted chats.</p>
-      <button class="btn btn-primary" type="button" @click="emit('sign-in')">Sign in</button>
+      <h2 class="workspace-section-title">{{ t("projects.signInRequired") }}</h2>
+      <p class="workspace-note mb-3">{{ t("projects.signInNote") }}</p>
+      <button class="btn btn-primary" type="button" @click="emit('sign-in')">{{ t("app.actions.signIn") }}</button>
     </section>
 
     <template v-else>
       <template v-if="activeProject">
         <section class="project-detail">
           <button class="btn btn-link project-detail__back" type="button" @click="closeActiveProject">
-            &larr; All Projects
+            &larr; {{ t("projects.all") }}
           </button>
 
           <header class="project-detail__header">
@@ -450,12 +452,12 @@ function getSortDate(project: Project, key: SortKey) {
 
             <div class="project-detail__actions">
               <button class="btn btn-outline-secondary" type="button" @click="openAddChatsModal">
-                Add Chats
+                {{ t("projects.addChats") }}
               </button>
               <button
                 class="ui-icon-btn ui-icon-btn--xs ui-icon-btn--ghost"
                 type="button"
-                aria-label="Project options"
+                :aria-label="t('projects.optionsAria')"
                 @click.stop="openProjectActionsMenu($event, activeProject.id)"
               >
                 &hellip;
@@ -526,7 +528,12 @@ function getSortDate(project: Project, key: SortKey) {
       <template v-else>
         <div class="projects-search">
           <Icon name="search" />
-          <input v-model="searchQuery" type="search" placeholder="Search projects ..." aria-label="Search projects" />
+          <input
+            v-model="searchQuery"
+            type="search"
+            :placeholder="t('projects.searchPlaceholder')"
+            :aria-label="t('projects.searchAria')"
+          />
         </div>
 
         <p v-if="errorMessage" class="workspace-feedback workspace-feedback--error" role="alert">
@@ -536,16 +543,16 @@ function getSortDate(project: Project, key: SortKey) {
           {{ successMessage }}
         </p>
 
-        <div v-if="isLoading" class="workspace-empty">Loading projects...</div>
+        <div v-if="isLoading" class="workspace-empty">{{ t("projects.loading") }}</div>
 
         <div v-else-if="projects.length === 0" class="projects-empty">
-          <h2>No projects yet</h2>
-          <p>Create your first project to organize QA chats by product, release, or test area.</p>
+          <h2>{{ t("projects.emptyTitle") }}</h2>
+          <p>{{ t("projects.emptyBody") }}</p>
         </div>
 
         <div v-else-if="filteredProjects.length === 0" class="projects-empty">
-          <h2>No matching projects</h2>
-          <p>Try a different search term.</p>
+          <h2>{{ t("projects.noMatchesTitle") }}</h2>
+          <p>{{ t("projects.noMatchesBody") }}</p>
         </div>
 
         <div v-else class="project-card-grid">
@@ -570,7 +577,7 @@ function getSortDate(project: Project, key: SortKey) {
       >
         <li>
           <button class="dropdown-item" type="button" @click="openEditProjectModal(openMenuProject)">
-            Edit
+            {{ t("projects.menu.edit") }}
           </button>
         </li>
         <li>
@@ -580,7 +587,7 @@ function getSortDate(project: Project, key: SortKey) {
             :disabled="isDeleting"
             @click="requestRemoveProject(openMenuProject)"
           >
-            Delete
+            {{ t("projects.menu.delete") }}
           </button>
         </li>
       </ul>

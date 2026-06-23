@@ -1,6 +1,7 @@
 import { computed, ref, watch } from "vue";
 import type { Ref } from "vue";
 
+import { t } from "../../i18n/useI18n";
 import { fetchProjectMemory, saveProjectMemory } from "./projectMemoryApi";
 import type { ProjectMemory } from "./types";
 
@@ -56,7 +57,7 @@ export function useProjectMemory(
       }
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
-        memoryErrorMessage.value = toErrorMessage(error, "Could not load project memory.");
+        memoryErrorMessage.value = toErrorMessage(error, t("projects.memory.errors.load"));
       }
     } finally {
       if (isCurrentProject(projectId, generation)) {
@@ -86,12 +87,12 @@ export function useProjectMemory(
         memory.value = savedMemory;
         memoryDraft.value = savedMemory?.content || "";
         memoryStatusMessage.value = savedMemory
-          ? "Project memory saved."
-          : "Project memory cleared.";
+          ? t("projects.memory.saved")
+          : t("projects.memory.cleared");
       }
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
-        memoryErrorMessage.value = toErrorMessage(error, "Could not save project memory.");
+        memoryErrorMessage.value = toErrorMessage(error, t("projects.memory.errors.save"));
       }
     } finally {
       if (isCurrentProject(projectId, generation)) {
@@ -117,11 +118,11 @@ export function useProjectMemory(
       if (isCurrentProject(projectId, generation)) {
         memory.value = null;
         memoryDraft.value = "";
-        memoryStatusMessage.value = "Project memory cleared.";
+        memoryStatusMessage.value = t("projects.memory.cleared");
       }
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
-        memoryErrorMessage.value = toErrorMessage(error, "Could not clear project memory.");
+        memoryErrorMessage.value = toErrorMessage(error, t("projects.memory.errors.clear"));
       }
     } finally {
       if (isCurrentProject(projectId, generation)) {

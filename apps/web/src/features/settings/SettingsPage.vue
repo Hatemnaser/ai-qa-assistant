@@ -13,6 +13,8 @@ import { fetchUserSettings, updateUserSettings } from "./settingsApi";
 import type { UserSettings, UserThemePreference } from "./types";
 import type { AuthUser } from "../auth/types";
 import type { AiModelOption } from "../chat/types";
+import { useI18n } from "../../i18n/useI18n";
+import type { AppLocale } from "../../i18n/locales";
 
 const props = defineProps<{
   currentUser?: AuthUser | null;
@@ -39,6 +41,7 @@ const isSaving = ref(false);
 const isSavingMemory = ref(false);
 const accountMemories = ref<Memory[]>([]);
 const savedSettings = ref<UserSettings | null>(null);
+const { formatDate, localeOptions, t } = useI18n();
 
 const canSave = computed(() =>
   Boolean(props.currentUser && form.defaultModel && !isLoading.value && !isSaving.value)
@@ -46,10 +49,16 @@ const canSave = computed(() =>
 const updatedAtLabel = computed(() => {
   if (!savedSettings.value || savedSettings.value.isDefault) return "";
 
-  return new Intl.DateTimeFormat(undefined, {
+  return formatDate(savedSettings.value.updatedAt, {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(new Date(savedSettings.value.updatedAt));
+  });
+});
+const translatedLocaleOptions = computed(() => {
+  return localeOptions.map((option) => ({
+    ...option,
+    label: getLanguageLabel(option.code),
+  }));
 });
 
 onMounted(() => {
@@ -79,7 +88,7 @@ async function loadSettings() {
   try {
     applySettingsToForm(await fetchUserSettings());
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Could not load settings.";
+    errorMessage.value = error instanceof Error ? error.message : t("errors.loadSettings");
   } finally {
     isLoading.value = false;
   }
@@ -98,7 +107,7 @@ async function loadAccountMemories() {
   try {
     accountMemories.value = await fetchAccountMemories();
   } catch (error) {
-    memoryErrorMessage.value = error instanceof Error ? error.message : "Could not load memory.";
+    memoryErrorMessage.value = error instanceof Error ? error.message : t("errors.loadMemory");
   } finally {
     isLoadingMemory.value = false;
   }
@@ -122,10 +131,10 @@ async function saveSettings() {
     });
 
     applySettingsToForm(settings);
-    successMessage.value = "Settings saved.";
+    successMessage.value = t("settings.saved");
     emit("settings-saved", settings);
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Could not save settings.";
+    errorMessage.value = error instanceof Error ? error.message : t("errors.saveSettings");
   } finally {
     isSaving.value = false;
   }
@@ -145,7 +154,7 @@ async function addAccountMemory(content: string) {
 
     accountMemories.value = [memory, ...accountMemories.value];
   } catch (error) {
-    memoryErrorMessage.value = error instanceof Error ? error.message : "Could not save memory.";
+    memoryErrorMessage.value = error instanceof Error ? error.message : t("errors.saveMemory");
   } finally {
     isSavingMemory.value = false;
   }
@@ -160,7 +169,7 @@ async function saveAccountMemory(memoryId: string, content: string) {
 
     accountMemories.value = accountMemories.value.map((item) => (item.id === memory.id ? memory : item));
   } catch (error) {
-    memoryErrorMessage.value = error instanceof Error ? error.message : "Could not update memory.";
+    memoryErrorMessage.value = error instanceof Error ? error.message : t("errors.updateMemory");
   } finally {
     isSavingMemory.value = false;
   }
@@ -174,7 +183,7 @@ async function removeAccountMemory(memoryId: string) {
     await deleteAccountMemory(memoryId);
     accountMemories.value = accountMemories.value.filter((memory) => memory.id !== memoryId);
   } catch (error) {
-    memoryErrorMessage.value = error instanceof Error ? error.message : "Could not delete memory.";
+    memoryErrorMessage.value = error instanceof Error ? error.message : t("errors.deleteMemory");
   } finally {
     isSavingMemory.value = false;
   }
@@ -186,53 +195,60 @@ function applySettingsToForm(settings: UserSettings) {
   form.language = settings.language;
   form.theme = settings.theme;
 }
+
+function getLanguageLabel(language: AppLocale) {
+  if (language === "ar") return t("language.ar");
+  if (language === "de") return t("language.de");
+
+  return t("language.en");
+}
 </script>
 
 <template>
   <section class="workspace-page">
     <header class="workspace-header d-flex align-items-start justify-content-between gap-3">
       <div>
-        <p class="workspace-eyebrow text-uppercase fw-bold mb-1">Settings</p>
-        <h2 class="workspace-title mb-1">Workspace preferences</h2>
-        <p class="workspace-subtitle mb-0">Manage language, theme, and default AI model for your account.</p>
+        <p class="workspace-eyebrow text-uppercase fw-bold mb-1">{{ t("settings.eyebrow") }}</p>
+        <h2 class="workspace-title mb-1">{{ t("settings.title") }}</h2>
+        <p class="workspace-subtitle mb-0">{{ t("settings.subtitle") }}</p>
       </div>
 
       <button class="btn btn-outline-secondary" type="button" @click="emit('back-to-chat')">
-        Back
+        {{ t("app.actions.back") }}
       </button>
     </header>
 
     <section v-if="!currentUser" class="workspace-panel">
-      <h3 class="workspace-section-title">Sign in required</h3>
-      <p class="workspace-note mb-3">Settings are saved to your account, so they are available across devices.</p>
-      <button class="btn btn-primary" type="button" @click="emit('sign-in')">Sign in</button>
+      <h3 class="workspace-section-title">{{ t("settings.signInRequired") }}</h3>
+      <p class="workspace-note mb-3">{{ t("settings.signInNote") }}</p>
+      <button class="btn btn-primary" type="button" @click="emit('sign-in')">{{ t("app.actions.signIn") }}</button>
     </section>
 
     <section v-else class="workspace-panel">
-      <div v-if="isLoading" class="workspace-note">Loading settings...</div>
+      <div v-if="isLoading" class="workspace-note">{{ t("settings.loading") }}</div>
 
       <form v-else class="settings-form" @submit.prevent="saveSettings">
         <div class="settings-grid">
           <label class="settings-field">
-            <span class="form-label">Language</span>
+            <span class="form-label">{{ t("settings.language") }}</span>
             <select v-model="form.language" class="form-control">
-              <option value="en">English</option>
-              <option value="ar">Arabic</option>
-              <option value="de">German</option>
+              <option v-for="option in translatedLocaleOptions" :key="option.code" :value="option.code">
+                {{ option.label }}
+              </option>
             </select>
           </label>
 
           <label class="settings-field">
-            <span class="form-label">Theme</span>
+            <span class="form-label">{{ t("settings.theme") }}</span>
             <select v-model="form.theme" class="form-control">
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-              <option value="system">System</option>
+              <option value="light">{{ t("theme.light") }}</option>
+              <option value="dark">{{ t("theme.dark") }}</option>
+              <option value="system">{{ t("theme.system") }}</option>
             </select>
           </label>
 
           <label class="settings-field settings-field--wide">
-            <span class="form-label">Default model</span>
+            <span class="form-label">{{ t("settings.defaultModel") }}</span>
             <select v-model="form.defaultModel" class="form-control">
               <option v-for="model in modelOptions" :key="model.value" :value="model.value">
                 {{ model.label }}
@@ -250,11 +266,11 @@ function applySettingsToForm(settings: UserSettings) {
 
         <div class="d-flex align-items-center justify-content-between gap-3">
           <p class="workspace-note mb-0">
-            <span v-if="updatedAtLabel">Last updated {{ updatedAtLabel }}</span>
-            <span v-else>Settings will be saved to your account.</span>
+            <span v-if="updatedAtLabel">{{ t("settings.lastUpdated", { date: updatedAtLabel }) }}</span>
+            <span v-else>{{ t("settings.willSave") }}</span>
           </p>
           <button class="btn btn-primary" type="submit" :disabled="!canSave">
-            {{ isSaving ? "Saving..." : "Save settings" }}
+            {{ isSaving ? t("settings.saving") : t("settings.save") }}
           </button>
         </div>
       </form>
@@ -262,12 +278,12 @@ function applySettingsToForm(settings: UserSettings) {
 
     <MemoryPanel
       v-if="currentUser"
-      :empty-message="'No account memory yet.'"
+      :empty-message="t('settings.noAccountMemory')"
       :error-message="memoryErrorMessage"
       :is-loading="isLoadingMemory"
       :is-saving="isSavingMemory"
       :memories="accountMemories"
-      title="Account memory"
+      :title="t('settings.accountMemory')"
       @create="addAccountMemory"
       @delete="removeAccountMemory"
       @update="saveAccountMemory"

@@ -1,0 +1,18 @@
+{
+  "settings.eyebrow": "Settings",
+  "settings.title": "Workspace preferences",
+  "settings.subtitle": "Manage language, theme, and default AI model for your account.",
+  "settings.signInRequired": "Sign in required",
+  "settings.signInNote": "Settings are saved to your account, so they are available across devices.",
+  "settings.loading": "Loading settings...",
+  "settings.language": "Language",
+  "settings.theme": "Theme",
+  "settings.defaultModel": "Default model",
+  "settings.saved": "Settings saved.",
+  "settings.lastUpdated": "Last updated {date}",
+  "settings.willSave": "Settings will be saved to your account.",
+  "settings.save": "Save settings",
+  "settings.saving": "Saving...",
+  "settings.accountMemory": "Account memory",
+  "settings.noAccountMemory": "No account memory yet."
+}

@@ -13,6 +13,7 @@
     "check:web": "npm --prefix apps/web run check",
     "test:api": "npm --prefix apps/api run test",
     "test:web": "npm --prefix apps/web run test",
+    "test:i18n": "npm --prefix apps/web run test:i18n",
     "verify": "npm run test:api && npm run test:web && npm run check:api && npm run check:web",
     "eval:retrieval": "npm --prefix apps/api run eval:retrieval",
     "db:up": "docker compose up -d postgres",

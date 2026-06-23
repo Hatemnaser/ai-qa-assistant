@@ -1,3 +1,5 @@
+import { t } from "../i18n/useI18n";
+
 export interface BackendErrorIssue {
   message: string;
   path: string;
@@ -72,23 +74,23 @@ function getUserFacingBackendMessage(payload: BackendErrorPayload, fallback: str
   const serverMessage = payload.error || payload.message || fallback;
 
   if (payload.code === "DATABASE_UNAVAILABLE") {
-    return "The API is running, but PostgreSQL is not available. Start Docker/PostgreSQL and try again.";
+    return t("errors.databaseUnavailable");
   }
 
   if (payload.code === "DATABASE_SCHEMA_OUT_OF_DATE") {
-    return "The database schema is out of date. Run npm run db:migrate, then restart the API server.";
+    return t("errors.databaseSchemaOutOfDate");
   }
 
   if (payload.code === "PAYLOAD_TOO_LARGE") {
-    return "That upload is too large. Try a smaller file.";
+    return t("errors.payloadTooLarge");
   }
 
   if (payload.code === "QUOTA_EXCEEDED") {
-    return "The selected AI model is out of quota. Try another model or wait a bit.";
+    return t("errors.quotaExceeded");
   }
 
   if (payload.code === "MODEL_UNAVAILABLE") {
-    return "The selected AI model is temporarily unavailable. Try another model or wait a bit.";
+    return t("errors.modelUnavailable");
   }
 
   return serverMessage;
@@ -96,7 +98,7 @@ function getUserFacingBackendMessage(payload: BackendErrorPayload, fallback: str
 
 function getFallbackBackendMessage(response: Response, fallback: string) {
   if (response.status >= 500) {
-    return "The backend returned a server error without details. In local development, make sure the API server is running on http://127.0.0.1:5000 and PostgreSQL is available.";
+    return t("errors.serverNoDetails");
   }
 
   return fallback;

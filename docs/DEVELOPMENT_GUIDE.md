@@ -13,6 +13,25 @@ This project is currently in foundation and migration mode. Do not add new produ
 - Do not put raw hex colors or one-off button/input colors in component SCSS. Add or adjust a token first.
 - Keep custom styling in `apps/web/src/styles`. Vite compiles SCSS directly; there is no root CSS build step.
 - Do not create new ad hoc CSS files such as `apps/web/src/styles.css`.
+- Add user-facing frontend copy to the matching domain JSON file under
+  `apps/web/src/i18n/messages/<locale>/<domain>.json` and read it with
+  `useI18n()`.
+  Do not add new hardcoded English UI text except for stable product names,
+  model ids, file extensions, or user-authored content. English is the key
+  schema source; other locale files must satisfy the same key map.
+- Keep translation values in UTF-8 JSON so catalogs remain friendly to
+  translators and future localization platforms. Locale `index.ts` files are
+  loaders only; they must not contain translation copy.
+- Keep the domain filenames aligned across locales. Current domains are
+  `common`, `auth`, `navigation`, `chat`, `settings`, `memory`, `usage`, and
+  `projects`.
+- Keep interpolation placeholders such as `{count}` and `{project}` identical
+  across locale values. Run `npm run test:i18n`; it enforces exact key parity,
+  non-empty values, placeholder parity, duplicate-key rejection, fallback, and
+  document locale metadata.
+- Preserve stable internal values such as chat mode ids, model ids, API error
+  codes, storage keys, document source enums, and stored user content. Translate
+  labels around those values, not the values themselves.
 - Keep `styles/layout/*` structural only: app shells, page grids, sticky/scroll regions, and responsive layout.
 - Put reusable component patterns in `styles/components/*`, even when they are used by a page-level feature.
 - For sidebar work, keep workspace navigation outside the history scroll area and keep recent chats as compact rows.
@@ -38,6 +57,9 @@ This project is currently in foundation and migration mode. Do not add new produ
    - Keep Account Memory, Project Memory, Conversation Summary, Project Instructions, and Project Documents as separate concepts.
    - Use complete user/assistant turns for recent context.
    - Never write AI-extracted facts directly into canonical memory without user review.
+8. If it touches display language, keep `apps/api/src/config/locales.ts` and
+   `apps/web/src/i18n/locales.ts` aligned until a shared package exists. Settings
+   updates should keep `UserSettings.language` and `User.locale` in sync.
 
 ## Frontend Pattern
 

@@ -1,10 +1,11 @@
 import { resolveAiModel } from "../ai/provider-registry.js";
+import { DEFAULT_LOCALE } from "../../config/locales.js";
 import { settingsRepository, type SettingsRepository, type UserSettingsRecord } from "./settings.repository.js";
 import type { UserSettingsDto, UserSettingsInput, UserThemePreference } from "./settings.types.js";
 
 const DEFAULT_USER_SETTINGS: UserSettingsInput = {
   defaultModel: "gemini-3.1-flash-lite",
-  language: "en",
+  language: DEFAULT_LOCALE,
   theme: "light",
 };
 

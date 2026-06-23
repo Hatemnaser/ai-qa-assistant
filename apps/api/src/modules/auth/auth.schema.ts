@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from "../../config/locales.js";
+
 const emailSchema = z
   .string()
   .trim()
@@ -18,7 +20,7 @@ const passwordSchema = z
 
 export const registerRequestSchema = z.object({
   email: emailSchema,
-  locale: z.string().trim().min(2).max(12).default("en"),
+  locale: z.enum(SUPPORTED_LOCALES).default(DEFAULT_LOCALE),
   name: z.string().trim().min(1).max(80).optional(),
   password: passwordSchema,
 });

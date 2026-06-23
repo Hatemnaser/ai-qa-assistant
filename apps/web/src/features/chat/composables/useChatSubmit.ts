@@ -5,6 +5,7 @@ import { ChatApiError, sendMessageToAI } from "../chatApi";
 import { createAttachments, createRequestAttachments } from "../chatAttachments";
 import { buildRequestHistory, createChatMessage } from "../chatMessages";
 import { DEFAULT_MODE, getModelForMode } from "../constants";
+import { useI18n } from "../../../i18n/useI18n";
 import type { AiModelOption, Chat, ChatUsageSummary, SelectedAttachment } from "../types";
 
 interface ChatSubmitOptions {
@@ -35,6 +36,7 @@ export function useChatSubmit({
   const usageSummary = ref<ChatUsageSummary | null>(null);
   const guestLimitReached = ref(false);
   const isSending = ref(false);
+  const { t } = useI18n();
 
   async function handleSubmit() {
     const typedMessage = messageInput.value.trim();
@@ -103,7 +105,7 @@ export function useChatSubmit({
       const fallback =
         error instanceof Error
           ? error.message
-          : "Sorry, something went wrong. Please make sure the backend server is running.";
+          : t("errors.chat.generic");
 
       if (error instanceof ChatApiError && error.code === "USAGE_LIMIT_REACHED") {
         guestLimitReached.value = true;

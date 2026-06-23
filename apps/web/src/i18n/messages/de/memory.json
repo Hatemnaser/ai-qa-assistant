@@ -1,0 +1,8 @@
+{
+  "memory.placeholder": "Memory-Notiz hinzufuegen",
+  "memory.add": "Memory hinzufuegen",
+  "memory.saving": "Wird gespeichert...",
+  "memory.loading": "Memory wird geladen...",
+  "memory.updated": "Aktualisiert {date}",
+  "memory.edit": "Bearbeiten"
+}

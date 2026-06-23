@@ -1,0 +1,17 @@
+{
+  "sidebar.nav.workspace": "مساحة العمل",
+  "sidebar.nav.newChat": "محادثة جديدة",
+  "sidebar.nav.search": "بحث",
+  "sidebar.nav.projects": "المشاريع",
+  "sidebar.nav.newProject": "مشروع جديد",
+  "sidebar.nav.allProjects": "كل المشاريع",
+  "sidebar.nav.recentChats": "المحادثات الأخيرة",
+  "sidebar.nav.noRecentChats": "لا توجد محادثات حديثة بعد.",
+  "sidebar.project.openPage": "فتح صفحة المشروع",
+  "sidebar.account.menu": "قائمة الحساب",
+  "sidebar.account.signInHelp": "سجّل الدخول لحفظ مساحة العمل",
+  "sidebar.account.exportChat": "تصدير المحادثة",
+  "sidebar.account.importChat": "استيراد محادثة",
+  "sidebar.account.usage": "استخدامي",
+  "sidebar.account.settings": "الإعدادات"
+}

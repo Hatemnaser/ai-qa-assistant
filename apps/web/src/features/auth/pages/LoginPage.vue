@@ -3,6 +3,7 @@ import { ref } from "vue";
 
 import CheckboxField from "../../../ui/CheckboxField.vue";
 import TextField from "../../../ui/TextField.vue";
+import { useI18n } from "../../../i18n/useI18n";
 import { login } from "../authApi";
 import AuthLayout from "../components/AuthLayout.vue";
 import type { AuthUser } from "../types";
@@ -22,7 +23,8 @@ const emit = defineEmits<{
 const email = ref("");
 const password = ref("");
 const remember = ref(false);
-const { errorMessage, isSubmitting, submit } = useAuthRequest("Could not sign in. Please try again.");
+const { t } = useI18n();
+const { errorMessage, isSubmitting, submit } = useAuthRequest(t("errors.auth.login"));
 
 async function submitLogin() {
   await submit(async () => {
@@ -44,16 +46,16 @@ async function submitLogin() {
     @toggle-theme="emit('toggle-theme')"
   >
     <div class="auth-header">
-      <p class="auth-kicker">Sign in</p>
-      <h2>Welcome back</h2>
-      <p>Sign in to continue your QA workspace.</p>
+      <p class="auth-kicker">{{ t("auth.login.kicker") }}</p>
+      <h2>{{ t("auth.login.title") }}</h2>
+      <p>{{ t("auth.login.subtitle") }}</p>
     </div>
 
     <form class="vstack gap-3" @submit.prevent="submitLogin">
       <TextField
         id="login-email"
         v-model="email"
-        label="Email"
+        :label="t('auth.login.email')"
         type="email"
         autocomplete="email"
         placeholder="you@example.com"
@@ -63,39 +65,39 @@ async function submitLogin() {
       <TextField
         id="login-password"
         v-model="password"
-        label="Password"
+        :label="t('auth.login.password')"
         type="password"
         autocomplete="current-password"
-        placeholder="Enter your password"
+        :placeholder="t('auth.login.passwordPlaceholder')"
         :disabled="isSubmitting"
         required
       />
 
       <div class="d-flex align-items-center justify-content-between gap-3">
-        <CheckboxField id="login-remember" v-model="remember" label="Remember me" :disabled="isSubmitting" />
+        <CheckboxField id="login-remember" v-model="remember" :label="t('auth.login.remember')" :disabled="isSubmitting" />
 
         <button class="btn btn-link" type="button" @click="emit('navigate', 'forgot-password')">
-          Forgot password?
+          {{ t("auth.login.forgot") }}
         </button>
       </div>
 
       <p v-if="errorMessage" class="auth-feedback auth-feedback-error" role="alert">{{ errorMessage }}</p>
 
       <button class="btn btn-primary btn-control w-100" type="submit" :disabled="isSubmitting">
-        {{ isSubmitting ? "Signing in..." : "Sign in" }}
+        {{ isSubmitting ? t("auth.login.submitting") : t("auth.login.submit") }}
       </button>
 
-      <div class="auth-divider d-flex align-items-center"><span>or</span></div>
+      <div class="auth-divider d-flex align-items-center"><span>{{ t("app.common.or") }}</span></div>
 
-      <button class="btn btn-outline-secondary btn-control w-100" type="button" disabled title="Google sign-in is not wired yet.">
+      <button class="btn btn-outline-secondary btn-control w-100" type="button" disabled :title="t('auth.login.googleTitle')">
         <span class="auth-google-mark d-flex align-items-center justify-content-center" aria-hidden="true">G</span>
-        <span>Sign in with Google</span>
+        <span>{{ t("auth.login.google") }}</span>
       </button>
     </form>
 
     <div class="auth-switch d-flex justify-content-center gap-2 flex-column flex-sm-row">
-      <span>New here?</span>
-      <button class="btn btn-link" type="button" @click="emit('navigate', 'register')">Create account</button>
+      <span>{{ t("auth.login.newHere") }}</span>
+      <button class="btn btn-link" type="button" @click="emit('navigate', 'register')">{{ t("auth.login.createAccount") }}</button>
     </div>
   </AuthLayout>
 </template>

@@ -1,5 +1,6 @@
 import { createBackendApiError } from "../../api/backendErrors";
 import { csrfFetch } from "../../api/csrf";
+import { t } from "../../i18n/useI18n";
 import type { Project, ProjectInput } from "./types";
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
@@ -13,7 +14,7 @@ export async function fetchProjects(): Promise<Project[]> {
 export async function createProject(input: ProjectInput): Promise<Project> {
   return requestProject("/api/projects", {
     body: input,
-    fallback: "Could not create this project.",
+    fallback: t("projects.errors.create"),
     method: "POST",
   });
 }
@@ -21,21 +22,21 @@ export async function createProject(input: ProjectInput): Promise<Project> {
 export async function updateProject(projectId: string, input: ProjectInput): Promise<Project> {
   return requestProject(`/api/projects/${encodeURIComponent(projectId)}`, {
     body: input,
-    fallback: "Could not update this project.",
+    fallback: t("projects.errors.update"),
     method: "PUT",
   });
 }
 
 export async function deleteProject(projectId: string) {
   await requestProject(`/api/projects/${encodeURIComponent(projectId)}`, {
-    fallback: "Could not delete this project.",
+    fallback: t("projects.errors.delete"),
     method: "DELETE",
   });
 }
 
 async function requestProjects(path: string, options: { method: "GET" }): Promise<Project[]> {
   const body = await requestJson<{ projects?: Project[] }>(path, {
-    fallback: "Could not load projects.",
+    fallback: t("projects.errors.load"),
     method: options.method,
   });
 
@@ -78,9 +79,7 @@ async function requestJson<T>(
     return response.json();
   } catch (error) {
     if (error instanceof TypeError || (error instanceof Error && error.message === "Failed to fetch")) {
-      throw new Error(
-        "Could not connect to the backend. Make sure the API server is running on http://127.0.0.1:5000."
-      );
+      throw new Error(t("projects.errors.connectBackend"));
     }
 
     if (error instanceof Error) {

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { AI_MODELS, QA_MODES, getModelHint } from "../constants";
+import { AI_MODELS, MODEL_RECOMMENDATION_KEYS_BY_VALUE, QA_MODES, VISUAL_REVIEW_MODEL } from "../constants";
 import type { AiModelOption, ChatUsageSummary } from "../types";
 import type { Project } from "../../projects/types";
+import { useI18n } from "../../../i18n/useI18n";
 
 const props = defineProps<{
   chatTitle?: string | null;
@@ -34,21 +35,47 @@ const selectedProject = computed(
 const selectedModelOption = computed(
   () => availableModelOptions.value.find((option) => option.value === props.model) || availableModelOptions.value[0]
 );
-const modelHint = computed(() => getModelHint(props.model, props.mode, availableModelOptions.value));
-const chatTitleLabel = computed(() => props.chatTitle?.trim() || "New QA Chat");
+const { t } = useI18n();
+const selectedModeLabel = computed(() => t(selectedModeOption.value.labelKey));
+const selectedModelRecommendation = computed(() => getModelRecommendation(selectedModelOption.value));
+const modelHint = computed(() => {
+  const visualRecommendation =
+    props.mode === "screenshot_review" ? t("model.hintVisual", { model: VISUAL_REVIEW_MODEL }) : "";
+
+  return `${t("model.hint", {
+    label: selectedModelOption.value.label,
+    recommendedFor: selectedModelRecommendation.value,
+  })}${visualRecommendation}`;
+});
+const chatTitleLabel = computed(() => {
+  const title = props.chatTitle?.trim();
+
+  return !title || title === "New QA Chat" ? t("chat.title.default") : title;
+});
 const usageLabel = computed(() => {
   if (!props.usageSummary) return "";
 
   const remaining = props.usageSummary.remaining;
-  return `${remaining} credits left`;
+  return t("chat.topbar.creditsLeft", { count: remaining });
 });
 const usageTitle = computed(() => {
   if (!props.usageSummary) return "";
 
   const unit = props.usageSummary.unit || "credits";
 
-  return `Daily ${unit}: ${props.usageSummary.remaining} remaining of ${props.usageSummary.limit}. ${props.usageSummary.used} used today.`;
+  return t("chat.topbar.usageTitle", {
+    limit: props.usageSummary.limit,
+    remaining: props.usageSummary.remaining,
+    unit,
+    used: props.usageSummary.used,
+  });
 });
+
+function getModelRecommendation(modelOption: AiModelOption) {
+  const recommendationKey = MODEL_RECOMMENDATION_KEYS_BY_VALUE[modelOption.value];
+
+  return recommendationKey ? t(recommendationKey) : modelOption.recommendedFor;
+}
 
 function selectModel(value: string) {
   emit("update:model", value);
@@ -89,10 +116,10 @@ function selectProject(value: string | null) {
 
           <ul class="dropdown-menu topbar-select-menu">
             <li v-if="isLoadingProjects">
-              <span class="dropdown-item-text text-muted">Loading projects...</span>
+              <span class="dropdown-item-text text-muted">{{ t("chat.topbar.loadingProjects") }}</span>
             </li>
             <li v-else-if="projectError">
-              <span class="dropdown-item-text text-muted" :title="projectError">Projects unavailable</span>
+              <span class="dropdown-item-text text-muted" :title="projectError">{{ t("chat.topbar.projectsUnavailable") }}</span>
             </li>
             <template v-else>
               <li v-for="project in availableProjects" :key="project.id">
@@ -110,7 +137,7 @@ function selectProject(value: string | null) {
             <li><hr class="dropdown-divider" /></li>
             <li>
               <button class="dropdown-item" type="button" @click="emit('open-projects')">
-                Manage projects
+                {{ t("chat.topbar.manageProjects") }}
               </button>
             </li>
           </ul>
@@ -118,14 +145,14 @@ function selectProject(value: string | null) {
       </div>
 
       <template v-else>
-        <h2 class="topbar-title">QA Chat</h2>
-        <p class="topbar-subtitle">Describe a feature, bug, or user story.</p>
+        <h2 class="topbar-title">{{ t("chat.topbar.title") }}</h2>
+        <p class="topbar-subtitle">{{ t("chat.topbar.subtitle") }}</p>
       </template>
     </div>
 
     <div class="topbar-controls d-flex align-items-center justify-content-end flex-wrap gap-2">
       <div class="topbar-field d-flex align-items-center gap-2">
-        <span class="topbar-field-label">Model</span>
+        <span class="topbar-field-label">{{ t("chat.topbar.model") }}</span>
         <div class="dropdown topbar-select-dropdown">
           <button
             class="btn btn-sm btn-outline-secondary topbar-select-btn d-inline-flex align-items-center justify-content-between text-start"
@@ -143,7 +170,7 @@ function selectProject(value: string | null) {
                 class="dropdown-item"
                 :class="{ active: modelOption.value === props.model }"
                 type="button"
-                :title="modelOption.recommendedFor"
+                :title="getModelRecommendation(modelOption)"
                 @click="selectModel(modelOption.value)"
               >
                 {{ modelOption.label }}
@@ -154,7 +181,7 @@ function selectProject(value: string | null) {
       </div>
 
       <div class="topbar-field d-flex align-items-center gap-2">
-        <span class="topbar-field-label">Mode</span>
+        <span class="topbar-field-label">{{ t("chat.topbar.mode") }}</span>
         <div class="dropdown topbar-select-dropdown">
           <button
             class="btn btn-sm btn-outline-secondary topbar-select-btn topbar-select-btn--mode d-inline-flex align-items-center justify-content-between text-start"
@@ -162,7 +189,7 @@ function selectProject(value: string | null) {
             data-bs-toggle="dropdown"
             aria-expanded="false"
           >
-            <span class="topbar-select-label">{{ selectedModeOption.label }}</span>
+            <span class="topbar-select-label">{{ selectedModeLabel }}</span>
           </button>
 
           <ul class="dropdown-menu dropdown-menu-end topbar-select-menu">
@@ -173,7 +200,7 @@ function selectProject(value: string | null) {
                 type="button"
                 @click="selectMode(modeOption.value)"
               >
-                {{ modeOption.label }}
+                {{ t(modeOption.labelKey) }}
               </button>
             </li>
           </ul>
@@ -189,7 +216,7 @@ function selectProject(value: string | null) {
         {{ usageLabel }}
       </span>
 
-      <span class="topbar-status d-inline-flex align-items-center">Online</span>
+      <span class="topbar-status d-inline-flex align-items-center">{{ t("app.status.online") }}</span>
     </div>
   </header>
 </template>

@@ -1,5 +1,6 @@
 import { createBackendApiError } from "../../api/backendErrors";
 import { csrfFetch } from "../../api/csrf";
+import { t } from "../../i18n/useI18n";
 import type {
   ProjectDocument,
   ProjectDocumentImportFileInput,
@@ -70,7 +71,7 @@ async function requestProjectDocument(path: string, options: { body: ProjectDocu
   const payload = await requestProjectDocumentAction(path, options);
 
   if (!payload.document) {
-    throw new Error("Project document response was missing document data.");
+    throw new Error(t("projects.documents.errors.responseMissing"));
   }
 
   return payload.document;
@@ -93,21 +94,19 @@ async function requestProjectDocumentAction(
     });
 
     if (!response.ok) {
-      throw await createBackendApiError(response, "Could not load project documents.");
+      throw await createBackendApiError(response, t("projects.documents.errors.load"));
     }
 
     return (await response.json()) as { document?: ProjectDocument; documents?: ProjectDocument[]; ok?: boolean };
   } catch (error) {
     if (error instanceof TypeError || (error instanceof Error && error.message === "Failed to fetch")) {
-      throw new Error(
-        "Could not connect to the backend. Make sure the API server is running on http://127.0.0.1:5000."
-      );
+      throw new Error(t("projects.errors.connectBackend"));
     }
 
     if (error instanceof Error) {
       throw error;
     }
 
-    throw new Error("Could not load project documents.");
+    throw new Error(t("projects.documents.errors.load"));
   }
 }
