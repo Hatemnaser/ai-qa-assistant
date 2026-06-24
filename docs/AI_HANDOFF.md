@@ -31,7 +31,8 @@ Last updated: 2026-06-23
   migrations were healthy, but there were zero users, projects, chats,
   messages, or sessions. Treat prior local data as unavailable unless it can
   still be recovered from browser-local chat storage or an external backup.
-- Latest i18n-slice verification on 2026-06-24: 339 API tests, 99 web tests,
+- Latest Project Portable ZIP Export verification on 2026-06-24: 352 API
+  tests, 99 web tests,
   `npm run check:api`, and `npm run check:web` passed. The previous broader
   2026-06-17 gate also included `npm run db:validate`, `npm run build:api`,
   `npm run build:web`, and `git diff --check`.
@@ -199,6 +200,10 @@ Complete enough:
 - Context-menu project assignment/removal for existing chats.
 - Manual Account Memory CRUD plus singleton Project Instructions with signed-in prompt retrieval and owner isolation.
 - Project document CRUD, text/data/code file import, safe previews, Add text, drag/drop, and signed-in project prompt retrieval.
+- Owner-scoped Project Portable ZIP export through
+  `GET /api/portability/projects/:projectId/export`, with canonical
+  `data/project.json`, document files, optional chats, readable Markdown, and
+  no derived retrieval state.
 - Centralized project access checks and stale-response-safe Project Knowledge state.
 - Sidebar Projects navigation.
 - Gemini model strategy, routing, and fallback.
@@ -225,8 +230,9 @@ Still unfinished:
 - The Memory Intelligence architecture checkpoint, typed context contract,
   owner-scoped chat identity/complete Recent Turns, Conversation Summary
   persistence and controlled generation, and manual Project Memory singleton
-  are complete. Smart import/export and AI-assisted memory suggestions remain
-  unfinished.
+  are complete. Project Portable ZIP Export backend is complete; Project
+  Import Preview/Commit, Account Memory portability, and AI-assisted memory
+  suggestions remain unfinished.
 - Admin usage dashboard.
 - Plans/entitlements and billing.
 - PDF/video/large file support.
@@ -277,9 +283,10 @@ Pick one track before coding:
      reload, separate usage telemetry, and transactional cursor comparison.
    - Project Memory now uses a dedicated owner-scoped singleton, manual GET/PUT
      API, 6,000-character limit, and `durableMemory.project` context slot.
-   - Project Memory is manual-only in the MVP. Evaluate smart import/export or
-     AI-assisted suggestions later without adding direct automatic canonical
-     writes.
+   - Project Portable ZIP Export backend is complete. Follow
+     `docs/SMART_EXPORT_IMPORT_ARCHITECTURE.md` for Project Import Preview next.
+   - Project Memory is manual-only in the MVP. Keep AI-assisted suggestions
+     deferred without adding direct automatic canonical writes.
    - Do not store Project Memory or Conversation Summary in generic `Memory` rows.
 
 ## Styling And Frontend Rules

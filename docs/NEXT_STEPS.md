@@ -16,8 +16,8 @@ smoke tests, follow `docs/PRODUCTION_READINESS.md`.
 - [x] Legacy vanilla app was migrated to Vue + TypeScript.
 - [x] Backend is modular Express + TypeScript + Prisma.
 - [x] PostgreSQL schema is established for users, sessions, chats, projects, memory, usage events, and settings.
-- [x] Latest i18n-slice verification on 2026-06-24 passed:
-  - 339 API tests passing.
+- [x] Latest Project Portable ZIP Export verification on 2026-06-24 passed:
+  - 352 API tests passing.
   - 99 web tests passing.
   - API and web TypeScript checks passing.
 - [x] Latest pushed baseline was clean before the current project assignment work.
@@ -81,8 +81,9 @@ smoke tests, follow `docs/PRODUCTION_READINESS.md`.
 - [x] Markdown previews are sanitized; code previews use syntax highlighting and line numbers; imported HTML is displayed as source and never executed.
 - [x] Project Knowledge Retrieval v2 implementation and controlled real-provider evaluation are complete; shared environments remain opt-in.
 - [ ] Memory Intelligence remains incomplete: controlled Conversation Summary
-  and manual Project Memory are implemented. Smart import/export and
-  AI-assisted memory suggestions remain future work.
+  and manual Project Memory are implemented. Project Portable ZIP Export
+  backend is complete; Project Import Preview/Commit, Account Memory
+  portability, and AI-assisted memory suggestions remain future work.
 - [ ] Admin usage dashboard does not exist. Current `My Usage` is personal only.
 - [ ] Credits are configured through environment variables, not plans/entitlements from the database.
 - [ ] Billing/subscriptions are not implemented.
@@ -158,7 +159,7 @@ Still deferred from automatic intelligence scope:
 - AI-extracted Account Memory or Project Memory proposals.
 - Background memory update jobs or a broad Memory Orchestrator.
 - Memory embeddings and combined document/memory vector indexes.
-- Smart memory import/export.
+- Project Import Preview/Commit and Account Memory portability.
 
 Project Memory and Conversation Summary now exist as separate scoped layers:
 manual Project Memory is user-edited only, and Conversation Summary generation
@@ -406,7 +407,14 @@ These should happen before large new product features.
 - [ ] Evaluate AI-assisted Project Memory suggestions later if the manual flow
   proves valuable enough to justify provider cost, abuse protection, and review
   UX. Do not add automatic canonical writes.
-- [ ] Add smart memory import/export after memory scope and provenance rules are stable.
+- [x] Add owner-scoped Project Portable ZIP Export with versioned canonical
+  JSON, readable Markdown, Project Documents, optional chats, attachment
+  metadata warnings, and no derived retrieval state.
+- [ ] Add Project Import Preview with ZIP/path/digest validation and no
+  database writes.
+- [ ] Add Project Import Commit as create-new only, then re-index imported
+  documents after the canonical transaction succeeds.
+- [ ] Add Account Memory export/import after the Project round trip is stable.
 
 ### Phase 5: Credits, Plans, And Admin
 
@@ -562,6 +570,9 @@ When asking "what is next?", choose the first unfinished item that matches the c
    - The bounded manual Project Memory singleton and context injection are
      complete.
    - Project Memory frontend manual edit/save/clear is complete.
-   - Evaluate smart memory import/export next. Keep AI-assisted Account or
-     Project Memory suggestions deferred until review UX, provider cost,
-     abuse protection, and provenance policy are explicitly designed.
+   - Project Portable ZIP Export backend is complete.
+   - Implement Project Import Preview next, following
+     `docs/SMART_EXPORT_IMPORT_ARCHITECTURE.md`.
+   - Keep AI-assisted Account or Project Memory suggestions deferred until
+     review UX, provider cost, abuse protection, and provenance policy are
+     explicitly designed.

@@ -85,6 +85,10 @@ Small modules can start with fewer files, but should not put business logic dire
 - `project-memory`: one optional manually edited, 6,000-character bounded
   distilled-memory record per owned project.
 - `project-documents`: signed-in manual project document CRUD and text/data/code file import with owner-only project checks. It persists deterministic chunk indexes and ranks project context through a replaceable retrieval contract.
+- `data-portability`: owner-scoped Project Portable ZIP export. It packages
+  canonical project metadata, instructions, memory, documents, and optional
+  chats separately from derived summaries, chunks, embeddings, and index
+  state.
 - `usage`: portfolio/demo credit limits, credit reservations before AI provider calls, completed token usage updates, and personal usage summaries.
 
 ## Active Frontend Routes
@@ -163,6 +167,11 @@ verified over HTTPS.
 - `POST /api/memories`: create a manual account memory note.
 - `PUT /api/memories/:memoryId`: update a manual account memory note owned by the signed-in user.
 - `DELETE /api/memories/:memoryId`: delete a manual account memory note owned by the signed-in user.
+- `GET /api/portability/projects/:projectId/export`: download an owned project
+  as a versioned portable ZIP. `includeChats=true` is the default;
+  `includeChats=false` omits project chat JSON/Markdown. Chat attachment
+  metadata may be included, but original chat files are not exported because
+  chat file persistence is not implemented.
 - `GET /api/projects`: list projects owned by the signed-in user.
 - `POST /api/projects`: create a signed-in user's project.
 - `PUT /api/projects/:projectId`: update a project owned by the signed-in user.

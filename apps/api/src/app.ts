@@ -9,6 +9,7 @@ import { aiRouter } from "./modules/ai/ai.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { chatHistoryRouter } from "./modules/chat-history/chat-history.routes.js";
 import { chatRouter } from "./modules/chat/chat.routes.js";
+import { dataPortabilityRouter } from "./modules/data-portability/data-portability.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { memoryRouter } from "./modules/memory/memory.routes.js";
 import { projectsRouter } from "./modules/projects/projects.routes.js";
@@ -34,6 +35,7 @@ export function createApp() {
   app.use("/api/auth", authRouter);
   app.use("/api/chats", chatHistoryRouter);
   app.use("/api/chat", chatRouter);
+  app.use("/api/portability", dataPortabilityRouter);
   app.use("/api/memories", memoryRouter);
   app.use("/api/projects", projectsRouter);
   app.use("/api/settings", settingsRouter);
