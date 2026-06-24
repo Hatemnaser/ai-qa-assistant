@@ -119,3 +119,71 @@ export interface ProjectImportPreview {
   warnings: string[];
   unsupported: string[];
 }
+
+export interface ProjectImportDocument {
+  sourceId: string;
+  title: string;
+  content: string;
+  mimeType: string | null;
+  metadata: {
+    originalName: string;
+    sizeBytes: number;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProjectImportMessage {
+  sourceId: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  mode: string;
+  model: string | null;
+  attachments: Array<{
+    type: "image" | "file";
+    name: string;
+    mimeType: string;
+  }>;
+  isError: boolean;
+  createdAt: Date;
+}
+
+export interface ProjectImportChat {
+  sourceId: string;
+  title: string;
+  mode: string;
+  model: string;
+  createdAt: Date;
+  updatedAt: Date;
+  messages: ProjectImportMessage[];
+}
+
+export interface ValidatedProjectImportPackage {
+  packageDigest: string;
+  project: {
+    sourceId: string;
+    name: string;
+    description: string | null;
+    instructions: {
+      content: string;
+    } | null;
+    memory: {
+      content: string;
+    } | null;
+    documents: ProjectImportDocument[];
+    chats: ProjectImportChat[];
+  };
+  warnings: string[];
+  unsupported: string[];
+}
+
+export interface ProjectImportCommitResult {
+  projectId: string;
+  projectName: string;
+  imported: {
+    documents: number;
+    chats: number;
+    messages: number;
+  };
+  warnings: string[];
+}

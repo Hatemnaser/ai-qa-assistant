@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { CHAT_ATTACHMENT_LIMITS } from "../chat/chat.attachments.js";
 import { PROJECT_EXPORT_FORMAT_VERSION } from "./data-portability.types.js";
 
 export const projectExportQuerySchema = z.object({
@@ -9,6 +10,12 @@ export const projectExportQuerySchema = z.object({
     .default("true")
     .transform((value) => value === "true"),
 });
+
+export const projectImportDigestSchema = z
+  .string()
+  .trim()
+  .regex(/^[a-f0-9]{64}$/i)
+  .transform((value) => value.toLowerCase());
 
 const portableTimestampSchema = z.string().datetime();
 const portableFileReferenceSchema = z.object({
@@ -82,7 +89,7 @@ export const portableProjectSchema = z.object({
     updatedAt: portableTimestampSchema,
     instructions: z
       .object({
-        content: z.string().max(12000),
+        content: z.string().max(12000).refine((value) => value.trim().length > 0),
         createdAt: portableTimestampSchema,
         updatedAt: portableTimestampSchema,
       })
@@ -90,7 +97,7 @@ export const portableProjectSchema = z.object({
       .nullable(),
     memory: z
       .object({
-        content: z.string().max(6000),
+        content: z.string().max(6000).refine((value) => value.trim().length > 0),
         source: z.enum(["USER_PROVIDED", "AI_EXTRACTED", "CHAT_SUMMARY", "IMPORTED"]),
         createdAt: portableTimestampSchema,
         updatedAt: portableTimestampSchema,
@@ -104,8 +111,8 @@ export const portableProjectSchema = z.object({
 
 const portableAttachmentSchema = z.object({
   type: z.enum(["image", "file"]),
-  name: z.string().min(1),
-  mimeType: z.string(),
+  name: z.string().trim().min(1).max(CHAT_ATTACHMENT_LIMITS.maxNameChars),
+  mimeType: z.string().max(120),
 }).strict();
 
 const portableChatMessageSchema = z.object({
@@ -115,7 +122,10 @@ const portableChatMessageSchema = z.object({
   mode: z.string(),
   model: z.string().nullable(),
   createdAt: portableTimestampSchema,
-  attachments: z.array(portableAttachmentSchema).optional(),
+  attachments: z
+    .array(portableAttachmentSchema)
+    .max(CHAT_ATTACHMENT_LIMITS.maxAttachments)
+    .optional(),
   isError: z.boolean().optional(),
 }).strict();
 

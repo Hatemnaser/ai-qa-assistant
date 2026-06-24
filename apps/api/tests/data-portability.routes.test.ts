@@ -69,3 +69,25 @@ describe("POST /api/portability/projects/import/preview", () => {
     assert.equal(body.code, "SESSION_REQUIRED");
   });
 });
+
+describe("POST /api/portability/projects/import/commit", () => {
+  it("requires an authenticated session", async () => {
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
+    const response = await fetch(
+      `${baseUrl}/api/portability/projects/import/commit`,
+      {
+        body: Buffer.from([80, 75, 3, 4]),
+        headers: {
+          "content-type": "application/zip",
+          "x-package-digest": "a".repeat(64),
+          ...csrfHeaders,
+        },
+        method: "POST",
+      }
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.code, "SESSION_REQUIRED");
+  });
+});

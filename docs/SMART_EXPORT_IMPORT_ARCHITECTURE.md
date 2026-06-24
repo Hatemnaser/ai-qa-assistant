@@ -771,8 +771,20 @@ Commit must:
 * return the new project identity and any post-commit indexing warnings
 
 The MVP must not overwrite, update, merge, or deduplicate against an existing
-project. A name collision does not imply identity; the imported project is a
-new project and may receive an explicit imported suffix if the UI chooses.
+project. The imported project is always named `<Original Name> (Imported)`.
+Owner-local collisions receive a bounded numeric suffix such as
+`<Original Name> (Imported 2)`; collision checks and project creation occur in
+the same serializable transaction.
+
+The commit request uses `application/zip` and carries the Preview digest in the
+`X-Package-Digest` request header. Commit reuses the same package validation
+path as Preview before comparing the full-package SHA-256 digest.
+
+The current schema has dedicated `IMPORTED` provenance for Project Memory and
+Project Documents, so no migration is required. Project, Chat, and Message do
+not have dedicated source-trace metadata fields; their source IDs are used
+only while validating/mapping the package and are not persisted as local
+identity.
 
 Document indexing is derived work. If indexing fails after commit, the new
 project and authoritative documents remain available with a visible warning
@@ -975,20 +987,35 @@ Goals:
 
 ### Phase 3 — Project Import Commit As Create-New Project
 
-Add the explicit confirmed import action.
+Status: completed on 2026-06-24.
+
+The backend now exposes `POST /api/portability/projects/import/commit`. It
+accepts `application/zip` with `X-Package-Digest`, re-runs the Preview ZIP and
+schema validation path, compares the digest, and creates a destination-owned
+project with new database identifiers.
+
+Project metadata, Instructions, Project Memory, Project Documents, chats, and
+messages are written in one serializable Prisma transaction. Project Memory
+and Project Documents use `IMPORTED` provenance. Conversation Summary,
+document chunks, embeddings, index state, usage data, and secrets are not part
+of the validated canonical package and are never written.
+
+Document indexing starts only after the transaction returns successfully.
+Indexing failure or a remaining non-ready index status does not roll back the
+project and is returned as a safe warning.
 
 Goals:
 
-* re-read and fully revalidate the package
-* require the Preview digest to match
-* create a new project only
-* generate new identifiers
-* restore Instructions, Memory, Documents, and selected chats
-* mark imported Project Memory and Project Documents as `IMPORTED`
-* commit canonical records transactionally
-* perform no overwrite, merge, or implicit deduplication
-* trigger document re-indexing only after transaction success
-* surface post-commit indexing failures without deleting canonical data
+* [x] re-read and fully revalidate the package
+* [x] require the Preview digest to match
+* [x] create a new project only
+* [x] generate new identifiers
+* [x] restore Instructions, Memory, Documents, and selected chats
+* [x] mark imported Project Memory and Project Documents as `IMPORTED`
+* [x] commit canonical records transactionally
+* [x] perform no overwrite, merge, or implicit deduplication
+* [x] trigger document re-indexing only after transaction success
+* [x] surface post-commit indexing failures without deleting canonical data
 
 ---
 
@@ -1157,15 +1184,9 @@ before their relevant implementation slice:
    explicit checkbox?
 2. What are the maximum Project Document count and total canonical content
    size inside one imported project, in addition to the global ZIP limits?
-3. Should imported project names always receive an `(Imported)` suffix, only
-   on collision, or never automatically?
-4. Should original provenance be retained in import metadata while canonical
-   Project Memory and Project Documents use `IMPORTED`?
-5. Should Project Document re-indexing run synchronously after commit or use
-   the existing best-effort lifecycle with a visible pending state?
-6. What duplicate/conflict policy should Account Memory import use:
+3. What duplicate/conflict policy should Account Memory import use:
    skip exact duplicates, import all, or require per-item review?
-7. Which account settings are portable in the later Account ZIP export, and
+4. Which account settings are portable in the later Account ZIP export, and
    which are device/environment-specific?
-8. Which storage and retention policy should be selected before chat
+5. Which storage and retention policy should be selected before chat
    attachment persistence?

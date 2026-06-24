@@ -128,6 +128,14 @@ describe("CSRF protection", () => {
         },
         method: "POST",
       }),
+      fetch(`${baseUrl}/api/portability/projects/import/commit`, {
+        body: Buffer.from([80, 75, 3, 4]),
+        headers: {
+          "content-type": "application/zip",
+          "x-package-digest": "a".repeat(64),
+        },
+        method: "POST",
+      }),
       postJson("/api/memories", { content: "Memory" }),
       fetch(`${baseUrl}/api/settings`, {
         body: JSON.stringify({ language: "en", theme: "light" }),

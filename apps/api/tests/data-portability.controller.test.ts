@@ -6,6 +6,113 @@ import { createDataPortabilityController } from "../src/modules/data-portability
 import type { DataPortabilityService } from "../src/modules/data-portability/data-portability.service.ts";
 
 describe("data portability controller", () => {
+  it("commits a project import from ZIP bytes and the preview digest header", async () => {
+    const calls: boolean[] = [];
+    const previewCalls: Buffer[] = [];
+    const commitCalls: Array<{
+      userId: string;
+      archive: Buffer;
+      digest: string;
+    }> = [];
+    const controller = createDataPortabilityController(
+      createFakeService(calls, previewCalls, commitCalls)
+    );
+    const response = createFakeResponse();
+    const archive = Buffer.from([80, 75, 3, 4]);
+    const digest = "a".repeat(64);
+
+    await controller.commitProjectImport(
+      {
+        authUser: {
+          id: "user-1",
+        },
+        body: archive,
+        get: (name: string) =>
+          name.toLowerCase() === "x-package-digest" ? digest : undefined,
+        is: () => "application/zip",
+      } as unknown as Request,
+      response.value,
+      response.next
+    );
+
+    assert.deepEqual(commitCalls, [
+      {
+        userId: "user-1",
+        archive,
+        digest,
+      },
+    ]);
+    assert.equal(response.statusCode, 201);
+    assert.deepEqual(response.body, {
+      projectId: "new-project-1",
+      projectName: "Checkout QA (Imported)",
+      imported: {
+        documents: 1,
+        chats: 1,
+        messages: 2,
+      },
+      warnings: [],
+    });
+    assert.equal(response.headers["cache-control"], "private, no-store");
+    assert.equal(response.headers["x-content-type-options"], "nosniff");
+    assert.equal(response.error, undefined);
+  });
+
+  it("rejects application/octet-stream commit content and missing preview digests", async () => {
+    const calls: boolean[] = [];
+    const previewCalls: Buffer[] = [];
+    const commitCalls: Array<{
+      userId: string;
+      archive: Buffer;
+      digest: string;
+    }> = [];
+    const controller = createDataPortabilityController(
+      createFakeService(calls, previewCalls, commitCalls)
+    );
+    const unsupportedResponse = createFakeResponse();
+
+    await controller.commitProjectImport(
+      {
+        authUser: {
+          id: "user-1",
+        },
+        body: Buffer.from([80, 75, 3, 4]),
+        get: () => "a".repeat(64),
+        is: (types: string | string[]) =>
+          types === "application/octet-stream"
+            ? "application/octet-stream"
+            : false,
+      } as unknown as Request,
+      unsupportedResponse.value,
+      unsupportedResponse.next
+    );
+
+    assert.equal(
+      (unsupportedResponse.error as { code?: unknown })?.code,
+      "PROJECT_IMPORT_CONTENT_TYPE_UNSUPPORTED"
+    );
+
+    const missingDigestResponse = createFakeResponse();
+    await controller.commitProjectImport(
+      {
+        authUser: {
+          id: "user-1",
+        },
+        body: Buffer.from([80, 75, 3, 4]),
+        get: () => undefined,
+        is: () => "application/zip",
+      } as unknown as Request,
+      missingDigestResponse.value,
+      missingDigestResponse.next
+    );
+
+    assert.equal(
+      (missingDigestResponse.error as { code?: unknown })?.code,
+      "PROJECT_IMPORT_DIGEST_REQUIRED"
+    );
+    assert.deepEqual(commitCalls, []);
+  });
+
   it("defaults includeChats to true and returns safe ZIP download headers", async () => {
     const calls: boolean[] = [];
     const controller = createDataPortabilityController(createFakeService(calls));
@@ -166,9 +273,32 @@ describe("data portability controller", () => {
 
 function createFakeService(
   calls: boolean[],
-  previewCalls: Buffer[] = []
+  previewCalls: Buffer[] = [],
+  commitCalls: Array<{
+    userId: string;
+    archive: Buffer;
+    digest: string;
+  }> = []
 ): DataPortabilityService {
   return {
+    async commitProjectImport(userId, archive, digest) {
+      commitCalls.push({
+        userId,
+        archive,
+        digest,
+      });
+
+      return {
+        projectId: "new-project-1",
+        projectName: "Checkout QA (Imported)",
+        imported: {
+          documents: 1,
+          chats: 1,
+          messages: 2,
+        },
+        warnings: [],
+      };
+    },
     async exportOwnedProject(_userId, _projectId, options) {
       calls.push(options.includeChats);
 

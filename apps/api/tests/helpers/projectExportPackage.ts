@@ -8,11 +8,14 @@ import type { ProjectExportSourceRecord } from "../../src/modules/data-portabili
 
 export const PROJECT_EXPORT_TEST_DATE = new Date("2026-06-24T12:00:00.000Z");
 
-export function createTestProjectExportArchive() {
+export function createTestProjectExportArchive(
+  source = createProjectExportSource(),
+  includeChats = true
+) {
   return createProjectExportPackage(
-    createProjectExportSource(),
+    source,
     {
-      includeChats: true,
+      includeChats,
     },
     PROJECT_EXPORT_TEST_DATE
   ).archive;

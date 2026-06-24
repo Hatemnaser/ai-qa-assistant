@@ -285,12 +285,31 @@ describe("project import preview", () => {
     let accessCalls = 0;
     let repositoryCalls = 0;
     const repository: DataPortabilityRepository = {
+      async createImportedProject() {
+        repositoryCalls += 1;
+        throw new Error("Preview must not write to the database.");
+      },
       async findOwnedProjectExportData() {
         repositoryCalls += 1;
         throw new Error("Preview must not query the database.");
       },
+      async findProjectDocumentIndexStatuses() {
+        repositoryCalls += 1;
+        throw new Error("Preview must not query document index state.");
+      },
     };
     const service = createDataPortabilityService({
+      indexer: {
+        async ensureDocumentsIndexed() {
+          throw new Error("Preview must not index documents.");
+        },
+        async indexDocument() {
+          throw new Error("Preview must not index documents.");
+        },
+        async indexDocuments() {
+          throw new Error("Preview must not index documents.");
+        },
+      },
       projectAccess: {
         async assertProjectAccess() {
           accessCalls += 1;

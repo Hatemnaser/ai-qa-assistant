@@ -85,12 +85,11 @@ Small modules can start with fewer files, but should not put business logic dire
 - `project-memory`: one optional manually edited, 6,000-character bounded
   distilled-memory record per owned project.
 - `project-documents`: signed-in manual project document CRUD and text/data/code file import with owner-only project checks. It persists deterministic chunk indexes and ranks project context through a replaceable retrieval contract.
-- `data-portability`: owner-scoped Project Portable ZIP export plus
-  authenticated, zero-write Project Import Preview. Export packages canonical
-  project metadata, instructions, memory, documents, and optional chats
-  separately from derived state. Preview validates bounded raw ZIP bytes,
-  paths, versions, schemas, references, hashes, and counts without reading or
-  writing project data.
+- `data-portability`: the backend Project portability round trip. It provides
+  owner-scoped Project Portable ZIP export, authenticated zero-write Import
+  Preview, and create-new Import Commit. Commit revalidates the ZIP and Preview
+  digest, writes canonical project data in one transaction with imported
+  provenance, then starts best-effort document indexing after commit.
 - `usage`: portfolio/demo credit limits, credit reservations before AI provider calls, completed token usage updates, and personal usage summaries.
 
 ## Active Frontend Routes
@@ -179,6 +178,11 @@ verified over HTTPS.
   `application/octet-stream` up to 50 MB and returns compatibility, package
   digest, suggested project name, counts, warnings, and unsupported safe
   entries.
+- `POST /api/portability/projects/import/commit`: create a new project from the
+  same validated ZIP. Accepts `application/zip`, requires the Preview digest in
+  `X-Package-Digest`, never overwrites or merges, writes canonical records
+  transactionally with new IDs, and starts document indexing only after the
+  transaction succeeds.
 - `GET /api/projects`: list projects owned by the signed-in user.
 - `POST /api/projects`: create a signed-in user's project.
 - `PUT /api/projects/:projectId`: update a project owned by the signed-in user.

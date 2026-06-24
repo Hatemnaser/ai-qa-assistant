@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
 
-import { strFromU8, unzipSync } from "fflate";
+import { unzipSync } from "fflate";
 import { z } from "zod";
 
 import { AppError } from "../../lib/errors.js";
-import { isSupportedProjectDocumentFile } from "../project-documents/project-document-files.js";
+import {
+  PROJECT_DOCUMENT_IMPORT_POLICY,
+  isSupportedProjectDocumentFile,
+} from "../project-documents/project-document-files.js";
 import {
   portableProjectChatSchema,
   portableProjectSchema,
@@ -13,7 +16,10 @@ import {
 import {
   PROJECT_EXPORT_FORMAT_VERSION,
   PROJECT_IMPORT_LIMITS,
+  type ProjectImportChat,
+  type ProjectImportDocument,
   type ProjectImportPreview,
+  type ValidatedProjectImportPackage,
 } from "./data-portability.types.js";
 
 const END_OF_CENTRAL_DIRECTORY_SIGNATURE = 0x06054b50;
@@ -30,6 +36,31 @@ interface ZipEntryMetadata {
 }
 
 export function previewProjectImportPackage(archive: Buffer): ProjectImportPreview {
+  const packageData = validateProjectImportPackage(archive);
+
+  return {
+    compatible: true,
+    formatVersion: PROJECT_EXPORT_FORMAT_VERSION,
+    exportType: "project",
+    packageDigest: packageData.packageDigest,
+    suggestedProjectName: `${packageData.project.name} (Imported)`,
+    sourceProjectName: packageData.project.name,
+    counts: {
+      documents: packageData.project.documents.length,
+      chats: packageData.project.chats.length,
+      messages: packageData.project.chats.reduce(
+        (total, chat) => total + chat.messages.length,
+        0
+      ),
+    },
+    warnings: packageData.warnings,
+    unsupported: packageData.unsupported,
+  };
+}
+
+export function validateProjectImportPackage(
+  archive: Buffer
+): ValidatedProjectImportPackage {
   if (archive.byteLength === 0 || archive.byteLength > PROJECT_IMPORT_LIMITS.maxCompressedBytes) {
     throwInvalidPackage();
   }
@@ -51,9 +82,16 @@ export function previewProjectImportPackage(archive: Buffer): ProjectImportPrevi
 
   validatePackageIdentity(parsedManifest, parsedProject);
   const declaredPaths = validateManifestFiles(parsedManifest.files, entries);
-  validateDocumentReferences(parsedProject.project.documents, entries, declaredPaths);
-
-  const messageCount = validateChatReferences(parsedProject, entries, declaredPaths);
+  const documents = validateDocumentReferences(
+    parsedProject.project.documents,
+    entries,
+    declaredPaths
+  );
+  const chats = validateChatReferences(parsedProject, entries, declaredPaths);
+  const messageCount = chats.reduce(
+    (total, chat) => total + chat.messages.length,
+    0
+  );
 
   if (
     parsedManifest.counts.documents !== parsedProject.project.documents.length ||
@@ -79,16 +117,23 @@ export function previewProjectImportPackage(archive: Buffer): ProjectImportPrevi
     .map((path) => `Unrecognized ZIP entry: ${path}`);
 
   return {
-    compatible: true,
-    formatVersion: PROJECT_EXPORT_FORMAT_VERSION,
-    exportType: "project",
     packageDigest: createHash("sha256").update(archive).digest("hex"),
-    suggestedProjectName: `${parsedProject.project.name} (Imported)`,
-    sourceProjectName: parsedProject.project.name,
-    counts: {
-      documents: parsedProject.project.documents.length,
-      chats: parsedProject.project.chats.length,
-      messages: messageCount,
+    project: {
+      sourceId: parsedProject.project.sourceId,
+      name: parsedProject.project.name,
+      description: parsedProject.project.description,
+      instructions: parsedProject.project.instructions
+        ? {
+            content: parsedProject.project.instructions.content,
+          }
+        : null,
+      memory: parsedProject.project.memory
+        ? {
+            content: parsedProject.project.memory.content,
+          }
+        : null,
+      documents,
+      chats,
     },
     warnings: [...parsedManifest.warnings],
     unsupported,
@@ -244,7 +289,7 @@ function parseJsonEntry(entries: Record<string, Uint8Array>, path: string) {
   }
 
   try {
-    return JSON.parse(strFromU8(entry)) as unknown;
+    return JSON.parse(decodeUtf8Entry(entry)) as unknown;
   } catch {
     throwInvalidPackage();
   }
@@ -306,6 +351,7 @@ function validateDocumentReferences(
   declaredPaths: Set<string>
 ) {
   const paths = new Set<string>();
+  const importedDocuments: ProjectImportDocument[] = [];
 
   for (const document of documents) {
     validateZipPath(document.file.path);
@@ -316,21 +362,45 @@ function validateDocumentReferences(
 
     paths.add(document.file.path);
 
-    if (!entries[document.file.path] || !declaredPaths.has(document.file.path)) {
+    const contentBytes = entries[document.file.path];
+    if (!contentBytes || !declaredPaths.has(document.file.path)) {
       throwInvalidPackage();
     }
 
+    const archiveName = document.file.path.split("/").at(-1);
+    if (!archiveName) throwInvalidPackage();
+    const portableName = archiveName.replace(/^\d{3}-/, "") || archiveName;
+
+    const originalName =
+      document.source === "IMPORTED"
+        ? document.metadata?.originalName
+        : portableName;
+
     if (
-      document.source === "IMPORTED" &&
-      (!document.metadata?.originalName ||
-        !isSupportedProjectDocumentFile(
-          document.metadata.originalName,
-          document.mimeType || ""
-        ))
+      !originalName ||
+      originalName.length > PROJECT_DOCUMENT_IMPORT_POLICY.maxNameChars ||
+      contentBytes.byteLength === 0 ||
+      contentBytes.byteLength > PROJECT_DOCUMENT_IMPORT_POLICY.maxFileBytes ||
+      !isSupportedProjectDocumentFile(originalName, document.mimeType || "")
     ) {
       throwInvalidPackage();
     }
+
+    importedDocuments.push({
+      sourceId: document.sourceId,
+      title: document.title,
+      content: decodeUtf8Entry(contentBytes),
+      mimeType: document.mimeType,
+      metadata: {
+        originalName,
+        sizeBytes: contentBytes.byteLength,
+      },
+      createdAt: new Date(document.createdAt),
+      updatedAt: new Date(document.updatedAt),
+    });
   }
+
+  return importedDocuments;
 }
 
 function validateChatReferences(
@@ -338,9 +408,9 @@ function validateChatReferences(
   entries: Record<string, Uint8Array>,
   declaredPaths: Set<string>
 ) {
-  let messageCount = 0;
   const dataPaths = new Set<string>();
   const readablePaths = new Set<string>();
+  const importedChats: ProjectImportChat[] = [];
 
   for (const chatReference of project.project.chats) {
     validateZipPath(chatReference.dataPath);
@@ -375,10 +445,27 @@ function validateChatReferences(
       throwInvalidPackage();
     }
 
-    messageCount += chatResult.data.chat.messages.length;
+    importedChats.push({
+      sourceId: chatResult.data.chat.sourceId,
+      title: chatResult.data.chat.title,
+      mode: chatResult.data.chat.mode,
+      model: chatResult.data.chat.model,
+      createdAt: new Date(chatResult.data.chat.createdAt),
+      updatedAt: new Date(chatResult.data.chat.updatedAt),
+      messages: chatResult.data.chat.messages.map((message) => ({
+        sourceId: message.sourceId,
+        role: message.role,
+        content: message.content,
+        mode: message.mode,
+        model: message.model,
+        attachments: message.attachments ? [...message.attachments] : [],
+        isError: message.isError === true,
+        createdAt: new Date(message.createdAt),
+      })),
+    });
   }
 
-  return messageCount;
+  return importedChats;
 }
 
 function findEndOfCentralDirectory(view: DataView) {
@@ -397,6 +484,14 @@ function findEndOfCentralDirectory(view: DataView) {
 }
 
 function decodeZipPath(bytes: Uint8Array) {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throwInvalidPackage();
+  }
+}
+
+function decodeUtf8Entry(bytes: Uint8Array) {
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {

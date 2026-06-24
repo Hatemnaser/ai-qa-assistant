@@ -1,7 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
 
 import { AppError } from "../../lib/errors.js";
-import { projectExportQuerySchema } from "./data-portability.schema.js";
+import {
+  projectExportQuerySchema,
+  projectImportDigestSchema,
+} from "./data-portability.schema.js";
 import {
   dataPortabilityService,
   type DataPortabilityService,
@@ -9,6 +12,48 @@ import {
 
 export function createDataPortabilityController(service: DataPortabilityService) {
   return {
+    async commitProjectImport(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.is("application/zip")) {
+          throw new AppError(
+            "Project import commit requires a ZIP payload.",
+            415,
+            "PROJECT_IMPORT_CONTENT_TYPE_UNSUPPORTED"
+          );
+        }
+
+        if (!Buffer.isBuffer(req.body) || req.body.byteLength === 0) {
+          throwInvalidImportPackage();
+        }
+
+        const digestResult = projectImportDigestSchema.safeParse(
+          req.get("x-package-digest")
+        );
+
+        if (!digestResult.success) {
+          throw new AppError(
+            "A valid preview package digest is required.",
+            400,
+            "PROJECT_IMPORT_DIGEST_REQUIRED"
+          );
+        }
+
+        const result = await service.commitProjectImport(
+          req.authUser!.id,
+          req.body,
+          digestResult.data
+        );
+
+        res.set({
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+        });
+        res.status(201).json(result);
+      } catch (error) {
+        next(error);
+      }
+    },
+
     async exportProject(req: Request, res: Response, next: NextFunction) {
       try {
         const projectId = getProjectIdParam(req);
@@ -41,11 +86,7 @@ export function createDataPortabilityController(service: DataPortabilityService)
         }
 
         if (!Buffer.isBuffer(req.body) || req.body.byteLength === 0) {
-          throw new AppError(
-            "Project import package is invalid or unsupported.",
-            400,
-            "PROJECT_IMPORT_PACKAGE_INVALID"
-          );
+          throwInvalidImportPackage();
         }
 
         const preview = await service.previewProjectImport(req.body);
@@ -58,6 +99,14 @@ export function createDataPortabilityController(service: DataPortabilityService)
   };
 }
 
+function throwInvalidImportPackage(): never {
+  throw new AppError(
+    "Project import package is invalid or unsupported.",
+    400,
+    "PROJECT_IMPORT_PACKAGE_INVALID"
+  );
+}
+
 function getProjectIdParam(req: Request) {
   const projectId = req.params.projectId;
 
@@ -68,5 +117,5 @@ function getProjectIdParam(req: Request) {
   return projectId;
 }
 
-export const { exportProject, previewProjectImport } =
+export const { commitProjectImport, exportProject, previewProjectImport } =
   createDataPortabilityController(dataPortabilityService);

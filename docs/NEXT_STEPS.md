@@ -2,7 +2,7 @@
 
 This file is the working roadmap for what is done, what is still foundation work, and what should come next. Use it as the reference when asking "what is next?" or "what still needs cleanup?"
 
-Last reviewed: 2026-06-23
+Last reviewed: 2026-06-24
 
 For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 Before future work on Project Memory, conversation summaries, AI-extracted memory,
@@ -16,8 +16,8 @@ smoke tests, follow `docs/PRODUCTION_READINESS.md`.
 - [x] Legacy vanilla app was migrated to Vue + TypeScript.
 - [x] Backend is modular Express + TypeScript + Prisma.
 - [x] PostgreSQL schema is established for users, sessions, chats, projects, memory, usage events, and settings.
-- [x] Latest Project Import Preview verification on 2026-06-24 passed:
-  - 378 API tests passing.
+- [x] Latest Project portability backend verification on 2026-06-24 passed:
+  - 388 API tests passing.
   - 99 web tests passing.
   - API and web TypeScript checks passing.
 - [x] Latest pushed baseline was clean before the current project assignment work.
@@ -81,9 +81,9 @@ smoke tests, follow `docs/PRODUCTION_READINESS.md`.
 - [x] Markdown previews are sanitized; code previews use syntax highlighting and line numbers; imported HTML is displayed as source and never executed.
 - [x] Project Knowledge Retrieval v2 implementation and controlled real-provider evaluation are complete; shared environments remain opt-in.
 - [ ] Memory Intelligence remains incomplete: controlled Conversation Summary
-  and manual Project Memory are implemented. Project Portable ZIP Export and
-  Import Preview backends are complete; Project Import Commit, Account Memory
-  portability, and AI-assisted memory suggestions remain future work.
+  and manual Project Memory are implemented. The Project Portable ZIP
+  Export/Preview/Commit backend round trip is complete; Account Memory
+  portability and AI-assisted memory suggestions remain future work.
 - [ ] Admin usage dashboard does not exist. Current `My Usage` is personal only.
 - [ ] Credits are configured through environment variables, not plans/entitlements from the database.
 - [ ] Billing/subscriptions are not implemented.
@@ -159,7 +159,7 @@ Still deferred from automatic intelligence scope:
 - AI-extracted Account Memory or Project Memory proposals.
 - Background memory update jobs or a broad Memory Orchestrator.
 - Memory embeddings and combined document/memory vector indexes.
-- Project Import Commit and Account Memory portability.
+- Account Memory portability.
 
 Project Memory and Conversation Summary now exist as separate scoped layers:
 manual Project Memory is user-edited only, and Conversation Summary generation
@@ -412,7 +412,7 @@ These should happen before large new product features.
   metadata warnings, and no derived retrieval state.
 - [x] Add Project Import Preview with ZIP/path/digest validation and no
   project-data reads or database writes beyond normal session authentication.
-- [ ] Add Project Import Commit as create-new only, then re-index imported
+- [x] Add Project Import Commit as create-new only, then re-index imported
   documents after the canonical transaction succeeds.
 - [ ] Add Account Memory export/import after the Project round trip is stable.
 
@@ -570,8 +570,9 @@ When asking "what is next?", choose the first unfinished item that matches the c
    - The bounded manual Project Memory singleton and context injection are
      complete.
    - Project Memory frontend manual edit/save/clear is complete.
-   - Project Portable ZIP Export and zero-write Import Preview are complete.
-   - Implement create-new Project Import Commit next, following
+   - The Project Portable ZIP Export, zero-write Import Preview, and
+     create-new transactional Import Commit backend round trip is complete.
+   - Implement Account Memory portability next, following
      `docs/SMART_EXPORT_IMPORT_ARCHITECTURE.md`.
    - Keep AI-assisted Account or Project Memory suggestions deferred until
      review UX, provider cost, abuse protection, and provenance policy are

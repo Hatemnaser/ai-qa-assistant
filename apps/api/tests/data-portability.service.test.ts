@@ -289,6 +289,12 @@ function createTestService(options: {
       repository.lastIncludeChats = includeChats;
       return source;
     },
+    async createImportedProject() {
+      throw new Error("Project import commit is not used by export tests.");
+    },
+    async findProjectDocumentIndexStatuses() {
+      return [];
+    },
   } satisfies DataPortabilityRepository & {
     lastIncludeChats: boolean | undefined;
   };
@@ -300,6 +306,11 @@ function createTestService(options: {
   return {
     repository,
     service: createDataPortabilityService({
+      indexer: {
+        async ensureDocumentsIndexed() {},
+        async indexDocument() {},
+        async indexDocuments() {},
+      },
       now: () => EXPORTED_AT,
       projectAccess: createFakeProjectAccess(projectOwners),
       repository,
