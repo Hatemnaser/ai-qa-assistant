@@ -3,15 +3,18 @@ import { describe, it } from "node:test";
 
 import { strFromU8, unzipSync } from "fflate";
 
-import { ChatRole, MemorySource, ProjectDocumentSource } from "../src/generated/prisma/enums.ts";
 import { createDataPortabilityService } from "../src/modules/data-portability/data-portability.service.ts";
 import type { DataPortabilityRepository } from "../src/modules/data-portability/data-portability.repository.ts";
 import type {
   ProjectExportSourceRecord,
 } from "../src/modules/data-portability/data-portability.types.ts";
 import { createFakeProjectAccess } from "./helpers/projectAccess.ts";
+import {
+  createProjectExportSource,
+  PROJECT_EXPORT_TEST_DATE,
+} from "./helpers/projectExportPackage.ts";
 
-const EXPORTED_AT = new Date("2026-06-24T12:00:00.000Z");
+const EXPORTED_AT = PROJECT_EXPORT_TEST_DATE;
 
 describe("data portability project export", () => {
   it("exports an owned project as a portable ZIP", async () => {
@@ -253,6 +256,26 @@ describe("data portability project export", () => {
     assert.equal(paths.some((path) => path.startsWith("/")), false);
     assert.equal(paths.every((path) => !/^[a-z]:/i.test(path)), true);
   });
+
+  it("exports user-created documents as Markdown even when the title has an unsafe extension", async () => {
+    const source = createProjectExportSource();
+    source.documents = [
+      {
+        ...source.documents[0]!,
+        source: "USER_PROVIDED",
+        title: "release-notes.exe",
+        mimeType: "text/markdown",
+        metadata: null,
+      },
+    ];
+    const { service } = createTestService({ source });
+    const result = await service.exportOwnedProject("user-1", "project-1", {
+      includeChats: false,
+    });
+    const paths = Object.keys(unzipSync(result.archive));
+
+    assert.ok(paths.includes("documents/001-release-notes.exe.md"));
+  });
 });
 
 function createTestService(options: {
@@ -281,81 +304,6 @@ function createTestService(options: {
       projectAccess: createFakeProjectAccess(projectOwners),
       repository,
     }),
-  };
-}
-
-function createProjectExportSource(): ProjectExportSourceRecord {
-  return {
-    id: "project-1",
-    name: "Checkout QA",
-    description: "Checkout and payment quality workspace.",
-    createdAt: new Date("2026-06-18T10:00:00.000Z"),
-    updatedAt: new Date("2026-06-23T10:00:00.000Z"),
-    instruction: {
-      content: "Answer as a senior QA engineer.",
-      createdAt: new Date("2026-06-18T11:00:00.000Z"),
-      updatedAt: new Date("2026-06-19T11:00:00.000Z"),
-    },
-    projectMemory: {
-      content: "Guest checkout is disabled.",
-      source: MemorySource.USER_PROVIDED,
-      createdAt: new Date("2026-06-18T12:00:00.000Z"),
-      updatedAt: new Date("2026-06-19T12:00:00.000Z"),
-    },
-    documents: [
-      {
-        id: "document-1",
-        title: "requirements.json",
-        content: '{"guestCheckout":false}\n',
-        source: ProjectDocumentSource.IMPORTED,
-        mimeType: "application/json",
-        metadata: {
-          originalName: "requirements.json",
-          sizeBytes: 24,
-        },
-        createdAt: new Date("2026-06-20T10:00:00.000Z"),
-        updatedAt: new Date("2026-06-21T10:00:00.000Z"),
-      },
-    ],
-    chats: [
-      {
-        id: "chat-1",
-        title: "Checkout review",
-        mode: "general",
-        model: "gemini-3.1-flash-lite",
-        createdAt: new Date("2026-06-22T10:00:00.000Z"),
-        updatedAt: new Date("2026-06-22T11:00:00.000Z"),
-        messages: [
-          {
-            id: "message-1",
-            role: ChatRole.USER,
-            content: "Please review the checkout requirements.",
-            mode: "general",
-            model: "gemini-3.1-flash-lite",
-            attachment: [
-              {
-                type: "image",
-                name: "checkout.png",
-                mimeType: "image/png",
-                previewUrl: "data:image/png;base64,not-exported",
-              },
-            ],
-            metadata: null,
-            createdAt: new Date("2026-06-22T10:00:00.000Z"),
-          },
-          {
-            id: "message-2",
-            role: ChatRole.ASSISTANT,
-            content: "The checkout flow needs guest and card validation coverage.",
-            mode: "general",
-            model: "gemini-3.1-flash-lite",
-            attachment: null,
-            metadata: null,
-            createdAt: new Date("2026-06-22T10:01:00.000Z"),
-          },
-        ],
-      },
-    ],
   };
 }
 

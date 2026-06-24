@@ -6,6 +6,15 @@ import type {
 
 export const PROJECT_EXPORT_FORMAT_VERSION = "1.0";
 
+export const PROJECT_IMPORT_LIMITS = Object.freeze({
+  maxCompressedBytes: 50_000_000,
+  maxEntries: 1_000,
+  maxEntryBytes: 25_000_000,
+  maxNestingDepth: 10,
+  maxPathChars: 240,
+  maxTotalUncompressedBytes: 200_000_000,
+});
+
 export interface ProjectExportDocumentRecord {
   id: string;
   title: string;
@@ -93,4 +102,20 @@ export interface ProjectExportPackage {
 
 export interface ProjectExportOptions {
   includeChats: boolean;
+}
+
+export interface ProjectImportPreview {
+  compatible: true;
+  formatVersion: typeof PROJECT_EXPORT_FORMAT_VERSION;
+  exportType: "project";
+  packageDigest: string;
+  suggestedProjectName: string;
+  sourceProjectName: string;
+  counts: {
+    documents: number;
+    chats: number;
+    messages: number;
+  };
+  warnings: string[];
+  unsupported: string[];
 }

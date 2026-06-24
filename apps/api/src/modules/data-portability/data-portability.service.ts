@@ -8,7 +8,9 @@ import {
   type DataPortabilityRepository,
 } from "./data-portability.repository.js";
 import { createProjectExportPackage } from "./export-package.js";
+import { previewProjectImportPackage } from "./import-package.js";
 import type {
+  ProjectImportPreview,
   ProjectExportOptions,
   ProjectExportPackage,
 } from "./data-portability.types.js";
@@ -19,6 +21,7 @@ export interface DataPortabilityService {
     projectId: string,
     options: ProjectExportOptions
   ): Promise<ProjectExportPackage>;
+  previewProjectImport(archive: Buffer): Promise<ProjectImportPreview>;
 }
 
 export interface DataPortabilityServiceDependencies {
@@ -47,6 +50,10 @@ export function createDataPortabilityService({
       }
 
       return createProjectExportPackage(project, options, now());
+    },
+
+    async previewProjectImport(archive) {
+      return previewProjectImportPackage(archive);
     },
   };
 }

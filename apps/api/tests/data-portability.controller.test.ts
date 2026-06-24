@@ -63,9 +63,111 @@ describe("data portability controller", () => {
     assert.equal(response.statusCode, 200);
     assert.equal(response.error, undefined);
   });
+
+  it("returns a project import preview for a raw ZIP payload", async () => {
+    const calls: boolean[] = [];
+    const previewCalls: Buffer[] = [];
+    const controller = createDataPortabilityController(
+      createFakeService(calls, previewCalls)
+    );
+    const response = createFakeResponse();
+    const archive = Buffer.from([80, 75, 3, 4]);
+
+    await controller.previewProjectImport(
+      {
+        authUser: {
+          id: "user-1",
+        },
+        body: archive,
+        is: () => "application/zip",
+      } as unknown as Request,
+      response.value,
+      response.next
+    );
+
+    assert.deepEqual(previewCalls, [archive]);
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.body, {
+      compatible: true,
+      formatVersion: "1.0",
+      exportType: "project",
+      packageDigest: "package-digest",
+      suggestedProjectName: "Checkout QA (Imported)",
+      sourceProjectName: "Checkout QA",
+      counts: {
+        documents: 0,
+        chats: 0,
+        messages: 0,
+      },
+      warnings: [],
+      unsupported: [],
+    });
+    assert.equal(response.error, undefined);
+  });
+
+  it("accepts application/octet-stream for project import preview", async () => {
+    const calls: boolean[] = [];
+    const previewCalls: Buffer[] = [];
+    const controller = createDataPortabilityController(
+      createFakeService(calls, previewCalls)
+    );
+    const response = createFakeResponse();
+    const archive = Buffer.from([80, 75, 3, 4]);
+
+    await controller.previewProjectImport(
+      {
+        authUser: {
+          id: "user-1",
+        },
+        body: archive,
+        is: (types: string[]) =>
+          types.includes("application/octet-stream")
+            ? "application/octet-stream"
+            : false,
+      } as unknown as Request,
+      response.value,
+      response.next
+    );
+
+    assert.deepEqual(previewCalls, [archive]);
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.error, undefined);
+  });
+
+  it("rejects unsupported preview content types before service execution", async () => {
+    const calls: boolean[] = [];
+    const previewCalls: Buffer[] = [];
+    const controller = createDataPortabilityController(
+      createFakeService(calls, previewCalls)
+    );
+    const response = createFakeResponse();
+
+    await controller.previewProjectImport(
+      {
+        authUser: {
+          id: "user-1",
+        },
+        body: {
+          not: "raw",
+        },
+        is: () => false,
+      } as unknown as Request,
+      response.value,
+      response.next
+    );
+
+    assert.deepEqual(previewCalls, []);
+    assert.equal(
+      (response.error as { code?: unknown })?.code,
+      "PROJECT_IMPORT_CONTENT_TYPE_UNSUPPORTED"
+    );
+  });
 });
 
-function createFakeService(calls: boolean[]): DataPortabilityService {
+function createFakeService(
+  calls: boolean[],
+  previewCalls: Buffer[] = []
+): DataPortabilityService {
   return {
     async exportOwnedProject(_userId, _projectId, options) {
       calls.push(options.includeChats);
@@ -94,12 +196,31 @@ function createFakeService(calls: boolean[]): DataPortabilityService {
         },
       };
     },
+    async previewProjectImport(archive) {
+      previewCalls.push(archive);
+
+      return {
+        compatible: true,
+        formatVersion: "1.0",
+        exportType: "project",
+        packageDigest: "package-digest",
+        suggestedProjectName: "Checkout QA (Imported)",
+        sourceProjectName: "Checkout QA",
+        counts: {
+          documents: 0,
+          chats: 0,
+          messages: 0,
+        },
+        warnings: [],
+        unsupported: [],
+      };
+    },
   };
 }
 
 function createFakeResponse() {
   const state: {
-    body?: Buffer;
+    body?: unknown;
     error?: unknown;
     headers: Record<string, string>;
     statusCode?: number;
@@ -118,6 +239,10 @@ function createFakeResponse() {
       return value;
     },
     send(body: Buffer) {
+      state.body = body;
+      return value;
+    },
+    json(body: unknown) {
       state.body = body;
       return value;
     },

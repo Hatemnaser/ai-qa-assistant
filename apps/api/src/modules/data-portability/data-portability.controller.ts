@@ -29,6 +29,32 @@ export function createDataPortabilityController(service: DataPortabilityService)
         next(error);
       }
     },
+
+    async previewProjectImport(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.is(["application/zip", "application/octet-stream"])) {
+          throw new AppError(
+            "Project import preview requires a ZIP payload.",
+            415,
+            "PROJECT_IMPORT_CONTENT_TYPE_UNSUPPORTED"
+          );
+        }
+
+        if (!Buffer.isBuffer(req.body) || req.body.byteLength === 0) {
+          throw new AppError(
+            "Project import package is invalid or unsupported.",
+            400,
+            "PROJECT_IMPORT_PACKAGE_INVALID"
+          );
+        }
+
+        const preview = await service.previewProjectImport(req.body);
+
+        res.status(200).json(preview);
+      } catch (error) {
+        next(error);
+      }
+    },
   };
 }
 
@@ -42,4 +68,5 @@ function getProjectIdParam(req: Request) {
   return projectId;
 }
 
-export const { exportProject } = createDataPortabilityController(dataPortabilityService);
+export const { exportProject, previewProjectImport } =
+  createDataPortabilityController(dataPortabilityService);

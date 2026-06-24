@@ -179,9 +179,14 @@ function createDocumentPath(document: ProjectExportDocumentRecord, index: number
   const metadata = toPortableDocumentMetadata(document.metadata);
   const preferredName = metadata?.originalName || document.title;
   const safeName = sanitizeArchiveFilename(preferredName);
-  const extension = hasFileExtension(safeName)
-    ? ""
-    : getDocumentExtension(document.mimeType, document.source);
+  const extension =
+    document.source === "USER_PROVIDED"
+      ? safeName.toLowerCase().endsWith(".md")
+        ? ""
+        : ".md"
+      : hasFileExtension(safeName)
+        ? ""
+        : getDocumentExtension(document.mimeType, document.source);
 
   return `documents/${padSequence(index)}-${safeName}${extension}`;
 }

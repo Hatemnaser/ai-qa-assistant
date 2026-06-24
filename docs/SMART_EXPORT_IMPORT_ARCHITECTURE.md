@@ -943,18 +943,33 @@ Goals:
 
 ### Phase 2 — Project Import Preview
 
-Add read-only package inspection.
+Status: completed on 2026-06-24.
+
+The backend now exposes authenticated, read-only package inspection through
+`POST /api/portability/projects/import/preview`. The route accepts
+`application/zip` and `application/octet-stream` through a route-specific raw
+body parser capped at 50 MB. Preview performs no project access lookup,
+repository call, database write, identifier reservation, indexing, or AI
+provider work.
+
+The implementation inspects the ZIP central directory before decompression,
+enforces entry/path/compressed/uncompressed limits, rejects duplicate and
+case-conflicting paths, validates the strict current manifest/project/chat
+schemas, verifies declared SHA-256 hashes and counts, then returns a
+whole-package SHA-256 digest for the future Commit slice. Safe undeclared ZIP
+entries are reported through `unsupported`; invalid or incompatible packages
+receive one bounded validation error without parser internals.
 
 Goals:
 
-* enforce ZIP and path-safety limits
-* validate `manifest.json` and `formatVersion`
-* validate canonical schemas and referenced files
-* verify per-file digests
-* calculate the package SHA-256 digest
-* report counts, warnings, blockers, and unsupported data
-* perform zero database writes
-* remain owner-scoped to the authenticated destination account
+* [x] enforce ZIP and path-safety limits
+* [x] validate `manifest.json` and `formatVersion`
+* [x] validate canonical schemas and referenced files
+* [x] verify per-file digests
+* [x] calculate the package SHA-256 digest
+* [x] report counts, warnings, and unsupported data
+* [x] perform zero database writes
+* [x] require an authenticated destination account
 
 ---
 

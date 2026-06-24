@@ -110,7 +110,7 @@ describe("CSRF protection", () => {
     }
   });
 
-  it("protects chat-history, project, memory, and settings mutations", async () => {
+  it("protects chat-history, project, portability, memory, and settings mutations", async () => {
     const requests = [
       fetch(`${baseUrl}/api/chats/chat-1`, { method: "DELETE" }),
       fetch(`${baseUrl}/api/chats/chat-1`, {
@@ -121,6 +121,13 @@ describe("CSRF protection", () => {
       postJson("/api/projects", { name: "Project" }),
       fetch(`${baseUrl}/api/projects/project-1`, { method: "DELETE" }),
       postJson("/api/projects/project-1/documents", { title: "Doc", content: "Body" }),
+      fetch(`${baseUrl}/api/portability/projects/import/preview`, {
+        body: Buffer.from([80, 75, 3, 4]),
+        headers: {
+          "content-type": "application/zip",
+        },
+        method: "POST",
+      }),
       postJson("/api/memories", { content: "Memory" }),
       fetch(`${baseUrl}/api/settings`, {
         body: JSON.stringify({ language: "en", theme: "light" }),
