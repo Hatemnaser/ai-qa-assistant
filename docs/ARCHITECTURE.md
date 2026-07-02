@@ -103,6 +103,9 @@ Small modules can start with fewer files, but should not put business logic dire
   model. Language drives the core web i18n state for `en`, `ar`, and `de`,
   including Arabic RTL through `html dir`.
 - `#/projects`: signed-in project management page with a searchable/sortable project grid, project detail view, project chat list, project Add Chats modal, project-scoped composer, and modal create/edit/delete flows.
+  It also exposes Project Portable ZIP export from project actions and a
+  local-file Import Preview/Commit modal that refreshes project and chat state
+  before opening the newly created project.
 
 The frontend auth pages call the API with `credentials: "include"` so sessions stay in the httpOnly cookie. Google OAuth and real reset emails are still future integrations.
 

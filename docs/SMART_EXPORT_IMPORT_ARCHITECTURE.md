@@ -2,7 +2,7 @@
 
 > Status: Phase 0 review completed; implementation order accepted.
 >
-> Last reviewed: 2026-06-24.
+> Last reviewed: 2026-06-28.
 >
 > This document defines the architecture and implementation order only. It does
 > not authorize application-code changes by itself.
@@ -1019,6 +1019,26 @@ Goals:
 
 ---
 
+### Project Portability Frontend UI
+
+Status: completed on 2026-06-28.
+
+The Projects UI now exposes Project ZIP export from each project's actions
+menu and Project import from the Projects page. Export defaults to including
+chats and allows the user to opt out before downloading the ZIP.
+
+Import keeps the selected ZIP `File` in local modal state, sends it to Preview,
+renders the source/suggested names, counts, warnings, unsupported items, and
+package digest, then commits the same `File` with `X-Package-Digest`. Selecting
+a different file clears the previous Preview state. Successful Commit refreshes
+the project list and account chat state, opens the new project, and surfaces
+post-commit warnings.
+
+The frontend uses the existing authenticated fetch/CSRF conventions and does
+not modify the lightweight Chat Quick Export/Import flow.
+
+---
+
 ### Phase 4 — Account Memory Export / Import
 
 Add a bounded versioned Account Memory portability flow.
@@ -1095,6 +1115,7 @@ The first complete MVP is the Project portability round trip:
 1. Project Portable ZIP Export.
 2. Project Import Preview with no database writes.
 3. Project Import Commit that creates a new project.
+4. Project UI for ZIP export, preview, and confirmed create-new import.
 
 The MVP includes:
 
@@ -1113,6 +1134,9 @@ The MVP includes:
 * transactional canonical writes
 * imported provenance
 * post-transaction Project Document re-indexing
+* local-only selected ZIP state in the import modal
+* user-visible Preview counts, warnings, unsupported items, and digest
+* project-list and account-chat refresh before navigation after successful Commit
 
 Account Memory portability is the next bounded phase after the Project round
 trip and is not required to call the Project MVP complete.
@@ -1169,6 +1193,8 @@ The Project MVP is successful when:
 * Canonical writes are transactional.
 * Document re-indexing starts only after transaction success.
 * Indexing failure does not destroy imported canonical data.
+* The Projects UI exports ZIP packages and commits only the same file that was
+  successfully previewed.
 * Tests cover planner decisions, export exclusions, ZIP safety, Preview
   no-write behavior, digest revalidation, owner isolation, rollback, and the
   project round trip.
@@ -1180,13 +1206,11 @@ The Project MVP is successful when:
 These questions do not block the accepted phase order, but must be answered
 before their relevant implementation slice:
 
-1. Should Project ZIP include project-linked chats by default, or require an
-   explicit checkbox?
-2. What are the maximum Project Document count and total canonical content
+1. What are the maximum Project Document count and total canonical content
    size inside one imported project, in addition to the global ZIP limits?
-3. What duplicate/conflict policy should Account Memory import use:
+2. What duplicate/conflict policy should Account Memory import use:
    skip exact duplicates, import all, or require per-item review?
-4. Which account settings are portable in the later Account ZIP export, and
+3. Which account settings are portable in the later Account ZIP export, and
    which are device/environment-specific?
-5. Which storage and retention policy should be selected before chat
+4. Which storage and retention policy should be selected before chat
    attachment persistence?

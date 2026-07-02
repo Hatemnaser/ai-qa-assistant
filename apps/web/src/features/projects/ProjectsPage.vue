@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  defineAsyncComponent,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 
 import ProjectDocumentsPanel from "../project-documents/components/ProjectDocumentsPanel.vue";
 import ProjectInstructionsPanel from "../project-instructions/components/ProjectInstructionsPanel.vue";
@@ -16,6 +23,12 @@ import ProjectFormModal from "./components/ProjectFormModal.vue";
 import Icon from "../../ui/Icon.vue";
 import { useI18n } from "../../i18n/useI18n";
 import { useProjectKnowledge } from "./composables/useProjectKnowledge";
+import { downloadProjectExport } from "./projectPortabilityDownload";
+import {
+  exportProjectZip,
+  type ProjectImportCommitResult,
+} from "./projectPortabilityApi";
+import { refreshAndOpenImportedProject } from "./projectPortabilityFlow";
 import { createProject, deleteProject, fetchProjects, updateProject } from "./projectsApi";
 import type { Project, ProjectInput } from "./types";
 import type { AuthUser } from "../auth/types";
@@ -27,6 +40,13 @@ type ProjectMenuPosition = {
   top: number;
 };
 
+const ProjectExportModal = defineAsyncComponent(
+  () => import("./components/ProjectExportModal.vue")
+);
+const ProjectImportModal = defineAsyncComponent(
+  () => import("./components/ProjectImportModal.vue")
+);
+
 const props = defineProps<{
   chats: Chat[];
   currentUser?: AuthUser | null;
@@ -36,6 +56,7 @@ const props = defineProps<{
   message: string;
   mode: string;
   projectToOpenId?: string | null;
+  refreshChats: () => Promise<void>;
   selectedAttachments: SelectedAttachment[];
 }>();
 
@@ -70,13 +91,18 @@ const modalErrorMessage = ref("");
 const isLoading = ref(false);
 const isSaving = ref(false);
 const isDeleting = ref(false);
+const isExportingProject = ref(false);
 const isAddChatsModalOpen = ref(false);
+const isProjectImportModalOpen = ref(false);
 const isProjectModalOpen = ref(false);
 const hasOpenedEmptyCreateModal = ref(false);
 const activeProjectId = ref<string | null>(null);
 const openProjectMenu = ref<ProjectMenuPosition | null>(null);
 const projectToEdit = ref<Project | null>(null);
+const projectPendingExport = ref<Project | null>(null);
 const projectPendingDelete = ref<Project | null>(null);
+const projectExportErrorMessage = ref("");
+const portabilityWarnings = ref<string[]>([]);
 const {
   addProjectDocument,
   documentErrorMessage,
@@ -178,6 +204,8 @@ async function loadProjects() {
     projects.value = [];
     activeProjectId.value = null;
     closeAddChatsModal();
+    closeProjectImportModal();
+    closeProjectExportModal();
     closeProjectModal();
     emitProjectsChanged();
     return;
@@ -251,6 +279,40 @@ function openCreateProjectModal() {
   isProjectModalOpen.value = true;
 }
 
+function openProjectImportModal() {
+  closeProjectMenu();
+  errorMessage.value = "";
+  successMessage.value = "";
+  portabilityWarnings.value = [];
+
+  if (!props.currentUser) {
+    emit("sign-in");
+    return;
+  }
+
+  isProjectImportModalOpen.value = true;
+}
+
+function closeProjectImportModal() {
+  isProjectImportModalOpen.value = false;
+}
+
+function openProjectExportModal(project: Project) {
+  closeProjectMenu();
+  errorMessage.value = "";
+  successMessage.value = "";
+  projectExportErrorMessage.value = "";
+  portabilityWarnings.value = [];
+  projectPendingExport.value = project;
+}
+
+function closeProjectExportModal() {
+  if (isExportingProject.value) return;
+
+  projectPendingExport.value = null;
+  projectExportErrorMessage.value = "";
+}
+
 function openEditProjectModal(project: Project) {
   closeProjectMenu();
   projectToEdit.value = project;
@@ -315,13 +377,70 @@ function openProjectActionsMenu(event: MouseEvent, projectId: string) {
     return;
   }
 
-  const menuWidth = 168;
+  const menuWidth = 200;
 
   openProjectMenu.value = {
     left: Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)),
     projectId,
     top: rect.bottom + 8,
   };
+}
+
+async function exportPendingProject(includeChats: boolean) {
+  const project = projectPendingExport.value;
+  if (!project || isExportingProject.value) return;
+
+  isExportingProject.value = true;
+  projectExportErrorMessage.value = "";
+  errorMessage.value = "";
+  successMessage.value = "";
+  portabilityWarnings.value = [];
+
+  try {
+    const archive = await exportProjectZip(project.id, {
+      includeChats,
+    });
+
+    downloadProjectExport(archive, project.name);
+    projectPendingExport.value = null;
+    successMessage.value = t("projects.portability.export.success");
+  } catch (error) {
+    projectExportErrorMessage.value =
+      error instanceof Error
+        ? error.message
+        : t("projects.portability.errors.export");
+  } finally {
+    isExportingProject.value = false;
+  }
+}
+
+async function handleProjectImported(result: ProjectImportCommitResult) {
+  isProjectImportModalOpen.value = false;
+  errorMessage.value = "";
+  successMessage.value = "";
+  portabilityWarnings.value = [...result.warnings];
+
+  try {
+    await refreshAndOpenImportedProject(result, {
+      async refreshProjects() {
+        const refreshedProjects = await fetchProjects();
+
+        projects.value = refreshedProjects;
+        emitProjectsChanged();
+        return refreshedProjects;
+      },
+      openProject,
+      refreshChats: props.refreshChats,
+    });
+    successMessage.value = t("projects.portability.import.success", {
+      project: result.projectName,
+    });
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : t("projects.portability.errors.refresh");
+  }
 }
 
 function closeProjectMenu() {
@@ -425,6 +544,10 @@ function getSortDate(project: Project, key: SortKey) {
           </ul>
         </div>
 
+        <button class="btn btn-outline-primary" type="button" @click="openProjectImportModal">
+          {{ t("projects.portability.import.action") }}
+        </button>
+
         <button class="btn btn-primary" type="button" @click="openCreateProjectModal">
           {{ t("projects.new") }}
         </button>
@@ -438,6 +561,21 @@ function getSortDate(project: Project, key: SortKey) {
     </section>
 
     <template v-else>
+      <div v-if="errorMessage || successMessage || portabilityWarnings.length > 0" class="project-portability-feedback">
+        <p v-if="errorMessage" class="workspace-feedback workspace-feedback--error mb-0" role="alert">
+          {{ errorMessage }}
+        </p>
+        <p v-if="successMessage" class="workspace-feedback workspace-feedback--success mb-0" role="status">
+          {{ successMessage }}
+        </p>
+        <div v-if="portabilityWarnings.length > 0" class="project-portability-feedback__warnings">
+          <strong>{{ t("projects.portability.import.warnings") }}</strong>
+          <ul>
+            <li v-for="warning in portabilityWarnings" :key="warning">{{ warning }}</li>
+          </ul>
+        </div>
+      </div>
+
       <template v-if="activeProject">
         <section class="project-detail">
           <button class="btn btn-link project-detail__back" type="button" @click="closeActiveProject">
@@ -536,13 +674,6 @@ function getSortDate(project: Project, key: SortKey) {
           />
         </div>
 
-        <p v-if="errorMessage" class="workspace-feedback workspace-feedback--error" role="alert">
-          {{ errorMessage }}
-        </p>
-        <p v-else-if="successMessage" class="workspace-feedback workspace-feedback--success" role="status">
-          {{ successMessage }}
-        </p>
-
         <div v-if="isLoading" class="workspace-empty">{{ t("projects.loading") }}</div>
 
         <div v-else-if="projects.length === 0" class="projects-empty">
@@ -575,6 +706,11 @@ function getSortDate(project: Project, key: SortKey) {
         :style="{ left: `${openProjectMenu.left}px`, top: `${openProjectMenu.top}px` }"
         @click.stop
       >
+        <li>
+          <button class="dropdown-item" type="button" @click="openProjectExportModal(openMenuProject)">
+            {{ t("projects.portability.export.action") }}
+          </button>
+        </li>
         <li>
           <button class="dropdown-item" type="button" @click="openEditProjectModal(openMenuProject)">
             {{ t("projects.menu.edit") }}
@@ -613,6 +749,20 @@ function getSortDate(project: Project, key: SortKey) {
       :project="projectPendingDelete"
       @cancel="cancelRemoveProject"
       @confirm="confirmRemoveProject"
+    />
+    <ProjectExportModal
+      v-if="projectPendingExport"
+      :error-message="projectExportErrorMessage"
+      :is-exporting="isExportingProject"
+      :project="projectPendingExport"
+      @cancel="closeProjectExportModal"
+      @export="exportPendingProject"
+    />
+    <ProjectImportModal
+      v-if="isProjectImportModalOpen"
+      :is-open="true"
+      @cancel="closeProjectImportModal"
+      @imported="handleProjectImported"
     />
   </section>
 </template>

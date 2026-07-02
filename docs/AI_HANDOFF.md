@@ -2,7 +2,7 @@
 
 Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`. Memory Intelligence decisions and retained review requirements live in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 
-Last updated: 2026-06-24
+Last updated: 2026-06-28
 
 ## Core Documentation Map
 
@@ -31,8 +31,8 @@ Last updated: 2026-06-24
   migrations were healthy, but there were zero users, projects, chats,
   messages, or sessions. Treat prior local data as unavailable unless it can
   still be recovered from browser-local chat storage or an external backup.
-- Latest Project portability backend verification on 2026-06-24: 388 API
-  tests, 99 web tests,
+- Latest Project portability UI verification on 2026-06-28: 388 API
+  tests, 111 web tests,
   `npm run check:api`, and `npm run check:web` passed. The previous broader
   2026-06-17 gate also included `npm run db:validate`, `npm run build:api`,
   `npm run build:web`, and `git diff --check`.
@@ -213,6 +213,11 @@ Complete enough:
   `X-Package-Digest`, full package revalidation, new IDs, transactional
   canonical writes, imported Project Memory/Document provenance, and
   post-transaction best-effort document indexing.
+- Project portability is usable from the Projects UI: project actions expose
+  ZIP export with an Include chats option, and the Projects page exposes a
+  local-file Preview/Commit modal that displays counts and warnings, commits
+  the same previewed file, refreshes project and account-chat state, and opens
+  the imported project.
 - Centralized project access checks and stale-response-safe Project Knowledge state.
 - Sidebar Projects navigation.
 - Gemini model strategy, routing, and fallback.
@@ -239,9 +244,9 @@ Still unfinished:
 - The Memory Intelligence architecture checkpoint, typed context contract,
   owner-scoped chat identity/complete Recent Turns, Conversation Summary
   persistence and controlled generation, and manual Project Memory singleton
-  are complete. The Project Portable ZIP Export/Preview/Commit backend round
-  trip is complete; Account Memory portability and AI-assisted memory
-  suggestions remain unfinished.
+  are complete. The Project Portable ZIP Export/Preview/Commit round trip and
+  frontend workflow are complete; Account Memory portability and AI-assisted
+  memory suggestions remain unfinished.
 - Admin usage dashboard.
 - Plans/entitlements and billing.
 - PDF/video/large file support.
@@ -292,8 +297,8 @@ Pick one track before coding:
      reload, separate usage telemetry, and transactional cursor comparison.
    - Project Memory now uses a dedicated owner-scoped singleton, manual GET/PUT
      API, 6,000-character limit, and `durableMemory.project` context slot.
-   - The Project Portable ZIP Export, zero-write Import Preview, and
-     create-new transactional Import Commit backend round trip is complete.
+   - The Project Portable ZIP Export, zero-write Import Preview, create-new
+     transactional Import Commit, and Projects UI workflow are complete.
      Account Memory portability is the next portability phase in
      `docs/SMART_EXPORT_IMPORT_ARCHITECTURE.md`.
    - Project Memory is manual-only in the MVP. Keep AI-assisted suggestions

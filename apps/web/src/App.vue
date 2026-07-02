@@ -460,6 +460,7 @@ async function persistThemeSetting() {
         :is-sending="isSending"
         :mode="selectedMode"
         :project-to-open-id="projectToOpenId"
+        :refresh-chats="syncAccountChats"
         :selected-attachments="selectedAttachments"
         @active-project-changed="projectToOpenId = $event"
         @add-chats-to-project="handleAddChatsToProject"
