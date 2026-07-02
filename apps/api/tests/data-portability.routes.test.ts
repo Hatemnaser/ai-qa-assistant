@@ -49,6 +49,65 @@ describe("GET /api/portability/projects/:projectId/export", () => {
   });
 });
 
+describe("GET /api/portability/account/memories/export", () => {
+  it("requires an authenticated session", async () => {
+    const response = await fetch(
+      `${baseUrl}/api/portability/account/memories/export`
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.code, "SESSION_REQUIRED");
+  });
+});
+
+describe("POST /api/portability/account/memories/import/preview", () => {
+  it("requires an authenticated session", async () => {
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
+    const response = await fetch(
+      `${baseUrl}/api/portability/account/memories/import/preview`,
+      {
+        body: JSON.stringify({
+          formatVersion: "1.0",
+        }),
+        headers: {
+          "content-type": "application/json",
+          ...csrfHeaders,
+        },
+        method: "POST",
+      }
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.code, "SESSION_REQUIRED");
+  });
+});
+
+describe("POST /api/portability/account/memories/import/commit", () => {
+  it("requires an authenticated session", async () => {
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
+    const response = await fetch(
+      `${baseUrl}/api/portability/account/memories/import/commit`,
+      {
+        body: JSON.stringify({
+          formatVersion: "1.0",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "x-package-digest": "a".repeat(64),
+          ...csrfHeaders,
+        },
+        method: "POST",
+      }
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.code, "SESSION_REQUIRED");
+  });
+});
+
 describe("POST /api/portability/projects/import/preview", () => {
   it("requires an authenticated session", async () => {
     const csrfHeaders = await getCsrfHeaders(baseUrl);

@@ -136,6 +136,31 @@ describe("CSRF protection", () => {
         },
         method: "POST",
       }),
+      fetch(
+        `${baseUrl}/api/portability/account/memories/import/preview`,
+        {
+          body: JSON.stringify({
+            formatVersion: "1.0",
+          }),
+          headers: {
+            "content-type": "application/json",
+          },
+          method: "POST",
+        }
+      ),
+      fetch(
+        `${baseUrl}/api/portability/account/memories/import/commit`,
+        {
+          body: JSON.stringify({
+            formatVersion: "1.0",
+          }),
+          headers: {
+            "content-type": "application/json",
+            "x-package-digest": "a".repeat(64),
+          },
+          method: "POST",
+        }
+      ),
       postJson("/api/memories", { content: "Memory" }),
       fetch(`${baseUrl}/api/settings`, {
         body: JSON.stringify({ language: "en", theme: "light" }),

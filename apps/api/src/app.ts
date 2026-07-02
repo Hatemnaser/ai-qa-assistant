@@ -21,6 +21,7 @@ export function createApp() {
 
   app.use(cors(buildCorsOptions()));
   app.use(csrfProtection);
+  app.use("/api/portability", dataPortabilityRouter);
   app.use(express.json({ limit: env.requestBodyLimit }));
 
   app.get("/", (req, res) => {
@@ -35,7 +36,6 @@ export function createApp() {
   app.use("/api/auth", authRouter);
   app.use("/api/chats", chatHistoryRouter);
   app.use("/api/chat", chatRouter);
-  app.use("/api/portability", dataPortabilityRouter);
   app.use("/api/memories", memoryRouter);
   app.use("/api/projects", projectsRouter);
   app.use("/api/settings", settingsRouter);

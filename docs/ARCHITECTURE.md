@@ -85,11 +85,13 @@ Small modules can start with fewer files, but should not put business logic dire
 - `project-memory`: one optional manually edited, 6,000-character bounded
   distilled-memory record per owned project.
 - `project-documents`: signed-in manual project document CRUD and text/data/code file import with owner-only project checks. It persists deterministic chunk indexes and ranks project context through a replaceable retrieval contract.
-- `data-portability`: the backend Project portability round trip. It provides
-  owner-scoped Project Portable ZIP export, authenticated zero-write Import
-  Preview, and create-new Import Commit. Commit revalidates the ZIP and Preview
-  digest, writes canonical project data in one transaction with imported
-  provenance, then starts best-effort document indexing after commit.
+- `data-portability`: the backend Project and Account Memory portability
+  boundaries. Project portability provides owner-scoped ZIP export,
+  authenticated zero-write Import Preview, and create-new Import Commit.
+  Account Memory portability provides owner-scoped versioned JSON export,
+  zero-write Preview, and digest-confirmed create-new-record Commit with
+  trim-only exact-duplicate skipping. Both flows revalidate original package
+  bytes before transactional canonical writes.
 - `usage`: portfolio/demo credit limits, credit reservations before AI provider calls, completed token usage updates, and personal usage summaries.
 
 ## Active Frontend Routes
@@ -186,6 +188,17 @@ verified over HTTPS.
   `X-Package-Digest`, never overwrites or merges, writes canonical records
   transactionally with new IDs, and starts document indexing only after the
   transaction succeeds.
+- `GET /api/portability/account/memories/export`: download the authenticated
+  user's canonical `USER_PROVIDED` and `IMPORTED` Account Memory records as
+  versioned `account_memories` JSON.
+- `POST /api/portability/account/memories/import/preview`: validate up to 1 MB
+  and 100 Account Memory records from raw `application/json`, calculate the
+  exact-byte package digest, and report importable/exact-duplicate counts
+  without writes.
+- `POST /api/portability/account/memories/import/commit`: revalidate the same
+  raw JSON and `X-Package-Digest`, then skip `content.trim()` exact duplicates
+  and create the remaining owner-scoped records with new IDs, local timestamps,
+  and `source = IMPORTED` in one serializable transaction.
 - `GET /api/projects`: list projects owned by the signed-in user.
 - `POST /api/projects`: create a signed-in user's project.
 - `PUT /api/projects/:projectId`: update a project owned by the signed-in user.

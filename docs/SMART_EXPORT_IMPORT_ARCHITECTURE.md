@@ -1,8 +1,8 @@
 # Smart Export / Import Architecture
 
-> Status: Phase 0 review completed; implementation order accepted.
+> Status: Phases 0-4 and the Project portability frontend are implemented.
 >
-> Last reviewed: 2026-06-28.
+> Last reviewed: 2026-07-03.
 >
 > This document defines the architecture and implementation order only. It does
 > not authorize application-code changes by itself.
@@ -220,9 +220,10 @@ manual Account Memory records. Import must create new memory records with
 `provenance = IMPORTED`, enforce the existing per-record limits, and present a
 preview before writing.
 
-Duplicate and conflict policy remains an open design question. Until that
-policy is accepted, Account Memory import must not silently overwrite or merge
-existing records.
+The accepted MVP conflict policy skips exact duplicates and creates new records
+only. Duplicate comparison uses exactly `content.trim()`: casing and internal
+whitespace remain significant. Import never overwrites, merges, or deletes
+existing Account Memory.
 
 ---
 
@@ -695,6 +696,42 @@ Account Memory may use versioned JSON for export/import because it is a bounded
 list of text records. Import remains preview-first and creates imported records
 without silently replacing existing memory.
 
+The JSON package uses `formatVersion: "1.0"` and
+`exportType: "account_memories"`. It contains an owner-scoped `memories` array
+whose source IDs, provenance, and timestamps are trace-only. Export includes
+only `USER` records whose source is `USER_PROVIDED` or `IMPORTED`.
+
+The fixed package/import limits are:
+
+* 1 MB of raw JSON bytes
+* 100 package records
+* 4,000 characters per normalized record
+
+Export enforces the same package limits so it never produces JSON that the
+current importer would reject. The canonical package shape is:
+
+```ts
+{
+  formatVersion: "1.0";
+  exportType: "account_memories";
+  exportedAt: string;
+  account: {
+    sourceUserId: string;
+  };
+  memories: Array<{
+    sourceId: string;
+    content: string;
+    source: "USER_PROVIDED" | "IMPORTED";
+    createdAt?: string;
+    updatedAt?: string;
+  }>;
+  warnings: string[];
+}
+```
+
+Preview and Commit calculate SHA-256 from the exact raw JSON bytes before any
+global JSON parser transforms them.
+
 ---
 
 ### Account ZIP
@@ -796,12 +833,40 @@ and the existing retry/index lifecycle.
 
 Account Memory import follows the same Preview/Commit separation.
 
-The initial flow may use versioned JSON rather than ZIP. Preview validates
-record counts, content limits, provenance, duplicates, and conflicts without
-writes. Commit revalidates the same payload/digest and creates imported memory
-records only.
+The initial flow uses versioned JSON rather than ZIP. Preview validates record
+counts, content limits, provenance, exact duplicates, and conflicts without
+writes. Duplicate detection covers existing owner-scoped Account Memory and
+duplicates inside the package.
 
-The accepted duplicate/conflict UX must be documented before implementation.
+Commit revalidates the exact payload and digest, then recomputes duplicates
+inside one serializable transaction because Account Memory may have changed
+after Preview. It skips exact duplicates and creates all remaining records with
+new IDs, local timestamps, `scope = USER`, and `source = IMPORTED`. Package
+source IDs, provenance, and timestamps are never reused as local identity or
+canonical timestamps. Commit never overwrites, merges, or deletes existing
+records and never calls AI.
+
+Preview returns:
+
+```ts
+{
+  compatible: true;
+  formatVersion: "1.0";
+  exportType: "account_memories";
+  packageDigest: string;
+  counts: {
+    packageRecords: number;
+    importableRecords: number;
+    exactDuplicates: number;
+  };
+  currentMemoryCount: number;
+  warnings: string[];
+}
+```
+
+Commit returns created/skipped counts, the resulting Account Memory record
+count, and warnings. Both endpoints accept only raw `application/json`; Commit
+also requires the Preview digest in `X-Package-Digest`.
 
 ---
 
@@ -1041,17 +1106,29 @@ not modify the lightweight Chat Quick Export/Import flow.
 
 ### Phase 4 — Account Memory Export / Import
 
-Add a bounded versioned Account Memory portability flow.
+Status: completed on 2026-07-03.
+
+The backend exposes owner-scoped Account Memory JSON export through
+`GET /api/portability/account/memories/export`, zero-write Preview through
+`POST /api/portability/account/memories/import/preview`, and digest-confirmed
+Commit through `POST /api/portability/account/memories/import/commit`.
+
+Preview and Commit consume raw `application/json` bytes before the global JSON
+parser. Commit revalidates the package, matches `X-Package-Digest`, recomputes
+duplicates in a serializable transaction, and creates only non-duplicate
+`IMPORTED` records. No migration was required because the current schema
+already supports `MemorySource.IMPORTED`.
 
 Goals:
 
-* export signed-in Account Memory records to canonical JSON
-* preview import without writes
-* revalidate payload and digest during Commit
-* create imported memory records with `IMPORTED` provenance
-* enforce current item and content limits
-* apply an accepted duplicate/conflict policy
-* remain owner-scoped
+* [x] export signed-in Account Memory records to canonical JSON
+* [x] preview import without writes
+* [x] revalidate payload and digest during Commit
+* [x] create imported memory records with `IMPORTED` provenance
+* [x] enforce fixed payload, record-count, and content limits
+* [x] skip trim-normalized exact duplicates without replace/delete/merge
+* [x] recompute duplicates inside the Commit transaction
+* [x] remain owner-scoped
 
 ---
 
@@ -1138,8 +1215,10 @@ The MVP includes:
 * user-visible Preview counts, warnings, unsupported items, and digest
 * project-list and account-chat refresh before navigation after successful Commit
 
-Account Memory portability is the next bounded phase after the Project round
-trip and is not required to call the Project MVP complete.
+Account Memory portability followed the completed Project round trip. Its
+backend JSON Export/Preview/Commit flow is complete; frontend integration is a
+separate bounded follow-up and was not required to call the Project MVP
+complete.
 
 ---
 
@@ -1208,9 +1287,7 @@ before their relevant implementation slice:
 
 1. What are the maximum Project Document count and total canonical content
    size inside one imported project, in addition to the global ZIP limits?
-2. What duplicate/conflict policy should Account Memory import use:
-   skip exact duplicates, import all, or require per-item review?
-3. Which account settings are portable in the later Account ZIP export, and
+2. Which account settings are portable in the later Account ZIP export, and
    which are device/environment-specific?
-4. Which storage and retention policy should be selected before chat
+3. Which storage and retention policy should be selected before chat
    attachment persistence?

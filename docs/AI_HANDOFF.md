@@ -31,11 +31,11 @@ Last updated: 2026-06-28
   migrations were healthy, but there were zero users, projects, chats,
   messages, or sessions. Treat prior local data as unavailable unless it can
   still be recovered from browser-local chat storage or an external backup.
-- Latest Project portability UI verification on 2026-06-28: 388 API
-  tests, 111 web tests,
-  `npm run check:api`, and `npm run check:web` passed. The previous broader
-  2026-06-17 gate also included `npm run db:validate`, `npm run build:api`,
-  `npm run build:web`, and `git diff --check`.
+- Latest Account Memory portability backend verification on 2026-07-03:
+  411 API tests, 111 web tests, API/web TypeScript checks,
+  `npm run build:api`, and `npm run build:web` passed. `git diff --check`
+  also passed with only the repository's expected Windows line-ending
+  warnings.
 - Start the API with `npm run dev:api` when needed; do not assume a server is
   already running.
 - `main` matched `origin/main` before the current production-safety script work
@@ -218,6 +218,11 @@ Complete enough:
   local-file Preview/Commit modal that displays counts and warnings, commits
   the same previewed file, refreshes project and account-chat state, and opens
   the imported project.
+- Account Memory portability backend exposes owner-scoped versioned JSON
+  export, raw-byte zero-write Preview, and digest-confirmed Commit through
+  `/api/portability/account/memories/...`. Commit skips trim-normalized exact
+  duplicates, creates only new `USER/IMPORTED` records in one serializable
+  transaction, and never overwrites, merges, or deletes existing memory.
 - Centralized project access checks and stale-response-safe Project Knowledge state.
 - Sidebar Projects navigation.
 - Gemini model strategy, routing, and fallback.
@@ -245,8 +250,9 @@ Still unfinished:
   owner-scoped chat identity/complete Recent Turns, Conversation Summary
   persistence and controlled generation, and manual Project Memory singleton
   are complete. The Project Portable ZIP Export/Preview/Commit round trip and
-  frontend workflow are complete; Account Memory portability and AI-assisted
-  memory suggestions remain unfinished.
+  frontend workflow plus Account Memory portability backend are complete;
+  Account Memory portability UI and AI-assisted memory suggestions remain
+  unfinished.
 - Admin usage dashboard.
 - Plans/entitlements and billing.
 - PDF/video/large file support.
@@ -299,8 +305,10 @@ Pick one track before coding:
      API, 6,000-character limit, and `durableMemory.project` context slot.
    - The Project Portable ZIP Export, zero-write Import Preview, create-new
      transactional Import Commit, and Projects UI workflow are complete.
-     Account Memory portability is the next portability phase in
-     `docs/SMART_EXPORT_IMPORT_ARCHITECTURE.md`.
+   - Account Memory JSON Export, zero-write Preview, and digest-confirmed
+     create-new-record Commit are complete.
+   - Account Memory portability frontend UI is the next bounded portability
+     step in `docs/SMART_EXPORT_IMPORT_ARCHITECTURE.md`.
    - Project Memory is manual-only in the MVP. Keep AI-assisted suggestions
      deferred without adding direct automatic canonical writes.
    - Do not store Project Memory or Conversation Summary in generic `Memory` rows.
