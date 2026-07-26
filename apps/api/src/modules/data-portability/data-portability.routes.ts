@@ -1,12 +1,12 @@
 import express, { Router } from "express";
 
 import { requireAuth } from "../auth/auth.middleware.js";
+import { exportAccountData } from "./account-data-portability.controller.js";
 import {
-  commitAccountMemoryImport,
-  exportAccountMemories,
-  previewAccountMemoryImport,
-} from "./account-memory-portability.controller.js";
-import { ACCOUNT_MEMORY_IMPORT_LIMITS } from "./account-memory-portability.types.js";
+  commitAccountImport,
+  previewAccountImport,
+} from "./account-import.controller.js";
+import { ACCOUNT_IMPORT_LIMITS } from "./account-import.types.js";
 import {
   commitProjectImport,
   exportProject,
@@ -17,25 +17,22 @@ import { PROJECT_IMPORT_LIMITS } from "./data-portability.types.js";
 export const dataPortabilityRouter = Router();
 
 dataPortabilityRouter.use(requireAuth);
-dataPortabilityRouter.get(
-  "/account/memories/export",
-  exportAccountMemories
+dataPortabilityRouter.get("/account/export", exportAccountData);
+dataPortabilityRouter.post(
+  "/account/import/commit",
+  express.raw({
+    limit: ACCOUNT_IMPORT_LIMITS.maxCompressedBytes,
+    type: "application/zip",
+  }),
+  commitAccountImport
 );
 dataPortabilityRouter.post(
-  "/account/memories/import/commit",
+  "/account/import/preview",
   express.raw({
-    limit: ACCOUNT_MEMORY_IMPORT_LIMITS.maxPayloadBytes,
-    type: "application/json",
+    limit: ACCOUNT_IMPORT_LIMITS.maxCompressedBytes,
+    type: "application/zip",
   }),
-  commitAccountMemoryImport
-);
-dataPortabilityRouter.post(
-  "/account/memories/import/preview",
-  express.raw({
-    limit: ACCOUNT_MEMORY_IMPORT_LIMITS.maxPayloadBytes,
-    type: "application/json",
-  }),
-  previewAccountMemoryImport
+  previewAccountImport
 );
 dataPortabilityRouter.get("/projects/:projectId/export", exportProject);
 dataPortabilityRouter.post(

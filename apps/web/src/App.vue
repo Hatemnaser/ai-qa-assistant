@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, defineAsyncComponent, onMounted, ref, watch } from "vue";
 
 import { useAuthSession } from "./features/auth/composables/useAuthSession";
 import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage.vue";
@@ -11,7 +11,6 @@ import ProjectFormModal from "./features/projects/components/ProjectFormModal.vu
 import ProjectsPage from "./features/projects/ProjectsPage.vue";
 import { createProject, fetchProjects } from "./features/projects/projectsApi";
 import type { Project, ProjectInput } from "./features/projects/types";
-import SettingsPage from "./features/settings/SettingsPage.vue";
 import { fetchUserSettings, updateUserSettings } from "./features/settings/settingsApi";
 import type { UserSettings } from "./features/settings/types";
 import UsagePage from "./features/usage/UsagePage.vue";
@@ -27,6 +26,10 @@ import { useAccountChatSync } from "./features/chat/composables/useAccountChatSy
 import { useChatController } from "./features/chat/composables/useChatController";
 import { useI18n } from "./i18n/useI18n";
 import { useAppRoute, type AuthView } from "./router/useAppRoute";
+
+const SettingsPage = defineAsyncComponent(
+  () => import("./features/settings/SettingsPage.vue")
+);
 
 const {
   currentRoute,
@@ -228,6 +231,10 @@ async function applyAccountSettings() {
 
 function handleSettingsSaved(settings: UserSettings) {
   applySavedSettings(settings);
+}
+
+async function handleAccountImported() {
+  await Promise.all([syncAccountChats(), loadAccountProjects()]);
 }
 
 function handleProjectsChanged(projects: Project[]) {
@@ -480,6 +487,7 @@ async function persistThemeSetting() {
       <SettingsPage
         :current-user="currentUser"
         :model-options="modelOptions"
+        :refresh-imported-account-data="handleAccountImported"
         @back-to-chat="navigateToChat"
         @settings-saved="handleSettingsSaved"
         @sign-in="navigateToAuth('login')"

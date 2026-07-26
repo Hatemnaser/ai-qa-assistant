@@ -2,7 +2,7 @@
 
 Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`. Memory Intelligence decisions and retained review requirements live in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 
-Last updated: 2026-06-28
+Last updated: 2026-07-26
 
 ## Core Documentation Map
 
@@ -31,8 +31,8 @@ Last updated: 2026-06-28
   migrations were healthy, but there were zero users, projects, chats,
   messages, or sessions. Treat prior local data as unavailable unless it can
   still be recovered from browser-local chat storage or an external backup.
-- Latest Account Memory portability backend verification on 2026-07-03:
-  411 API tests, 111 web tests, API/web TypeScript checks,
+- Latest Account Data portability verification on 2026-07-26:
+  419 API tests, 126 web tests, API/web TypeScript checks,
   `npm run build:api`, and `npm run build:web` passed. `git diff --check`
   also passed with only the repository's expected Windows line-ending
   warnings.
@@ -218,11 +218,17 @@ Complete enough:
   local-file Preview/Commit modal that displays counts and warnings, commits
   the same previewed file, refreshes project and account-chat state, and opens
   the imported project.
-- Account Memory portability backend exposes owner-scoped versioned JSON
-  export, raw-byte zero-write Preview, and digest-confirmed Commit through
-  `/api/portability/account/memories/...`. Commit skips trim-normalized exact
-  duplicates, creates only new `USER/IMPORTED` records in one serializable
-  transaction, and never overwrites, merges, or deletes existing memory.
+- Full Account Data portability is the Settings product. Owner-scoped
+  `GET /api/portability/account/export` downloads canonical profile/settings,
+  Account Memory, projects, documents, chats/messages, readable Markdown, and
+  provider-neutral migration references as `account-data-export.zip`.
+- Unified Account Import exposes zero-write Preview and digest-confirmed
+  create-new Commit under `/api/portability/account/import/...`. It
+  automatically detects native Account Data ZIPs and supported external
+  conversation archives. The lazy Settings modal keeps the file local, has no
+  provider dropdown, displays all portable-record counts and localized
+  warnings, then
+  refreshes Account Memory, projects, and chats after transactional Commit.
 - Centralized project access checks and stale-response-safe Project Knowledge state.
 - Sidebar Projects navigation.
 - Gemini model strategy, routing, and fallback.
@@ -250,9 +256,8 @@ Still unfinished:
   owner-scoped chat identity/complete Recent Turns, Conversation Summary
   persistence and controlled generation, and manual Project Memory singleton
   are complete. The Project Portable ZIP Export/Preview/Commit round trip and
-  frontend workflow plus Account Memory portability backend are complete;
-  Account Memory portability UI and AI-assisted memory suggestions remain
-  unfinished.
+  frontend workflow plus unified Account Export/Import are complete; additional
+  archive adapters and AI-assisted memory suggestions remain unfinished.
 - Admin usage dashboard.
 - Plans/entitlements and billing.
 - PDF/video/large file support.
@@ -305,10 +310,12 @@ Pick one track before coding:
      API, 6,000-character limit, and `durableMemory.project` context slot.
    - The Project Portable ZIP Export, zero-write Import Preview, create-new
      transactional Import Commit, and Projects UI workflow are complete.
-   - Account Memory JSON Export, zero-write Preview, and digest-confirmed
-     create-new-record Commit are complete.
-   - Account Memory portability frontend UI is the next bounded portability
-     step in `docs/SMART_EXPORT_IMPORT_ARCHITECTURE.md`.
+   - Full Account Data ZIP export and the Settings workflow are complete.
+   - Unified Account Import Preview/Commit is complete for native account ZIPs
+     and supported external conversation archives. Keep additional adapters
+     blocked on stable fixtures and versioned schemas.
+   - Account Memory remains included in complete Account Data export and
+     editable through the normal Settings CRUD panel.
    - Project Memory is manual-only in the MVP. Keep AI-assisted suggestions
      deferred without adding direct automatic canonical writes.
    - Do not store Project Memory or Conversation Summary in generic `Memory` rows.

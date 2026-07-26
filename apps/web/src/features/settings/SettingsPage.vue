@@ -13,12 +13,16 @@ import { fetchUserSettings, updateUserSettings } from "./settingsApi";
 import type { UserSettings, UserThemePreference } from "./types";
 import type { AuthUser } from "../auth/types";
 import type { AiModelOption } from "../chat/types";
+import AccountDataPortabilityPanel from "../data-portability/components/AccountDataPortabilityPanel.vue";
+import type { AccountImportCommitResult } from "../data-portability/accountDataPortabilityApi";
+import { refreshAccountDataAfterImport } from "../data-portability/accountImportRefresh";
 import { useI18n } from "../../i18n/useI18n";
 import type { AppLocale } from "../../i18n/locales";
 
 const props = defineProps<{
   currentUser?: AuthUser | null;
   modelOptions: AiModelOption[];
+  refreshImportedAccountData?: () => Promise<void>;
 }>();
 
 const emit = defineEmits<{
@@ -202,6 +206,14 @@ function getLanguageLabel(language: AppLocale) {
 
   return t("language.en");
 }
+
+async function handleAccountImported(_result: AccountImportCommitResult) {
+  await refreshAccountDataAfterImport({
+    refreshAccountMemory: loadAccountMemories,
+    refreshProjectsAndChats:
+      props.refreshImportedAccountData || (async () => {}),
+  });
+}
 </script>
 
 <template>
@@ -275,6 +287,11 @@ function getLanguageLabel(language: AppLocale) {
         </div>
       </form>
     </section>
+
+    <AccountDataPortabilityPanel
+      v-if="currentUser"
+      @imported="handleAccountImported"
+    />
 
     <MemoryPanel
       v-if="currentUser"

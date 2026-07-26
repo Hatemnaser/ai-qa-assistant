@@ -10,6 +10,7 @@ Translation copy is stored as UTF-8 JSON and split by product domain:
 - `memory.json`
 - `usage.json`
 - `projects.json`
+- `portability.json`
 
 English is the canonical key schema. Add a new key to the same domain file in
 every locale, keep interpolation placeholders such as `{count}` identical, and

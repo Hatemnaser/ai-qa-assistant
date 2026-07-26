@@ -2,7 +2,7 @@
 
 This file is the working roadmap for what is done, what is still foundation work, and what should come next. Use it as the reference when asking "what is next?" or "what still needs cleanup?"
 
-Last reviewed: 2026-07-03
+Last reviewed: 2026-07-26
 
 For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 Before future work on Project Memory, conversation summaries, AI-extracted memory,
@@ -16,10 +16,10 @@ smoke tests, follow `docs/PRODUCTION_READINESS.md`.
 - [x] Legacy vanilla app was migrated to Vue + TypeScript.
 - [x] Backend is modular Express + TypeScript + Prisma.
 - [x] PostgreSQL schema is established for users, sessions, chats, projects, memory, usage events, and settings.
-- [x] Latest Account Memory portability backend verification on 2026-07-03
+- [x] Latest Account Data portability verification on 2026-07-26
   passed:
-  - 411 API tests passing.
-  - 111 web tests passing.
+  - 419 API tests passing.
+  - 126 web tests passing.
   - API and web TypeScript checks and production builds passing.
 - [x] Latest pushed baseline was clean before the current project assignment work.
 
@@ -164,7 +164,6 @@ Still deferred from automatic intelligence scope:
 - AI-extracted Account Memory or Project Memory proposals.
 - Background memory update jobs or a broad Memory Orchestrator.
 - Memory embeddings and combined document/memory vector indexes.
-- Account Memory portability frontend UI.
 
 Project Memory and Conversation Summary now exist as separate scoped layers:
 manual Project Memory is user-edited only, and Conversation Summary generation
@@ -422,10 +421,19 @@ These should happen before large new product features.
 - [x] Add the Project portability frontend flow for ZIP export, local Preview,
   same-file Commit, warnings, project/chat refresh, and opening the imported
   project.
-- [x] Add Account Memory versioned JSON export, zero-write Preview, and
-  digest-confirmed create-new-record Commit with fixed limits, imported
-  provenance, and trim-only exact-duplicate skipping.
-- [ ] Add Account Memory portability frontend UI.
+- [x] Remove standalone Account Memory portability; Account Memory remains part
+  of the complete Account Data ZIP and its normal CRUD UI.
+- [x] Add Full Account Data ZIP export in Settings with canonical profile,
+  settings, memory, projects, documents, chats/messages, readable companions,
+  hashes, and provider-neutral migration references.
+- [x] Add unified Account Import Preview/Commit with automatic native/external
+  archive detection, same-file digest confirmation, transactional create-new
+  records, and immediate Account Memory/project/chat refresh.
+- [x] Restore this application's own Full Account Data ZIP with new IDs,
+  remapped project-chat relationships, imported provenance, exact trimmed
+  Account Memory deduplication, and post-transaction document indexing.
+- [ ] Add another account archive adapter only after stable real fixtures and a
+  versioned parser contract are available.
 
 ### Phase 5: Credits, Plans, And Admin
 
@@ -583,9 +591,9 @@ When asking "what is next?", choose the first unfinished item that matches the c
    - Project Memory frontend manual edit/save/clear is complete.
    - The Project Portable ZIP Export, zero-write Import Preview, create-new
      transactional Import Commit, and Projects UI workflow are complete.
-   - Account Memory portability backend is complete with JSON Export,
-     zero-write Preview, and digest-confirmed Commit.
-   - Implement the Account Memory portability frontend workflow next.
+   - Full Account Data ZIP export and the Settings workflow are complete.
+   - Unified Account Import auto-detects native account and supported external
+     conversation archives; additional formats remain fixture-gated follow-ups.
    - Keep AI-assisted Account or Project Memory suggestions deferred until
      review UX, provider cost, abuse protection, and provenance policy are
      explicitly designed.

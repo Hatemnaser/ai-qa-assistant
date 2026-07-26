@@ -1,16 +1,16 @@
 # Smart Export / Import Architecture
 
-> Status: Phases 0-4 and the Project portability frontend are implemented.
+> Status: Project portability and unified Account Export/Import are implemented.
 >
-> Last reviewed: 2026-07-03.
+> Last reviewed: 2026-07-26.
 >
 > This document defines the architecture and implementation order only. It does
 > not authorize application-code changes by itself.
 
 ## Goal
 
-Build a smart, extensible Export / Import system for projects, memory, chats,
-conversations, and later account-level data.
+Build a smart, extensible Export / Import system for projects, chats,
+conversations, complete account-level data, and external AI migration.
 
 The system already supports basic chat import/export in JSON, Markdown, TXT,
 and CSV. The goal is not to rewrite that flow. The first real portable MVP is
@@ -57,8 +57,9 @@ Consequences:
 2. Project Import is split into a read-only Preview and a separate Commit.
 3. Project Import MVP always creates a new project.
 4. Full Conversation ZIP is deferred until chat attachment persistence exists.
-5. Account Memory portability follows the project round trip.
-6. Account ZIP, PDF, and external adapters remain later phases.
+5. Full Account Data ZIP is the account-level feature exposed in Settings.
+6. External AI imports use provider adapters and must not claim native account
+   restoration when the destination provider does not support it.
 
 ---
 
@@ -211,41 +212,50 @@ writes, then creates a new project only after explicit confirmation.
 
 ---
 
-### 3. Account Memory Export / Import
+### 3. Full Account Data Export
 
-Account Memory portability follows the Project ZIP round trip.
+The primary account-level product is a complete owner-scoped ZIP from Settings.
 
-It should support a bounded, versioned JSON format for the signed-in user's
-manual Account Memory records. Import must create new memory records with
-`provenance = IMPORTED`, enforce the existing per-record limits, and present a
-preview before writing.
+It includes:
 
-The accepted MVP conflict policy skips exact duplicates and creates new records
-only. Duplicate comparison uses exactly `content.trim()`: casing and internal
-whitespace remain significant. Import never overwrites, merges, or deletes
-existing Account Memory.
+* export-safe profile fields and settings
+* canonical Account Memory
+* projects, Project Instructions, Project Memory, and Project Documents
+* all owned chats and messages, including project references
+* readable Markdown companions
+* provider-neutral conversation and memory reference files
+
+It excludes sessions, credentials, tokens, usage events, Conversation Summary,
+document chunks, embeddings, and index lifecycle state. Chat attachment
+metadata is included, but unavailable original bytes are reported honestly.
 
 ---
 
-### 4. Account ZIP Export
+### 4. External AI Chat Import
 
-Used from Settings.
+External migration is a provider-adapter concern, not a restore of foreign
+account settings.
 
-Account export is a later phase. It should use ZIP because it may contain
-multiple projects, unassigned chats, Account Memory, settings, and documents.
-Account ZIP import is not part of the first account portability phase.
+The first supported input adapters are:
 
-Sensitive information should not be exported.
+* ChatGPT data-export ZIP files containing `conversations.json` or numbered
+  conversation JSON files.
+* Claude data-export ZIP files containing exported conversations.
 
-Do not export:
+This import is best-effort. It supports recognized conversation shapes and
+supported user/assistant text only; it does not guarantee complete migration
+of another provider account, settings, memories, attachments, tool output, or
+every historical export variant.
 
-* Password hashes
-* Sessions
-* Reset or verification tokens
-* Provider API keys
-* Internal auth secrets
-* Billing secrets
-* Server-only config
+Preview auto-detects or verifies the selected source, parses only supported
+user/assistant text messages, reports counts and warnings, and performs no
+database writes. Commit revalidates the same ZIP and digest and creates new
+standalone chats with new local IDs in one transaction. Source IDs and model
+names are trace metadata only.
+
+Gemini Takeout import remains deferred because Google documents how to obtain
+the archive but does not publish a stable import schema for third-party
+parsers.
 
 ---
 
@@ -563,7 +573,7 @@ files because they are not currently persisted.
 
 ---
 
-### Later Account ZIP
+### Full Account Data ZIP
 
 ```txt
 account_export.zip
@@ -583,7 +593,9 @@ account_export.zip
    └─ unassigned_chat_001.json
 ```
 
-Account export should exclude sensitive server-side secrets.
+The implemented account export uses this concept with versioned canonical
+JSON, readable Markdown, document content, and provider-neutral migration
+reference files. It excludes sensitive server-side secrets and derived state.
 
 ---
 
@@ -648,8 +660,8 @@ type ExportPlan = {
 ```
 
 The first planner implementation needs to cover Project ZIP export and existing
-chat export compatibility. Conversation ZIP, Account ZIP, PDF, and external
-adapters may extend the same contract later.
+chat export compatibility. Full Account Data ZIP now extends the same
+principles; Conversation ZIP, PDF, and work-management adapters remain later.
 
 ---
 
@@ -690,53 +702,9 @@ state.
 
 ---
 
-### Account Memory
+### Full Account Data ZIP
 
-Account Memory may use versioned JSON for export/import because it is a bounded
-list of text records. Import remains preview-first and creates imported records
-without silently replacing existing memory.
-
-The JSON package uses `formatVersion: "1.0"` and
-`exportType: "account_memories"`. It contains an owner-scoped `memories` array
-whose source IDs, provenance, and timestamps are trace-only. Export includes
-only `USER` records whose source is `USER_PROVIDED` or `IMPORTED`.
-
-The fixed package/import limits are:
-
-* 1 MB of raw JSON bytes
-* 100 package records
-* 4,000 characters per normalized record
-
-Export enforces the same package limits so it never produces JSON that the
-current importer would reject. The canonical package shape is:
-
-```ts
-{
-  formatVersion: "1.0";
-  exportType: "account_memories";
-  exportedAt: string;
-  account: {
-    sourceUserId: string;
-  };
-  memories: Array<{
-    sourceId: string;
-    content: string;
-    source: "USER_PROVIDED" | "IMPORTED";
-    createdAt?: string;
-    updatedAt?: string;
-  }>;
-  warnings: string[];
-}
-```
-
-Preview and Commit calculate SHA-256 from the exact raw JSON bytes before any
-global JSON parser transforms them.
-
----
-
-### Account ZIP
-
-Account ZIP is a later export-only phase.
+Full Account Data ZIP is the primary account-level export.
 
 Include:
 
@@ -747,7 +715,13 @@ Include:
 * projects
 * unassigned chats if requested
 
-Exclude sensitive auth/server data and all operational/usage records.
+Also include a provider-neutral `migration/conversations.json` and
+`migration/account-memory.md`. These files are references for other AI tools;
+they are not a promise that another provider will restore its native sidebar,
+settings, subscriptions, memories, or projects.
+
+Exclude sensitive auth/server data and all operational, usage, and derived
+records.
 
 ---
 
@@ -826,47 +800,6 @@ identity.
 Document indexing is derived work. If indexing fails after commit, the new
 project and authoritative documents remain available with a visible warning
 and the existing retry/index lifecycle.
-
----
-
-### Account Memory Import
-
-Account Memory import follows the same Preview/Commit separation.
-
-The initial flow uses versioned JSON rather than ZIP. Preview validates record
-counts, content limits, provenance, exact duplicates, and conflicts without
-writes. Duplicate detection covers existing owner-scoped Account Memory and
-duplicates inside the package.
-
-Commit revalidates the exact payload and digest, then recomputes duplicates
-inside one serializable transaction because Account Memory may have changed
-after Preview. It skips exact duplicates and creates all remaining records with
-new IDs, local timestamps, `scope = USER`, and `source = IMPORTED`. Package
-source IDs, provenance, and timestamps are never reused as local identity or
-canonical timestamps. Commit never overwrites, merges, or deletes existing
-records and never calls AI.
-
-Preview returns:
-
-```ts
-{
-  compatible: true;
-  formatVersion: "1.0";
-  exportType: "account_memories";
-  packageDigest: string;
-  counts: {
-    packageRecords: number;
-    importableRecords: number;
-    exactDuplicates: number;
-  };
-  currentMemoryCount: number;
-  warnings: string[];
-}
-```
-
-Commit returns created/skipped counts, the resulting Account Memory record
-count, and warnings. Both endpoints accept only raw `application/json`; Commit
-also requires the Preview digest in `X-Package-Digest`.
 
 ---
 
@@ -977,6 +910,30 @@ Jira API import:
 * JSON payloads
 
 Attachments require ZIP.
+
+---
+
+## External AI Migration Reality
+
+Provider migration must follow current provider capabilities:
+
+* ChatGPT can export chat history and account data as ZIP. Its documented
+  cross-account process uploads `conversations.json` into a new chat as
+  reference; it does not recreate old chats, sidebar state, settings, memories,
+  subscriptions, or workspace membership.
+* Claude exports user and conversation data, but does not support importing an
+  export into another personal Claude account.
+* Gemini currently accepts original ChatGPT and Claude export ZIP files for
+  full chat-history import in supported regions. Google Takeout exports Gemini
+  data, but its archive shape is not a stable public adapter contract.
+
+Official references:
+
+* https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data
+* https://help.openai.com/en/articles/9106926
+* https://support.claude.com/en/articles/9450526-export-your-claude-data
+* https://support.google.com/gemini/answer/16868299
+* https://support.google.com/gemini/answer/16920332
 
 ---
 
@@ -1104,52 +1061,95 @@ not modify the lightweight Chat Quick Export/Import flow.
 
 ---
 
-### Phase 4 — Account Memory Export / Import
+### Phase 4 — Full Account Data ZIP Export
 
 Status: completed on 2026-07-03.
 
-The backend exposes owner-scoped Account Memory JSON export through
-`GET /api/portability/account/memories/export`, zero-write Preview through
-`POST /api/portability/account/memories/import/preview`, and digest-confirmed
-Commit through `POST /api/portability/account/memories/import/commit`.
+`GET /api/portability/account/export` creates an owner-scoped
+`account-data-export.zip`. The Settings "Your data" panel exposes the action.
 
-Preview and Commit consume raw `application/json` bytes before the global JSON
-parser. Commit revalidates the package, matches `X-Package-Digest`, recomputes
-duplicates in a serializable transaction, and creates only non-duplicate
-`IMPORTED` records. No migration was required because the current schema
-already supports `MemorySource.IMPORTED`.
+The ZIP includes:
 
-Goals:
+* canonical `data/account.json`
+* per-project and per-chat canonical JSON
+* Project Document content
+* readable account, memory, project, and chat Markdown
+* provider-neutral migration conversation JSON and memory Markdown
+* `manifest.json`, counts, warnings, sizes, and SHA-256 file digests
 
-* [x] export signed-in Account Memory records to canonical JSON
-* [x] preview import without writes
-* [x] revalidate payload and digest during Commit
-* [x] create imported memory records with `IMPORTED` provenance
-* [x] enforce fixed payload, record-count, and content limits
-* [x] skip trim-normalized exact duplicates without replace/delete/merge
-* [x] recompute duplicates inside the Commit transaction
-* [x] remain owner-scoped
+Sensitive, operational, and derived state is excluded. Attachment metadata is
+portable; unavailable attachment bytes are warned about. Export is currently
+bounded and assembled in API memory. The same archive is accepted by the
+unified Account Import flow. Restore never replaces account identity,
+credentials, sessions, or settings; portable records are created as new local
+records and exact Account Memory duplicates are skipped.
 
 ---
 
-### Phase 5 — Account ZIP Export
+### Phase 5 — Unified Account Import
 
-Add account-level export from Settings later.
+Status: completed on 2026-07-26.
 
-The ZIP may include:
+The backend exposes:
 
-* export-safe account profile fields
-* settings
-* Account Memory
-* projects using the accepted Project ZIP contract
-* unassigned chats when selected
+* `POST /api/portability/account/import/preview`
+* `POST /api/portability/account/import/commit`
 
-Account ZIP import is not included in this phase. Sensitive, operational, and
-derived state remains excluded.
+Both accept `application/zip`, require authentication and CSRF, enforce ZIP
+path/entry/compressed/uncompressed limits, and automatically detect the archive
+format. There is no provider selector or provider identity header. Preview
+performs no writes and returns portable-record counts, warnings, import kind,
+and a whole-file SHA-256 digest. Commit re-parses the ZIP, requires matching
+`X-Package-Digest`, and rejects changed bytes before any database write.
+
+For a native Full Account Data ZIP, Commit creates new projects, memberships,
+instructions, Project Memory, Project Documents, chats, messages, and
+non-duplicate Account Memory records in one serializable transaction. Every
+database identity is generated locally. Source identifiers and timestamps are
+trace metadata only. Project-linked chats are mapped to the newly created
+project IDs. Imported Project Memory, Project Documents, and Account Memory use
+`IMPORTED` provenance. Existing email, password, sessions, account profile,
+and settings are never overwritten.
+
+Project and chat restore is create-new only. Imported project names use the
+existing bounded `(Imported)` / `(Imported 2)` collision policy. Account Memory
+duplicate comparison is exactly `content.trim()`: casing and internal
+whitespace remain significant. Duplicates against current records and inside
+the package are skipped, and duplicate state is recomputed inside the write
+transaction. Document indexing starts after transaction success and indexing
+failure returns a warning without deleting canonical data.
+
+For recognized external conversation archives, the same endpoints
+transactionally create new standalone chats/messages with new IDs. External
+conversion remains best-effort and does not claim a complete foreign-account
+restore.
+
+The current in-memory adapter limits are 100 MB compressed ZIP bytes, 10,000
+entries, 100 MB per entry, 250 MB total uncompressed bytes, 5,000 chats,
+100,000 messages, and 200,000 characters per message. ZIP paths reject parent
+traversal, absolute/drive paths, backslashes, normalization conflicts,
+duplicate/case-conflicting paths, encrypted entries, unsupported compression,
+Unix symlinks, and executable Unix file modes. Larger or unknown packages must
+fail safely rather than partially import.
+
+The Settings UI lazy-loads one generic Account Import modal. It stores the
+selected `File`, Preview, and digest only in local modal state, has no provider
+dropdown, and sends the same `File` to Commit. After Commit it refreshes Account
+Memory, projects, and chats without a browser refresh. Project ZIP manifests
+return a specific safe instruction to use the Projects page.
 
 ---
 
-### Phase 6 — Chat Attachment Persistence
+### Phase 6 — Additional Account Archive Adapters
+
+Add another external account/archive format only after stable real fixtures and
+a versioned parser contract are available. Each adapter must remain behind the
+same safe auto-detection boundary and must not weaken ZIP validation or claim a
+complete foreign-account migration.
+
+---
+
+### Phase 7 — Chat Attachment Persistence
 
 Persist original chat attachment files behind an explicit storage and retention
 policy.
@@ -1168,7 +1168,7 @@ Conversation ZIP must remain deferred until this foundation exists.
 
 ---
 
-### Phase 7 — Conversation ZIP, PDF, And External Adapters
+### Phase 8 — Conversation ZIP, PDF, And Work-Management Adapters
 
 After attachment persistence:
 
@@ -1215,10 +1215,9 @@ The MVP includes:
 * user-visible Preview counts, warnings, unsupported items, and digest
 * project-list and account-chat refresh before navigation after successful Commit
 
-Account Memory portability followed the completed Project round trip. Its
-backend JSON Export/Preview/Commit flow is complete; frontend integration is a
-separate bounded follow-up and was not required to call the Project MVP
-complete.
+Unified Account Export/Import now follows the completed Project round trip.
+Account Memory is included inside the complete account archive and remains
+editable through its normal CRUD UI.
 
 ---
 
@@ -1236,8 +1235,7 @@ MVP should not include:
 * document chunk, embedding, or index-state restore
 * project overwrite
 * project merge
-* account ZIP export/import
-* Account Memory import until Phase 4
+* overwrite of account identity, credentials, sessions, or settings
 * Jira adapter
 * GitHub Issues adapter
 * Linear adapter
@@ -1287,7 +1285,7 @@ before their relevant implementation slice:
 
 1. What are the maximum Project Document count and total canonical content
    size inside one imported project, in addition to the global ZIP limits?
-2. Which account settings are portable in the later Account ZIP export, and
-   which are device/environment-specific?
+2. Which stable additional account-archive fixtures and schema versions can be
+   supported?
 3. Which storage and retention policy should be selected before chat
    attachment persistence?

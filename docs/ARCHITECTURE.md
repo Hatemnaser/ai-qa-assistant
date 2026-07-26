@@ -85,13 +85,17 @@ Small modules can start with fewer files, but should not put business logic dire
 - `project-memory`: one optional manually edited, 6,000-character bounded
   distilled-memory record per owned project.
 - `project-documents`: signed-in manual project document CRUD and text/data/code file import with owner-only project checks. It persists deterministic chunk indexes and ranks project context through a replaceable retrieval contract.
-- `data-portability`: the backend Project and Account Memory portability
-  boundaries. Project portability provides owner-scoped ZIP export,
-  authenticated zero-write Import Preview, and create-new Import Commit.
-  Account Memory portability provides owner-scoped versioned JSON export,
-  zero-write Preview, and digest-confirmed create-new-record Commit with
-  trim-only exact-duplicate skipping. Both flows revalidate original package
-  bytes before transactional canonical writes.
+- `data-portability`: Project portability plus unified Account Export/Import.
+  Full Account Data Export is owner-scoped and excludes secrets, usage, and
+  derived retrieval state. Account Import auto-detects native account archives
+  and supported external conversation archives. Preview performs no writes;
+  Commit revalidates the same ZIP/digest and uses transactional create-new
+  writes without replacing identity, credentials, sessions, or settings.
+- Frontend Account Data portability lives under `features/data-portability`.
+  Settings exposes a separate "Your data" panel for complete ZIP export and one
+  lazy-loaded local-file Account Import Preview/Commit modal with automatic
+  archive detection. Account Memory CRUD remains focused on editing memory and
+  has no standalone portability UI.
 - `usage`: portfolio/demo credit limits, credit reservations before AI provider calls, completed token usage updates, and personal usage summaries.
 
 ## Active Frontend Routes
@@ -102,8 +106,9 @@ Small modules can start with fewer files, but should not put business logic dire
 - `#/forgot-password`: password reset request page.
 - `#/usage`: personal `My Usage` page for the current guest or signed-in user.
 - `#/settings`: signed-in user preferences for language, theme, and default
-  model. Language drives the core web i18n state for `en`, `ar`, and `de`,
-  including Arabic RTL through `html dir`.
+  model, plus complete Account Data export and unified account import.
+  Language drives the core web i18n state for `en`, `ar`, and `de`, including
+  Arabic RTL through `html dir`.
 - `#/projects`: signed-in project management page with a searchable/sortable project grid, project detail view, project chat list, project Add Chats modal, project-scoped composer, and modal create/edit/delete flows.
   It also exposes Project Portable ZIP export from project actions and a
   local-file Import Preview/Commit modal that refreshes project and chat state
@@ -188,17 +193,20 @@ verified over HTTPS.
   `X-Package-Digest`, never overwrites or merges, writes canonical records
   transactionally with new IDs, and starts document indexing only after the
   transaction succeeds.
-- `GET /api/portability/account/memories/export`: download the authenticated
-  user's canonical `USER_PROVIDED` and `IMPORTED` Account Memory records as
-  versioned `account_memories` JSON.
-- `POST /api/portability/account/memories/import/preview`: validate up to 1 MB
-  and 100 Account Memory records from raw `application/json`, calculate the
-  exact-byte package digest, and report importable/exact-duplicate counts
-  without writes.
-- `POST /api/portability/account/memories/import/commit`: revalidate the same
-  raw JSON and `X-Package-Digest`, then skip `content.trim()` exact duplicates
-  and create the remaining owner-scoped records with new IDs, local timestamps,
-  and `source = IMPORTED` in one serializable transaction.
+- `GET /api/portability/account/export`: download the authenticated user's
+  complete canonical account data as `account-data-export.zip`, including safe
+  profile/settings fields, Account Memory, projects, documents, chats,
+  messages, readable Markdown, and provider-neutral migration references.
+- `POST /api/portability/account/import/preview`: safely inspect a native
+  Account Data ZIP or recognized external conversation ZIP through automatic
+  format detection, then return project/document/chat/message/memory counts,
+  warnings, import kind, and an exact-byte digest without writes.
+- `POST /api/portability/account/import/commit`: revalidate the same ZIP with
+  `X-Package-Digest`, reject changed bytes before writes, and create portable
+  canonical records with new IDs in one serializable transaction. Native
+  project-chat links are remapped to new project IDs; exact trimmed Account
+  Memory duplicates are skipped; Project Documents are indexed only after the
+  transaction succeeds.
 - `GET /api/projects`: list projects owned by the signed-in user.
 - `POST /api/projects`: create a signed-in user's project.
 - `PUT /api/projects/:projectId`: update a project owned by the signed-in user.
@@ -231,7 +239,8 @@ Arabic, and German, stores anonymous display locale in local storage, applies
 `html lang` and `html dir`, and localizes the core auth/chat/settings/account
 memory/usage shell. Translation copy is stored as UTF-8 JSON under
 `apps/web/src/i18n/messages/<locale>/<domain>.json` and split into `common`,
-`auth`, `navigation`, `chat`, `settings`, `memory`, `usage`, and `projects`.
+`auth`, `navigation`, `chat`, `settings`, `memory`, `usage`, `projects`, and
+`portability`.
 English is the canonical key schema. Small TypeScript locale loaders merge the
 domain catalogs, preserve typed translation keys, reject duplicate keys, and
 require Arabic and German to satisfy the English message map.
@@ -244,7 +253,7 @@ weakening the current application contract.
 Signed-in users load language from `UserSettings.language`; settings updates
 keep `UserSettings.language` and `User.locale` aligned. The current catalog
 covers the core auth/chat/settings/account memory/usage shell plus Projects,
-Project Knowledge, and Project Documents.
+Project Knowledge, Project Documents, and Account Data portability.
 
 Signed-in Account Memory is stored in `Memory` with `scope: USER`, `source: USER_PROVIDED`, and the current `userId`. Project Instructions are stored separately in the one-to-one `ProjectInstruction` model keyed by `projectId`. Project Memory is stored in the dedicated `ProjectMemory` model keyed by `projectId`, starts with `USER_PROVIDED` provenance, is manually editable through the owner-scoped API, and is bounded to 6,000 characters. Empty content clears the record. Manual Project Documents are stored in `ProjectDocument` with `source: USER_PROVIDED`; imported text/data files use `source: IMPORTED` plus file metadata after the shared project access check. Imported records are read-only and must be deleted and re-imported to replace their source content.
 

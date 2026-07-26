@@ -49,57 +49,10 @@ describe("GET /api/portability/projects/:projectId/export", () => {
   });
 });
 
-describe("GET /api/portability/account/memories/export", () => {
+describe("GET /api/portability/account/export", () => {
   it("requires an authenticated session", async () => {
     const response = await fetch(
-      `${baseUrl}/api/portability/account/memories/export`
-    );
-    const body = await response.json();
-
-    assert.equal(response.status, 401);
-    assert.equal(body.code, "SESSION_REQUIRED");
-  });
-});
-
-describe("POST /api/portability/account/memories/import/preview", () => {
-  it("requires an authenticated session", async () => {
-    const csrfHeaders = await getCsrfHeaders(baseUrl);
-    const response = await fetch(
-      `${baseUrl}/api/portability/account/memories/import/preview`,
-      {
-        body: JSON.stringify({
-          formatVersion: "1.0",
-        }),
-        headers: {
-          "content-type": "application/json",
-          ...csrfHeaders,
-        },
-        method: "POST",
-      }
-    );
-    const body = await response.json();
-
-    assert.equal(response.status, 401);
-    assert.equal(body.code, "SESSION_REQUIRED");
-  });
-});
-
-describe("POST /api/portability/account/memories/import/commit", () => {
-  it("requires an authenticated session", async () => {
-    const csrfHeaders = await getCsrfHeaders(baseUrl);
-    const response = await fetch(
-      `${baseUrl}/api/portability/account/memories/import/commit`,
-      {
-        body: JSON.stringify({
-          formatVersion: "1.0",
-        }),
-        headers: {
-          "content-type": "application/json",
-          "x-package-digest": "a".repeat(64),
-          ...csrfHeaders,
-        },
-        method: "POST",
-      }
+      `${baseUrl}/api/portability/account/export`
     );
     const body = await response.json();
 
@@ -134,6 +87,49 @@ describe("POST /api/portability/projects/import/commit", () => {
     const csrfHeaders = await getCsrfHeaders(baseUrl);
     const response = await fetch(
       `${baseUrl}/api/portability/projects/import/commit`,
+      {
+        body: Buffer.from([80, 75, 3, 4]),
+        headers: {
+          "content-type": "application/zip",
+          "x-package-digest": "a".repeat(64),
+          ...csrfHeaders,
+        },
+        method: "POST",
+      }
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.code, "SESSION_REQUIRED");
+  });
+});
+
+describe("POST /api/portability/account/import/preview", () => {
+  it("requires an authenticated session", async () => {
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
+    const response = await fetch(
+      `${baseUrl}/api/portability/account/import/preview`,
+      {
+        body: Buffer.from([80, 75, 3, 4]),
+        headers: {
+          "content-type": "application/zip",
+          ...csrfHeaders,
+        },
+        method: "POST",
+      }
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.code, "SESSION_REQUIRED");
+  });
+});
+
+describe("POST /api/portability/account/import/commit", () => {
+  it("requires an authenticated session", async () => {
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
+    const response = await fetch(
+      `${baseUrl}/api/portability/account/import/commit`,
       {
         body: Buffer.from([80, 75, 3, 4]),
         headers: {

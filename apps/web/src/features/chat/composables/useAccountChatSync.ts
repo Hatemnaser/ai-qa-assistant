@@ -34,6 +34,7 @@ export function useAccountChatSync({ chats, currentUser, replaceChats }: Account
     if (!currentUser.value) return;
 
     const userId = currentUser.value.id;
+    const localChats = [...chats.value];
     isSyncingAccountChats.value = true;
 
     try {
@@ -41,10 +42,14 @@ export function useAccountChatSync({ chats, currentUser, replaceChats }: Account
 
       if (!currentUser.value || currentUser.value.id !== userId) return;
 
-      const mergedChats = mergeChatsByUpdatedAt([...chats.value, ...accountChats]);
+      const mergedChats = mergeChatsByUpdatedAt([...localChats, ...accountChats]);
+      const localChatsToPersist = selectLocalChatsToPersist(
+        localChats,
+        accountChats
+      );
 
       replaceChats(mergedChats);
-      await saveChats(mergedChats);
+      await saveChats(localChatsToPersist);
     } catch (error) {
       logSyncWarning(error, "Could not sync saved chats.");
     } finally {
@@ -97,10 +102,35 @@ export function useAccountChatSync({ chats, currentUser, replaceChats }: Account
   };
 }
 
+export function selectLocalChatsToPersist(
+  localChats: Chat[],
+  accountChats: Chat[]
+) {
+  const accountChatsById = new Map(
+    accountChats.map((chat) => [chat.id, chat] as const)
+  );
+
+  return localChats.filter((localChat) => {
+    const accountChat = accountChatsById.get(localChat.id);
+
+    if (!accountChat) return true;
+
+    return (
+      getTimestamp(localChat.updatedAt) > getTimestamp(accountChat.updatedAt)
+    );
+  });
+}
+
 async function saveChats(chats: Chat[]) {
   await Promise.all(chats.map((chat) => saveAccountChat(chat)));
 }
 
 function logSyncWarning(error: unknown, fallback: string) {
   console.warn(error instanceof Error ? error.message : fallback);
+}
+
+function getTimestamp(value: string) {
+  const timestamp = new Date(value).getTime();
+
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
