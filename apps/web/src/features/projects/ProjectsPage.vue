@@ -29,7 +29,7 @@ import {
   type ProjectImportCommitResult,
 } from "./projectPortabilityApi";
 import { refreshAndOpenImportedProject } from "./projectPortabilityFlow";
-import { createProject, deleteProject, fetchProjects, updateProject } from "./projectsApi";
+import { createProject, deleteProject, updateProject } from "./projectsApi";
 import type { Project, ProjectInput } from "./types";
 import type { AuthUser } from "../auth/types";
 
@@ -52,11 +52,15 @@ const props = defineProps<{
   currentUser?: AuthUser | null;
   disabled?: boolean;
   disabledMessage?: string;
+  isLoadingProjects: boolean;
   isSending: boolean;
   message: string;
   mode: string;
+  projectLoadError?: string;
   projectToOpenId?: string | null;
+  projects: Project[];
   refreshChats: () => Promise<void>;
+  refreshProjects: () => Promise<Project[]>;
   selectedAttachments: SelectedAttachment[];
 }>();
 
@@ -82,13 +86,12 @@ const sortOptions = computed<Array<{ key: SortKey; label: string }>>(() => [
   { key: "created", label: t("projects.sort.created") },
 ]);
 
-const projects = ref<Project[]>([]);
+const projects = computed(() => props.projects);
 const searchQuery = ref("");
 const sortKey = ref<SortKey>("activity");
 const errorMessage = ref("");
 const successMessage = ref("");
 const modalErrorMessage = ref("");
-const isLoading = ref(false);
 const isSaving = ref(false);
 const isDeleting = ref(false);
 const isExportingProject = ref(false);
@@ -103,6 +106,7 @@ const projectPendingExport = ref<Project | null>(null);
 const projectPendingDelete = ref<Project | null>(null);
 const projectExportErrorMessage = ref("");
 const portabilityWarnings = ref<string[]>([]);
+let identityRevision = 0;
 const {
   addProjectDocument,
   documentErrorMessage,
@@ -168,12 +172,13 @@ const filteredProjects = computed(() => {
     return secondDate - firstDate;
   });
 });
+const visibleErrorMessage = computed(() => errorMessage.value || props.projectLoadError || "");
 
 onMounted(() => {
   document.addEventListener("click", closeProjectMenu);
   document.addEventListener("scroll", closeProjectMenu, true);
 
-  void loadProjects();
+  syncProjectsFromOwner();
 });
 
 onBeforeUnmount(() => {
@@ -184,8 +189,17 @@ onBeforeUnmount(() => {
 watch(
   () => props.currentUser?.id,
   () => {
-    hasOpenedEmptyCreateModal.value = false;
-    void loadProjects();
+    identityRevision += 1;
+    resetAccountScopedState();
+    syncProjectsFromOwner();
+  },
+  { flush: "sync" }
+);
+
+watch(
+  [() => props.projects, () => props.isLoadingProjects],
+  () => {
+    syncProjectsFromOwner();
   }
 );
 
@@ -196,33 +210,12 @@ watch(
   }
 );
 
-async function loadProjects() {
-  errorMessage.value = "";
-  successMessage.value = "";
+function syncProjectsFromOwner() {
+  syncActiveProject();
+  syncRequestedProject();
 
-  if (!props.currentUser) {
-    projects.value = [];
-    activeProjectId.value = null;
-    closeAddChatsModal();
-    closeProjectImportModal();
-    closeProjectExportModal();
-    closeProjectModal();
-    emitProjectsChanged();
-    return;
-  }
-
-  isLoading.value = true;
-
-  try {
-    projects.value = await fetchProjects();
-    syncActiveProject();
-    syncRequestedProject();
-    emitProjectsChanged();
+  if (props.currentUser && !props.isLoadingProjects && !props.projectLoadError) {
     openCreateModalForEmptyWorkspace();
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : t("projects.errors.load");
-  } finally {
-    isLoading.value = false;
   }
 }
 
@@ -331,7 +324,8 @@ function cancelProjectModal() {
 }
 
 async function saveProject(input: ProjectInput) {
-  if (!props.currentUser) {
+  const identity = captureIdentity();
+  if (!identity.userId) {
     emit("sign-in");
     return;
   }
@@ -347,6 +341,8 @@ async function saveProject(input: ProjectInput) {
       ? await updateProject(projectToEdit.value.id, input)
       : await createProject(input);
 
+    if (!isCurrentIdentity(identity)) return;
+
     upsertProject(savedProject);
     closeProjectModal();
     successMessage.value = isEditing ? t("projects.success.updated") : t("projects.success.created");
@@ -355,9 +351,13 @@ async function saveProject(input: ProjectInput) {
       openProject(savedProject);
     }
   } catch (error) {
-    modalErrorMessage.value = error instanceof Error ? error.message : t("projects.errors.save");
+    if (isCurrentIdentity(identity)) {
+      modalErrorMessage.value = error instanceof Error ? error.message : t("projects.errors.save");
+    }
   } finally {
-    isSaving.value = false;
+    if (isCurrentIdentity(identity)) {
+      isSaving.value = false;
+    }
   }
 }
 
@@ -388,7 +388,8 @@ function openProjectActionsMenu(event: MouseEvent, projectId: string) {
 
 async function exportPendingProject(includeChats: boolean) {
   const project = projectPendingExport.value;
-  if (!project || isExportingProject.value) return;
+  const identity = captureIdentity();
+  if (!identity.userId || !project || isExportingProject.value) return;
 
   isExportingProject.value = true;
   projectExportErrorMessage.value = "";
@@ -401,20 +402,29 @@ async function exportPendingProject(includeChats: boolean) {
       includeChats,
     });
 
+    if (!isCurrentIdentity(identity)) return;
+
     downloadProjectExport(archive, project.name);
     projectPendingExport.value = null;
     successMessage.value = t("projects.portability.export.success");
   } catch (error) {
-    projectExportErrorMessage.value =
-      error instanceof Error
-        ? error.message
-        : t("projects.portability.errors.export");
+    if (isCurrentIdentity(identity)) {
+      projectExportErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : t("projects.portability.errors.export");
+    }
   } finally {
-    isExportingProject.value = false;
+    if (isCurrentIdentity(identity)) {
+      isExportingProject.value = false;
+    }
   }
 }
 
 async function handleProjectImported(result: ProjectImportCommitResult) {
+  const identity = captureIdentity();
+  if (!identity.userId) return;
+
   isProjectImportModalOpen.value = false;
   errorMessage.value = "";
   successMessage.value = "";
@@ -422,24 +432,27 @@ async function handleProjectImported(result: ProjectImportCommitResult) {
 
   try {
     await refreshAndOpenImportedProject(result, {
-      async refreshProjects() {
-        const refreshedProjects = await fetchProjects();
-
-        projects.value = refreshedProjects;
-        emitProjectsChanged();
-        return refreshedProjects;
+      refreshProjects: props.refreshProjects,
+      openProject(project) {
+        if (isCurrentIdentity(identity)) {
+          openProject(project);
+        }
       },
-      openProject,
       refreshChats: props.refreshChats,
     });
+
+    if (!isCurrentIdentity(identity)) return;
+
     successMessage.value = t("projects.portability.import.success", {
       project: result.projectName,
     });
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : t("projects.portability.errors.refresh");
+    if (isCurrentIdentity(identity)) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : t("projects.portability.errors.refresh");
+    }
   }
 }
 
@@ -455,6 +468,8 @@ async function confirmRemoveProject() {
   if (!projectPendingDelete.value || isDeleting.value) return;
 
   const project = projectPendingDelete.value;
+  const identity = captureIdentity();
+  if (!identity.userId) return;
 
   isDeleting.value = true;
   errorMessage.value = "";
@@ -462,16 +477,22 @@ async function confirmRemoveProject() {
 
   try {
     await deleteProject(project.id);
-    projects.value = projects.value.filter((item) => item.id !== project.id);
+    if (!isCurrentIdentity(identity)) return;
+
+    const nextProjects = projects.value.filter((item) => item.id !== project.id);
+    emitProjectsChanged(nextProjects);
     closeAddChatsModal();
-    syncActiveProject();
-    emitProjectsChanged();
+    syncActiveProject(nextProjects);
     successMessage.value = t("projects.success.deleted");
     projectPendingDelete.value = null;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : t("projects.errors.delete");
+    if (isCurrentIdentity(identity)) {
+      errorMessage.value = error instanceof Error ? error.message : t("projects.errors.delete");
+    }
   } finally {
-    isDeleting.value = false;
+    if (isCurrentIdentity(identity)) {
+      isDeleting.value = false;
+    }
   }
 }
 
@@ -479,28 +500,59 @@ function upsertProject(project: Project) {
   const existingIndex = projects.value.findIndex((item) => item.id === project.id);
 
   if (existingIndex === -1) {
-    projects.value = [project, ...projects.value];
-    emitProjectsChanged();
+    emitProjectsChanged([project, ...projects.value]);
     return;
   }
 
-  projects.value = projects.value.map((item) => (item.id === project.id ? project : item));
-  syncActiveProject();
-  emitProjectsChanged();
+  const nextProjects = projects.value.map((item) => (item.id === project.id ? project : item));
+  emitProjectsChanged(nextProjects);
+  syncActiveProject(nextProjects);
 }
 
-function emitProjectsChanged() {
-  emit("projects-changed", [...projects.value]);
+function emitProjectsChanged(projects: Project[]) {
+  emit("projects-changed", [...projects]);
 }
 
-function syncActiveProject() {
+function syncActiveProject(availableProjects: Project[] = projects.value) {
   if (!activeProjectId.value) return;
 
-  if (!projects.value.some((project) => project.id === activeProjectId.value)) {
+  if (!availableProjects.some((project) => project.id === activeProjectId.value)) {
     closeAddChatsModal();
     activeProjectId.value = null;
     emit("active-project-changed", null);
   }
+}
+
+function resetAccountScopedState() {
+  activeProjectId.value = null;
+  errorMessage.value = "";
+  successMessage.value = "";
+  modalErrorMessage.value = "";
+  projectExportErrorMessage.value = "";
+  portabilityWarnings.value = [];
+  hasOpenedEmptyCreateModal.value = false;
+  isSaving.value = false;
+  isDeleting.value = false;
+  isExportingProject.value = false;
+  isAddChatsModalOpen.value = false;
+  isProjectImportModalOpen.value = false;
+  isProjectModalOpen.value = false;
+  openProjectMenu.value = null;
+  projectToEdit.value = null;
+  projectPendingExport.value = null;
+  projectPendingDelete.value = null;
+  emit("active-project-changed", null);
+}
+
+function captureIdentity() {
+  return {
+    revision: identityRevision,
+    userId: props.currentUser?.id || null,
+  };
+}
+
+function isCurrentIdentity(identity: { revision: number; userId: string | null }) {
+  return identityRevision === identity.revision && (props.currentUser?.id || null) === identity.userId;
 }
 
 function getSortDate(project: Project, key: SortKey) {
@@ -561,9 +613,9 @@ function getSortDate(project: Project, key: SortKey) {
     </section>
 
     <template v-else>
-      <div v-if="errorMessage || successMessage || portabilityWarnings.length > 0" class="project-portability-feedback">
-        <p v-if="errorMessage" class="workspace-feedback workspace-feedback--error mb-0" role="alert">
-          {{ errorMessage }}
+      <div v-if="visibleErrorMessage || successMessage || portabilityWarnings.length > 0" class="project-portability-feedback">
+        <p v-if="visibleErrorMessage" class="workspace-feedback workspace-feedback--error mb-0" role="alert">
+          {{ visibleErrorMessage }}
         </p>
         <p v-if="successMessage" class="workspace-feedback workspace-feedback--success mb-0" role="status">
           {{ successMessage }}
@@ -674,7 +726,7 @@ function getSortDate(project: Project, key: SortKey) {
           />
         </div>
 
-        <div v-if="isLoading" class="workspace-empty">{{ t("projects.loading") }}</div>
+        <div v-if="isLoadingProjects" class="workspace-empty">{{ t("projects.loading") }}</div>
 
         <div v-else-if="projects.length === 0" class="projects-empty">
           <h2>{{ t("projects.emptyTitle") }}</h2>

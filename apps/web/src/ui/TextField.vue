@@ -4,7 +4,10 @@ const props = withDefaults(
     autocomplete?: string;
     disabled?: boolean;
     id: string;
+    hint?: string;
     label: string;
+    maxLength?: number;
+    minLength?: number;
     modelValue?: string;
     placeholder?: string;
     required?: boolean;
@@ -37,10 +40,14 @@ function updateValue(event: Event) {
       :type="type"
       :autocomplete="autocomplete"
       :disabled="props.disabled"
+      :aria-describedby="hint ? `${id}-hint` : undefined"
+      :maxlength="props.maxLength"
+      :minlength="props.minLength"
       :placeholder="placeholder"
       :required="required"
       :value="props.modelValue"
       @input="updateValue"
     />
+    <p v-if="hint" :id="`${id}-hint`" class="form-text mb-0">{{ hint }}</p>
   </div>
 </template>

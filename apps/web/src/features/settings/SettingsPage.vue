@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 
+import AccountDeletionPanel from "../account/components/AccountDeletionPanel.vue";
 import MemoryPanel from "../memory/components/MemoryPanel.vue";
 import {
   createAccountMemory,
@@ -17,7 +18,9 @@ import AccountDataPortabilityPanel from "../data-portability/components/AccountD
 import type { AccountImportCommitResult } from "../data-portability/accountDataPortabilityApi";
 import { refreshAccountDataAfterImport } from "../data-portability/accountImportRefresh";
 import { useI18n } from "../../i18n/useI18n";
+import type { TranslationKey } from "../../i18n/messages";
 import type { AppLocale } from "../../i18n/locales";
+import { ApiAdapterError } from "../../api/apiAdapterError";
 
 const props = defineProps<{
   currentUser?: AuthUser | null;
@@ -27,6 +30,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   "back-to-chat": [];
+  "account-deleted": [userId: string];
   "settings-saved": [settings: UserSettings];
   "sign-in": [];
 }>();
@@ -46,6 +50,9 @@ const isSavingMemory = ref(false);
 const accountMemories = ref<Memory[]>([]);
 const savedSettings = ref<UserSettings | null>(null);
 const { formatDate, localeOptions, t } = useI18n();
+let identityRevision = 0;
+let memoryLoadRevision = 0;
+let settingsLoadRevision = 0;
 
 const canSave = computed(() =>
   Boolean(props.currentUser && form.defaultModel && !isLoading.value && !isSaving.value)
@@ -65,60 +72,87 @@ const translatedLocaleOptions = computed(() => {
   }));
 });
 
-onMounted(() => {
-  void loadSettings();
-  void loadAccountMemories();
-});
-
 watch(
   () => props.currentUser?.id,
   () => {
+    identityRevision += 1;
+    memoryLoadRevision += 1;
+    settingsLoadRevision += 1;
+    resetAccountScopedState();
+
     void loadSettings();
     void loadAccountMemories();
-  }
+  },
+  { immediate: true }
 );
 
 async function loadSettings() {
+  const userId = props.currentUser?.id;
+  const requestRevision = ++settingsLoadRevision;
+
   errorMessage.value = "";
   successMessage.value = "";
 
-  if (!props.currentUser) {
+  if (!userId) {
     savedSettings.value = null;
+    isLoading.value = false;
     return;
   }
 
   isLoading.value = true;
 
   try {
-    applySettingsToForm(await fetchUserSettings());
+    const settings = await fetchUserSettings();
+
+    if (isCurrentSettingsRequest(userId, requestRevision)) {
+      applySettingsToForm(settings);
+    }
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : t("errors.loadSettings");
+    if (isCurrentSettingsRequest(userId, requestRevision)) {
+      errorMessage.value = getApiErrorMessage(error, "errors.loadSettings");
+    }
   } finally {
-    isLoading.value = false;
+    if (isCurrentSettingsRequest(userId, requestRevision)) {
+      isLoading.value = false;
+    }
   }
 }
 
 async function loadAccountMemories() {
+  const userId = props.currentUser?.id;
+  const requestRevision = ++memoryLoadRevision;
+
   memoryErrorMessage.value = "";
 
-  if (!props.currentUser) {
+  if (!userId) {
     accountMemories.value = [];
+    isLoadingMemory.value = false;
     return;
   }
 
   isLoadingMemory.value = true;
 
   try {
-    accountMemories.value = await fetchAccountMemories();
+    const memories = await fetchAccountMemories();
+
+    if (isCurrentMemoryRequest(userId, requestRevision)) {
+      accountMemories.value = memories;
+    }
   } catch (error) {
-    memoryErrorMessage.value = error instanceof Error ? error.message : t("errors.loadMemory");
+    if (isCurrentMemoryRequest(userId, requestRevision)) {
+      memoryErrorMessage.value = getApiErrorMessage(error, "errors.loadMemory");
+    }
   } finally {
-    isLoadingMemory.value = false;
+    if (isCurrentMemoryRequest(userId, requestRevision)) {
+      isLoadingMemory.value = false;
+    }
   }
 }
 
 async function saveSettings() {
-  if (!props.currentUser) {
+  const identity = captureIdentity();
+
+  if (!identity.userId) {
     emit("sign-in");
     return;
   }
@@ -134,18 +168,26 @@ async function saveSettings() {
       theme: form.theme,
     });
 
+    if (!isCurrentIdentity(identity)) return;
+
     applySettingsToForm(settings);
     successMessage.value = t("settings.saved");
     emit("settings-saved", settings);
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : t("errors.saveSettings");
+    if (isCurrentIdentity(identity)) {
+      errorMessage.value = getApiErrorMessage(error, "errors.saveSettings");
+    }
   } finally {
-    isSaving.value = false;
+    if (isCurrentIdentity(identity)) {
+      isSaving.value = false;
+    }
   }
 }
 
 async function addAccountMemory(content: string) {
-  if (!props.currentUser) {
+  const identity = captureIdentity();
+
+  if (!identity.userId) {
     emit("sign-in");
     return;
   }
@@ -156,41 +198,100 @@ async function addAccountMemory(content: string) {
   try {
     const memory = await createAccountMemory({ content });
 
+    if (!isCurrentIdentity(identity)) return;
+
     accountMemories.value = [memory, ...accountMemories.value];
   } catch (error) {
-    memoryErrorMessage.value = error instanceof Error ? error.message : t("errors.saveMemory");
+    if (isCurrentIdentity(identity)) {
+      memoryErrorMessage.value = getApiErrorMessage(error, "errors.saveMemory");
+    }
   } finally {
-    isSavingMemory.value = false;
+    if (isCurrentIdentity(identity)) {
+      isSavingMemory.value = false;
+    }
   }
 }
 
 async function saveAccountMemory(memoryId: string, content: string) {
+  const identity = captureIdentity();
+  if (!identity.userId) return;
+
   isSavingMemory.value = true;
   memoryErrorMessage.value = "";
 
   try {
     const memory = await updateAccountMemory(memoryId, { content });
 
+    if (!isCurrentIdentity(identity)) return;
+
     accountMemories.value = accountMemories.value.map((item) => (item.id === memory.id ? memory : item));
   } catch (error) {
-    memoryErrorMessage.value = error instanceof Error ? error.message : t("errors.updateMemory");
+    if (isCurrentIdentity(identity)) {
+      memoryErrorMessage.value = getApiErrorMessage(error, "errors.updateMemory");
+    }
   } finally {
-    isSavingMemory.value = false;
+    if (isCurrentIdentity(identity)) {
+      isSavingMemory.value = false;
+    }
   }
 }
 
 async function removeAccountMemory(memoryId: string) {
+  const identity = captureIdentity();
+  if (!identity.userId) return;
+
   isSavingMemory.value = true;
   memoryErrorMessage.value = "";
 
   try {
     await deleteAccountMemory(memoryId);
+
+    if (!isCurrentIdentity(identity)) return;
+
     accountMemories.value = accountMemories.value.filter((memory) => memory.id !== memoryId);
   } catch (error) {
-    memoryErrorMessage.value = error instanceof Error ? error.message : t("errors.deleteMemory");
+    if (isCurrentIdentity(identity)) {
+      memoryErrorMessage.value = getApiErrorMessage(error, "errors.deleteMemory");
+    }
   } finally {
-    isSavingMemory.value = false;
+    if (isCurrentIdentity(identity)) {
+      isSavingMemory.value = false;
+    }
   }
+}
+
+function resetAccountScopedState() {
+  accountMemories.value = [];
+  savedSettings.value = null;
+  errorMessage.value = "";
+  memoryErrorMessage.value = "";
+  successMessage.value = "";
+  isLoading.value = false;
+  isLoadingMemory.value = false;
+  isSaving.value = false;
+  isSavingMemory.value = false;
+  form.defaultModel = "";
+  form.language = "en";
+  form.theme = "light";
+}
+
+function captureIdentity() {
+  return {
+    revision: identityRevision,
+    userId: props.currentUser?.id || null,
+  };
+}
+
+function isCurrentIdentity(identity: { revision: number; userId: string | null }) {
+  return identityRevision === identity.revision && (props.currentUser?.id || null) === identity.userId;
+}
+
+function isCurrentSettingsRequest(userId: string, requestRevision: number) {
+  return props.currentUser?.id === userId && settingsLoadRevision === requestRevision;
+}
+
+function isCurrentMemoryRequest(userId: string, requestRevision: number) {
+  return props.currentUser?.id === userId && memoryLoadRevision === requestRevision;
 }
 
 function applySettingsToForm(settings: UserSettings) {
@@ -205,6 +306,16 @@ function getLanguageLabel(language: AppLocale) {
   if (language === "de") return t("language.de");
 
   return t("language.en");
+}
+
+function getApiErrorMessage(error: unknown, fallbackKey: TranslationKey) {
+  if (error instanceof ApiAdapterError) {
+    return t(fallbackKey);
+  }
+
+  return error instanceof Error && error.message.trim()
+    ? error.message
+    : t(fallbackKey);
 }
 
 async function handleAccountImported(_result: AccountImportCommitResult) {
@@ -304,6 +415,12 @@ async function handleAccountImported(_result: AccountImportCommitResult) {
       @create="addAccountMemory"
       @delete="removeAccountMemory"
       @update="saveAccountMemory"
+    />
+
+    <AccountDeletionPanel
+      v-if="currentUser"
+      :current-user="currentUser"
+      @deleted="emit('account-deleted', $event)"
     />
   </section>
 </template>

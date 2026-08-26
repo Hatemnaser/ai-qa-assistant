@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 
 import { messages } from "../src/i18n/messages";
 import { mergeMessageCatalogs } from "../src/i18n/messages/mergeMessageCatalogs";
-import { useI18n } from "../src/i18n/useI18n";
+import { resolveInitialLocale, useI18n } from "../src/i18n/useI18n";
 
 beforeEach(() => {
   installDomGlobals();
@@ -16,6 +16,17 @@ afterEach(() => {
 });
 
 describe("i18n", () => {
+  it("uses the first supported browser language when no preference is stored", () => {
+    assert.equal(resolveInitialLocale(null, ["fr-FR", "de-DE", "en-US"]), "de");
+    assert.equal(resolveInitialLocale(undefined, ["ar-SY", "de-DE"]), "ar");
+  });
+
+  it("keeps a valid saved preference ahead of the browser language", () => {
+    assert.equal(resolveInitialLocale("en-US", ["de-DE"]), "en");
+    assert.equal(resolveInitialLocale("unsupported", ["de-DE"]), "de");
+    assert.equal(resolveInitialLocale(null, ["fr-FR"]), "en");
+  });
+
   it("applies supported locale metadata to the document", () => {
     const { direction, locale, setLocale, t } = useI18n();
 

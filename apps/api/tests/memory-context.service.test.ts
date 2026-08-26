@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { MemoryScope, MemorySource } from "../src/generated/prisma/enums.ts";
-import type { MemoryRecord, MemoryRepository } from "../src/modules/memory/memory.repository.ts";
+import type { MemoryRecord, MemoryRepository } from "../src/modules/memory/memory.types.ts";
 import { createMemoryContextService } from "../src/modules/memory/memory-context.service.ts";
 import type {
   ChatMemoryContextInput,
@@ -10,15 +10,15 @@ import type {
 import type {
   ProjectDocumentRecord,
   ProjectDocumentsRepository,
-} from "../src/modules/project-documents/project-documents.repository.ts";
+} from "../src/modules/project-documents/project-documents.types.ts";
 import type {
   ProjectInstructionRecord,
   ProjectInstructionsRepository,
-} from "../src/modules/project-instructions/project-instructions.repository.ts";
+} from "../src/modules/project-instructions/project-instructions.types.ts";
 import type {
   ProjectMemoryRecord,
   ProjectMemoryRepository,
-} from "../src/modules/project-memory/project-memory.repository.ts";
+} from "../src/modules/project-memory/project-memory.types.ts";
 import { createFakeProjectAccess } from "./helpers/projectAccess.ts";
 
 const NOW = new Date("2026-06-06T10:00:00.000Z");
@@ -294,6 +294,7 @@ describe("memory context service", () => {
     const service = createMemoryContextService({
       documentRetriever: {
         async retrieve(input) {
+          assert.equal(input.userId, "user-1");
           retrievalCalls.push(input.query);
 
           return [
@@ -513,6 +514,7 @@ function createFakeProjectDocumentRecord(overrides: Partial<ProjectDocumentRecor
     createdAt: NOW,
     updatedAt: NOW,
     ...overrides,
+    sourceAssetId: overrides.sourceAssetId ?? null,
   };
 }
 

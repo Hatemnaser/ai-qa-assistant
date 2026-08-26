@@ -1,9 +1,9 @@
 import { AppError } from "../../lib/errors.js";
 import {
-  projectDocumentsRepository,
-  type ProjectDocumentRecord,
-  type ProjectDocumentsRepository,
-} from "./project-documents.repository.js";
+  assetConsumptionService,
+  type AssetConsumptionService,
+} from "../assets/assets-consumption.service.js";
+import { projectDocumentsRepository } from "./project-documents.repository.js";
 import {
   projectDocumentIndexer,
   type ProjectDocumentIndexer,
@@ -17,15 +17,23 @@ import type {
   ProjectDocumentImportInput,
   ProjectDocumentInput,
   ProjectDocumentMetadata,
+  ProjectDocumentRecord,
+  ProjectDocumentsRepository,
 } from "./project-documents.types.js";
+import {
+  PROJECT_DOCUMENT_IMPORT_POLICY,
+  isSupportedProjectDocumentFile,
+} from "./project-document-files.js";
 
 export interface ProjectDocumentsServiceDependencies {
+  assetConsumption?: AssetConsumptionService;
   indexer: ProjectDocumentIndexer;
   projectAccess: ProjectAccessService;
   repository: ProjectDocumentsRepository;
 }
 
 export function createProjectDocumentsService({
+  assetConsumption,
   indexer,
   projectAccess,
   repository,
@@ -35,7 +43,7 @@ export function createProjectDocumentsService({
 
     const documents = await repository.listProjectDocuments(projectId);
 
-    await indexer.ensureDocumentsIndexed(documents);
+    await indexer.ensureDocumentsIndexed(documents, userId);
 
     return documents.map(toProjectDocumentDto);
   }
@@ -54,7 +62,7 @@ export function createProjectDocumentsService({
       title: input.title,
     });
 
-    await indexer.indexDocument(document);
+    await indexer.indexDocument(document, userId);
 
     return toProjectDocumentDto(document);
   }
@@ -66,21 +74,74 @@ export function createProjectDocumentsService({
   ): Promise<ProjectDocumentDto[]> {
     await projectAccess.assertProjectAccess(userId, projectId);
 
-    const documents = await repository.createProjectDocuments(
-      input.files.map((file) => ({
-        content: file.content,
-        metadata: {
-          originalName: file.name,
-          sizeBytes: file.sizeBytes,
-        },
-        mimeType: file.mimeType || null,
-        projectId,
-        source: "IMPORTED",
-        title: file.name,
-      }))
-    );
+    const preparedFiles = await Promise.all(
+      input.files.map(async (file) => {
+        if (!("sourceAssetId" in file)) {
+          return {
+            content: file.content,
+            metadata: {
+              originalName: file.name,
+              sizeBytes: file.sizeBytes,
+            },
+            mimeType: file.mimeType || null,
+            projectId,
+            source: "IMPORTED" as const,
+            sourceAssetId: null,
+            title: file.name,
+          };
+        }
 
-    await indexer.indexDocuments(documents);
+        if (!assetConsumption) {
+          throw new AppError(
+            "Private asset storage is unavailable.",
+            503,
+            "ASSET_STORAGE_DISABLED"
+          );
+        }
+
+        const stored = await assetConsumption.readReadyOwnedAsset({
+          assetId: file.sourceAssetId,
+          ownerId: userId,
+          projectId,
+          purpose: "PROJECT_DOCUMENT_SOURCE",
+        });
+        const mimeType = stored.asset.detectedMimeType;
+
+        if (!isSupportedProjectDocumentFile(stored.asset.originalName, mimeType)) {
+          throw new AppError("Unsupported asset type.", 415, "ASSET_TYPE_UNSUPPORTED");
+        }
+        if (stored.bytes.byteLength > PROJECT_DOCUMENT_IMPORT_POLICY.maxFileBytes) {
+          throw new AppError("Asset is too large.", 413, "ASSET_TOO_LARGE");
+        }
+
+        let content: string;
+        try {
+          content = new TextDecoder("utf-8", { fatal: true }).decode(stored.bytes);
+        } catch {
+          throw new AppError("Stored document content is invalid.", 422, "ASSET_CONTENT_INVALID");
+        }
+        if (!content) {
+          throw new AppError("Stored document content is empty.", 422, "ASSET_CONTENT_INVALID");
+        }
+
+        return {
+          content,
+          metadata: {
+            originalName: stored.asset.originalName,
+            sizeBytes: stored.asset.sizeBytes,
+          },
+          mimeType,
+          projectId,
+          source: "IMPORTED" as const,
+          sourceAssetId: stored.asset.id,
+          sourceAssetOwnerId: userId,
+          title: stored.asset.originalName,
+        };
+      })
+    );
+    const documents = await repository.createProjectDocuments(preparedFiles);
+
+    await indexer.indexDocuments(documents, userId);
 
     return documents.map(toProjectDocumentDto);
   }
@@ -119,7 +180,7 @@ export function createProjectDocumentsService({
       throw new AppError("Project document was not found.", 404, "PROJECT_DOCUMENT_NOT_FOUND");
     }
 
-    await indexer.indexDocument(document);
+    await indexer.indexDocument(document, userId);
 
     return toProjectDocumentDto(document);
   }
@@ -152,6 +213,7 @@ function toProjectDocumentDto(document: ProjectDocumentRecord): ProjectDocumentD
     source: document.source,
     mimeType: document.mimeType,
     metadata: toProjectDocumentMetadata(document.metadata),
+    sourceAssetId: document.sourceAssetId,
     createdAt: document.createdAt.toISOString(),
     updatedAt: document.updatedAt.toISOString(),
   };
@@ -173,6 +235,7 @@ function toProjectDocumentMetadata(metadata: unknown): ProjectDocumentMetadata |
 }
 
 export const projectDocumentsService = createProjectDocumentsService({
+  assetConsumption: assetConsumptionService,
   indexer: projectDocumentIndexer,
   projectAccess: projectAccessService,
   repository: projectDocumentsRepository,

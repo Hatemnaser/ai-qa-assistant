@@ -1,17 +1,59 @@
+import { createHash } from "node:crypto";
+
 import {
   ChatRole,
   MemorySource,
   ProjectDocumentSource,
 } from "../../src/generated/prisma/enums.ts";
 import type { AccountExportSourceRecord } from "../../src/modules/data-portability/account-data-portability.types.ts";
+import type { CollectedPortableBinaryAssets } from "../../src/modules/data-portability/binary-assets.ts";
 
 export const ACCOUNT_EXPORT_TEST_DATE = new Date("2026-07-03T12:00:00.000Z");
+export const ACCOUNT_EXPORT_BINARY_BYTES = new TextEncoder().encode(
+  '{"attachment":true}'
+);
+
+export function createAccountBinaryAssets(): CollectedPortableBinaryAssets {
+  const sha256 = createHash("sha256")
+    .update(ACCOUNT_EXPORT_BINARY_BYTES)
+    .digest();
+  const path = "assets/001-requirements.json";
+
+  return {
+    assets: [
+      {
+        binding: {
+          kind: "message_attachment",
+          ordinal: 0,
+          sourceMessageId: "message-1",
+        },
+        checksumSha256: sha256.toString("base64"),
+        file: {
+          path,
+          sha256: sha256.toString("hex"),
+          sizeBytes: ACCOUNT_EXPORT_BINARY_BYTES.byteLength,
+        },
+        mimeType: "application/json",
+        originalName: "requirements.json",
+        purpose: "CHAT_ATTACHMENT",
+        sizeBytes: ACCOUNT_EXPORT_BINARY_BYTES.byteLength,
+        sourceAssetId: "asset-1",
+        sourceProjectId: "project-1",
+      },
+    ],
+    entries: new Map([[path, ACCOUNT_EXPORT_BINARY_BYTES]]),
+    totalBytes: ACCOUNT_EXPORT_BINARY_BYTES.byteLength,
+  };
+}
 
 export function createAccountExportSource(
   overrides: Partial<AccountExportSourceRecord> = {}
 ): AccountExportSourceRecord {
   return {
+    binaryAssets: [],
     id: "user-1",
+    acceptedTermsAt: new Date("2026-01-01T09:59:00.000Z"),
+    acceptedTermsVersion: "2026-01-01",
     email: "owner@example.com",
     name: "Owner",
     locale: "en",

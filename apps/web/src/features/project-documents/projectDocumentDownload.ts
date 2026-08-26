@@ -1,4 +1,5 @@
 import type { ProjectDocument } from "./types";
+import { getAssetDownloadUrl } from "../assets/assetsApi";
 
 export interface ProjectDocumentDownload {
   content: string;
@@ -18,7 +19,13 @@ export function getProjectDocumentDownload(document: ProjectDocument): ProjectDo
   };
 }
 
-export function downloadProjectDocument(document: ProjectDocument) {
+export async function downloadProjectDocument(document: ProjectDocument) {
+  if (document.sourceAssetId) {
+    const url = await getAssetDownloadUrl(document.sourceAssetId);
+    window.open(url, "_blank", "noopener,noreferrer");
+    return;
+  }
+
   const download = getProjectDocumentDownload(document);
   const blobType = download.mimeType.toLowerCase().includes("charset=")
     ? download.mimeType

@@ -14,5 +14,14 @@
   "settings.save": "حفظ الإعدادات",
   "settings.saving": "جار الحفظ...",
   "settings.accountMemory": "ذاكرة الحساب",
-  "settings.noAccountMemory": "لا توجد ذاكرة للحساب بعد."
+  "settings.noAccountMemory": "لا توجد ذاكرة للحساب بعد.",
+  "settings.dangerZone": "منطقة الخطر",
+  "settings.deleteAccountTitle": "حذف الحساب",
+  "settings.deleteAccountDescription": "احذف حساب Oddpath نهائيًا مع محادثاته ومشاريعه وذاكرته وإعداداته والبيانات المرتبطة به.",
+  "settings.deleteAccount": "حذف الحساب...",
+  "settings.deleteAccountWarning": "لا يمكن التراجع عن هذا الإجراء. أدخل كلمة مرورك الحالية لتأكيد الحذف النهائي.",
+  "settings.currentPassword": "كلمة المرور الحالية",
+  "settings.confirmDeleteAccount": "حذف الحساب نهائيًا",
+  "settings.deletingAccount": "جار حذف الحساب...",
+  "settings.deleteAccountError": "تعذر حذف الحساب."
 }

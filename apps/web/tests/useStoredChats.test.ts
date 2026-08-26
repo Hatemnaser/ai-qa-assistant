@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 import { ref } from "vue";
 
-import { createChat, loadChats } from "../src/features/chat/chatStorage";
+import {
+  createChat,
+  getUserChatStorageScope,
+  loadChats,
+  loadChatSyncState,
+  saveChats,
+} from "../src/features/chat/chatStorage";
 import { DEFAULT_MODE, DEFAULT_MODEL } from "../src/features/chat/constants";
 import { useStoredChats } from "../src/features/chat/composables/useStoredChats";
 
@@ -72,6 +78,45 @@ describe("useStoredChats", () => {
     assert.equal(projectChat.projectId, "project-3");
     assert.equal(selectedProjectId.value, "project-3");
     assert.equal(messageInput.value, "Draft project prompt");
+  });
+
+  it("marks only explicit signed-in edits and deletes for server reconciliation", () => {
+    const { storedChats } = createStoredChatsHarness();
+    const scope = getUserChatStorageScope("user-1");
+    const staleCache = createChat({ id: "stale-cache" });
+
+    saveChats([staleCache], scope);
+    storedChats.setChatStorageOwner("user-1");
+    const newChat = createChat({ id: "new-local" });
+    storedChats.addChatAndSelect(newChat);
+
+    assert.deepEqual(loadChatSyncState(scope), {
+      pendingCreates: ["new-local"],
+      pendingDeletes: [],
+      pendingUpserts: [],
+    });
+
+    storedChats.deleteChat("new-local");
+
+    assert.deepEqual(loadChatSyncState(scope), {
+      pendingCreates: [],
+      pendingDeletes: ["new-local"],
+      pendingUpserts: [],
+    });
+    assert.equal(loadChatSyncState(scope).pendingUpserts.includes("stale-cache"), false);
+  });
+
+  it("discards unsaved create authority when leaving the signed-in scope", () => {
+    const { storedChats } = createStoredChatsHarness();
+    const scope = getUserChatStorageScope("user-1");
+    storedChats.setChatStorageOwner("user-1");
+    storedChats.addChatAndSelect(createChat({ id: "session-draft" }));
+
+    assert.deepEqual(loadChatSyncState(scope).pendingCreates, ["session-draft"]);
+
+    storedChats.setChatStorageOwner(null);
+
+    assert.deepEqual(loadChatSyncState(scope).pendingCreates, []);
   });
 });
 

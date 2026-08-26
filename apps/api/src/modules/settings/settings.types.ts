@@ -13,3 +13,15 @@ export interface UserSettingsInput {
   language: string;
   theme: UserThemePreference;
 }
+
+export interface UserSettingsRecord {
+  defaultModel: string;
+  language: string;
+  theme: string;
+  updatedAt: Date;
+}
+
+export interface SettingsRepository {
+  getUserSettings(userId: string): Promise<UserSettingsRecord | null>;
+  upsertUserSettings(userId: string, input: UserSettingsInput): Promise<UserSettingsRecord>;
+}

@@ -7,7 +7,7 @@ import type {
   ConversationSummaryRepository,
   SaveGeneratedConversationSummaryInput,
   UpsertConversationSummaryInput,
-} from "../src/modules/conversation-summary/conversation-summary.repository.ts";
+} from "../src/modules/conversation-summary/conversation-summary.types.ts";
 import {
   CONVERSATION_SUMMARY_MAX_CHARS,
   CONVERSATION_SUMMARY_MAX_OPEN_QUESTION_CHARS,

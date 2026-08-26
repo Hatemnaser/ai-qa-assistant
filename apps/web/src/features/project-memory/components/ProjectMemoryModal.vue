@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 
 import { useI18n } from "../../../i18n/useI18n";
+import { useDialogAccessibility } from "../../../ui/useDialogAccessibility";
 import type { ProjectMemory } from "../types";
 
 const props = defineProps<{
@@ -59,18 +60,26 @@ function requestSave() {
 function updateDraft(event: Event) {
   emit("update:draft-content", (event.target as HTMLTextAreaElement).value);
 }
+
+const { dialogRef, onDialogKeydown } = useDialogAccessibility({
+  canClose: () => !props.isSaving,
+  isOpen: () => props.isOpen,
+  onClose: requestCancel,
+});
 </script>
 
 <template>
   <Teleport to="body">
     <div
       v-if="isOpen"
+      ref="dialogRef"
       class="modal fade show d-block"
       tabindex="-1"
       role="dialog"
       aria-modal="true"
       aria-labelledby="project-memory-title"
       @click.self="requestCancel"
+      @keydown="onDialogKeydown"
     >
       <div class="modal-dialog modal-dialog-centered project-memory-dialog">
         <div class="modal-content app-modal project-memory-modal">

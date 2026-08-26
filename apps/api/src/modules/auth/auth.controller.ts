@@ -24,6 +24,10 @@ export async function register(req: Request, res: Response, next: NextFunction) 
   }
 }
 
+export function getRegistrationConfig(_req: Request, res: Response) {
+  res.json(authService.getRegistrationConfig());
+}
+
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const input = loginRequestSchema.parse(req.body);
@@ -80,8 +84,8 @@ export async function resendVerification(req: Request, res: Response, next: Next
   }
 }
 
-export function getCsrfToken(_req: Request, res: Response) {
-  const csrfToken = issueCsrfToken(res);
+export function getCsrfToken(req: Request, res: Response) {
+  const csrfToken = issueCsrfToken(req, res);
 
   res.json({
     csrfToken,

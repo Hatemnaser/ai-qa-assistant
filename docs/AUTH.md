@@ -1,6 +1,6 @@
 # Auth Documentation
 
-Last reviewed: 2026-06-20
+Last reviewed: 2026-08-19
 
 This document describes the authentication system that exists in the codebase
 today. It is documentation only. It does not approve the current system as a
@@ -8,7 +8,7 @@ complete real-user production auth implementation.
 
 ## 1. Overview
 
-AI QA Assistant currently uses a custom email/password authentication
+Oddpath currently uses a custom email/password authentication
 foundation. The backend stores users and server-side sessions in PostgreSQL
 through Prisma. The browser receives an opaque session token in an httpOnly
 cookie named `qa_session`; the database stores only a SHA-256 hash of that
@@ -16,8 +16,9 @@ token.
 
 The implemented auth surface supports:
 
-- Register with email, password, optional name, and a supported locale
-  (`en`, `ar`, or `de`).
+- Register with email, password, optional name, a supported locale (`en`, `ar`,
+  or `de`), explicit acceptance of the active legal-document version, and an
+  invite code when the server is in private-beta mode.
 - Login with email, password, and optional remember-me session length.
 - Logout by deleting the current session and clearing the cookie.
 - Current-user lookup through the session cookie.
@@ -32,23 +33,33 @@ routes. Auth email delivery is behind `AuthEmailService`; development/test use
 an in-memory sink by default, explicit non-production `EMAIL_PROVIDER=noop` is
 available for local dry runs, and production must use `EMAIL_PROVIDER=smtp`.
 
-Auth Hardening Slice 1 is implemented: login, register, and forgot-password
-have initial in-memory rate limiting, and production cookie/CORS env guards
+Auth route hardening is implemented: login, register, forgot-password,
+reset-password, resend-verification, and verify-email have endpoint-specific
+in-memory rate limiting, and production cookie/CORS env guards
 fail fast on unsafe deployment settings. The rate limiter is suitable as a
 single-process baseline; multi-instance deployments should move the counters
 to Redis, Upstash, or another shared store. Because the limiter keys off
 Express `req.ip`, deployments behind a proxy must configure `trust proxy`
 correctly so the API sees the real client IP instead of the proxy address.
 
+Production registration is fail-closed. `REGISTRATION_MODE` defaults to
+`disabled`; production rejects `public`, and `invite` additionally requires an
+active `CURRENT_TERMS_VERSION`, SHA-256 invite-code hashes, and the explicit
+operator acknowledgement `LEGAL_DOCUMENTS_PUBLISHED_CONFIRMED=true`. That
+acknowledgement is only a runtime release gate and does not replace legal
+review. `GET /api/auth/registration-config` publishes the mode, document
+version, and legal URLs without exposing invite material.
+
 Auth Slice 3B is implemented: state-changing API requests now use signed
 double-submit CSRF protection. The frontend gets a token from
 `GET /api/auth/csrf`, receives a readable `qa_csrf` cookie, and sends the same
 token in `X-CSRF-Token` for `POST`, `PUT`, `PATCH`, and `DELETE` requests.
 
-Auth Slice 4B is implemented: password policy min/max values are explicit
-constants, register and reset-password share the same creation policy, and
-login rejects passwords over the maximum length before password verification
-work runs.
+The password policy uses a 15-character minimum, a 128-character maximum, no
+composition rules, and a local common/context-specific password blocklist.
+Register and reset-password share the same creation policy. Login rejects
+passwords over the maximum length before password verification work runs but
+does not reapply new-password rules to existing credentials.
 
 Auth Slice 5B is implemented: registration creates an unverified account,
 sends a verification link through the auth email abstraction, and does not
@@ -87,8 +98,10 @@ The backend auth module lives in `apps/api/src/modules/auth`:
 - `auth.email.ts`: password reset and email verification delivery abstraction
   plus link construction.
 - `auth.cookies.ts`: auth cookie name and cookie helpers.
-- `auth.rateLimit.ts`: in-memory per-IP plus IP/email auth rate limiting for
-  login, register, forgot-password, and reset-password.
+- `auth.rateLimit.ts`: in-memory per-IP plus normalized-email auth rate limiting
+  for all six public credential/token mutation routes. The email key is
+  independent of IP so rotating addresses cannot bypass an account-oriented
+  throttle.
 - `auth.middleware.ts`: `requireAuth` middleware and `req.authUser` loading.
 - `auth.types.ts`: request/response/service record types.
 
@@ -198,40 +211,57 @@ Responsible files:
 
 - Backend: `auth.routes.ts`, `auth.controller.ts`, `auth.schema.ts`,
   `auth.service.ts`, `auth.repository.ts`, `auth.security.ts`,
-  `auth.email.ts`.
+  `auth.email.ts`, and the `auth-email-outbox.*` modules.
 - Frontend: `RegisterPage.vue`, `authApi.ts`, `useAuthRequest.ts`,
   `App.vue`.
 
 Steps:
 
-1. `RegisterPage.vue` submits email, name, the current UI locale, and password
-   through `authApi.register`.
-2. `authApi.ts` sends a JSON `POST` request with `credentials: "include"`.
-3. `auth.controller.ts` parses the body with `registerRequestSchema`.
-4. `auth.schema.ts` trims and lowercases email, validates locale against the
+1. `RegisterPage.vue` loads `GET /api/auth/registration-config`. It disables
+   submission while the policy is unknown or closed, shows the invite field
+   only in invite mode, and links to the advertised Terms and Privacy routes.
+2. After the user checks the real consent checkbox, the page submits email,
+   name, locale, password, optional invite code, `termsAccepted: true`, and the
+   exact advertised `termsVersion` through `authApi.register`.
+3. `authApi.ts` sends a JSON `POST` request with `credentials: "include"`.
+4. `auth.controller.ts` parses the body with `registerRequestSchema`; omitted
+   or false acceptance is rejected.
+5. `auth.schema.ts` trims and lowercases email, validates locale against the
    shared supported-locale list, validates name, and applies the current
    password policy.
-5. `auth.service.ts` checks for an existing user by email.
-6. If the email already exists, the service returns
-   `EMAIL_ALREADY_REGISTERED` with HTTP 409.
-7. The password is hashed in `auth.security.ts`.
-8. `auth.repository.ts` creates a `User` and a related `UserSettings` record.
-9. The user is created with `emailVerifiedAt = null`.
-10. `auth.service.ts` creates a strong email verification token, hashes it, and
-    stores only the hash in `EmailVerificationToken`.
-11. `auth.email.ts` builds a verification link using `APP_ORIGIN` and
-    `EMAIL_VERIFICATION_PATH`, then sends it through the auth email
-    abstraction. If the configured path is a hash route, the raw token is
-    placed inside the fragment instead of the server-visible query string.
-12. No session is created, no `qa_session` cookie is set, and guest chats are
+6. `auth.service.ts` applies the server registration policy. Closed mode,
+   invalid invite codes, and stale terms versions fail before password hashing
+   or database writes.
+7. The service checks for an existing user by email. Existing and new eligible
+   submissions receive the same public response; an existing unverified user
+   can receive a fresh link, while a verified account is left unchanged.
+8. The password is hashed in `auth.security.ts`, including duplicate-email
+   submissions, so the obvious fast duplicate-account timing path is removed.
+9. `auth.repository.ts` creates a `User` and a related `UserSettings` record.
+10. The user is created with `emailVerifiedAt = null` and server-authored terms
+    acceptance version/time.
+11. `auth.service.ts` creates a strong email verification token and stores only
+    its hash in `EmailVerificationToken`.
+12. `auth.email.ts` builds a verification link using `APP_ORIGIN` and
+    `EMAIL_VERIFICATION_PATH`. In SMTP mode, the link payload is encrypted with
+    authenticated AES-256-GCM under `EMAIL_OUTBOX_ENCRYPTION_SECRET` and queued
+    in `AuthEmailJob`; the API never waits for SMTP. The in-process worker uses
+    atomic claims, validates the linked token immediately before delivery,
+    retries with bounded backoff, and clears ciphertext on terminal states.
+    Hash-route tokens stay out of hosting and proxy request logs.
+13. No session is created, no `qa_session` cookie is set, and guest chats are
     not adopted.
-13. The frontend shows the pending verification message and keeps the user in
+14. The frontend shows the pending verification message and keeps the user in
     guest mode until verification plus login succeeds.
 
 Stored in DB:
 
 - `User.email`, `User.name`, `User.locale`, `User.passwordHash`,
   `User.emailVerifiedAt = null`.
+- `User.acceptedTermsVersion` and `User.acceptedTermsAt`, sourced from the
+  active server policy and server clock rather than trusted client metadata.
+- The authenticated Account Data export includes this acceptance metadata;
+  importing an archive never counts as acceptance of the destination's terms.
 - `UserSettings` row with language set to the registration locale.
 - `EmailVerificationToken.userId`, `tokenHash`, `expiresAt`, `createdAt`,
   and `usedAt = null`.
@@ -322,6 +352,35 @@ Returned to frontend:
 - HTTP 200.
 - JSON `{ ok: true }`.
 - A clearing `Set-Cookie` header for `qa_session`.
+
+### Account Deletion
+
+Endpoint:
+
+- `DELETE /api/account`
+
+The endpoint requires a valid authenticated session, a valid CSRF token, and
+JSON `{ currentPassword }`. The service verifies the current password before
+starting deletion. In one transaction it queues an idempotent
+`ObjectDeletionJob` for every owned stored object, deletes the account's
+restrictive attachment links, clears original-document asset references,
+deletes `AiUsageLog` and `UsageEvent` rows, then deletes the `User`; database
+foreign-key cascades remove sessions, settings, owned projects, chats,
+messages, memories, and tokens. The response clears `qa_session` only after the
+transaction succeeds.
+
+The Settings danger zone uses a deliberate two-step confirmation. After a
+successful response, the web app removes the deleted user's scoped local chat
+cache, clears the in-memory authenticated user and other account state, and
+returns to guest chat. The committed outbox jobs preserve object keys after
+relational deletion; processing/retrying those jobs remains the object-storage
+worker's responsibility.
+
+Returned to frontend:
+
+- HTTP 200 and JSON `{ ok: true }`.
+- A clearing `Set-Cookie` header for `qa_session`.
+- `CURRENT_PASSWORD_INVALID` with HTTP 403 when confirmation fails.
 
 ### Session Validation / Current User
 
@@ -690,10 +749,11 @@ Where verification happens:
 
 Current password policy:
 
-- 8 characters minimum.
+- 15 characters minimum.
 - 128 characters maximum.
-- Must include at least one ASCII letter.
-- Must include at least one digit.
+- No character-composition requirements; long passphrases are supported.
+- A case-insensitive exact-match baseline blocklist rejects common and
+  Oddpath/Eluthira-specific choices.
 - Register `password` and reset-password `newPassword` use the same creation
   policy.
 - Login requires a non-empty password with the same 128-character maximum, but
@@ -713,6 +773,8 @@ Password reset token handling:
 - Reset tokens expire after `PASSWORD_RESET_TOKEN_TTL_MINUTES`, default 30
   minutes.
 - Reset tokens are marked used through `PasswordResetToken.usedAt`.
+- Creating a new reset token marks older unused reset tokens for that user as
+  used, so only the newest link remains active.
 
 Email verification token handling:
 
@@ -809,7 +871,12 @@ Signed-in-only UX is handled at page/component level:
 
 `RegisterPage.vue`:
 
-- Collects name, email, password, and a required terms checkbox.
+- Loads the non-secret registration policy and fail-closes the form while the
+  policy is unavailable or registration is disabled.
+- Collects name, email, password, a conditionally required beta invite, and a
+  real required Terms/Privacy acceptance checkbox.
+- Uses German legal URLs for German UI and English URLs for English/Arabic UI;
+  there is no unreviewed Arabic legal translation.
 - Sends the current frontend locale from `useI18n()` instead of hardcoding
   `en`.
 - Calls `authApi.register`.
@@ -880,9 +947,12 @@ Signed-in-only UX is handled at page/component level:
   and `DELETE` requests, including auth, chat, chat-history, project, memory,
   project-document, and settings mutations.
 - Production requires an explicit strong `CSRF_SECRET`.
-- Login, register, forgot-password, and reset-password have initial rate limiting with a
-  general per-IP limiter plus an IP/normalized-email limiter when email is
-  present.
+- Login, register, forgot-password, reset-password, resend-verification, and
+  verify-email have initial rate limiting with a route-specific per-IP limiter
+  before the 16 KiB auth JSON parser, plus a normalized-email limiter after
+  parsing when email is present. Malformed and oversized bodies consume the IP
+  budget. Account deletion is limited independently by both user and IP before
+  password verification. Rejections include a `Retry-After` header.
 - Auth rate-limit rejections emit structured security logs with hashed email
   and IP identifiers; raw emails, passwords, cookies, and session tokens are
   not logged by this path.
@@ -902,24 +972,31 @@ Signed-in-only UX is handled at page/component level:
 - CSRF tokens are signed double-submit tokens and are not bound to a specific
   server-side session row. Consider session-bound synchronizer tokens later if
   stricter per-session semantics are needed.
-- Password reset and email verification use an email abstraction with SMTP
-  provider support. Production still needs real SMTP credentials, domain
+- Password reset and email verification use a durable encrypted database
+  outbox with SMTP delivery. Production still needs real SMTP credentials, domain
   verification, DNS, SPF, DKIM, DMARC, and provider smoke testing before real
-  users.
-- No frontend reset-completion page is implemented yet.
+  users. Delivery failures emit only a structured operation-level event; the
+  recipient, token, provider response, and raw error are never logged.
+- Missing-user login performs a valid dummy scrypt verification. Registration
+  no longer discloses duplicate emails. Forgot-password and resend-verification
+  return after a configured response floor and enqueue delivery instead of
+  waiting for SMTP, removing the previous network-sized timing distinction.
+- The frontend reset-completion page is implemented; deployed email links and
+  the complete reset flow still require a staging SMTP smoke test.
 - Google OAuth UI is present but disabled and not wired.
-- Registration returns `EMAIL_ALREADY_REGISTERED`, which can reveal whether an
-  email exists. This may be acceptable for a portfolio demo but should be
-  reviewed before real users.
+- Pending encrypted email jobs depend on the configured encryption secret.
+  Rotate `EMAIL_OUTBOX_ENCRYPTION_SECRET` only after the pending queue is empty;
+  deployed SMTP behavior and retries still require staging verification.
 - Production cookie and CORS combinations have startup guards, but deployed
   browser behavior still needs smoke-test verification over HTTPS.
 - No session rotation on login refresh or privilege-sensitive operations.
 - No "logout all devices" or per-session management.
-- No periodic expired-session cleanup job. Expired sessions are removed only
-  when the matching token is presented.
-- Password policy has explicit min/max constants and login max-length
-  protection, but common-password and breached-password checks are not
-  implemented.
+- `npm run cleanup:retention` removes expired sessions, old auth tokens, old
+  usage records, and old sessionless unverified accounts. The command still
+  needs deployment scheduling and alerting.
+- Password policy has explicit min/max constants, no composition rules, login
+  max-length protection, and a local common-password baseline. A maintained
+  breached-password corpus or privacy-preserving lookup is not implemented.
 - Basic auth abuse logging exists for rate-limit rejections, but alerting,
   dashboards, and brute-force monitoring rules are not implemented.
 - Tests cover important service and API basics, reset-token behavior, rate
@@ -930,8 +1007,9 @@ Signed-in-only UX is handled at page/component level:
 
 ### Must Have Before Real Users
 
-- [ ] Decide whether to keep and harden the custom auth module or migrate in a
-  dedicated auth workstream.
+- [x] Keep and harden the custom auth module for the initial private beta;
+  revisit a maintained auth platform if OAuth, passkeys/MFA, organizations, or
+  higher-assurance account recovery enter scope.
 - [x] Add rate limiting for login, register, and forgot-password.
 - [x] Add rate limiting for reset-password.
 - [x] Implement real reset-password tokens with single-use semantics, expiry,
@@ -941,7 +1019,7 @@ Signed-in-only UX is handled at page/component level:
 - [x] Wire a production email provider implementation.
 - [ ] Configure and smoke-test the production SMTP provider, sender domain,
   SPF, DKIM, and DMARC.
-- [ ] Add a frontend reset-completion page.
+- [x] Add a frontend reset-completion page.
 - [x] Invalidate existing sessions after password reset.
 - [x] Add CSRF protection for cookie-authenticated state-changing routes.
 - [x] Review and document CSRF protection for cookie-authenticated
@@ -949,18 +1027,18 @@ Signed-in-only UX is handled at page/component level:
 - [ ] Smoke-test CSRF behavior on the production HTTPS frontend/API domains.
 - [ ] Verify production cookie settings over HTTPS.
 - [x] Enforce exact production CORS origins for credentialed requests.
-- [ ] Review registration email-enumeration behavior.
+- [x] Review and harden registration email-enumeration behavior.
 - [x] Add login max password length before password verification.
 - [x] Add explicit password policy boundary tests.
-- [ ] Add auth smoke tests to the staging deployment checklist.
+- [x] Add auth smoke tests to the staging deployment checklist.
 
 ### Should Have Soon
 
 - [x] Add basic auth rate-limit security logging.
 - [ ] Add auth monitoring/alerting rules for unusual request volume.
-- [ ] Add expired-session cleanup.
+- [x] Add bounded expired-session cleanup and deployment-safe overlap locking.
 - [x] Review and harden password policy max-length behavior.
-- [ ] Review password policy composition/common-password behavior against
+- [x] Review password policy composition/common-password behavior against
   current guidance.
 - [x] Add initial tests for production cookie flags and CORS safety.
 - [ ] Add "logout all sessions" support for account recovery and security

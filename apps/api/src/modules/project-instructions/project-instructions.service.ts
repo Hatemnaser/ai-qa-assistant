@@ -1,8 +1,4 @@
-import {
-  projectInstructionsRepository,
-  type ProjectInstructionRecord,
-  type ProjectInstructionsRepository,
-} from "./project-instructions.repository.js";
+import { projectInstructionsRepository } from "./project-instructions.repository.js";
 import {
   projectAccessService,
   type ProjectAccessService,
@@ -10,6 +6,8 @@ import {
 import type {
   ProjectInstructionDto,
   ProjectInstructionInput,
+  ProjectInstructionRecord,
+  ProjectInstructionsRepository,
 } from "./project-instructions.types.js";
 
 export interface ProjectInstructionsServiceDependencies {

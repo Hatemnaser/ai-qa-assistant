@@ -1,3 +1,4 @@
+import { logOperationalEvent } from "../../lib/operational-events.js";
 import { conversationSummarizer } from "../ai/summarization/conversation-summarizer.js";
 import {
   RECENT_COMPLETE_TURN_LIMIT,
@@ -9,11 +10,7 @@ import {
   type ConversationSummaryUsageTracker,
 } from "../usage/conversation-summary-usage.service.js";
 import { isAiUsageLimitError, type AiOperationReservation } from "../usage/usage.service.js";
-import {
-  conversationSummaryRepository,
-  type ConversationSummaryGenerationState,
-  type ConversationSummaryRepository,
-} from "./conversation-summary.repository.js";
+import { conversationSummaryRepository } from "./conversation-summary.repository.js";
 import {
   conversationSummaryService,
   type ConversationSummaryService,
@@ -21,6 +18,8 @@ import {
 import type {
   ConversationSummarizer,
   ConversationSummaryGenerationInput,
+  ConversationSummaryGenerationState,
+  ConversationSummaryRepository,
 } from "./conversation-summary.types.js";
 
 export const INITIAL_SUMMARY_COMPLETE_TURN_THRESHOLD = 6;
@@ -64,6 +63,12 @@ export function createConversationSummaryRefreshService({
     try {
       return await refreshOwnedConversation(userId, chatId);
     } catch {
+      logOperationalEvent("warn", {
+        event: "conversation_summary_refresh",
+        outcome: "failed",
+        stage: "orchestration",
+      });
+
       return "failed";
     } finally {
       activeRefreshes.delete(refreshKey);
@@ -100,15 +105,28 @@ export function createConversationSummaryRefreshService({
         return "skipped";
       }
 
+      logOperationalEvent("warn", {
+        event: "conversation_summary_refresh",
+        outcome: "degraded",
+        stage: "usage_reservation",
+      });
       usageReservation = undefined;
     }
 
     let generated;
+    let providerAttempted = false;
 
     try {
+      await usage.recordAttempt(usageReservation);
+      providerAttempted = true;
       generated = await summarizer.generate(plan.input);
     } catch {
-      await ignoreUsageFailure(() => usage.fail(usageReservation));
+      await ignoreUsageFailure(() => usage.fail(usageReservation, providerAttempted));
+      logOperationalEvent("warn", {
+        event: "conversation_summary_refresh",
+        outcome: "failed",
+        stage: "generation",
+      });
 
       return "failed";
     }

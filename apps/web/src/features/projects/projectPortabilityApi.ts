@@ -1,17 +1,18 @@
 import { createBackendApiError } from "../../api/backendErrors";
 import { csrfFetch } from "../../api/csrf";
+import { API_BASE_URL } from "../../config/api";
 import { t } from "../../i18n/useI18n";
 
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
-
 export interface ProjectImportPreview {
-  compatible: boolean;
-  formatVersion: "1.0";
+  compatible: true;
+  formatVersion: "1.0" | "2.0";
   exportType: "project";
   packageDigest: string;
   suggestedProjectName: string;
   sourceProjectName: string;
   counts: {
+    assetBytes?: number;
+    assets?: number;
     documents: number;
     chats: number;
     messages: number;
@@ -24,6 +25,7 @@ export interface ProjectImportCommitResult {
   projectId: string;
   projectName: string;
   imported: {
+    assets?: number;
     documents: number;
     chats: number;
     messages: number;
@@ -42,9 +44,10 @@ export async function exportProjectZip(
     `/api/portability/projects/${encodeURIComponent(projectId)}/export?includeChats=${includeChats}`,
     {
       credentials: "include",
-      method: "GET",
+      method: "POST",
     },
-    t("projects.portability.errors.export")
+    t("projects.portability.errors.export"),
+    true
   );
 
   return response.blob();
@@ -68,12 +71,12 @@ export async function previewProjectImport(file: File): Promise<ProjectImportPre
 
   if (
     payload.compatible !== true ||
-    payload.formatVersion !== "1.0" ||
+    !isProjectFormatVersion(payload.formatVersion) ||
     payload.exportType !== "project" ||
-    typeof payload.packageDigest !== "string" ||
+    !isDigest(payload.packageDigest) ||
     typeof payload.suggestedProjectName !== "string" ||
     typeof payload.sourceProjectName !== "string" ||
-    !isImportCounts(payload.counts) ||
+    !isPreviewCounts(payload.formatVersion, payload.counts) ||
     !isStringArray(payload.warnings) ||
     !isStringArray(payload.unsupported)
   ) {
@@ -147,14 +150,53 @@ async function request(
 
 function isImportCounts(
   value: unknown
-): value is { documents: number; chats: number; messages: number } {
+): value is {
+  assetBytes?: number;
+  assets?: number;
+  documents: number;
+  chats: number;
+  messages: number;
+} {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
 
   const counts = value as Record<string, unknown>;
 
-  return ["documents", "chats", "messages"].every(
-    (key) => typeof counts[key] === "number" && Number.isInteger(counts[key])
+  const hasRequiredCounts = ["documents", "chats", "messages"].every(
+    (key) => isNonNegativeInteger(counts[key])
   );
+  const hasValidOptionalCounts = ["assets", "assetBytes"].every(
+    (key) => counts[key] === undefined || isNonNegativeInteger(counts[key])
+  );
+
+  return hasRequiredCounts && hasValidOptionalCounts;
+}
+
+function isProjectFormatVersion(value: unknown): value is "1.0" | "2.0" {
+  return value === "1.0" || value === "2.0";
+}
+
+function isPreviewCounts(
+  formatVersion: "1.0" | "2.0",
+  value: unknown
+) {
+  if (!isImportCounts(value)) return false;
+
+  if (formatVersion === "2.0") {
+    return (
+      isNonNegativeInteger(value.assets) &&
+      isNonNegativeInteger(value.assetBytes)
+    );
+  }
+
+  return value.assets === undefined && value.assetBytes === undefined;
+}
+
+function isDigest(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/i.test(value);
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
 function isStringArray(value: unknown): value is string[] {

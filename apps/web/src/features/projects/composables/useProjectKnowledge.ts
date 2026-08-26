@@ -2,7 +2,10 @@ import { ref, watch } from "vue";
 import type { Ref } from "vue";
 
 import { t } from "../../../i18n/useI18n";
-import { prepareProjectDocumentFiles } from "../../project-documents/projectDocumentFiles";
+import {
+  cancelProjectDocumentFileUploads,
+  uploadProjectDocumentFiles,
+} from "../../project-documents/projectDocumentFiles";
 import {
   createProjectDocument,
   deleteProjectDocument,
@@ -12,6 +15,7 @@ import {
 } from "../../project-documents/projectDocumentsApi";
 import type {
   ProjectDocument,
+  ProjectDocumentImportFileInput,
   ProjectDocumentInput,
 } from "../../project-documents/types";
 import {
@@ -21,23 +25,25 @@ import {
 import type { ProjectInstruction } from "../../project-instructions/types";
 
 export interface ProjectKnowledgeDependencies {
+  cancelPreparedFiles: typeof cancelProjectDocumentFileUploads;
   createDocument: typeof createProjectDocument;
   deleteDocument: typeof deleteProjectDocument;
   fetchDocuments: typeof fetchProjectDocuments;
   fetchInstruction: typeof fetchProjectInstruction;
   importDocuments: typeof importProjectDocuments;
-  prepareFiles: typeof prepareProjectDocumentFiles;
+  prepareFiles: typeof uploadProjectDocumentFiles;
   saveInstruction: typeof saveProjectInstruction;
   updateDocument: typeof updateProjectDocument;
 }
 
 const defaultDependencies: ProjectKnowledgeDependencies = {
+  cancelPreparedFiles: cancelProjectDocumentFileUploads,
   createDocument: createProjectDocument,
   deleteDocument: deleteProjectDocument,
   fetchDocuments: fetchProjectDocuments,
   fetchInstruction: fetchProjectInstruction,
   importDocuments: importProjectDocuments,
-  prepareFiles: prepareProjectDocumentFiles,
+  prepareFiles: uploadProjectDocumentFiles,
   saveInstruction: saveProjectInstruction,
   updateDocument: updateProjectDocument,
 };
@@ -154,17 +160,20 @@ export function useProjectKnowledge(
     if (!projectId) return;
 
     const generation = projectGeneration;
+    let preparedFiles: ProjectDocumentImportFileInput[] = [];
     isImportingDocuments.value = true;
     documentErrorMessage.value = "";
 
     try {
-      const preparedFiles = await dependencies.prepareFiles(files);
+      preparedFiles = await dependencies.prepareFiles(projectId, files);
       const documents = await dependencies.importDocuments(projectId, preparedFiles);
 
       if (isCurrentProject(projectId, generation)) {
         projectDocuments.value = [...documents, ...projectDocuments.value];
       }
     } catch (error) {
+      await dependencies.cancelPreparedFiles(preparedFiles);
+
       if (isCurrentProject(projectId, generation)) {
         documentErrorMessage.value = toErrorMessage(error, t("projects.documents.errors.import"));
       }

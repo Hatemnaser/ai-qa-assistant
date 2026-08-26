@@ -1,10 +1,11 @@
 import { AppError } from "../../lib/errors.js";
-import {
-  memoryRepository,
-  type MemoryRecord,
-  type MemoryRepository,
-} from "./memory.repository.js";
-import type { MemoryDto, MemoryInput } from "./memory.types.js";
+import { memoryRepository } from "./memory.repository.js";
+import type {
+  MemoryDto,
+  MemoryInput,
+  MemoryRecord,
+  MemoryRepository,
+} from "./memory.types.js";
 
 export interface MemoryServiceDependencies {
   repository: MemoryRepository;

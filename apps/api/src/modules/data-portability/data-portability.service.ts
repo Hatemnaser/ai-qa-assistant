@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 
 import { AppError } from "../../lib/errors.js";
+import { assetStorage, type AssetStorage } from "../assets/assets.storage.js";
 import {
   projectDocumentIndexer,
   type ProjectDocumentIndexer,
@@ -9,16 +10,17 @@ import {
   projectAccessService,
   type ProjectAccessService,
 } from "../projects/project-access.service.js";
-import {
-  dataPortabilityRepository,
-  type DataPortabilityRepository,
-} from "./data-portability.repository.js";
+import { dataPortabilityRepository } from "./data-portability.repository.js";
+import { collectPortableBinaryAssets } from "./binary-assets.js";
+import { binaryAssetRestoreService } from "./binary-asset-restore.service.js";
+import type { BinaryAssetRestoreService } from "./binary-asset-restore.types.js";
 import { createProjectExportPackage } from "./export-package.js";
 import {
   previewProjectImportPackage,
   validateProjectImportPackage,
 } from "./import-package.js";
 import type {
+  DataPortabilityRepository,
   ProjectImportCommitResult,
   ProjectImportPreview,
   ProjectExportOptions,
@@ -43,17 +45,21 @@ export interface DataPortabilityService {
 }
 
 export interface DataPortabilityServiceDependencies {
+  binaryAssetRestore?: BinaryAssetRestoreService;
   indexer: ProjectDocumentIndexer;
   now?: () => Date;
   projectAccess: ProjectAccessService;
   repository: DataPortabilityRepository;
+  storage?: Pick<AssetStorage, "readObject">;
 }
 
 export function createDataPortabilityService({
+  binaryAssetRestore = binaryAssetRestoreService,
   indexer,
   now = () => new Date(),
   projectAccess,
   repository,
+  storage = assetStorage,
 }: DataPortabilityServiceDependencies): DataPortabilityService {
   return {
     async commitProjectImport(userId, archive, previewDigest) {
@@ -67,7 +73,12 @@ export function createDataPortabilityService({
         );
       }
 
-      const imported = await repository.createImportedProject(userId, packageData);
+      const imported = await binaryAssetRestore.runWithPreparedAssets(
+        userId,
+        packageData.project.binaryAssets,
+        (uploadedAssets) =>
+          repository.createImportedProject(userId, packageData, uploadedAssets)
+      );
       const warnings = [
         ...packageData.warnings,
         ...packageData.unsupported,
@@ -75,7 +86,7 @@ export function createDataPortabilityService({
 
       if (imported.documents.length > 0) {
         try {
-          await indexer.indexDocuments(imported.documents);
+          await indexer.indexDocuments(imported.documents, userId);
 
           const statuses = await repository.findProjectDocumentIndexStatuses(
             imported.projectId,
@@ -114,7 +125,16 @@ export function createDataPortabilityService({
         throw new AppError("Project was not found.", 404, "PROJECT_NOT_FOUND");
       }
 
-      return createProjectExportPackage(project, options, now());
+      const binaryAssets =
+        project.binaryAssets.length > 0
+          ? await collectPortableBinaryAssets(
+              userId,
+              project.binaryAssets,
+              storage
+            )
+          : undefined;
+
+      return createProjectExportPackage(project, options, now(), binaryAssets);
     },
 
     async previewProjectImport(archive) {
@@ -124,9 +144,11 @@ export function createDataPortabilityService({
 }
 
 export const dataPortabilityService = createDataPortabilityService({
+  binaryAssetRestore: binaryAssetRestoreService,
   indexer: projectDocumentIndexer,
   projectAccess: projectAccessService,
   repository: dataPortabilityRepository,
+  storage: assetStorage,
 });
 
 function digestsMatch(actualDigest: string, previewDigest: string) {

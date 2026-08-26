@@ -1,8 +1,6 @@
 import { AppError } from "../../lib/errors.js";
-import {
-  projectsRepository,
-  type ProjectsRepository,
-} from "./projects.repository.js";
+import { projectsRepository } from "./projects.repository.js";
+import type { ProjectsRepository } from "./projects.types.js";
 
 export interface ProjectAccessService {
   assertProjectAccess(userId: string, projectId: string): Promise<void>;

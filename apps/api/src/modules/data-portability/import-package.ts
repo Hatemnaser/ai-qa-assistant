@@ -1,13 +1,17 @@
 import { createHash } from "node:crypto";
 
-import { unzipSync } from "fflate";
 import { z } from "zod";
 
+import { DATA_LIMITS } from "../../config/data-limits.js";
 import { AppError } from "../../lib/errors.js";
 import {
   PROJECT_DOCUMENT_IMPORT_POLICY,
   isSupportedProjectDocumentFile,
 } from "../project-documents/project-document-files.js";
+import {
+  validatePortableBinaryAssets,
+  type ValidatedPortableBinaryAsset,
+} from "./binary-assets.js";
 import {
   portableProjectChatSchema,
   portableProjectSchema,
@@ -15,32 +19,34 @@ import {
 } from "./data-portability.schema.js";
 import {
   PROJECT_EXPORT_FORMAT_VERSION,
+  PROJECT_EXPORT_LEGACY_FORMAT_VERSION,
   PROJECT_IMPORT_LIMITS,
   type ProjectImportChat,
   type ProjectImportDocument,
   type ProjectImportPreview,
   type ValidatedProjectImportPackage,
 } from "./data-portability.types.js";
+import {
+  decodeSafeUtf8,
+  readSafeZipArchive,
+  validateSafeZipPath,
+  type SafeZipOptions,
+} from "./safe-zip.js";
 
-const END_OF_CENTRAL_DIRECTORY_SIGNATURE = 0x06054b50;
-const CENTRAL_DIRECTORY_ENTRY_SIGNATURE = 0x02014b50;
-const MAX_END_RECORD_SEARCH_BYTES = 65_557;
-const INVALID_PACKAGE_MESSAGE = "Project import package is invalid or unsupported.";
-const INVALID_PACKAGE_CODE = "PROJECT_IMPORT_PACKAGE_INVALID";
-
-interface ZipEntryMetadata {
-  path: string;
-  compressedSize: number;
-  uncompressedSize: number;
-  isDirectory: boolean;
-}
+const INVALID_PACKAGE = {
+  message: "Project import package is invalid or unsupported.",
+  code: "PROJECT_IMPORT_PACKAGE_INVALID",
+} as const;
+const PROJECT_ZIP_OPTIONS = {
+  isPathAllowed: (path: string) => !isProhibitedArchivePath(path),
+} satisfies SafeZipOptions;
 
 export function previewProjectImportPackage(archive: Buffer): ProjectImportPreview {
   const packageData = validateProjectImportPackage(archive);
 
   return {
     compatible: true,
-    formatVersion: PROJECT_EXPORT_FORMAT_VERSION,
+    formatVersion: packageData.formatVersion,
     exportType: "project",
     packageDigest: packageData.packageDigest,
     suggestedProjectName: `${packageData.project.name} (Imported)`,
@@ -52,6 +58,15 @@ export function previewProjectImportPackage(archive: Buffer): ProjectImportPrevi
         (total, chat) => total + chat.messages.length,
         0
       ),
+      ...(packageData.formatVersion === PROJECT_EXPORT_FORMAT_VERSION
+        ? {
+            assets: packageData.project.binaryAssets.length,
+            assetBytes: packageData.project.binaryAssets.reduce(
+              (total, asset) => total + asset.sizeBytes,
+              0
+            ),
+          }
+        : {}),
     },
     warnings: packageData.warnings,
     unsupported: packageData.unsupported,
@@ -61,13 +76,12 @@ export function previewProjectImportPackage(archive: Buffer): ProjectImportPrevi
 export function validateProjectImportPackage(
   archive: Buffer
 ): ValidatedProjectImportPackage {
-  if (archive.byteLength === 0 || archive.byteLength > PROJECT_IMPORT_LIMITS.maxCompressedBytes) {
-    throwInvalidPackage();
-  }
-
-  const entryMetadata = inspectZipCentralDirectory(archive);
-  const entries = unzipPackage(archive);
-  validateUnzippedEntries(entryMetadata, entries);
+  const { entries, metadata: entryMetadata } = readSafeZipArchive(
+    archive,
+    PROJECT_IMPORT_LIMITS,
+    INVALID_PACKAGE,
+    PROJECT_ZIP_OPTIONS
+  );
   const manifest = parseJsonEntry(entries, "manifest.json");
   const projectJson = parseJsonEntry(entries, "data/project.json");
   const manifestResult = projectExportManifestSchema.safeParse(manifest);
@@ -88,6 +102,16 @@ export function validateProjectImportPackage(
     declaredPaths
   );
   const chats = validateChatReferences(parsedProject, entries, declaredPaths);
+  const binaryAssets = validateProjectBinaryAssets({
+    chats,
+    documents,
+    entries,
+    entryPaths: entryMetadata
+      .filter((entry) => !entry.isDirectory)
+      .map((entry) => entry.path),
+    manifest: parsedManifest,
+    projectId: parsedProject.project.sourceId,
+  });
   const messageCount = chats.reduce(
     (total, chat) => total + chat.messages.length,
     0
@@ -96,10 +120,15 @@ export function validateProjectImportPackage(
   if (
     parsedManifest.counts.documents !== parsedProject.project.documents.length ||
     parsedManifest.counts.chats !== parsedProject.project.chats.length ||
-    parsedManifest.counts.messages !== messageCount
+    parsedManifest.counts.messages !== messageCount ||
+    parsedProject.project.documents.length > PROJECT_IMPORT_LIMITS.maxDocuments ||
+    parsedProject.project.chats.length > PROJECT_IMPORT_LIMITS.maxChats ||
+    messageCount > PROJECT_IMPORT_LIMITS.maxMessages
   ) {
     throwInvalidPackage();
   }
+
+  validateSemanticTextSize(parsedProject, documents, chats);
 
   if (!parsedManifest.include.chats && parsedProject.project.chats.length > 0) {
     throwInvalidPackage();
@@ -117,6 +146,7 @@ export function validateProjectImportPackage(
     .map((path) => `Unrecognized ZIP entry: ${path}`);
 
   return {
+    formatVersion: parsedManifest.formatVersion,
     packageDigest: createHash("sha256").update(archive).digest("hex"),
     project: {
       sourceId: parsedProject.project.sourceId,
@@ -134,151 +164,11 @@ export function validateProjectImportPackage(
         : null,
       documents,
       chats,
+      binaryAssets,
     },
     warnings: [...parsedManifest.warnings],
     unsupported,
   };
-}
-
-function inspectZipCentralDirectory(archive: Uint8Array): ZipEntryMetadata[] {
-  const view = new DataView(archive.buffer, archive.byteOffset, archive.byteLength);
-  const endOffset = findEndOfCentralDirectory(view);
-
-  if (endOffset < 0) {
-    throwInvalidPackage();
-  }
-
-  const diskNumber = view.getUint16(endOffset + 4, true);
-  const centralDirectoryDisk = view.getUint16(endOffset + 6, true);
-  const entriesOnDisk = view.getUint16(endOffset + 8, true);
-  const entryCount = view.getUint16(endOffset + 10, true);
-  const centralDirectorySize = view.getUint32(endOffset + 12, true);
-  const centralDirectoryOffset = view.getUint32(endOffset + 16, true);
-
-  if (
-    diskNumber !== 0 ||
-    centralDirectoryDisk !== 0 ||
-    entriesOnDisk !== entryCount ||
-    entryCount === 0 ||
-    entryCount > PROJECT_IMPORT_LIMITS.maxEntries ||
-    centralDirectoryOffset + centralDirectorySize > endOffset
-  ) {
-    throwInvalidPackage();
-  }
-
-  const entries: ZipEntryMetadata[] = [];
-  const exactPaths = new Set<string>();
-  const caseInsensitivePaths = new Set<string>();
-  let cursor = centralDirectoryOffset;
-  let totalUncompressedBytes = 0;
-
-  for (let index = 0; index < entryCount; index += 1) {
-    if (cursor + 46 > archive.byteLength) {
-      throwInvalidPackage();
-    }
-
-    if (view.getUint32(cursor, true) !== CENTRAL_DIRECTORY_ENTRY_SIGNATURE) {
-      throwInvalidPackage();
-    }
-
-    const versionMadeBy = view.getUint16(cursor + 4, true);
-    const flags = view.getUint16(cursor + 8, true);
-    const compression = view.getUint16(cursor + 10, true);
-    const compressedSize = view.getUint32(cursor + 20, true);
-    const uncompressedSize = view.getUint32(cursor + 24, true);
-    const fileNameLength = view.getUint16(cursor + 28, true);
-    const extraLength = view.getUint16(cursor + 30, true);
-    const commentLength = view.getUint16(cursor + 32, true);
-    const externalAttributes = view.getUint32(cursor + 38, true);
-    const entryEnd = cursor + 46 + fileNameLength + extraLength + commentLength;
-
-    if (entryEnd > archive.byteLength || fileNameLength === 0) {
-      throwInvalidPackage();
-    }
-
-    if ((flags & 0x1) !== 0 || ![0, 8].includes(compression)) {
-      throwInvalidPackage();
-    }
-
-    const path = decodeZipPath(archive.subarray(cursor + 46, cursor + 46 + fileNameLength));
-    const isDirectory = path.endsWith("/");
-
-    validateZipPath(path);
-
-    if (isUnsafeUnixEntry(versionMadeBy, externalAttributes, isDirectory)) {
-      throwInvalidPackage();
-    }
-
-    if (exactPaths.has(path) || caseInsensitivePaths.has(path.toLocaleLowerCase("en-US"))) {
-      throwInvalidPackage();
-    }
-
-    exactPaths.add(path);
-    caseInsensitivePaths.add(path.toLocaleLowerCase("en-US"));
-
-    if (
-      uncompressedSize > PROJECT_IMPORT_LIMITS.maxEntryBytes ||
-      compressedSize > PROJECT_IMPORT_LIMITS.maxCompressedBytes
-    ) {
-      throwInvalidPackage();
-    }
-
-    totalUncompressedBytes += uncompressedSize;
-    if (totalUncompressedBytes > PROJECT_IMPORT_LIMITS.maxTotalUncompressedBytes) {
-      throwInvalidPackage();
-    }
-
-    entries.push({
-      path,
-      compressedSize,
-      uncompressedSize,
-      isDirectory,
-    });
-    cursor = entryEnd;
-  }
-
-  if (cursor !== centralDirectoryOffset + centralDirectorySize) {
-    throwInvalidPackage();
-  }
-
-  return entries;
-}
-
-function unzipPackage(archive: Uint8Array) {
-  try {
-    return unzipSync(archive);
-  } catch {
-    throwInvalidPackage();
-  }
-}
-
-function validateUnzippedEntries(
-  metadata: ZipEntryMetadata[],
-  entries: Record<string, Uint8Array>
-) {
-  if (Object.keys(entries).length !== metadata.length) {
-    throwInvalidPackage();
-  }
-
-  let totalUncompressedBytes = 0;
-
-  for (const entry of metadata) {
-    const content = entries[entry.path];
-
-    if (
-      !content ||
-      content.byteLength !== entry.uncompressedSize ||
-      content.byteLength > PROJECT_IMPORT_LIMITS.maxEntryBytes
-    ) {
-      throwInvalidPackage();
-    }
-
-    totalUncompressedBytes += content.byteLength;
-
-    if (totalUncompressedBytes > PROJECT_IMPORT_LIMITS.maxTotalUncompressedBytes) {
-      throwInvalidPackage();
-    }
-  }
 }
 
 function parseJsonEntry(entries: Record<string, Uint8Array>, path: string) {
@@ -289,7 +179,7 @@ function parseJsonEntry(entries: Record<string, Uint8Array>, path: string) {
   }
 
   try {
-    return JSON.parse(decodeUtf8Entry(entry)) as unknown;
+    return JSON.parse(decodeSafeUtf8(entry, INVALID_PACKAGE)) as unknown;
   } catch {
     throwInvalidPackage();
   }
@@ -317,7 +207,7 @@ function validateManifestFiles(
   const caseInsensitivePaths = new Set<string>();
 
   for (const file of files) {
-    validateZipPath(file.path);
+    validateProjectZipPath(file.path);
 
     const lowercasePath = file.path.toLocaleLowerCase("en-US");
     if (paths.has(file.path) || caseInsensitivePaths.has(lowercasePath)) {
@@ -354,7 +244,7 @@ function validateDocumentReferences(
   const importedDocuments: ProjectImportDocument[] = [];
 
   for (const document of documents) {
-    validateZipPath(document.file.path);
+    validateProjectZipPath(document.file.path);
 
     if (!document.file.path.startsWith("documents/") || paths.has(document.file.path)) {
       throwInvalidPackage();
@@ -389,7 +279,7 @@ function validateDocumentReferences(
     importedDocuments.push({
       sourceId: document.sourceId,
       title: document.title,
-      content: decodeUtf8Entry(contentBytes),
+      content: decodeSafeUtf8(contentBytes, INVALID_PACKAGE),
       mimeType: document.mimeType,
       metadata: {
         originalName,
@@ -413,8 +303,8 @@ function validateChatReferences(
   const importedChats: ProjectImportChat[] = [];
 
   for (const chatReference of project.project.chats) {
-    validateZipPath(chatReference.dataPath);
-    validateZipPath(chatReference.readablePath);
+    validateProjectZipPath(chatReference.dataPath);
+    validateProjectZipPath(chatReference.readablePath);
 
     if (
       !chatReference.dataPath.startsWith("data/chats/") ||
@@ -437,6 +327,7 @@ function validateChatReferences(
 
     if (
       !chatResult.success ||
+      chatResult.data.formatVersion !== project.formatVersion ||
       chatResult.data.projectId !== project.project.sourceId ||
       chatResult.data.chat.sourceId !== chatReference.sourceId ||
       chatResult.data.chat.title !== chatReference.title ||
@@ -468,82 +359,168 @@ function validateChatReferences(
   return importedChats;
 }
 
-function findEndOfCentralDirectory(view: DataView) {
-  const minimumOffset = Math.max(0, view.byteLength - MAX_END_RECORD_SEARCH_BYTES);
+function validateProjectBinaryAssets(input: {
+  chats: ProjectImportChat[];
+  documents: ProjectImportDocument[];
+  entries: Record<string, Uint8Array>;
+  entryPaths: string[];
+  manifest: z.infer<typeof projectExportManifestSchema>;
+  projectId: string;
+}): ValidatedPortableBinaryAsset[] {
+  const archiveAssetPaths = input.entryPaths.filter((path) =>
+    path.startsWith("assets/")
+  );
 
-  for (let offset = view.byteLength - 22; offset >= minimumOffset; offset -= 1) {
-    if (view.getUint32(offset, true) === END_OF_CENTRAL_DIRECTORY_SIGNATURE) {
-      const commentLength = view.getUint16(offset + 20, true);
-      if (offset + 22 + commentLength === view.byteLength) {
-        return offset;
-      }
+  if (input.manifest.formatVersion === PROJECT_EXPORT_LEGACY_FORMAT_VERSION) {
+    if (archiveAssetPaths.length > 0) throwInvalidPackage();
+    return [];
+  }
+
+  let assets: ValidatedPortableBinaryAsset[];
+  try {
+    assets = validatePortableBinaryAssets(input.manifest.assets, input.entries);
+  } catch {
+    throwInvalidPackage();
+  }
+
+  const assetPaths = new Set(assets.map((asset) => asset.file.path));
+  const declaredFiles = new Map(
+    input.manifest.files.map((file) => [file.path, file])
+  );
+  const assetBytes = assets.reduce(
+    (total, asset) => total + asset.sizeBytes,
+    0
+  );
+
+  if (
+    input.manifest.counts.assets !== assets.length ||
+    input.manifest.counts.assetBytes !== assetBytes ||
+    archiveAssetPaths.length !== assetPaths.size ||
+    archiveAssetPaths.some((path) => !assetPaths.has(path))
+  ) {
+    throwInvalidPackage();
+  }
+
+  for (const asset of assets) {
+    const declared = declaredFiles.get(asset.file.path);
+    if (
+      !declared ||
+      declared.sha256 !== asset.file.sha256 ||
+      declared.sizeBytes !== asset.file.sizeBytes
+    ) {
+      throwInvalidPackage();
     }
   }
 
-  return -1;
+  validateImportedBinaryAssetRelations(input, assets);
+  return assets;
 }
 
-function decodeZipPath(bytes: Uint8Array) {
-  try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  } catch {
-    throwInvalidPackage();
-  }
-}
-
-function decodeUtf8Entry(bytes: Uint8Array) {
-  try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  } catch {
-    throwInvalidPackage();
-  }
-}
-
-function validateZipPath(path: string) {
-  const pathWithoutTrailingSlash = path.endsWith("/") ? path.slice(0, -1) : path;
-  const segments = pathWithoutTrailingSlash.split("/");
-
-  if (
-    !path ||
-    path !== path.normalize("NFKC") ||
-    path.length > PROJECT_IMPORT_LIMITS.maxPathChars ||
-    /[\u0000-\u001f\u007f]/.test(path) ||
-    path.includes("\\") ||
-    path.startsWith("/") ||
-    /^[a-z]:/i.test(path) ||
-    isProhibitedArchivePath(path)
-  ) {
-    throwInvalidPackage();
-  }
-
-  if (
-    segments.length === 0 ||
-    segments.length > PROJECT_IMPORT_LIMITS.maxNestingDepth ||
-    segments.some((segment) => !segment || segment === ".." || segment === ".")
-  ) {
-    throwInvalidPackage();
-  }
-}
-
-function isUnsafeUnixEntry(
-  versionMadeBy: number,
-  externalAttributes: number,
-  isDirectory: boolean
+function validateImportedBinaryAssetRelations(
+  input: {
+    chats: ProjectImportChat[];
+    documents: ProjectImportDocument[];
+    projectId: string;
+  },
+  assets: ValidatedPortableBinaryAsset[]
 ) {
-  const creatorSystem = versionMadeBy >> 8;
-  const unixMode = externalAttributes >>> 16;
-
-  if (creatorSystem !== 3 || unixMode === 0) return false;
-
-  const fileType = unixMode & 0xf000;
-
-  if (fileType !== 0) {
-    const expectedType = isDirectory ? 0x4000 : 0x8000;
-
-    if (fileType !== expectedType) return true;
+  const documentsById = new Map<string, ProjectImportDocument>();
+  for (const document of input.documents) {
+    if (documentsById.has(document.sourceId)) throwInvalidPackage();
+    documentsById.set(document.sourceId, document);
   }
 
-  return !isDirectory && (unixMode & 0o111) !== 0;
+  const chatIds = new Set<string>();
+  const messagesById = new Map<string, ProjectImportChat["messages"][number]>();
+  for (const chat of input.chats) {
+    if (chatIds.has(chat.sourceId)) throwInvalidPackage();
+    chatIds.add(chat.sourceId);
+
+    for (const message of chat.messages) {
+      if (messagesById.has(message.sourceId)) throwInvalidPackage();
+      messagesById.set(message.sourceId, message);
+    }
+  }
+
+  for (const asset of assets) {
+    if (asset.sourceProjectId !== input.projectId) throwInvalidPackage();
+
+    if (asset.binding.kind === "project_document_source") {
+      const document = documentsById.get(asset.binding.sourceDocumentId);
+      if (
+        !document ||
+        document.metadata.originalName !== asset.originalName ||
+        document.mimeType !== asset.mimeType
+      ) {
+        throwInvalidPackage();
+      }
+      continue;
+    }
+
+    const message = messagesById.get(asset.binding.sourceMessageId);
+    const attachment = message?.attachments[asset.binding.ordinal];
+    if (
+      !attachment ||
+      attachment.name !== asset.originalName ||
+      attachment.mimeType !== asset.mimeType ||
+      attachment.type !== (asset.mimeType.startsWith("image/") ? "image" : "file")
+    ) {
+      throwInvalidPackage();
+    }
+  }
+}
+
+function validateSemanticTextSize(
+  project: z.infer<typeof portableProjectSchema>,
+  documents: ProjectImportDocument[],
+  chats: ProjectImportChat[]
+) {
+  let totalChars =
+    project.project.name.length +
+    (project.project.description?.length || 0) +
+    (project.project.instructions?.content.length || 0) +
+    (project.project.memory?.content.length || 0);
+
+  totalChars += documents.reduce(
+    (total, document) => total + document.title.length + document.content.length,
+    0
+  );
+  totalChars += chats.reduce(
+    (chatTotal, chat) =>
+      chatTotal +
+      chat.title.length +
+      chat.messages.reduce(
+        (messageTotal, message) => messageTotal + message.content.length,
+        0
+      ),
+    0
+  );
+
+  if (
+    chats.some(
+      (chat) =>
+        chat.messages.reduce(
+          (total, message) =>
+            total + Buffer.byteLength(message.content, "utf8"),
+          0
+        ) > DATA_LIMITS.chatMessageContentBytesPerChat
+    )
+  ) {
+    throwInvalidPackage();
+  }
+
+  if (totalChars > PROJECT_IMPORT_LIMITS.maxTotalTextChars) {
+    throwInvalidPackage();
+  }
+}
+
+function validateProjectZipPath(path: string) {
+  validateSafeZipPath(
+    path,
+    PROJECT_IMPORT_LIMITS,
+    INVALID_PACKAGE,
+    PROJECT_ZIP_OPTIONS
+  );
 }
 
 function isProhibitedArchivePath(path: string) {
@@ -553,5 +530,5 @@ function isProhibitedArchivePath(path: string) {
 }
 
 function throwInvalidPackage(): never {
-  throw new AppError(INVALID_PACKAGE_MESSAGE, 400, INVALID_PACKAGE_CODE);
+  throw new AppError(INVALID_PACKAGE.message, 400, INVALID_PACKAGE.code);
 }

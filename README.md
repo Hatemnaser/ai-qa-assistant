@@ -1,6 +1,6 @@
-# AI QA Assistant
+# Oddpath
 
-AI QA Assistant is a QA-focused chat workspace for test cases, bug reports, edge cases, checklist generation, visual review, and chat export/import.
+Oddpath is a QA-focused AI workspace for test cases, bug reports, edge cases, checklist generation, visual review, and chat export/import.
 
 ## What It Does
 
@@ -50,6 +50,8 @@ Key architecture docs:
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Development Guide](docs/DEVELOPMENT_GUIDE.md)
+- [Oddpath Real-User Launch Plan](docs/ODDPATH_LAUNCH_PLAN.md)
+- [Cloudflare + Render Deployment Runbook](docs/DEPLOYMENT_CLOUDFLARE_RENDER.md)
 - [Production Deployment And Readiness](docs/PRODUCTION_READINESS.md)
 - [Next Steps](docs/NEXT_STEPS.md)
 
@@ -140,11 +142,21 @@ If auth returns `DATABASE_UNAVAILABLE` or Prisma Studio cannot load tables, make
 
 ## Auth Notes
 
-Password auth uses httpOnly session cookies and hashed passwords. Passwords cannot be viewed after registration; reset them by updating the password hash or by adding real reset email delivery later.
-
-The forgot-password page currently returns a generic local response only. Email delivery and reset links are not implemented yet.
+Password auth uses httpOnly session cookies and hashed passwords. Email
+verification, forgot-password email, and the reset-password page are
+implemented. Local development captures auth email in memory by default;
+production fails closed unless a complete SMTP configuration is present.
 
 ## Verification
+
+Deployment builds of the web app fail closed unless the exact HTTPS API origin
+is available at build time. For a local production-build check, copy
+`apps/web/.env.production.example` to the ignored
+`apps/web/.env.production.local`, review `VITE_API_BASE_URL`, and then run the
+commands below. If direct browser transfers to the private EU R2 bucket are
+enabled later, also set `VITE_R2_ENDPOINT` to that exact account endpoint; do
+not use a wildcard or path. CI and Cloudflare Pages inject their own reviewed
+environment-specific values.
 
 ```bash
 npm run verify
@@ -152,10 +164,48 @@ npm run build:api
 npm run build:web
 ```
 
+The scheduled operations commands run compiled API artifacts. Run
+`npm run build:api` before `npm run cleanup:retention` or
+`npm run assets:cleanup`. For local source execution only, use the explicit
+`npm run cleanup:retention:dev` and `npm run assets:cleanup:dev` variants;
+production schedulers must not use `tsx` or a `*:dev` command.
+
+`npm run verify` starts with API source, API test, and web type checks so
+generated Prisma client code exists even on a clean CI checkout and test mocks
+cannot silently drift from application contracts. It then runs both test
+suites. The API check also enforces repository contract boundaries and rejects
+runtime dependency cycles through `npm run check:architecture`. GitHub CI
+also applies every committed migration to a fresh PostgreSQL 16 service before
+the verification and build gates. It then fails closed if migration history or
+the deployed database shape differs from `schema.prisma`, and runs a focused
+real-PostgreSQL suite for terms, private assets, the auth-email outbox, and
+concurrent usage, project-count, chat-count, document-count, and asset-byte
+reservations. The suite also matches Prisma's applied migration rows to every
+committed migration, exercises owner-scoped project mutations, and verifies
+that invalid source-asset links roll back atomically.
+
+To run those database-only gates locally, point at a disposable migrated test
+database whose name contains a distinct `test` or `ci` segment. The integration
+suite mutates and cleans up test-owned rows. Name the exact target separately so
+a copied command cannot silently run against the normal development database:
+
+```bash
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/oddpath_test?schema=public npm run db:migrate:deploy
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/oddpath_test?schema=public npm run db:drift:check
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/oddpath_test?schema=public ODDPATH_DB_INTEGRATION_DATABASE=oddpath_test ODDPATH_DB_INTEGRATION_TESTS=1 npm run test:integration:db
+```
+
+On PowerShell, set `DATABASE_URL`, `ODDPATH_DB_INTEGRATION_DATABASE`, and
+`ODDPATH_DB_INTEGRATION_TESTS="1"` as process environment variables before
+running the three commands. The suite never creates a database or starts Docker
+itself. It refuses production-like database names, name mismatches, non-public
+schemas, and remote hosts; a deliberately isolated remote test database needs
+the additional `ODDPATH_DB_INTEGRATION_ALLOW_REMOTE=1` acknowledgement.
+
 Before sharing or deploying the app, use
 [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). The current
-`db:migrate` script is for local development; production must use a dedicated
-`prisma migrate deploy` release command after it is added.
+`db:migrate` script is for local development; production uses the existing
+`npm run db:migrate:deploy` command backed by `prisma migrate deploy`.
 
 Current verification status and exact test counts are tracked in
 [docs/AI_HANDOFF.md](docs/AI_HANDOFF.md) so this README does not become stale.
@@ -163,13 +213,14 @@ Current verification status and exact test counts are tracked in
 ## Current Gaps
 
 - Google OAuth is not wired yet; the UI button is disabled intentionally.
-- Forgot password returns a safe generic response, but reset emails are not implemented yet.
 - Project member authorization, smart memory import/export, and broader
   attachment support are future work.
 - Admin usage, plans/billing, PDF/video, and provider file uploads are roadmap items.
 - Real-user production remains gated on managed PostgreSQL, automated backups,
-  a tested restore, production-safe migrations, staging smoke tests, and
-  host/proxy rate limiting.
+  a tested restore, staging smoke tests, host/proxy rate limiting, and the
+  reviewed retention policy plus scheduled/monitored retention and external
+  object-deletion jobs. Relational account deletion and bounded retention
+  cleanup are already implemented.
 
 ## Styling
 

@@ -4,21 +4,24 @@ import { after, before, describe, it } from "node:test";
 import {
   createUsageService,
   type GlobalAiUsageGuardConfig,
+  type IdentityInFlightLimits,
 } from "../src/modules/usage/usage.service.ts";
+import { estimateChatCredits } from "../src/modules/usage/credit-policy.ts";
 import { setSecurityEventLoggerForTests } from "../src/lib/security-events.ts";
-import type { UsageRepository } from "../src/modules/usage/usage.repository.ts";
 import type {
   UsageCleanupStaleReservedInput,
   UsageCountInput,
   UsageEventRecord,
   UsageListInput,
   UsageRecordInput,
+  UsageRepository,
   UsageReservationInput,
   UsageReservationRecord,
   UsageUpdateInput,
 } from "../src/modules/usage/usage.types.ts";
 import {
   AI_USAGE_ACTIONS,
+  CHAT_MESSAGE_ACTION,
   CONVERSATION_SUMMARY_ACTION,
   DOCUMENT_EMBEDDING_ACTION,
 } from "../src/modules/usage/usage.types.ts";
@@ -31,6 +34,7 @@ const CHAT_CREDIT_ESTIMATE = {
   estimatedPromptTokens: 250,
   estimatedTotalTokens: 950,
   fileCount: 0,
+  fixedCredits: 0,
   imageCount: 0,
   mode: "general",
   model: "gemini-3.1-flash-lite",
@@ -131,7 +135,12 @@ describe("usage service", () => {
   });
 
   it("does not exceed guest quota when reservations run concurrently", async () => {
-    const { repository, service } = setupUsageService();
+    const { repository, service } = setupUsageService([], {
+      identityInFlightLimits: {
+        guest: 100,
+        user: 100,
+      },
+    });
     const attempts = Array.from({ length: 25 }, () =>
       service.reserveChatCredits(
         {
@@ -269,6 +278,112 @@ describe("usage service", () => {
     assert.equal(repository.events.length, 2);
   });
 
+  it("enforces the rolling daily credit limit outside the hourly window", async () => {
+    const { repository, service } = setupUsageService(
+      [
+        createUsageEvent({
+          createdAt: new Date("2026-05-19T10:00:00.000Z"),
+          units: 9,
+          userId: "user-2",
+        }),
+      ],
+      {
+        globalAiUsageGuard: createGlobalGuard({
+          creditLimit: 100,
+          dailyCreditLimit: 10,
+          requestLimit: 100,
+          windowMs: 60 * 60 * 1000,
+        }),
+      }
+    );
+
+    await assert.rejects(
+      () =>
+        service.reserveChatCredits(
+          {
+            userId: "user-1",
+          },
+          CHAT_CREDIT_ESTIMATE
+        ),
+      {
+        code: "AI_USAGE_LIMIT_REACHED",
+        statusCode: 429,
+      }
+    );
+    assert.equal(repository.events.length, 1);
+  });
+
+  it("enforces the calendar-month request limit outside the daily window", async () => {
+    const monthlyEvents = Array.from({ length: 3 }, (_, index) =>
+      createUsageEvent({
+        createdAt: new Date(`2026-05-0${index + 1}T12:00:00.000Z`),
+        id: `monthly-${index}`,
+        units: 1,
+      })
+    );
+    const { repository, service } = setupUsageService(monthlyEvents, {
+      globalAiUsageGuard: createGlobalGuard({
+        creditLimit: 100,
+        dailyCreditLimit: 100,
+        dailyRequestLimit: 100,
+        monthlyRequestLimit: 3,
+        requestLimit: 100,
+      }),
+    });
+
+    await assert.rejects(
+      () =>
+        service.reserveAiOperation({
+          action: DOCUMENT_EMBEDDING_ACTION,
+          credits: 1,
+          model: "embedding-model",
+          provider: "gemini",
+        }),
+      {
+        code: "AI_USAGE_LIMIT_REACHED",
+        statusCode: 429,
+      }
+    );
+    assert.equal(repository.events.length, 3);
+  });
+
+  it("keeps stale non-chat reservations in conservative global accounting", async () => {
+    const { repository, service } = setupUsageService(
+      [
+        createUsageEvent({
+          action: DOCUMENT_EMBEDDING_ACTION,
+          createdAt: new Date("2026-05-19T10:00:00.000Z"),
+          status: "reserved",
+          units: 9,
+          userId: "user-2",
+        }),
+      ],
+      {
+        globalAiUsageGuard: createGlobalGuard({
+          creditLimit: 100,
+          dailyCreditLimit: 10,
+          requestLimit: 100,
+        }),
+      }
+    );
+
+    await assert.rejects(
+      () =>
+        service.reserveAiOperation({
+          action: CONVERSATION_SUMMARY_ACTION,
+          credits: 2,
+          model: "summary-model",
+          provider: "gemini",
+          userId: "user-1",
+        }),
+      {
+        code: "AI_USAGE_LIMIT_REACHED",
+        statusCode: 429,
+      }
+    );
+    assert.equal(repository.events.length, 1);
+  });
+
   it("reserves and completes non-chat AI operations through the global guard", async () => {
     const { repository, service } = setupUsageService();
 
@@ -379,6 +494,191 @@ describe("usage service", () => {
     assert.equal(repository.events[0].totalTokens, 500);
   });
 
+  it("preserves attachment and workflow-router charges when actual tokens settle", async () => {
+    const { repository, service } = setupUsageService();
+    const estimate = estimateChatCredits({
+      attachments: [
+        {
+          content: "a,b\n1,2",
+          mimeType: "text/csv",
+          name: "cases.csv",
+          type: "file",
+        },
+      ],
+      history: [],
+      imageCount: 1,
+      message: "Review these attachments",
+      mode: "general",
+      model: "gemini-3.1-flash-lite",
+      modelRouting: {
+        reason: "policy",
+        requestedModel: "gemini-3.1-flash-lite",
+        selectedModel: "gemini-3.1-flash-lite",
+        source: "policy",
+      },
+      provider: "gemini",
+      usesWorkflowRouter: true,
+      workflow: {
+        confidence: 0.5,
+        effectiveMode: "general",
+        intent: "general_qa",
+        language: "english",
+        shouldAskClarifyingQuestion: false,
+        shouldUseArtifactTemplate: false,
+        source: "fallback",
+      },
+    });
+    const reservation = await service.reserveChatCredits(
+      { userId: "user-1" },
+      estimate
+    );
+
+    await service.completeChatCredits(reservation, {
+      model: "gemini-3.1-flash-lite",
+      outputTokens: 200,
+      promptTokens: 300,
+      provider: "gemini",
+      totalTokens: 500,
+    });
+
+    assert.equal(estimate.fixedCredits, 6);
+    assert.equal(repository.events[0].creditsUsed, 7);
+    assert.equal(repository.events[0].units, 7);
+  });
+
+  it("keeps a conservative charge when a provider attempt fails with unknown billing", async () => {
+    const { repository, service } = setupUsageService();
+    const reservation = await service.reserveChatCredits(
+      { guestId: "guest-1" },
+      {
+        ...CHAT_CREDIT_ESTIMATE,
+        credits: 4,
+      }
+    );
+    reservation.generationAttempts = 1;
+    reservation.providerAttempts = 1;
+
+    const failed = await service.failChatCredits(reservation, {
+      model: "gemini-3.1-flash-lite",
+      provider: "gemini",
+      providerAttempts: 1,
+    });
+
+    assert.equal(failed.used, 4);
+    assert.equal(failed.remaining, 16);
+    assert.equal(repository.events[0].creditsUsed, 4);
+    assert.equal(repository.events[0].providerAttempts, 1);
+    assert.equal(repository.events[0].status, "unknown");
+    assert.equal(repository.events[0].units, 4);
+  });
+
+  it("accounts conservatively for a failed primary attempt before fallback succeeds", async () => {
+    const { repository, service } = setupUsageService();
+    const reservation = await service.reserveChatCredits(
+      { userId: "user-1" },
+      {
+        ...CHAT_CREDIT_ESTIMATE,
+        credits: 4,
+      }
+    );
+    reservation.generationAttempts = 2;
+    reservation.providerAttempts = 2;
+
+    await service.completeChatCredits(reservation, {
+      model: "gemini-2.5-flash-lite",
+      outputTokens: 200,
+      promptTokens: 300,
+      provider: "gemini",
+      totalTokens: 500,
+    });
+
+    assert.equal(repository.events[0].creditsUsed, 5);
+    assert.equal(repository.events[0].providerAttempts, 2);
+  });
+
+  it("applies the signed-in daily budget across chat, summaries, and embeddings", async () => {
+    const { service } = setupUsageService([
+      createUsageEvent({
+        action: CHAT_MESSAGE_ACTION,
+        units: 97,
+        userId: "user-1",
+      }),
+      createUsageEvent({
+        action: DOCUMENT_EMBEDDING_ACTION,
+        units: 2,
+        userId: "user-1",
+      }),
+    ]);
+
+    await assert.rejects(
+      () =>
+        service.reserveAiOperation({
+          action: CONVERSATION_SUMMARY_ACTION,
+          credits: 2,
+          model: "summary-model",
+          provider: "gemini",
+          userId: "user-1",
+        }),
+      {
+        code: "USAGE_LIMIT_REACHED",
+        statusCode: 429,
+      }
+    );
+  });
+
+  it("limits concurrent signed-in AI operations across action types", async () => {
+    const { service } = setupUsageService([
+      createUsageEvent({
+        action: CHAT_MESSAGE_ACTION,
+        status: "reserved",
+        units: 1,
+        userId: "user-1",
+      }),
+      createUsageEvent({
+        action: DOCUMENT_EMBEDDING_ACTION,
+        status: "reserved",
+        units: 1,
+        userId: "user-1",
+      }),
+      createUsageEvent({
+        action: CONVERSATION_SUMMARY_ACTION,
+        status: "reserved",
+        units: 1,
+        userId: "user-1",
+      }),
+    ]);
+
+    await assert.rejects(
+      () =>
+        service.reserveAiOperation({
+          action: DOCUMENT_EMBEDDING_ACTION,
+          credits: 1,
+          model: "embedding-model",
+          provider: "gemini",
+          userId: "user-1",
+        }),
+      {
+        code: "AI_IN_FLIGHT_LIMIT_REACHED",
+        statusCode: 429,
+      }
+    );
+  });
+
+  it("records provider attempts before operation completion", async () => {
+    const { repository, service } = setupUsageService();
+    const reservation = await service.reserveAiOperation({
+      action: DOCUMENT_EMBEDDING_ACTION,
+      credits: 1,
+      model: "embedding-model",
+      provider: "gemini",
+      userId: "user-1",
+    });
+
+    await service.recordAiOperationAttempt(reservation);
+
+    assert.equal(repository.events[0].providerAttempts, 1);
+  });
+
   it("releases reserved credits when the AI request fails", async () => {
     const { repository, service } = setupUsageService();
     const reservation = await service.reserveChatCredits(
@@ -403,7 +703,7 @@ describe("usage service", () => {
     assert.equal(repository.events[0].status, "failed");
   });
 
-  it("cleans stale reserved chat credits before reserving more usage", async () => {
+  it("marks stale reservations unknown without erasing potentially billed usage", async () => {
     const staleReserved = createUsageEvent({
       createdAt: new Date("2026-05-19T11:20:00.000Z"),
       creditsReserved: 20,
@@ -413,21 +713,25 @@ describe("usage service", () => {
     });
     const { repository, service } = setupUsageService([staleReserved]);
 
-    const reservation = await service.reserveChatCredits(
+    await assert.rejects(
+      () =>
+        service.reserveChatCredits(
+          {
+            guestId: "guest-1",
+          },
+          CHAT_CREDIT_ESTIMATE
+        ),
       {
-        guestId: "guest-1",
-      },
-      CHAT_CREDIT_ESTIMATE
+        code: "USAGE_LIMIT_REACHED",
+        statusCode: 429,
+      }
     );
 
-    assert.equal(reservation.used, 2);
-    assert.equal(reservation.remaining, 18);
     assert.equal(repository.events[0].id, staleReserved.id);
-    assert.equal(repository.events[0].status, "failed");
-    assert.equal(repository.events[0].creditsUsed, 0);
-    assert.equal(repository.events[0].units, 0);
-    assert.equal(repository.events.length, 2);
-    assert.equal(repository.events[1].status, "reserved");
+    assert.equal(repository.events[0].status, "unknown");
+    assert.equal(repository.events[0].creditsUsed, undefined);
+    assert.equal(repository.events[0].units, 20);
+    assert.equal(repository.events.length, 1);
   });
 
   it("does not clean recent reserved chat credits", async () => {
@@ -440,15 +744,10 @@ describe("usage service", () => {
       }),
     ]);
 
-    const reservation = await service.reserveChatCredits(
-      {
-        guestId: "guest-1",
-      },
-      CHAT_CREDIT_ESTIMATE
-    );
+    await service.cleanupStaleReservedChatCredits({
+      guestId: "guest-1",
+    });
 
-    assert.equal(reservation.used, 20);
-    assert.equal(reservation.remaining, 0);
     assert.equal(repository.events[0].status, "reserved");
     assert.equal(repository.events[0].units, 18);
   });
@@ -564,6 +863,7 @@ function setupUsageService(
   const repository = createFakeUsageRepository(initialEvents);
   const service = createUsageService({
     globalAiUsageGuard: options.globalAiUsageGuard,
+    identityInFlightLimits: options.identityInFlightLimits,
     now: () => NOW,
     repository,
   });
@@ -581,6 +881,7 @@ interface UsageServiceTestContext {
 
 interface UsageServiceTestOptions {
   globalAiUsageGuard?: GlobalAiUsageGuardConfig;
+  identityInFlightLimits?: IdentityInFlightLimits;
 }
 
 function createFakeUsageRepository(initialEvents: FakeUsageEvent[] = []): FakeUsageRepository {
@@ -594,9 +895,7 @@ function createFakeUsageRepository(initialEvents: FakeUsageEvent[] = []): FakeUs
       for (const event of repository.events) {
         if (!matchesStaleReservedCleanupInput(event, input)) continue;
 
-        event.creditsUsed = 0;
-        event.status = "failed";
-        event.units = 0;
+        event.status = "unknown";
         cleaned += 1;
       }
 
@@ -642,6 +941,14 @@ function createFakeUsageRepository(initialEvents: FakeUsageEvent[] = []): FakeUs
       };
     },
 
+    async recordUsageAttempt(id: string): Promise<void> {
+      const event = repository.events.find((item) => item.id === id);
+
+      if (event) {
+        event.providerAttempts = (event.providerAttempts || 0) + 1;
+      }
+    },
+
     async reserveUsage(input: UsageReservationInput): Promise<UsageReservationRecord> {
       const result = repository.reserveQueue.then(() => reserveUsageWithFakeLock(repository, input));
 
@@ -670,18 +977,22 @@ async function reserveUsageWithFakeLock(
   input: UsageReservationInput
 ): Promise<UsageReservationRecord> {
   if (input.globalGuard) {
-    const globalUsage = countGlobalUsage(repository, input);
+    const windows = [input.globalGuard, ...(input.globalGuard.additionalWindows || [])];
 
-    if (
-      globalUsage.requestCount + 1 > input.globalGuard.requestLimit ||
-      globalUsage.unitsUsed + input.requestedUnits > input.globalGuard.creditLimit
-    ) {
-      return {
-        accepted: false,
-        rejectionReason: "global_limit",
-        usedAfter: globalUsage.unitsUsed,
-        usedBefore: globalUsage.unitsUsed,
-      };
+    for (const window of windows) {
+      const globalUsage = countGlobalUsage(repository, input, window.since);
+
+      if (
+        globalUsage.requestCount + 1 > window.requestLimit ||
+        globalUsage.unitsUsed + input.requestedUnits > window.creditLimit
+      ) {
+        return {
+          accepted: false,
+          rejectionReason: "global_limit",
+          usedAfter: globalUsage.unitsUsed,
+          usedBefore: globalUsage.unitsUsed,
+        };
+      }
     }
   }
 
@@ -691,6 +1002,18 @@ async function reserveUsageWithFakeLock(
     return {
       accepted: false,
       rejectionReason: "identity_limit",
+      usedAfter: usedBefore,
+      usedBefore,
+    };
+  }
+
+  if (
+    input.inFlightLimit !== undefined &&
+    countInFlightScopeUsage(repository, input) >= input.inFlightLimit
+  ) {
+    return {
+      accepted: false,
+      rejectionReason: "identity_in_flight",
       usedAfter: usedBefore,
       usedBefore,
     };
@@ -707,7 +1030,7 @@ async function reserveUsageWithFakeLock(
   };
 }
 
-function countGlobalUsage(repository: FakeUsageRepository, input: UsageReservationInput) {
+function countGlobalUsage(repository: FakeUsageRepository, input: UsageReservationInput, since: Date) {
   if (!input.globalGuard) {
     return {
       requestCount: 0,
@@ -715,7 +1038,9 @@ function countGlobalUsage(repository: FakeUsageRepository, input: UsageReservati
     };
   }
 
-  const events = repository.events.filter((event) => matchesGlobalUsageGuardInput(event, input));
+  const events = repository.events.filter((event) =>
+    matchesGlobalUsageGuardInput(event, input, since)
+  );
 
   return {
     requestCount: events.length,
@@ -728,31 +1053,71 @@ async function countReservedScopeUsage(
   input: UsageReservationInput
 ) {
   if (input.isSignedIn) {
-    return repository.countUsage({
-      action: input.action,
-      since: input.since,
-      userId: input.userId,
-    });
+    return repository.events
+      .filter((event) => matchesScopedUsageEvent(event, input))
+      .reduce((total, event) => total + event.units, 0);
   }
 
   const counts = await Promise.all([
     input.guestId
-      ? repository.countUsage({
-          action: input.action,
-          guestId: input.guestId,
-          since: input.since,
-        })
+      ? Promise.resolve(
+          repository.events
+            .filter(
+              (event) =>
+                matchesScopedUsageEvent(event, input) &&
+                event.guestId === input.guestId
+            )
+            .reduce((total, event) => total + event.units, 0)
+        )
       : 0,
     input.ipHash
-      ? repository.countUsage({
-          action: input.action,
-          ipHash: input.ipHash,
-          since: input.since,
-        })
+      ? Promise.resolve(
+          repository.events
+            .filter(
+              (event) =>
+                matchesScopedUsageEvent(event, input) &&
+                event.ipHash === input.ipHash
+            )
+            .reduce((total, event) => total + event.units, 0)
+        )
       : 0,
   ]);
 
   return Math.max(...counts);
+}
+
+function countInFlightScopeUsage(
+  repository: FakeUsageRepository,
+  input: UsageReservationInput
+) {
+  return repository.events.filter((event) => {
+    if (!matchesScopedUsageEvent(event, input)) return false;
+    if (event.status !== "reserved") return false;
+    if (
+      input.globalGuard &&
+      event.createdAt < input.globalGuard.staleReservedCutoff
+    ) {
+      return false;
+    }
+
+    if (input.isSignedIn) return event.userId === input.userId;
+
+    return (
+      (input.guestId !== undefined && event.guestId === input.guestId) ||
+      (input.ipHash !== undefined && event.ipHash === input.ipHash)
+    );
+  }).length;
+}
+
+function matchesScopedUsageEvent(
+  event: FakeUsageEvent,
+  input: UsageReservationInput
+) {
+  const matchesAction = input.scopeActions?.length
+    ? input.scopeActions.includes(event.action)
+    : event.action === input.action;
+
+  return matchesAction && event.createdAt >= input.since;
 }
 
 interface FakeUsageRepository extends UsageRepository {
@@ -794,14 +1159,14 @@ function matchesStaleReservedCleanupInput(
   return matchesGuest || matchesIp;
 }
 
-function matchesGlobalUsageGuardInput(event: FakeUsageEvent, input: UsageReservationInput) {
+function matchesGlobalUsageGuardInput(
+  event: FakeUsageEvent,
+  input: UsageReservationInput,
+  since = input.globalGuard?.since
+) {
   if (!input.globalGuard) return false;
   if (!AI_USAGE_ACTIONS.includes(event.action as (typeof AI_USAGE_ACTIONS)[number])) return false;
-  if (event.createdAt < input.globalGuard.since) return false;
-  if (event.status === "failed") return false;
-  if (event.status === "reserved" && event.createdAt < input.globalGuard.staleReservedCutoff) {
-    return false;
-  }
+  if (!since || event.createdAt < since) return false;
 
   return true;
 }
@@ -811,6 +1176,10 @@ function createGlobalGuard(
 ): GlobalAiUsageGuardConfig {
   return {
     creditLimit: 100,
+    dailyCreditLimit: 1_000,
+    dailyRequestLimit: 1_000,
+    monthlyCreditLimit: 10_000,
+    monthlyRequestLimit: 10_000,
     requestLimit: 100,
     windowMs: 60 * 60 * 1000,
     ...overrides,
@@ -835,6 +1204,7 @@ function toUsageEventRecord(event: FakeUsageEvent): UsageEventRecord {
     outputTokens: event.outputTokens ?? null,
     promptTokens: event.promptTokens ?? null,
     provider: event.provider ?? null,
+    providerAttempts: event.providerAttempts || 0,
     status: event.status || "reserved",
     totalTokens: event.totalTokens ?? null,
     units: event.units,

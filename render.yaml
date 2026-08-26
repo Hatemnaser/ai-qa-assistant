@@ -1,0 +1,141 @@
+services:
+  - type: web
+    name: oddpath-api
+    runtime: node
+    branch: main
+    plan: starter
+    region: frankfurt
+    numInstances: 1
+    buildCommand: npm ci --include=dev && npm run build:api
+    preDeployCommand: npm run db:migrate:deploy
+    startCommand: npm --prefix apps/api run start
+    healthCheckPath: /api/health/ready
+    maxShutdownDelaySeconds: 70
+    autoDeployTrigger: checksPass
+    renderSubdomainPolicy: enabled
+    domains:
+      - api.oddpath.eluthira.com
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/**
+        - package.json
+        - package-lock.json
+        - .node-version
+        - render.yaml
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: oddpath-db
+          property: connectionString
+      - key: APP_ORIGIN
+        value: https://oddpath.eluthira.com
+      - key: CORS_ORIGIN
+        value: https://oddpath.eluthira.com
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAME_SITE
+        value: lax
+      - key: COOKIE_DOMAIN
+        value: ""
+      - key: CSRF_SECRET
+        generateValue: true
+      - key: USAGE_IP_HASH_SALT
+        generateValue: true
+      - key: PASSWORD_RESET_PATH
+        value: "/#/reset-password"
+      - key: EMAIL_VERIFICATION_PATH
+        value: "/#/verify-email"
+      # Keep registration closed until the bilingual legal pages are reviewed.
+      # To open the private beta, publish/review the legal pages, set a reviewed
+      # terms version and SHA-256 invite hashes, acknowledge that publication,
+      # then change REGISTRATION_MODE to invite.
+      - key: REGISTRATION_MODE
+        value: disabled
+      - key: CURRENT_TERMS_VERSION
+        sync: false
+      - key: REGISTRATION_INVITE_CODE_HASHES
+        sync: false
+      - key: LEGAL_DOCUMENTS_PUBLISHED_CONFIRMED
+        value: "false"
+      - key: EMAIL_PROVIDER
+        value: smtp
+      - key: EMAIL_FROM
+        value: "Oddpath <no-reply@eluthira.com>"
+      - key: SMTP_HOST
+        value: smtp-relay.brevo.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_OUTBOX_ENCRYPTION_SECRET
+        generateValue: true
+      - key: EMAIL_OUTBOX_POLL_INTERVAL_MS
+        value: "5000"
+      - key: EMAIL_OUTBOX_BATCH_SIZE
+        value: "10"
+      - key: EMAIL_OUTBOX_MAX_ATTEMPTS
+        value: "5"
+      - key: AUTH_EMAIL_RESPONSE_FLOOR_MS
+        value: "350"
+      - key: AI_PROVIDER
+        value: gemini
+      - key: AI_ENABLED
+        value: "false"
+      - key: GUEST_AI_ENABLED
+        value: "false"
+      # Conservative private-beta application caps. These are credit guards,
+      # not a replacement for provider billing alerts and budgets.
+      - key: AI_GLOBAL_USAGE_WINDOW_MS
+        value: "3600000"
+      - key: AI_GLOBAL_REQUEST_LIMIT
+        value: "100"
+      - key: AI_GLOBAL_CREDIT_LIMIT
+        value: "500"
+      - key: AI_GLOBAL_DAILY_REQUEST_LIMIT
+        value: "500"
+      - key: AI_GLOBAL_DAILY_CREDIT_LIMIT
+        value: "2500"
+      - key: AI_GLOBAL_MONTHLY_REQUEST_LIMIT
+        value: "5000"
+      - key: AI_GLOBAL_MONTHLY_CREDIT_LIMIT
+        value: "25000"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_PAID_SERVICE_CONFIRMED
+        sync: false
+      - key: PROJECT_DOCUMENT_EMBEDDINGS_ENABLED
+        value: "false"
+      # Synchronous ZIP imports stay closed for the first production beta.
+      - key: PORTABILITY_IMPORTS_ENABLED
+        value: "false"
+      - key: PRIVATE_ASSETS_ENABLED
+        value: "false"
+      - key: AUTH_TOKEN_RETENTION_DAYS
+        value: "7"
+      - key: UNVERIFIED_ACCOUNT_RETENTION_DAYS
+        value: "7"
+      - key: USAGE_RECORD_RETENTION_DAYS
+        value: "32"
+      - key: RETENTION_CLEANUP_BATCH_SIZE
+        value: "100"
+
+databases:
+  - name: oddpath-db
+    plan: basic-256mb
+    region: frankfurt
+    postgresMajorVersion: "16"
+    databaseName: oddpath
+    user: oddpath_app
+    diskSizeGB: 1
+    storageAutoscalingEnabled: false
+    connectionPool: none
+    ipAllowList: []

@@ -1,4 +1,5 @@
 import { env } from "../../config/env.js";
+import { InMemoryFixedWindowRateLimiter } from "../../lib/fixed-window-rate-limiter.js";
 
 export const CHAT_RATE_LIMITED_MESSAGE = "Too many chat requests. Please try again later.";
 
@@ -20,60 +21,15 @@ interface ChatIdentityRateLimitContext {
   userId?: string;
 }
 
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
-
-class InMemoryChatRateLimiter {
-  private readonly attempts = new Map<string, RateLimitEntry>();
-
-  constructor(
-    private readonly options: {
-      maxAttempts: number;
-      windowMs: number;
-    }
-  ) {}
-
-  consume(key: string, now = Date.now()) {
-    this.pruneExpired(now);
-
-    const current = this.attempts.get(key);
-
-    if (!current || current.resetAt <= now) {
-      this.attempts.set(key, {
-        count: 1,
-        resetAt: now + this.options.windowMs,
-      });
-      return false;
-    }
-
-    current.count += 1;
-    return current.count > this.options.maxAttempts;
-  }
-
-  reset() {
-    this.attempts.clear();
-  }
-
-  private pruneExpired(now: number) {
-    for (const [key, entry] of this.attempts) {
-      if (entry.resetAt <= now) {
-        this.attempts.delete(key);
-      }
-    }
-  }
-}
-
-const ipLimiter = new InMemoryChatRateLimiter({
+const ipLimiter = new InMemoryFixedWindowRateLimiter({
   maxAttempts: env.chatRateLimitMax,
   windowMs: env.chatRateLimitWindowMs,
 });
-const guestLimiter = new InMemoryChatRateLimiter({
+const guestLimiter = new InMemoryFixedWindowRateLimiter({
   maxAttempts: env.guestChatRateLimitMax,
   windowMs: env.chatRateLimitWindowMs,
 });
-const userLimiter = new InMemoryChatRateLimiter({
+const userLimiter = new InMemoryFixedWindowRateLimiter({
   maxAttempts: env.chatRateLimitMax,
   windowMs: env.chatRateLimitWindowMs,
 });
@@ -98,17 +54,17 @@ export function isChatIpRateLimited(context: ChatIpRateLimitContext) {
   const now = context.now ?? Date.now();
   const ipKey = `ip:${context.ipAddress || "unknown-ip"}`;
 
-  return ipLimiter.consume(ipKey, now);
+  return ipLimiter.consume(ipKey, now).limited;
 }
 
 export function isChatIdentityRateLimited(context: ChatIdentityRateLimitContext) {
   const now = context.now ?? Date.now();
   const isUserLimited = context.userId
-    ? userLimiter.consume(`user:${context.userId}`, now)
+    ? userLimiter.consume(`user:${context.userId}`, now).limited
     : false;
   const isGuestLimited =
     !context.userId && context.guestId
-      ? guestLimiter.consume(`guest:${context.guestId}`, now)
+      ? guestLimiter.consume(`guest:${context.guestId}`, now).limited
       : false;
 
   return isUserLimited || isGuestLimited;

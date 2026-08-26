@@ -1,13 +1,17 @@
+import { DATA_LIMITS } from "../../config/data-limits.js";
+
 export const EXTERNAL_CHAT_IMPORT_LIMITS = Object.freeze({
-  maxCompressedBytes: 100_000_000,
-  maxEntries: 10_000,
-  maxEntryBytes: 100_000_000,
-  maxNestingDepth: 12,
+  maxCompressedBytes: 10_000_000,
+  maxEntries: 600,
+  maxEntryBytes: 10_000_000,
+  maxNestingDepth: 10,
   maxPathChars: 240,
-  maxTotalUncompressedBytes: 250_000_000,
-  maxChats: 5_000,
-  maxMessages: 100_000,
-  maxMessageChars: 200_000,
+  maxTotalUncompressedBytes: 20_000_000,
+  maxChats: DATA_LIMITS.chatsPerUser,
+  maxMessages: DATA_LIMITS.chatsPerUser * DATA_LIMITS.messagesPerChat,
+  maxMessagesPerChat: DATA_LIMITS.messagesPerChat,
+  maxMessageChars: DATA_LIMITS.chatMessageContentChars,
+  maxTotalMessageChars: 5_000_000,
 });
 
 export type ExternalChatProvider = "chatgpt" | "claude";
@@ -54,4 +58,16 @@ export interface ExternalChatImportCommitResult {
   };
   provider: ExternalChatProvider;
   warnings: string[];
+}
+
+export interface PersistedExternalChatImport {
+  chats: number;
+  messages: number;
+}
+
+export interface ExternalChatImportRepository {
+  createImportedChats(
+    userId: string,
+    packageData: ValidatedExternalChatImport
+  ): Promise<PersistedExternalChatImport>;
 }

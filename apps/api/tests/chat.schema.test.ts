@@ -61,6 +61,41 @@ describe("chat request schema", () => {
     assert.equal(result.success, false);
   });
 
+  it("rejects unsupported modes and providers", () => {
+    assert.equal(
+      chatRequestSchema.safeParse(createChatRequest({ mode: "ignore_previous_instructions" })).success,
+      false
+    );
+    assert.equal(
+      chatRequestSchema.safeParse(createChatRequest({ provider: "unbounded-provider" })).success,
+      false
+    );
+  });
+
+  it("bounds individual and total history content", () => {
+    const oversizedItem = chatRequestSchema.safeParse(
+      createChatRequest({
+        history: [{ content: "a".repeat(env.maxMessageChars + 1), role: "user" }],
+      })
+    );
+    const messageLength = Math.min(env.maxMessageChars, 2500);
+    const messageCount = Math.min(
+      env.maxHistoryMessages,
+      Math.floor(env.maxHistoryTotalChars / messageLength) + 1
+    );
+    const oversizedTotal = chatRequestSchema.safeParse(
+      createChatRequest({
+        history: Array.from({ length: messageCount }, (_, index) => ({
+          content: "a".repeat(messageLength),
+          role: index % 2 === 0 ? "user" : "assistant",
+        })),
+      })
+    );
+
+    assert.equal(oversizedItem.success, false);
+    assert.equal(oversizedTotal.success, false);
+  });
+
   it("rejects unsupported image mime types", () => {
     const result = chatRequestSchema.safeParse(
       createChatRequest({
@@ -114,6 +149,21 @@ describe("chat request schema", () => {
     );
 
     assert.equal(result.success, true);
+  });
+
+  it("accepts opaque stored attachment references and rejects duplicate ids", () => {
+    assert.equal(
+      chatRequestSchema.safeParse(createChatRequest({
+        attachments: [{ assetId: "asset-1" }, { assetId: "asset-2" }],
+      })).success,
+      true
+    );
+    assert.equal(
+      chatRequestSchema.safeParse(createChatRequest({
+        attachments: [{ assetId: "asset-1" }, { assetId: "asset-1" }],
+      })).success,
+      false
+    );
   });
 
   it("rejects unsupported file attachment types", () => {

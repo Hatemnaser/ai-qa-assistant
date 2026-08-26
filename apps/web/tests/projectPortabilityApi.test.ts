@@ -10,6 +10,7 @@ import {
 import { createCsrfAwareFetch } from "./helpers/csrfFetch.ts";
 
 const originalFetch = globalThis.fetch;
+const PACKAGE_DIGEST = "a".repeat(64);
 
 afterEach(() => {
   resetCsrfTokenForTests();
@@ -23,7 +24,7 @@ describe("project portability api", () => {
         input,
         "/api/portability/projects/project%2Fone/export?includeChats=true"
       );
-      assert.equal(init?.method, "GET");
+      assert.equal(init?.method, "POST");
       assert.equal(init?.credentials, "include");
 
       return zipResponse("portable-project");
@@ -67,6 +68,8 @@ describe("project portability api", () => {
 
     assert.equal(preview.suggestedProjectName, "Checkout QA (Imported)");
     assert.deepEqual(preview.counts, {
+      assetBytes: 2_048,
+      assets: 2,
       documents: 2,
       chats: 3,
       messages: 8,
@@ -84,12 +87,13 @@ describe("project portability api", () => {
       assert.equal(init?.method, "POST");
       assert.equal(init?.body, file);
       assert.equal(headers.get("content-type"), "application/zip");
-      assert.equal(headers.get("x-package-digest"), "digest-123");
+      assert.equal(headers.get("x-package-digest"), PACKAGE_DIGEST);
 
       return jsonResponse({
         projectId: "imported-project-1",
         projectName: "Checkout QA (Imported)",
         imported: {
+          assets: 2,
           documents: 2,
           chats: 3,
           messages: 8,
@@ -98,21 +102,66 @@ describe("project portability api", () => {
       });
     });
 
-    const result = await commitProjectImport(file, "digest-123");
+    const result = await commitProjectImport(file, PACKAGE_DIGEST);
 
     assert.equal(result.projectId, "imported-project-1");
+    assert.equal(result.imported.assets, 2);
+  });
+
+  it("keeps accepting legacy v1 previews without binary asset counts", async () => {
+    const file = createZipFile("legacy.zip");
+    mockFetch(async () =>
+      jsonResponse({
+        ...createPreview(),
+        formatVersion: "1.0",
+        counts: {
+          documents: 2,
+          chats: 3,
+          messages: 8,
+        },
+      })
+    );
+
+    const preview = await previewProjectImport(file);
+
+    assert.equal(preview.formatVersion, "1.0");
+    assert.equal(preview.counts.assets, undefined);
+  });
+
+  it("rejects preview counts that do not match the archive format version", async () => {
+    const file = createZipFile("invalid-version-counts.zip");
+    const invalidPreviews = [
+      {
+        ...createPreview(),
+        counts: { documents: 2, chats: 3, messages: 8 },
+      },
+      {
+        ...createPreview(),
+        formatVersion: "1.0",
+      },
+    ];
+
+    for (const preview of invalidPreviews) {
+      mockFetch(async () => jsonResponse(preview));
+      await assert.rejects(
+        () => previewProjectImport(file),
+        /invalid response/i
+      );
+    }
   });
 });
 
 function createPreview() {
   return {
     compatible: true,
-    formatVersion: "1.0",
+    formatVersion: "2.0",
     exportType: "project",
-    packageDigest: "digest-123",
+    packageDigest: PACKAGE_DIGEST,
     suggestedProjectName: "Checkout QA (Imported)",
     sourceProjectName: "Checkout QA",
     counts: {
+      assetBytes: 2_048,
+      assets: 2,
       documents: 2,
       chats: 3,
       messages: 8,

@@ -43,18 +43,38 @@ export function normalizeGeminiError(
   const status = getHttpStatus(error);
 
   if (status >= 400 && status <= 499) {
-    const details = getGeminiErrorDetails(error);
+    return createSafeProviderRequestError(status);
+  }
 
+  return new AppError(
+    "The AI provider request failed. Please try again.",
+    502,
+    "AI_PROVIDER_ERROR"
+  );
+}
+
+function createSafeProviderRequestError(status: number) {
+  if (status === 401 || status === 403) {
     return new AppError(
-      `Gemini request failed for ${selectedModel}: ${details.message}`,
-      status,
-      String(details.status || details.code || "GEMINI_REQUEST_FAILED")
+      "The AI provider is temporarily unavailable.",
+      502,
+      "AI_PROVIDER_AUTH_ERROR"
     );
   }
 
-  return error instanceof Error
-    ? error
-    : new AppError("Server error while processing the AI request.", 500, "AI_PROVIDER_ERROR");
+  if (status === 408) {
+    return new AppError(
+      "The AI provider request timed out. Please try again.",
+      504,
+      "AI_TIMEOUT"
+    );
+  }
+
+  return new AppError(
+    "The AI provider rejected the request.",
+    502,
+    "AI_PROVIDER_REQUEST_REJECTED"
+  );
 }
 
 function withProviderQuotaOrModelLog(error: AppError, context: GeminiErrorContext) {

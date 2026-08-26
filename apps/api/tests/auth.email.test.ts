@@ -9,6 +9,7 @@ import {
   SmtpAuthEmailService,
   buildEmailVerificationUrl,
   buildPasswordResetUrl,
+  buildSmtpTransportOptions,
   createAuthEmailService,
 } from "../src/modules/auth/auth.email.ts";
 
@@ -98,6 +99,38 @@ describe("auth email provider", () => {
     assert.ok(service instanceof SmtpAuthEmailService);
   });
 
+  it("requires encrypted SMTP transport and bounds provider stalls", () => {
+    const startTlsConfig = loadEnv({
+      EMAIL_PROVIDER: "smtp",
+      NODE_ENV: "test",
+      SMTP_HOST: "smtp.example.com",
+      SMTP_PASS: "smtp-password",
+      SMTP_PORT: "587",
+      SMTP_SECURE: "false",
+      SMTP_USER: "smtp-user",
+    });
+    const implicitTlsConfig = loadEnv({
+      EMAIL_PROVIDER: "smtp",
+      NODE_ENV: "test",
+      SMTP_HOST: "smtp.example.com",
+      SMTP_PASS: "smtp-password",
+      SMTP_PORT: "465",
+      SMTP_SECURE: "true",
+      SMTP_USER: "smtp-user",
+    });
+
+    const startTlsOptions = buildSmtpTransportOptions(startTlsConfig);
+    const implicitTlsOptions = buildSmtpTransportOptions(implicitTlsConfig);
+
+    assert.equal(startTlsOptions.secure, false);
+    assert.equal(startTlsOptions.requireTLS, true);
+    assert.equal(implicitTlsOptions.secure, true);
+    assert.equal(implicitTlsOptions.requireTLS, false);
+    assert.equal(startTlsOptions.connectionTimeout, 10_000);
+    assert.equal(startTlsOptions.greetingTimeout, 10_000);
+    assert.equal(startTlsOptions.socketTimeout, 30_000);
+  });
+
   it("sends password reset email through the SMTP transporter", async () => {
     const sentMessages: unknown[] = [];
     const service = createSmtpEmailService(sentMessages);
@@ -118,8 +151,8 @@ describe("auth email provider", () => {
     };
     assert.equal(message.from, "AI QA Assistant <no-reply@example.com>");
     assert.equal(message.to, "person@example.com");
-    assert.equal(message.subject, "Reset your AI QA Assistant password");
-    assert.match(message.text || "", /reset your AI QA Assistant password/i);
+    assert.equal(message.subject, "Reset your Oddpath password");
+    assert.match(message.text || "", /reset your Oddpath password/i);
     assert.match(message.text || "", new RegExp(escapeRegExp(resetUrl)));
   });
 
@@ -143,8 +176,8 @@ describe("auth email provider", () => {
     };
     assert.equal(message.from, "AI QA Assistant <no-reply@example.com>");
     assert.equal(message.to, "person@example.com");
-    assert.equal(message.subject, "Verify your AI QA Assistant email");
-    assert.match(message.text || "", /verify your AI QA Assistant email/i);
+    assert.equal(message.subject, "Verify your Oddpath email");
+    assert.match(message.text || "", /verify your Oddpath email/i);
     assert.match(message.text || "", new RegExp(escapeRegExp(verificationUrl)));
   });
 

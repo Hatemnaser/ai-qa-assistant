@@ -43,6 +43,7 @@ export interface UsageRecordInput {
   outputTokens?: number;
   promptTokens?: number;
   provider?: string;
+  providerAttempts?: number;
   status?: string;
   totalTokens?: number;
   units: number;
@@ -58,20 +59,32 @@ export interface UsageReservationInput {
   guestId?: string;
   ipHash?: string;
   isSignedIn: boolean;
+  inFlightLimit?: number;
   limit: number;
   requestedUnits: number;
+  scopeActions?: readonly string[];
   since: Date;
   userId?: string;
 }
 
 export interface UsageGlobalGuardInput {
+  additionalWindows?: readonly UsageGlobalGuardWindow[];
   creditLimit: number;
   requestLimit: number;
   since: Date;
   staleReservedCutoff: Date;
 }
 
-export type UsageReservationRejectionReason = "global_limit" | "identity_limit";
+export interface UsageGlobalGuardWindow {
+  creditLimit: number;
+  requestLimit: number;
+  since: Date;
+}
+
+export type UsageReservationRejectionReason =
+  | "global_limit"
+  | "identity_in_flight"
+  | "identity_limit";
 
 export interface UsageReservationRecord {
   accepted: boolean;
@@ -106,6 +119,7 @@ export interface UsageEventRecord {
   outputTokens: number | null;
   promptTokens: number | null;
   provider: string | null;
+  providerAttempts: number;
   status: string;
   totalTokens: number | null;
   units: number;
@@ -122,6 +136,7 @@ export interface UsageUpdateInput {
   outputTokens?: number;
   promptTokens?: number;
   provider?: string;
+  providerAttempts?: number;
   status?: string;
   totalTokens?: number;
   units?: number;
@@ -131,9 +146,23 @@ export interface UsageUpdateInput {
 
 export interface UsageReservation {
   eventId?: string;
+  fixedCredits?: number;
+  generationAttempts?: number;
   limit: number;
+  providerAttempts?: number;
   remaining: number;
   reserved?: number;
+  routerAttempts?: number;
   unit: "credits";
   used: number;
+}
+
+export interface UsageRepository {
+  cleanupStaleReservedUsage(input: UsageCleanupStaleReservedInput): Promise<number>;
+  countUsage(input: UsageCountInput): Promise<number>;
+  listUsageEvents(input: UsageListInput): Promise<UsageEventRecord[]>;
+  recordUsageAttempt(id: string): Promise<void>;
+  recordUsage(input: UsageRecordInput): Promise<{ id: string }>;
+  reserveUsage(input: UsageReservationInput): Promise<UsageReservationRecord>;
+  updateUsage(input: UsageUpdateInput): Promise<void>;
 }

@@ -3,16 +3,47 @@ import type {
   MemorySource,
   ProjectDocumentSource,
 } from "../../generated/prisma/enums.js";
+import { DATA_LIMITS } from "../../config/data-limits.js";
+import type { ProjectDocumentRecord } from "../project-documents/project-documents.types.js";
+import type {
+  PortableBinaryAssetDescriptor,
+  PortableBinaryAssetSource,
+  ValidatedPortableBinaryAsset,
+} from "./binary-assets.js";
+import type { UploadedPortableBinaryAsset } from "./binary-asset-restore.types.js";
 
-export const PROJECT_EXPORT_FORMAT_VERSION = "1.0";
+export const PROJECT_EXPORT_LEGACY_FORMAT_VERSION = "1.0";
+export const PROJECT_EXPORT_FORMAT_VERSION = "2.0";
+export type ProjectExportFormatVersion =
+  | typeof PROJECT_EXPORT_LEGACY_FORMAT_VERSION
+  | typeof PROJECT_EXPORT_FORMAT_VERSION;
+
+export const PROJECT_EXPORT_LIMITS = Object.freeze({
+  maxArchiveBytes: 8_000_000,
+  maxEntries: 400,
+  maxEntryBytes: 5_000_000,
+  maxTotalEntryBytes: 16_000_000,
+  maxDocuments: DATA_LIMITS.documentsPerProject,
+  maxChats: DATA_LIMITS.chatsPerUser,
+  maxMessages: DATA_LIMITS.chatsPerUser * DATA_LIMITS.messagesPerChat,
+  maxMessagesPerChat: DATA_LIMITS.messagesPerChat,
+  maxMessageChars: DATA_LIMITS.chatMessageContentChars,
+  maxTotalTextChars: 4_000_000,
+});
 
 export const PROJECT_IMPORT_LIMITS = Object.freeze({
-  maxCompressedBytes: 50_000_000,
-  maxEntries: 1_000,
-  maxEntryBytes: 25_000_000,
+  maxCompressedBytes: 8_000_000,
+  maxEntries: 400,
+  maxEntryBytes: 5_000_000,
   maxNestingDepth: 10,
   maxPathChars: 240,
-  maxTotalUncompressedBytes: 200_000_000,
+  maxTotalUncompressedBytes: 16_000_000,
+  maxDocuments: DATA_LIMITS.documentsPerProject,
+  maxChats: DATA_LIMITS.chatsPerUser,
+  maxMessages: DATA_LIMITS.chatsPerUser * DATA_LIMITS.messagesPerChat,
+  maxMessagesPerChat: DATA_LIMITS.messagesPerChat,
+  maxMessageChars: DATA_LIMITS.chatMessageContentChars,
+  maxTotalTextChars: 4_000_000,
 });
 
 export interface ProjectExportDocumentRecord {
@@ -66,6 +97,7 @@ export interface ProjectExportSourceRecord {
   } | null;
   documents: ProjectExportDocumentRecord[];
   chats: ProjectExportChatRecord[];
+  binaryAssets: PortableBinaryAssetSource[];
 }
 
 export interface ProjectExportFileManifestEntry {
@@ -74,12 +106,17 @@ export interface ProjectExportFileManifestEntry {
   sizeBytes: number;
 }
 
-export interface ProjectExportManifest {
-  formatVersion: typeof PROJECT_EXPORT_FORMAT_VERSION;
+interface ProjectExportManifestBase {
   exportType: "project";
   exportedAt: string;
   projectId: string;
   projectName: string;
+  warnings: string[];
+  files: ProjectExportFileManifestEntry[];
+}
+
+export interface ProjectExportManifestV1 extends ProjectExportManifestBase {
+  formatVersion: typeof PROJECT_EXPORT_LEGACY_FORMAT_VERSION;
   include: {
     chats: boolean;
     documents: true;
@@ -90,9 +127,29 @@ export interface ProjectExportManifest {
     chats: number;
     messages: number;
   };
-  warnings: string[];
-  files: ProjectExportFileManifestEntry[];
 }
+
+export interface ProjectExportManifestV2 extends ProjectExportManifestBase {
+  formatVersion: typeof PROJECT_EXPORT_FORMAT_VERSION;
+  include: {
+    assets: true;
+    chats: boolean;
+    documents: true;
+    readable: true;
+  };
+  counts: {
+    assetBytes: number;
+    assets: number;
+    documents: number;
+    chats: number;
+    messages: number;
+  };
+  assets: PortableBinaryAssetDescriptor[];
+}
+
+export type ProjectExportManifest =
+  | ProjectExportManifestV1
+  | ProjectExportManifestV2;
 
 export interface ProjectExportPackage {
   archive: Buffer;
@@ -106,12 +163,14 @@ export interface ProjectExportOptions {
 
 export interface ProjectImportPreview {
   compatible: true;
-  formatVersion: typeof PROJECT_EXPORT_FORMAT_VERSION;
+  formatVersion: ProjectExportFormatVersion;
   exportType: "project";
   packageDigest: string;
   suggestedProjectName: string;
   sourceProjectName: string;
   counts: {
+    assetBytes?: number;
+    assets?: number;
     documents: number;
     chats: number;
     messages: number;
@@ -159,6 +218,7 @@ export interface ProjectImportChat {
 }
 
 export interface ValidatedProjectImportPackage {
+  formatVersion: ProjectExportFormatVersion;
   packageDigest: string;
   project: {
     sourceId: string;
@@ -172,6 +232,7 @@ export interface ValidatedProjectImportPackage {
     } | null;
     documents: ProjectImportDocument[];
     chats: ProjectImportChat[];
+    binaryAssets: ValidatedPortableBinaryAsset[];
   };
   warnings: string[];
   unsupported: string[];
@@ -184,6 +245,36 @@ export interface ProjectImportCommitResult {
     documents: number;
     chats: number;
     messages: number;
+    assets?: number;
   };
   warnings: string[];
+}
+
+export interface PersistedProjectImport {
+  projectId: string;
+  projectName: string;
+  documents: ProjectDocumentRecord[];
+  counts: {
+    documents: number;
+    chats: number;
+    messages: number;
+    assets?: number;
+  };
+}
+
+export interface DataPortabilityRepository {
+  createImportedProject(
+    userId: string,
+    packageData: ValidatedProjectImportPackage,
+    uploadedAssets?: readonly UploadedPortableBinaryAsset[]
+  ): Promise<PersistedProjectImport>;
+  findOwnedProjectExportData(
+    userId: string,
+    projectId: string,
+    includeChats: boolean
+  ): Promise<ProjectExportSourceRecord | null>;
+  findProjectDocumentIndexStatuses(
+    projectId: string,
+    documentIds: string[]
+  ): Promise<Array<{ id: string; indexStatus: "PENDING" | "READY" | "FAILED" }>>;
 }

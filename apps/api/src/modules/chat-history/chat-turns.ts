@@ -1,6 +1,6 @@
 import { ChatRole } from "../../generated/prisma/enums.js";
 import type { AiHistoryMessage } from "../ai/ai.types.js";
-import type { StoredMessageRecord } from "./chat-history.repository.js";
+import type { StoredMessageRecord } from "./chat-history.types.js";
 
 export const RECENT_COMPLETE_TURN_LIMIT = 4;
 

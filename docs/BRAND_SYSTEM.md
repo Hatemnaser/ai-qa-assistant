@@ -1,10 +1,10 @@
 # Brand And Design System
 
-This document is the source of truth for the AI QA Assistant visual identity and frontend design system. The goal is not to install a full template. The goal is to define a small token-based system that can grow with auth, settings, projects, memory, and future billing pages without making the app feel random.
+This document is the source of truth for the Oddpath product UI identity and frontend design system. Eluthira is the separate umbrella brand and has its own site-level design system. The goal here is to define a small token-based system that can grow with Oddpath without making the application feel random.
 
 ## Brand Goal
 
-AI QA Assistant should feel:
+Oddpath should feel:
 
 - Calm, because QA work often starts from uncertainty.
 - Precise, because users are looking for defects, edge cases, and risk.
@@ -607,7 +607,7 @@ Implemented now:
 - Quick action buttons use the same interactive surface rules as other secondary actions.
 - Danger buttons use Bootstrap `.btn-danger`, backed by semantic danger tokens instead of one-off modal styling.
 - Inline code and attachment cards no longer borrow danger colors or raw rgba values.
-- Sidebar uses one clear wordmark, `AI QA Assistant`, while the final logo mark is still undecided.
+- Sidebar uses one clear wordmark, `Oddpath`, while the final logo mark is still undecided.
 
 Still intentionally open:
 
@@ -615,4 +615,4 @@ Still intentionally open:
 - Product font choice.
 - Full component inventory.
 - Search nav behavior.
-- Future page layout patterns for settings, projects, and memory.
+- Future page layout patterns beyond the current workspace, settings, projects, and memory surfaces.

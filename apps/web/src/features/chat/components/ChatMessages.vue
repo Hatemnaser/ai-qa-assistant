@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
+import PrivateAssetImage from "../../assets/PrivateAssetImage.vue";
 import { QUICK_ACTIONS } from "../constants";
 import { getMessageAttachments } from "../chatMessages";
-import { renderMarkdown } from "../markdown";
+import { renderMarkdown } from "../../../ui/content/renderMarkdown";
 import { useI18n } from "../../../i18n/useI18n";
 import type { QuickAction } from "../constants";
 import type { ChatAttachment, ChatMessage, ExportFormat } from "../types";
@@ -130,8 +131,14 @@ function copyLabel(message: ChatMessage) {
           type="button"
           @click="emit('open-attachment', attachment)"
         >
+          <PrivateAssetImage
+            v-if="attachment.type === 'image' && attachment.assetId"
+            :asset-id="attachment.assetId"
+            :alt="attachment.name"
+            class="chat-attachment-thumb"
+          />
           <img
-            v-if="attachment.type === 'image' && attachment.previewUrl"
+            v-else-if="attachment.type === 'image' && attachment.previewUrl"
             :src="attachment.previewUrl"
             :alt="attachment.name"
             class="chat-attachment-thumb"

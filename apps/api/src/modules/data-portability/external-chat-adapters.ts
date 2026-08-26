@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { DATA_LIMITS } from "../../config/data-limits.js";
 import { AppError } from "../../lib/errors.js";
 import { decodeSafeUtf8, readSafeZip } from "./safe-zip.js";
 import {
@@ -289,16 +290,30 @@ function validateImportedChats(chats: ExternalChatImportChat[]) {
     (total, chat) => total + chat.messages.length,
     0
   );
+  const totalMessageChars = chats.reduce(
+    (chatTotal, chat) =>
+      chatTotal +
+      chat.messages.reduce(
+        (messageTotal, message) => messageTotal + message.content.length,
+        0
+      ),
+    0
+  );
 
   if (
     chats.length === 0 ||
     chats.length > EXTERNAL_CHAT_IMPORT_LIMITS.maxChats ||
     messageCount > EXTERNAL_CHAT_IMPORT_LIMITS.maxMessages ||
+    totalMessageChars > EXTERNAL_CHAT_IMPORT_LIMITS.maxTotalMessageChars ||
     chats.some((chat) =>
+      chat.messages.length > EXTERNAL_CHAT_IMPORT_LIMITS.maxMessagesPerChat ||
+      chat.messages.reduce(
+        (total, message) => total + Buffer.byteLength(message.content, "utf8"),
+        0
+      ) > DATA_LIMITS.chatMessageContentBytesPerChat ||
       chat.messages.some(
         (message) =>
-          message.content.length >
-          EXTERNAL_CHAT_IMPORT_LIMITS.maxMessageChars
+          message.content.length > EXTERNAL_CHAT_IMPORT_LIMITS.maxMessageChars
       )
     )
   ) {

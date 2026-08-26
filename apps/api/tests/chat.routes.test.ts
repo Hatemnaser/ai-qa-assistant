@@ -224,9 +224,30 @@ describe("POST /api/chat", () => {
     const body = await response.json();
 
     assert.equal(response.status, 429);
+    assert.equal(response.headers.get("retry-after"), String(Math.ceil(env.chatRateLimitWindowMs / 1000)));
     assert.equal(body.code, "RATE_LIMITED");
     assert.equal(body.error, CHAT_RATE_LIMITED_MESSAGE);
     assert.equal(body.message, CHAT_RATE_LIMITED_MESSAGE);
+  });
+
+  it("applies the IP limit before parsing a malformed chat body", async () => {
+    for (let attempt = 0; attempt < env.chatRateLimitMax; attempt += 1) {
+      await postJson("/api/chat", {});
+    }
+
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
+    const response = await fetch(`${baseUrl}/api/chat`, {
+      body: "{",
+      headers: {
+        "content-type": "application/json",
+        ...csrfHeaders,
+      },
+      method: "POST",
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.code, "RATE_LIMITED");
   });
 
   it("rate limits guest identity even when the IP changes", () => {

@@ -11,6 +11,7 @@ export interface ProjectDocument {
   title: string;
   content: string;
   source: ProjectDocumentSource;
+  sourceAssetId?: string | null;
   mimeType: string | null;
   metadata: ProjectDocumentMetadata | null;
   createdAt: string;
@@ -23,9 +24,17 @@ export interface ProjectDocumentInput {
   mimeType?: string | null;
 }
 
-export interface ProjectDocumentImportFileInput {
+export interface ProjectDocumentInlineImportFileInput {
   name: string;
   content: string;
   mimeType: string;
   sizeBytes: number;
 }
+
+export interface ProjectDocumentAssetImportFileInput {
+  sourceAssetId: string;
+}
+
+export type ProjectDocumentImportFileInput =
+  | ProjectDocumentInlineImportFileInput
+  | ProjectDocumentAssetImportFileInput;

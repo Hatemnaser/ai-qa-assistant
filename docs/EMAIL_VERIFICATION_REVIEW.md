@@ -1,6 +1,6 @@
 # Email Verification Review
 
-Last updated: 2026-06-20
+Last updated: 2026-08-19
 
 This document originally reviewed the auth system's email verification posture.
 Auth Slice 5B is now implemented. New password registrations create an
@@ -22,8 +22,10 @@ Implementation status:
 - `POST /api/auth/login` returns `EMAIL_NOT_VERIFIED` for unverified password
   users after password validation and creates no session.
 - Guest chat adoption waits until verified login.
-- Production email delivery is still a placeholder/no-op and must be wired
-  before real users.
+- Production requires SMTP and uses an encrypted, durable database outbox.
+  Request handlers enqueue verification/reset delivery; the in-process worker
+  claims, sends, retries, expires, and clears encrypted payloads without
+  storing raw tokens.
 
 ## 1. Current Registration Flow
 
@@ -42,13 +44,18 @@ Flow today:
    CSRF handling.
 3. `registerRequestSchema` normalizes the email to lowercase and validates the
    password creation policy.
-4. `auth.service.register` checks whether the email already exists.
-5. If the email exists, registration returns `EMAIL_ALREADY_REGISTERED`.
-6. If it is new, the password is hashed with `scrypt`.
+4. `auth.service.register` checks whether the email already exists while
+   keeping the public response generic.
+5. Existing submissions still perform password hashing; eligible unverified
+   accounts may receive a fresh verification link and verified accounts remain
+   unchanged.
+6. A new password is hashed with `scrypt`.
 7. `auth.repository.createPasswordUser` creates `User` and `UserSettings`.
 8. The user is created with `emailVerifiedAt = null`.
-9. `auth.service.register` creates an email verification token, stores only its
-   hash, and sends the raw token only in the verification email link.
+9. `auth.service.register` creates an email verification token and stores only
+   its hash. SMTP deployments put the raw link only inside an authenticated,
+   encrypted `AuthEmailJob` payload; the worker clears that ciphertext after a
+   terminal result.
 10. `auth.controller.register` returns the pending verification message and
     does not set `qa_session`.
 11. `RegisterPage.vue` shows the pending verification message and does not
@@ -112,8 +119,10 @@ Current mitigations:
 - Registration requires a password and rate limits.
 - Sessions are server-side and token-hashed.
 - Forgot-password does not enumerate accounts.
-- Production email provider is not wired yet, so real email-based account
-  operations are not production-ready anyway.
+- The application-side SMTP integration and durable encrypted delivery outbox
+  are implemented. Real email-based account operations remain gated on
+  production sender-domain DNS, credentials, monitoring, and a staging
+  verification/reset delivery smoke test.
 
 Risk level:
 
@@ -182,7 +191,9 @@ The current `auth.email.ts` abstraction already has useful pieces:
 
 - `AuthEmailService` interface.
 - `InMemoryAuthEmailService` for development/test.
-- `NoopAuthEmailService` production placeholder.
+- `NoopAuthEmailService` for explicit non-production use only; production
+  startup rejects it.
+- `SmtpAuthEmailService` with bounded TLS/STARTTLS transport.
 - reset-link URL construction using `APP_ORIGIN` and a path config.
 
 Implemented extension:
@@ -194,16 +205,17 @@ Implemented extension:
   - `EMAIL_VERIFICATION_PATH`
   - `EMAIL_VERIFICATION_TOKEN_TTL_MINUTES`
 - Keep development/test in-memory behavior.
-- Keep production explicitly documented as not ready until a real provider is
-  wired.
+- Production fails closed unless the SMTP provider, credentials, sender, and a
+  distinct outbox-encryption secret are configured.
 - Use SPA hash routes such as `/#/verify-email` when possible so the raw token
   is placed after `#`, which reduces exposure in server, hosting, and proxy
   logs. Ordinary path routes remain supported when needed.
 
-Important limitation:
+Delivery boundary:
 
-- Reusing the abstraction does not make email production-ready. The current
-  production implementation is a no-op placeholder.
+- SMTP delivery is implemented, but provider account provisioning, sender
+  authentication, staging delivery tests, alerts, and the normal at-least-once
+  duplicate-delivery caveat remain operational launch work.
 
 ## 8. Required Endpoints
 
@@ -243,7 +255,7 @@ Slice 5B implements Option A.
 
 Behavior:
 
-- Registration creates the account and sends verification email.
+- Registration creates the account and atomically queues verification email.
 - Registration does not create a full session.
 - Login rejects unverified users with a generic or carefully designed
   `EMAIL_NOT_VERIFIED` response.
@@ -289,8 +301,8 @@ Current recommendation for this codebase:
 - Keep Option A for real-user readiness.
 - If public demo UX needs immediate access, use Option B only with explicit
   restrictions and documentation.
-- Do not rely on verified email until a real production email provider is
-  wired.
+- Do not open registration until the actual SMTP account, authenticated sender,
+  encrypted outbox, retry path, and staging delivery smoke test are verified.
 
 ## 10. Slice 5B Implementation Summary
 
@@ -309,11 +321,12 @@ Implemented:
    - `sendEmailVerificationEmail`.
    - `buildEmailVerificationUrl`.
    - dev/test sink support.
-   - production provider remains an explicit TODO/no-op placeholder.
+   - production SMTP delivery uses an encrypted durable outbox; noop remains
+     available only outside production.
 
 4. Registration:
    - Create user as unverified.
-   - Create and send verification token.
+   - Create the token and encrypted delivery job; the worker sends it.
    - Create no session before verification.
 
 5. Verify/resend endpoints:
@@ -375,7 +388,9 @@ API tests:
 - `POST /api/auth/resend-verification` is rate limited.
 - Register response does not include raw verification token.
 - Verification emails are captured in the dev/test sink only.
-- Production no-op placeholder is clearly not treated as production-ready.
+- Production startup rejects noop/incomplete SMTP and unsafe outbox secrets.
+- The outbox clears encrypted payloads on terminal states, fences stale
+  claims, bounds retries, and cancels expired jobs.
 
 Login/session tests:
 
@@ -417,6 +432,7 @@ Before real users:
 
 Overall recommendation:
 
-- Implement Slice 5B before real users.
-- Implement it before public demo if signups are open to the public or if demo
-  accounts may store meaningful user data.
+- Slice 5B is implemented and covered by automated tests.
+- Keep registration disabled until the real SMTP sender/domain is configured
+  and verification, resend, forgot-password, and reset links pass the staging
+  HTTPS smoke test.

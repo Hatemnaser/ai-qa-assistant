@@ -67,6 +67,7 @@ describe("chat service", () => {
       },
       reserveUsage: async () => {
         usageWasReserved = true;
+        return undefined;
       },
     });
 
@@ -354,6 +355,7 @@ describe("chat service", () => {
           ipAddress: "127.0.0.1",
           userId: undefined,
         });
+        return undefined;
       },
     });
     const input = {
@@ -390,11 +392,15 @@ describe("chat service", () => {
         assert.equal(estimate.credits, 3);
 
         return {
+          eventId: "usage-1",
           limit: 20,
           remaining: 17,
           unit: "credits",
           used: 3,
         };
+      },
+      recordUsageAttempt: async () => {
+        calls.push("attempt");
       },
       routeWorkflow: async () => {
         calls.push("router");
@@ -413,7 +419,7 @@ describe("chat service", () => {
       model: "gemini-2.5-flash",
     });
 
-    assert.deepEqual(calls, ["usage", "router", "ai"]);
+    assert.deepEqual(calls, ["usage", "attempt", "router", "attempt", "ai"]);
   });
 
   it("converts image attachments into the provider image payload", async () => {
@@ -484,6 +490,7 @@ describe("chat service", () => {
       },
       reserveUsage: async () => {
         calls.push("usage");
+        return undefined;
       },
     });
 
@@ -762,6 +769,7 @@ describe("chat service", () => {
       reserveUsage: async (_identity, estimate) => {
         calls.push("usage");
         assert.equal(estimate.estimatedPromptTokens > 0, true);
+        return undefined;
       },
     });
 
@@ -917,6 +925,7 @@ describe("chat service", () => {
       },
       reserveUsage: async () => {
         calls.push("usage");
+        return undefined;
       },
     });
 
@@ -1136,6 +1145,7 @@ describe("chat service", () => {
 
   it("falls back to the configured model when the selected model is over quota", async () => {
     const calls: string[] = [];
+    let completedAttempts = 0;
     const service = createChatService({
       chatWithAi: async (input) => {
         calls.push(input.model || "");
@@ -1150,6 +1160,19 @@ describe("chat service", () => {
           provider: "gemini",
         };
       },
+      completeUsage: async (reservation) => {
+        completedAttempts = reservation.providerAttempts || 0;
+
+        return reservation;
+      },
+      recordUsageAttempt: async () => {},
+      reserveUsage: async () => ({
+        eventId: "usage-fallback",
+        limit: 100,
+        remaining: 90,
+        unit: "credits",
+        used: 10,
+      }),
     });
 
     const response = await service.createChatReply({
@@ -1168,7 +1191,45 @@ describe("chat service", () => {
     });
 
     assert.deepEqual(calls, ["gemini-2.5-flash", "gemini-2.5-flash-lite"]);
+    assert.equal(completedAttempts, 2);
     assert.equal(response.model, "gemini-2.5-flash-lite");
     assert.equal(response.modelRouting?.source, "fallback");
+  });
+
+  it("reports a failed provider attempt to conservative usage accounting", async () => {
+    let failureAttempts = 0;
+    const service = createChatService({
+      chatWithAi: async () => {
+        throw new AppError("provider failed", 502, "AI_PROVIDER_ERROR");
+      },
+      failUsage: async (reservation, failure) => {
+        failureAttempts = failure?.providerAttempts || 0;
+
+        return reservation;
+      },
+      recordUsageAttempt: async () => {},
+      reserveUsage: async () => ({
+        eventId: "usage-failed",
+        limit: 20,
+        remaining: 18,
+        unit: "credits",
+        used: 2,
+      }),
+    });
+
+    await assert.rejects(
+      () =>
+        service.createChatReply({
+          history: [],
+          message: "Review this",
+          mode: "general",
+          model: "gemini-3.1-flash-lite",
+        }),
+      {
+        code: "AI_PROVIDER_ERROR",
+      }
+    );
+
+    assert.equal(failureAttempts, 1);
   });
 });

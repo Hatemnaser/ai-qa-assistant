@@ -1,9 +1,8 @@
 import { getBackendError } from "../../api/backendErrors";
 import { csrfFetch } from "../../api/csrf";
+import { API_BASE_URL } from "../../config/api";
 import { sanitizeChatForExport } from "./chatExportFormatters";
 import type { Chat } from "./types";
-
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 
 export async function fetchAccountChats(): Promise<Chat[]> {
   const response = await csrfFetch(`${API_BASE_URL}/api/chats`, {
@@ -45,7 +44,9 @@ export async function deleteAccountChat(chatId: string) {
     method: "DELETE",
   });
 
-  if (!response.ok) {
+  // Deletes are idempotent for durable local tombstones: another device may
+  // already have removed the server row before this client reconnects.
+  if (!response.ok && response.status !== 404) {
     throw new Error(await getBackendError(response, "Could not delete this saved chat."));
   }
 }

@@ -64,6 +64,7 @@ function handleImported(result: AccountImportCommitResult) {
           chats: result.imported.chats,
           messages: result.imported.messages,
           memories: result.imported.accountMemories,
+          files: result.imported.binaryAssets || 0,
           skipped: result.skipped.accountMemories,
         });
   warningMessages.value = result.warnings;

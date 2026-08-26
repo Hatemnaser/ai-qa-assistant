@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  setOperationalEventLoggerForTests,
+  type OperationalEventRecord,
+} from "../src/lib/operational-events.ts";
+import {
   needsProjectDocumentIndex,
   prepareProjectDocumentIndex,
   PROJECT_DOCUMENT_CHUNKING_VERSION,
@@ -9,6 +13,9 @@ import {
 } from "../src/modules/project-documents/project-document-index.ts";
 import type {
   ProjectDocumentIndexRepository,
+} from "../src/modules/project-documents/project-document-index.types.ts";
+import {
+  PROJECT_DOCUMENT_INDEX_FAILURE_MESSAGE,
 } from "../src/modules/project-documents/project-document-index.repository.ts";
 import {
   createProjectDocumentIndexer,
@@ -18,7 +25,7 @@ import type {
 } from "../src/modules/project-documents/project-document-embedding.service.ts";
 import type {
   ProjectDocumentRecord,
-} from "../src/modules/project-documents/project-documents.repository.ts";
+} from "../src/modules/project-documents/project-documents.types.ts";
 
 describe("project document index", () => {
   it("builds stable hashes from normalized document content", () => {
@@ -97,13 +104,14 @@ describe("project document index", () => {
     const embeddings = createFakeEmbeddingService();
     const indexer = createProjectDocumentIndexer(repository, embeddings);
 
-    await indexer.indexDocument(createProjectDocument());
+    await indexer.indexDocument(createProjectDocument(), "user-1");
 
     assert.equal(repository.replacements.length, 1);
     assert.equal(repository.replacements[0]?.documentId, "document-1");
     assert.equal(repository.replacements[0]?.chunks.length, 1);
     assert.deepEqual(repository.failures, []);
     assert.deepEqual(embeddings.preparedDocumentIds, ["document-1"]);
+    assert.deepEqual(embeddings.preparedUserIds, ["user-1"]);
   });
 
   it("does not embed an index after the source document becomes stale", async () => {
@@ -122,48 +130,73 @@ describe("project document index", () => {
 
   it("marks failed indexes without failing the source document workflow", async () => {
     const repository = createFakeIndexRepository({
-      replaceError: new Error("Chunk storage unavailable"),
+      replaceError: new Error(
+        "Chunk storage unavailable for document-1; token=super-secret"
+      ),
     });
     const indexer = createProjectDocumentIndexer(
       repository,
       createFakeEmbeddingService()
     );
-    const originalConsoleWarn = console.warn;
-    console.warn = () => {};
+    const events: OperationalEventRecord[] = [];
+    const restore = setOperationalEventLoggerForTests((_level, event) => {
+      events.push(event);
+    });
 
     try {
       await indexer.indexDocument(createProjectDocument());
     } finally {
-      console.warn = originalConsoleWarn;
+      restore();
     }
 
     assert.deepEqual(repository.failures, [
       {
         documentId: "document-1",
-        error: "Chunk storage unavailable",
+        error: PROJECT_DOCUMENT_INDEX_FAILURE_MESSAGE,
         sourceUpdatedAt: new Date("2026-06-11T08:00:00.000Z"),
       },
     ]);
+    assert.equal(events[0]?.event, "project_document_processing");
+    assert.equal(
+      events[0]?.event === "project_document_processing"
+        ? events[0].operation
+        : undefined,
+      "index_persistence"
+    );
+    assert.doesNotMatch(
+      JSON.stringify(events),
+      /document-1|super-secret|Chunk storage unavailable|token=/i
+    );
   });
 
   it("keeps a ready deterministic index when embedding orchestration fails", async () => {
     const repository = createFakeIndexRepository();
     const embeddings = createFakeEmbeddingService();
     embeddings.embedPreparedIndex = async () => {
-      throw new Error("Embedding orchestration failed");
+      throw new Error("Embedding orchestration failed; token=super-secret");
     };
     const indexer = createProjectDocumentIndexer(repository, embeddings);
-    const originalConsoleWarn = console.warn;
-    console.warn = () => {};
+    const events: OperationalEventRecord[] = [];
+    const restore = setOperationalEventLoggerForTests((_level, event) => {
+      events.push(event);
+    });
 
     try {
       await indexer.indexDocument(createProjectDocument());
     } finally {
-      console.warn = originalConsoleWarn;
+      restore();
     }
 
     assert.equal(repository.replacements.length, 1);
     assert.deepEqual(repository.failures, []);
+    assert.equal(events[0]?.event, "project_document_processing");
+    assert.equal(
+      events[0]?.event === "project_document_processing"
+        ? events[0].operation
+        : undefined,
+      "embedding_orchestration"
+    );
+    assert.doesNotMatch(JSON.stringify(events), /super-secret|token=/i);
   });
 });
 
@@ -213,20 +246,24 @@ function createFakeIndexRepository(
 interface FakeEmbeddingService extends ProjectDocumentEmbeddingService {
   pendingDocumentIds: string[];
   preparedDocumentIds: string[];
+  preparedUserIds: Array<string | undefined>;
 }
 
 function createFakeEmbeddingService(): FakeEmbeddingService {
   const pendingDocumentIds: string[] = [];
   const preparedDocumentIds: string[] = [];
+  const preparedUserIds: Array<string | undefined> = [];
 
   return {
     pendingDocumentIds,
     preparedDocumentIds,
+    preparedUserIds,
     async embedPendingDocumentChunks(documentId) {
       pendingDocumentIds.push(documentId);
     },
-    async embedPreparedIndex(index) {
+    async embedPreparedIndex(index, userId) {
       preparedDocumentIds.push(index.documentId);
+      preparedUserIds.push(userId);
     },
   };
 }
@@ -250,5 +287,6 @@ function createProjectDocument(
     title: "Checkout rules",
     updatedAt: new Date("2026-06-11T08:00:00.000Z"),
     ...overrides,
+    sourceAssetId: overrides.sourceAssetId ?? null,
   };
 }

@@ -8,10 +8,10 @@ import {
 import type {
   ChatHistoryRepository,
   SaveUserChatInput,
+  StoredChatInput,
   StoredChatRecord,
   StoredMessageRecord,
-} from "../src/modules/chat-history/chat-history.repository.ts";
-import type { StoredChatInput } from "../src/modules/chat-history/chat-history.types.ts";
+} from "../src/modules/chat-history/chat-history.types.ts";
 import { createFakeProjectAccess } from "./helpers/projectAccess.ts";
 
 const NOW = new Date("2026-05-21T10:00:00.000Z");
@@ -237,6 +237,58 @@ describe("chat history service", () => {
     ]);
   });
 
+  it("persists stored asset ids separately and returns normalized server metadata", async () => {
+    const { service } = setupChatHistoryService();
+
+    const saved = await service.saveUserChat("user-1", createStoredChatInput({
+      messages: [{
+        id: "message-1",
+        role: "user",
+        content: "Review the attachment",
+        mode: "general",
+        model: "gemini-2.5-flash",
+        attachments: [{
+          assetId: "asset-1",
+          type: "file",
+          name: "client-controlled-name.txt",
+          mimeType: "application/octet-stream",
+        }],
+      }],
+    }));
+
+    assert.deepEqual(saved.messages[0]?.attachments, [{
+      assetId: "asset-1",
+      type: "file",
+      name: "asset-1.txt",
+      mimeType: "text/plain",
+    }]);
+  });
+
+  it("fails closed for stored references while private assets are disabled", async () => {
+    const repository = createFakeChatHistoryRepository();
+    const service = createChatHistoryService({
+      isPrivateAssetsEnabled: () => false,
+      now: () => NOW,
+      projectAccess: createFakeProjectAccess(),
+      repository,
+    });
+
+    await assert.rejects(
+      () => service.saveUserChat("user-1", createStoredChatInput({
+        messages: [{
+          id: "message-1",
+          role: "user",
+          content: "Review",
+          mode: "general",
+          model: "gemini-2.5-flash",
+          attachments: [{ assetId: "asset-1" }],
+        }],
+      })),
+      { code: "ASSET_STORAGE_DISABLED", statusCode: 503 }
+    );
+    assert.equal(repository.chats.length, 0);
+  });
+
   it("loads recent turns only through an owner-scoped chat lookup", async () => {
     const { service } = setupChatHistoryService([
       createFakeChatRecord({
@@ -420,6 +472,7 @@ function createStoredChatInput(overrides: Partial<StoredChatInput> = {}): Stored
     updatedAt: "2026-05-21T09:30:00.000Z",
     messages: [],
     ...overrides,
+    projectId: overrides.projectId ?? null,
   };
 }
 
@@ -433,6 +486,17 @@ function toStoredMessageRecord(message: SaveUserChatInput["messages"][number]): 
     attachment: message.attachment || null,
     metadata: message.metadata || null,
     createdAt: message.createdAt,
+    attachments: message.assetAttachments.map((attachment) => ({
+      assetId: attachment.assetId,
+      ordinal: attachment.ordinal,
+      asset: {
+        id: attachment.assetId,
+        declaredMimeType: "text/plain",
+        detectedMimeType: "text/plain",
+        originalName: `${attachment.assetId}.txt`,
+        sizeBytes: 10,
+      },
+    })),
   };
 }
 

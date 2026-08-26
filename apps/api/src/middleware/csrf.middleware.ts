@@ -38,7 +38,13 @@ export function csrfProtection(req: Request, _res: Response, next: NextFunction)
   }
 }
 
-export function issueCsrfToken(res: Response) {
+export function issueCsrfToken(req: Request, res: Response) {
+  const existingToken = getCookieValue(req, env.csrfCookieName);
+
+  if (existingToken && verifyCsrfToken(existingToken)) {
+    return existingToken;
+  }
+
   const token = createCsrfToken();
 
   res.cookie(env.csrfCookieName, token, {

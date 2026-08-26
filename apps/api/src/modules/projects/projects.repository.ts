@@ -1,36 +1,26 @@
+import { DATA_LIMITS } from "../../config/data-limits.js";
 import { prisma } from "../../db/prisma.js";
+import { Prisma } from "../../generated/prisma/client.js";
 import { ProjectRole } from "../../generated/prisma/enums.js";
-import type { ProjectInput } from "./projects.types.js";
+import { AppError } from "../../lib/errors.js";
+import { enqueueAssetDeletionJobs } from "../assets/assets.deletion-outbox.js";
+import type { ProjectsRepository } from "./projects.types.js";
 
-export interface ProjectRecord {
-  id: string;
-  name: string;
-  description: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface CreateProjectInput extends ProjectInput {
-  ownerId: string;
-}
-
-export interface UpdateProjectInput extends ProjectInput {
-  projectId: string;
-  userId: string;
-}
-
-export interface ProjectsRepository {
-  createUserProject(input: CreateProjectInput): Promise<ProjectRecord>;
-  deleteOwnedProject(userId: string, projectId: string): Promise<number>;
-  findProjectOwner(projectId: string): Promise<{ ownerId: string } | null>;
-  listUserProjects(userId: string): Promise<ProjectRecord[]>;
-  updateOwnedProject(input: UpdateProjectInput): Promise<ProjectRecord | null>;
-}
-
-export function createPrismaProjectsRepository(): ProjectsRepository {
+export function createPrismaProjectsRepository(database: typeof prisma = prisma): ProjectsRepository {
   return {
     async createUserProject(input) {
-      return prisma.$transaction(async (tx) => {
+      return database.$transaction(async (tx) => {
+        await lockUserProjectQuota(tx, input.ownerId);
+        const projectCount = await tx.project.count({ where: { ownerId: input.ownerId } });
+
+        if (projectCount >= DATA_LIMITS.projectsPerUser) {
+          throw new AppError(
+            `You can create up to ${DATA_LIMITS.projectsPerUser} projects. Delete one before creating another.`,
+            409,
+            "PROJECT_LIMIT_REACHED"
+          );
+        }
+
         const project = await tx.project.create({
           data: {
             description: input.description,
@@ -52,18 +42,45 @@ export function createPrismaProjectsRepository(): ProjectsRepository {
     },
 
     async deleteOwnedProject(userId, projectId) {
-      const result = await prisma.project.deleteMany({
-        where: {
-          id: projectId,
-          ownerId: userId,
-        },
-      });
+      return database.$transaction(async (tx) => {
+        const project = await tx.project.findFirst({
+          select: {
+            storedAssets: {
+              select: { objectKey: true, uploadExpiresAt: true },
+              where: { purpose: "PROJECT_DOCUMENT_SOURCE" },
+            },
+          },
+          where: {
+            id: projectId,
+            ownerId: userId,
+          },
+        });
 
-      return result.count;
+        if (!project) return 0;
+
+        const objectKeys = project.storedAssets.map((asset) => asset.objectKey);
+        await enqueueAssetDeletionJobs(tx, project.storedAssets);
+
+        if (objectKeys.length > 0) {
+          await tx.storedAsset.updateMany({
+            data: { status: "DELETE_PENDING" },
+            where: { objectKey: { in: objectKeys } },
+          });
+        }
+
+        const result = await tx.project.deleteMany({
+          where: {
+            id: projectId,
+            ownerId: userId,
+          },
+        });
+
+        return result.count;
+      });
     },
 
     async findProjectOwner(projectId) {
-      return prisma.project.findUnique({
+      return database.project.findUnique({
         select: {
           ownerId: true,
         },
@@ -74,10 +91,11 @@ export function createPrismaProjectsRepository(): ProjectsRepository {
     },
 
     async listUserProjects(userId) {
-      return prisma.project.findMany({
+      return database.project.findMany({
         orderBy: {
           updatedAt: "desc",
         },
+        take: DATA_LIMITS.projectsPerUser,
         where: {
           ownerId: userId,
         },
@@ -85,7 +103,7 @@ export function createPrismaProjectsRepository(): ProjectsRepository {
     },
 
     async updateOwnedProject(input) {
-      return prisma.$transaction(async (tx) => {
+      return database.$transaction(async (tx) => {
         const result = await tx.project.updateMany({
           data: {
             description: input.description,
@@ -111,3 +129,7 @@ export function createPrismaProjectsRepository(): ProjectsRepository {
 }
 
 export const projectsRepository = createPrismaProjectsRepository();
+
+async function lockUserProjectQuota(tx: Prisma.TransactionClient, userId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`oddpath:quota:projects:${userId}`}, 0))`;
+}

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import { resetCsrfTokenForTests } from "../src/api/csrf.ts";
-import { saveAccountChat } from "../src/features/chat/chatPersistenceApi";
+import { deleteAccountChat, saveAccountChat } from "../src/features/chat/chatPersistenceApi";
 import type { Chat } from "../src/features/chat/types";
 import { createCsrfAwareFetch } from "./helpers/csrfFetch.ts";
 
@@ -24,6 +24,7 @@ describe("chat persistence api", () => {
       assert.equal(body.chat.projectId, "project-1");
       assert.deepEqual(body.chat.messages[0].attachments, [
         {
+          assetId: "asset-1",
           type: "image",
           name: "screen.png",
           mimeType: "image/png",
@@ -36,6 +37,17 @@ describe("chat persistence api", () => {
     });
 
     await saveAccountChat(createChatWithPreview());
+  });
+
+  it("treats an already-absent chat as an idempotent delete", async () => {
+    mockFetch(async (input, init) => {
+      assert.equal(input, "/api/chats/already-deleted");
+      assert.equal(init?.method, "DELETE");
+
+      return jsonResponse({ code: "CHAT_NOT_FOUND" }, 404);
+    });
+
+    await deleteAccountChat("already-deleted");
   });
 });
 
@@ -58,6 +70,7 @@ function createChatWithPreview(): Chat {
         createdAt: "2026-05-24T10:01:00.000Z",
         attachments: [
           {
+            assetId: "asset-1",
             type: "image",
             name: "screen.png",
             mimeType: "image/png",

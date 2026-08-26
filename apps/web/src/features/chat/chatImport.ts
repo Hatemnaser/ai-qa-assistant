@@ -4,7 +4,12 @@ import type { Chat, ChatAttachment, ChatMessage } from "./types";
 
 const CHAT_TYPE = "qa-chat";
 
-export function parseImportedChatJson(rawJson: string) {
+interface ChatImportDefaults {
+  defaultAttachmentName?: string;
+  defaultTitle?: string;
+}
+
+export function parseImportedChatJson(rawJson: string, defaults: ChatImportDefaults = {}) {
   let parsed: unknown;
 
   try {
@@ -26,19 +31,19 @@ export function parseImportedChatJson(rawJson: string) {
 
   return createChat({
     id: createId(),
-    title: getImportedTitle(chat.title),
+    title: getImportedTitle(chat.title, defaults.defaultTitle),
     mode: getMode(chat.mode),
     model: getModelForMode(getMode(chat.mode), chat.model),
     createdAt: isValidDate(chat.createdAt) ? chat.createdAt : new Date().toISOString(),
     updatedAt: isValidDate(chat.updatedAt) ? chat.updatedAt : new Date().toISOString(),
-    messages: chat.messages.map(normalizeImportedMessage),
+    messages: chat.messages.map((message) => normalizeImportedMessage(message, defaults.defaultAttachmentName)),
   });
 }
 
-function getImportedTitle(title: unknown) {
+function getImportedTitle(title: unknown, defaultTitle = "Imported QA Chat") {
   return typeof title === "string" && title.trim()
     ? title.trim().slice(0, 50)
-    : "Imported QA Chat";
+    : defaultTitle;
 }
 
 function isImportableChat(value: unknown): value is Partial<Chat> & { messages: Partial<ChatMessage>[] } {
@@ -50,7 +55,7 @@ function isImportableChat(value: unknown): value is Partial<Chat> & { messages: 
   );
 }
 
-function normalizeImportedMessage(message: Partial<ChatMessage>): ChatMessage {
+function normalizeImportedMessage(message: Partial<ChatMessage>, defaultAttachmentName?: string): ChatMessage {
   if (!message || typeof message !== "object" || Array.isArray(message)) {
     throw new Error("Invalid chat file. Every message must be an object.");
   }
@@ -59,7 +64,7 @@ function normalizeImportedMessage(message: Partial<ChatMessage>): ChatMessage {
     throw new Error("Invalid chat file. Every message must have a user or assistant role.");
   }
 
-  const attachments = normalizeImportedAttachments(message);
+  const attachments = normalizeImportedAttachments(message, defaultAttachmentName);
 
   return {
     id: createId(),
@@ -72,7 +77,10 @@ function normalizeImportedMessage(message: Partial<ChatMessage>): ChatMessage {
   };
 }
 
-function normalizeImportedAttachments(message: Partial<ChatMessage>): ChatAttachment[] {
+function normalizeImportedAttachments(
+  message: Partial<ChatMessage>,
+  defaultAttachmentName = "Attachment"
+): ChatAttachment[] {
   const attachments = Array.isArray(message.attachments)
     ? message.attachments
     : message.attachment
@@ -81,7 +89,7 @@ function normalizeImportedAttachments(message: Partial<ChatMessage>): ChatAttach
 
   return attachments.filter(isAttachmentLike).map((attachment) => ({
     type: attachment.type === "image" ? "image" : "file",
-    name: attachment.name || "Attachment",
+    name: attachment.name || defaultAttachmentName,
     mimeType: attachment.mimeType || "",
   }));
 }

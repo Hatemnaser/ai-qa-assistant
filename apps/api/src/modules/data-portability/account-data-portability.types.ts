@@ -3,14 +3,31 @@ import type {
   MemorySource,
   ProjectDocumentSource,
 } from "../../generated/prisma/enums.js";
+import { DATA_LIMITS } from "../../config/data-limits.js";
+import type { PortableBinaryAssetSource } from "./binary-assets.js";
 
 export const ACCOUNT_EXPORT_FORMAT_VERSION = "1.0";
+export const ACCOUNT_EXPORT_BINARY_FORMAT_VERSION = "2.0";
+
+export type AccountExportFormatVersion =
+  | typeof ACCOUNT_EXPORT_FORMAT_VERSION
+  | typeof ACCOUNT_EXPORT_BINARY_FORMAT_VERSION;
 
 export const ACCOUNT_EXPORT_LIMITS = Object.freeze({
-  maxArchiveBytes: 50_000_000,
-  maxEntries: 10_000,
-  maxEntryBytes: 25_000_000,
-  maxTotalEntryBytes: 200_000_000,
+  maxArchiveBytes: 10_000_000,
+  maxEntries: 600,
+  maxEntryBytes: 5_000_000,
+  maxTotalEntryBytes: 20_000_000,
+  maxProjects: DATA_LIMITS.projectsPerUser,
+  maxDocuments:
+    DATA_LIMITS.projectsPerUser * DATA_LIMITS.documentsPerProject,
+  maxChats: DATA_LIMITS.chatsPerUser,
+  maxMessages: DATA_LIMITS.chatsPerUser * DATA_LIMITS.messagesPerChat,
+  maxMessagesPerChat: DATA_LIMITS.messagesPerChat,
+  maxAccountMemories: DATA_LIMITS.accountMemoriesPerUser,
+  maxMessageChars: DATA_LIMITS.chatMessageContentChars,
+  maxDocumentBytes: DATA_LIMITS.projectDocumentSourceBytes,
+  maxTotalTextChars: 5_000_000,
 });
 
 export interface AccountExportMemoryRecord {
@@ -76,6 +93,8 @@ export interface AccountExportChatRecord {
 
 export interface AccountExportSourceRecord {
   id: string;
+  acceptedTermsAt: Date | null;
+  acceptedTermsVersion: string | null;
   email: string;
   name: string | null;
   locale: string;
@@ -91,6 +110,11 @@ export interface AccountExportSourceRecord {
   memories: AccountExportMemoryRecord[];
   projects: AccountExportProjectRecord[];
   chats: AccountExportChatRecord[];
+  binaryAssets: PortableBinaryAssetSource[];
+}
+
+export interface AccountDataPortabilityRepository {
+  findAccountExportData(userId: string): Promise<AccountExportSourceRecord | null>;
 }
 
 export interface AccountExportManifestFile {
@@ -100,7 +124,7 @@ export interface AccountExportManifestFile {
 }
 
 export interface AccountExportManifest {
-  formatVersion: typeof ACCOUNT_EXPORT_FORMAT_VERSION;
+  formatVersion: AccountExportFormatVersion;
   exportType: "account";
   exportedAt: string;
   accountId: string;
@@ -110,12 +134,14 @@ export interface AccountExportManifest {
     chats: number;
     messages: number;
     accountMemories: number;
+    binaryAssets?: number;
   };
   contains: {
     canonicalJson: true;
     readableMarkdown: true;
     migrationReference: true;
-    attachmentFiles: false;
+    attachmentFiles: boolean;
+    privateAssetFiles?: boolean;
     derivedData: false;
     secrets: false;
   };

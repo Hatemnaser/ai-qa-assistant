@@ -1,8 +1,4 @@
-import {
-  projectMemoryRepository,
-  type ProjectMemoryRecord,
-  type ProjectMemoryRepository,
-} from "./project-memory.repository.js";
+import { projectMemoryRepository } from "./project-memory.repository.js";
 import {
   projectAccessService,
   type ProjectAccessService,
@@ -11,6 +7,8 @@ import { projectMemoryInputSchema } from "./project-memory.schema.js";
 import type {
   ProjectMemoryDto,
   ProjectMemoryInput,
+  ProjectMemoryRecord,
+  ProjectMemoryRepository,
 } from "./project-memory.types.js";
 
 export interface ProjectMemoryServiceDependencies {

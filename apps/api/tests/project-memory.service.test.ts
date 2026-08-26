@@ -5,7 +5,7 @@ import { MemorySource } from "../src/generated/prisma/enums.ts";
 import type {
   ProjectMemoryRecord,
   ProjectMemoryRepository,
-} from "../src/modules/project-memory/project-memory.repository.ts";
+} from "../src/modules/project-memory/project-memory.types.ts";
 import { projectMemoryInputSchema } from "../src/modules/project-memory/project-memory.schema.ts";
 import { createProjectMemoryService } from "../src/modules/project-memory/project-memory.service.ts";
 import { PROJECT_MEMORY_MAX_CHARS } from "../src/modules/project-memory/project-memory.types.ts";

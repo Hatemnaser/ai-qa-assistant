@@ -2,7 +2,7 @@ import { nextTick, ref } from "vue";
 import type { Ref } from "vue";
 
 import { ChatApiError, sendMessageToAI } from "../chatApi";
-import { createAttachments, createRequestAttachments } from "../chatAttachments";
+import { prepareChatAttachmentsForSubmit } from "../chatAttachmentSubmission";
 import { buildRequestHistory, createChatMessage } from "../chatMessages";
 import { DEFAULT_MODE, getModelForMode } from "../constants";
 import { useI18n } from "../../../i18n/useI18n";
@@ -12,6 +12,7 @@ interface ChatSubmitOptions {
   clearSelectedAttachments: () => void;
   ensureActiveChat: () => Chat;
   getAttachmentOnlyMessage: (attachments: SelectedAttachment[]) => string;
+  isAuthenticated: () => boolean;
   messageInput: Ref<string>;
   modelOptions: Ref<AiModelOption[]>;
   quickActionMode: Ref<string | null>;
@@ -25,6 +26,7 @@ export function useChatSubmit({
   clearSelectedAttachments,
   ensureActiveChat,
   getAttachmentOnlyMessage,
+  isAuthenticated,
   messageInput,
   modelOptions,
   quickActionMode,
@@ -49,35 +51,37 @@ export function useChatSubmit({
     const model = getModelForMode(mode, selectedModel.value, modelOptions.value);
     const shouldResetQuickActionMode = quickActionMode.value === mode && selectedAttachments.value.length === 0;
     const history = buildRequestHistory(chat);
-    const attachmentsForRequest =
-      selectedAttachments.value.length > 0 ? createRequestAttachments(selectedAttachments.value) : null;
-    const displayAttachments =
-      selectedAttachments.value.length > 0 ? createAttachments(selectedAttachments.value) : undefined;
-    const userMessage = createChatMessage({
-      role: "user",
-      content: message,
-      mode,
-      model,
-      attachments: displayAttachments,
-    });
-    const nextChat = {
-      ...chat,
-      title: chat.title === "New QA Chat" ? message.slice(0, 35) : chat.title,
-      mode,
-      model,
-      messages: [...chat.messages, userMessage],
-    };
-
-    updateChat(nextChat);
-    messageInput.value = "";
-    clearSelectedAttachments();
+    const attachments = [...selectedAttachments.value];
+    let nextChat: Chat | null = null;
     isSending.value = true;
 
-    await scrollChatToBottom();
-
     try {
+      const preparedAttachments = await prepareChatAttachmentsForSubmit(attachments, {
+        isAuthenticated: isAuthenticated(),
+        projectId: chat.projectId,
+      });
+      const userMessage = createChatMessage({
+        role: "user",
+        content: message,
+        mode,
+        model,
+        attachments: preparedAttachments.displayAttachments,
+      });
+      nextChat = {
+        ...chat,
+        title: chat.title === "New QA Chat" ? message.slice(0, 35) : chat.title,
+        mode,
+        model,
+        messages: [...chat.messages, userMessage],
+      };
+
+      updateChat(nextChat);
+      messageInput.value = "";
+      clearSelectedAttachments();
+      await scrollChatToBottom();
+
       const response = await sendMessageToAI({
-        attachments: attachmentsForRequest,
+        attachments: preparedAttachments.requestAttachments,
         chatId: chat.id,
         history,
         message,
@@ -111,10 +115,12 @@ export function useChatSubmit({
         guestLimitReached.value = true;
       }
 
+      const errorChat = nextChat || chat;
+
       updateChat({
-        ...nextChat,
+        ...errorChat,
         messages: [
-          ...nextChat.messages,
+          ...errorChat.messages,
           createChatMessage({
             role: "assistant",
             content: fallback,
@@ -125,7 +131,7 @@ export function useChatSubmit({
         ],
       });
     } finally {
-      if (shouldResetQuickActionMode) {
+      if (nextChat && shouldResetQuickActionMode) {
         selectedMode.value = DEFAULT_MODE;
       }
 

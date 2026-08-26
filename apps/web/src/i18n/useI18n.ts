@@ -5,12 +5,15 @@ import {
   getLocaleDirection,
   LOCALE_OPTIONS,
   normalizeLocale,
+  parseLocale,
   type AppLocale,
 } from "./locales";
 import { messages, type TranslationKey } from "./messages";
 
 const LOCALE_STORAGE_KEY = "ai_qa_assistant_locale";
-const locale = ref<AppLocale>(readInitialLocale());
+const locale = ref<AppLocale>(
+  resolveInitialLocale(readStoredLocale(), readBrowserLocales())
+);
 const direction = computed(() => getLocaleDirection(locale.value));
 
 watch(
@@ -64,20 +67,43 @@ export function getCurrentLocale() {
   return locale.value;
 }
 
-function readInitialLocale(): AppLocale {
-  const storedLocale = readStoredLocale();
+export function resolveInitialLocale(
+  storedLocale: unknown,
+  browserLocales: readonly unknown[]
+): AppLocale {
+  const savedPreference = parseLocale(storedLocale);
 
-  if (storedLocale) return storedLocale;
+  if (savedPreference) return savedPreference;
 
-  return normalizeLocale(globalThis.navigator?.language);
+  for (const browserLocale of browserLocales) {
+    const supportedBrowserLocale = parseLocale(browserLocale);
+
+    if (supportedBrowserLocale) return supportedBrowserLocale;
+  }
+
+  return DEFAULT_LOCALE;
 }
 
 function readStoredLocale() {
   try {
-    return normalizeLocale(globalThis.localStorage?.getItem(LOCALE_STORAGE_KEY));
+    return globalThis.localStorage?.getItem(LOCALE_STORAGE_KEY) ?? null;
   } catch {
-    return DEFAULT_LOCALE;
+    return null;
   }
+}
+
+function readBrowserLocales(): readonly string[] {
+  const browserNavigator = globalThis.navigator;
+
+  if (!browserNavigator) return [];
+
+  const languages = [...(browserNavigator.languages || [])];
+
+  if (browserNavigator.language && !languages.includes(browserNavigator.language)) {
+    languages.push(browserNavigator.language);
+  }
+
+  return languages;
 }
 
 function writeStoredLocale(nextLocale: AppLocale) {

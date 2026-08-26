@@ -6,7 +6,7 @@ import {
   rankProjectDocumentChunksLexically,
   retrieveProjectDocumentChunks,
 } from "../src/modules/project-documents/project-document-retrieval.ts";
-import type { ProjectDocumentRecord } from "../src/modules/project-documents/project-documents.repository.ts";
+import type { ProjectDocumentRecord } from "../src/modules/project-documents/project-documents.types.ts";
 
 const NOW = new Date("2026-06-11T10:00:00.000Z");
 
@@ -175,6 +175,7 @@ function createProjectDocument(
     title,
     content,
     source: "USER_PROVIDED",
+    sourceAssetId: null,
     mimeType: null,
     metadata: null,
     createdAt: NOW,

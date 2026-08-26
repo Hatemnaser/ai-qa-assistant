@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import type {
   ProjectInstructionRecord,
   ProjectInstructionsRepository,
-} from "../src/modules/project-instructions/project-instructions.repository.ts";
+} from "../src/modules/project-instructions/project-instructions.types.ts";
 import { projectInstructionInputSchema } from "../src/modules/project-instructions/project-instructions.schema.ts";
 import { createProjectInstructionsService } from "../src/modules/project-instructions/project-instructions.service.ts";
 import { createFakeProjectAccess } from "./helpers/projectAccess.ts";

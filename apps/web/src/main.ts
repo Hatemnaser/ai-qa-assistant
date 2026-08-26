@@ -1,5 +1,7 @@
 import "bootstrap/dist/css/bootstrap.min.css";
-import "bootstrap/dist/js/bootstrap.bundle.min.js";
+// Oddpath uses Bootstrap's dropdown behavior only. Importing the complete
+// bundle also shipped unused modal, carousel, tooltip, toast, and collapse JS.
+import "bootstrap/js/dist/dropdown";
 import "./styles/main.scss";
 
 import { createApp } from "vue";

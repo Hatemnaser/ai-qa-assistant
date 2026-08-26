@@ -3,6 +3,7 @@ import { onMounted, ref } from "vue";
 
 import { useI18n } from "../../../i18n/useI18n";
 import { verifyEmail } from "../authApi";
+import { consumeAuthTokenFromLocation } from "../authToken";
 import AuthLayout from "../components/AuthLayout.vue";
 
 defineProps<{
@@ -25,7 +26,7 @@ onMounted(() => {
 });
 
 async function submitVerification() {
-  const token = readVerificationToken();
+const token = consumeAuthTokenFromLocation();
 
   if (!token) {
     errorMessage.value = t("errors.auth.verifyMissingToken");
@@ -41,15 +42,6 @@ async function submitVerification() {
   } finally {
     isVerifying.value = false;
   }
-}
-
-function readVerificationToken() {
-  const hashQuery = window.location.hash.includes("?")
-    ? window.location.hash.slice(window.location.hash.indexOf("?"))
-    : "";
-  const search = hashQuery || window.location.search;
-
-  return new URLSearchParams(search.replace(/^\?/, "")).get("token") || "";
 }
 </script>
 

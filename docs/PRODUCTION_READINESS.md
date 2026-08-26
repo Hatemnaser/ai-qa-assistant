@@ -1,7 +1,7 @@
 # Production Deployment And Readiness
 
 This document is the source of truth for preparing, deploying, verifying, and
-operating AI QA Assistant outside local development.
+operating Oddpath outside local development.
 
 It separates three different states:
 
@@ -22,9 +22,36 @@ The application architecture can be deployed as:
 - `apps/api`: long-running Node/Express service.
 - PostgreSQL: managed durable database.
 - Gemini: server-side provider integration.
+- R2: the fail-closed private EU storage foundation and browser/API product
+  integration are implemented; provider provisioning, scheduler monitoring,
+  and staging validation remain launch workstreams.
 
 The repository is not yet approved for real-user production traffic because
 the operational data-safety gates below have not been completed.
+
+Incident containment and data-subject request handling are defined in
+`docs/INCIDENT_AND_DATA_REQUEST_RUNBOOK.md`. The operator-specific contacts,
+competent state authority, and reviewed legal decisions must still be filled in
+outside the public repository before registration is enabled.
+
+The account-independent deployment foundation is implemented: the committed
+Render Blueprint, Node version pin, CI workflow, fail-fast production
+configuration, database readiness probe, API/browser security headers, and
+graceful shutdown path are covered by automated checks. This does not replace
+provider provisioning or the staging smoke gate.
+
+The CI workflow includes a separate fail-closed production dependency audit.
+Any high or critical advisory in the deployable dependency tree blocks Render's
+checks-pass deployment until the dependency is upgraded or a reviewed,
+documented reachability decision is made.
+
+`deepmerge-ts` is pinned directly at `8.0.1` and overridden at the workspace
+root because Prisma `7.9.1` still declares vulnerable `7.1.5` through its CLI
+configuration package (GHSA-ggr8-5vv4-36mx). Prisma CLI is therefore a root
+development tool, while `apps/api` keeps only the generated-client runtime
+dependency. Do not remove the override until a stable Prisma release resolves
+to `deepmerge-ts >= 8.0.0`; every change must keep `npm ls`, the production
+audit, Prisma validation/generation, and the full build/test gates green.
 
 ## Production Blockers
 
@@ -40,14 +67,67 @@ the operational data-safety gates below have not been completed.
 - [ ] Confirm that deleting or redeploying the API cannot delete the production
   database.
 - [ ] Deploy a staging environment and run the full smoke checklist.
+- [x] Add a fail-closed automated target smoke runner with a GET-only default
+  and a separately confirmed authenticated project lifecycle check.
 - [ ] Add host/proxy-level rate limiting for public API traffic.
 - [ ] Configure and smoke-test a production SMTP provider for auth email,
   including sender domain DNS, SPF, DKIM, and DMARC.
-- [ ] Complete the auth security checkpoint: decide whether to keep and harden
-  owned auth or migrate to a maintained auth library before real-user launch.
-- [ ] Decide whether the first release is a portfolio demo or a real-user
-  product. Real-user production also needs an account recovery decision,
-  privacy/data-retention policy, and user-data deletion path.
+- [x] Keep and harden the owned auth boundary for the initial private beta;
+  revisit a maintained platform when OAuth, MFA/passkeys, or organizations
+  enter scope.
+- [x] Implement password account recovery end to end, including SMTP delivery,
+  token validation, and the reset-password web route.
+- [x] Decide that the first real-user release is an invite-only beta with
+  verified accounts and guest AI disabled by default.
+- [x] Implement the fail-closed registration gate, hashed invite-code check,
+  public non-secret registration config, and versioned acceptance audit fields.
+- [ ] Publish reviewed Oddpath-specific Terms/Privacy pages at
+  `/oddpath/terms` and `/oddpath/privacy` with German counterparts under
+  `/de/oddpath/*`, assign their reviewed `CURRENT_TERMS_VERSION`, and only then
+  switch `REGISTRATION_MODE` from `disabled` to `invite`. The umbrella
+  Eluthira legal drafts do not satisfy this product notice.
+- [x] Implement password-confirmed relational account deletion, transactional
+  object-deletion outbox enqueueing, usage-row deletion, session-cookie
+  clearing, and local account-cache cleanup.
+- [ ] Complete the privacy/data-retention policy and deploy/monitor the external
+  object-deletion worker.
+- [x] Implement private R2 asset lifecycle endpoints, atomic quota/validation
+  claims, conservative content checks, and the overlap-safe deletion worker
+  behind a disabled-by-default feature flag.
+- [ ] Provision a private EU-jurisdiction R2 bucket/token, configure exact CORS,
+  schedule and monitor `npm run assets:cleanup`, and run real-provider smoke
+  tests without recording presigned URLs.
+- [x] Reconcile stable chat messages, normalized attachment links, authorized
+  provider reads, and stored-source Project Document imports in the API.
+- [x] Implement and verify the signed-in browser chat/Project Document asset
+  flows with opaque IDs, temporary previews/URLs, and legacy guest fallback.
+- [x] Implement the provider-neutral bounded binary foundation: exact owner and
+  READY checks, sequential bounded reads, immutable bounded writes, SHA-256 and
+  MIME/content verification, safe archive paths, source bindings, and
+  untrusted-package validation.
+- [x] Wire bounded private files into Account/Project archive v2 while retaining
+  v1 import compatibility; add exact owner-scoped relation completeness,
+  staged assets/deletion jobs, and atomic canonical relation finalization.
+- [x] Keep `PRIVATE_ASSETS_ENABLED=false` in production; startup rejects an
+  attempted production enablement.
+- [ ] Complete the activation proof: guarded real-PostgreSQL restore/cleanup
+  and concurrency, real EU R2 interruption matrix, deployed process-kill/
+  freeze recovery, production-scale timeout/latency behavior, and monitored
+  scheduled multi-instance cleanup.
+- [x] Change account/project ZIP export triggers to `POST + CSRF`; bound ZIP
+  semantics and destination quotas; add pre-body rate/concurrency guards; and
+  default `PORTABILITY_IMPORTS_ENABLED=false` in production.
+- [x] Add a bounded, overlap-safe retention cleanup command for expired
+  sessions/tokens, old usage/IP records, and old sessionless unverified
+  accounts, including transactional private-object deletion jobs and expired
+  auth-email payload cleanup.
+- [x] Add count/status-only structured readiness/cleanup events and opt-in
+  Render cron examples that cannot create paid services from the root Blueprint.
+  Asset cleanup exits nonzero when object deletions fail so a scheduler can
+  alert instead of treating a partial run as successful.
+- [ ] Schedule and monitor `npm run cleanup:retention` with the final reviewed
+  retention periods (`AUTH_TOKEN_RETENTION_DAYS`,
+  `UNVERIFIED_ACCOUNT_RETENTION_DAYS`, and `USAGE_RECORD_RETENTION_DAYS`).
 
 ### Required Migration Script
 
@@ -78,28 +158,22 @@ Run migrations from a controlled release step against the production
 
 ## Target Deployment Shape
 
-The hosting provider decision is intentionally deferred while product features
-are still moving. Keep the app deployment-agnostic and compatible with a low-cost
-shape:
+The deployment decision is now fixed for the first beta:
 
-- Static host for `apps/web/dist`.
-- Managed long-running Node host for `apps/api/dist/server.js`.
-- Managed PostgreSQL with backups enabled.
-- HTTPS for both web and API.
-- Exact public origins in CORS and cookie configuration.
+- Web: Cloudflare Pages at `https://oddpath.eluthira.com`.
+- API: Render Starter in Frankfurt at
+  `https://api.oddpath.eluthira.com`.
+- Database: Render PostgreSQL Basic-256mb in Frankfurt, starting with an
+  explicit 1 GB disk and private-network access from the API.
+- Binary storage: private Cloudflare R2 bucket created with EU jurisdiction.
+- Email: Brevo SMTP with an authenticated `eluthira.com` sender.
+- AI: paid Gemini service; production starts with AI disabled until the paid
+  key, cost gate, and staging checks are complete.
 
-Preferred low-cost candidates when deployment becomes active:
-
-- Web: Vercel Hobby or Cloudflare Pages static hosting.
-- API: Railway Hobby, Render Starter, or another long-running Node host.
-- Database: Neon Free/Launch or another managed PostgreSQL provider with a
-  documented restore path.
-- Domain: use provider subdomains first; buy a custom domain only when the
-  release target is stable.
-
-Do not commit to a provider-specific architecture until the product is closer to
-release. Provider-specific setup belongs in a deployment decision record or this
-runbook once selected.
+The API hostname remains Cloudflare DNS-only for the initial privacy boundary;
+prompts and documents go directly to Render. The committed `render.yaml` and
+`docs/DEPLOYMENT_CLOUDFLARE_RENDER.md` are the provider-specific sources of
+truth.
 
 Avoid:
 
@@ -161,19 +235,41 @@ Required:
 
 ```text
 NODE_ENV=production
-PORT=5000
-CORS_ORIGIN=https://your-web-origin.example
+APP_ORIGIN=https://oddpath.eluthira.com
+CORS_ORIGIN=https://oddpath.eluthira.com
+TRUST_PROXY_HOPS=1
 DATABASE_URL=postgresql://...
-GEMINI_API_KEY=...
 USAGE_IP_HASH_SALT=long_random_secret
+CSRF_SECRET=long_random_secret
+COOKIE_SECURE=true
+COOKIE_SAME_SITE=lax
 EMAIL_PROVIDER=smtp
-EMAIL_FROM="AI QA Assistant <no-reply@your-domain.example>"
+EMAIL_FROM="Oddpath <no-reply@eluthira.com>"
 SMTP_HOST=smtp.your-provider.example
 SMTP_PORT=587
 SMTP_USER=...
 SMTP_PASS=...
+EMAIL_OUTBOX_ENCRYPTION_SECRET=separate_random_secret_at_least_32_characters
 SMTP_SECURE=false
+EMAIL_OUTBOX_POLL_INTERVAL_MS=5000
+EMAIL_OUTBOX_BATCH_SIZE=10
+EMAIL_OUTBOX_MAX_ATTEMPTS=5
+AUTH_EMAIL_RESPONSE_FLOOR_MS=350
+REGISTRATION_MODE=disabled
+CURRENT_TERMS_VERSION=
+REGISTRATION_INVITE_CODE_HASHES=
+LEGAL_DOCUMENTS_PUBLISHED_CONFIRMED=false
+AI_ENABLED=false
+GUEST_AI_ENABLED=false
+GEMINI_API_KEY=...
+GEMINI_PAID_SERVICE_CONFIRMED=true
 ```
+
+`GEMINI_API_KEY` and `GEMINI_PAID_SERVICE_CONFIRMED` are required only when
+`AI_ENABLED=true`; the Blueprint begins with AI disabled. `TRUST_PROXY_HOPS`
+must remain exactly `1` while browsers connect directly to Render. The
+password-reset and verification paths must be same-origin absolute paths, and
+`APP_ORIGIN` must also appear in `CORS_ORIGIN`.
 
 Do not use local defaults or committed placeholder secrets in production.
 
@@ -183,12 +279,17 @@ Password reset and email verification require SMTP in production:
 
 ```text
 EMAIL_PROVIDER=smtp
-EMAIL_FROM="AI QA Assistant <no-reply@your-domain.example>"
+EMAIL_FROM="Oddpath <no-reply@eluthira.com>"
 SMTP_HOST=smtp.your-provider.example
 SMTP_PORT=587
 SMTP_USER=...
 SMTP_PASS=...
 SMTP_SECURE=false
+EMAIL_OUTBOX_ENCRYPTION_SECRET=separate_random_secret_at_least_32_characters
+EMAIL_OUTBOX_POLL_INTERVAL_MS=5000
+EMAIL_OUTBOX_BATCH_SIZE=10
+EMAIL_OUTBOX_MAX_ATTEMPTS=5
+AUTH_EMAIL_RESPONSE_FLOOR_MS=350
 PASSWORD_RESET_PATH=/#/reset-password
 EMAIL_VERIFICATION_PATH=/#/verify-email
 ```
@@ -204,8 +305,12 @@ Rules:
 - Publish SPF, DKIM, and DMARC records before accepting real users.
 - Smoke-test register, verify-email, forgot-password, and reset-password in the
   deployed HTTPS environment.
-- Prefer hash-route reset and verification paths so raw tokens remain after
-  `#` and are less likely to appear in hosting or proxy logs.
+- Confirm the encrypted outbox drains after a restart and emits no recipient,
+  token, URL, provider response, or raw error in logs. Do not rotate its
+  encryption secret until there are no pending jobs.
+- Prefer hash-route reset and verification paths so raw tokens stay out of
+  hosting and proxy request logs. The web client removes each token from the
+  visible URL/history entry immediately after consuming it.
 
 ### Cookies
 
@@ -274,6 +379,13 @@ USAGE_IMAGE_CREDITS=4
 USAGE_TEXT_FILE_CREDITS=1
 USAGE_ROUTER_CREDITS=1
 USAGE_WINDOW_HOURS=24
+AI_GLOBAL_USAGE_WINDOW_MS=3600000
+AI_GLOBAL_REQUEST_LIMIT=100
+AI_GLOBAL_CREDIT_LIMIT=500
+AI_GLOBAL_DAILY_REQUEST_LIMIT=500
+AI_GLOBAL_DAILY_CREDIT_LIMIT=2500
+AI_GLOBAL_MONTHLY_REQUEST_LIMIT=5000
+AI_GLOBAL_MONTHLY_CREDIT_LIMIT=25000
 MAX_MESSAGE_CHARS=3000
 MAX_HISTORY_MESSAGES=10
 REQUEST_BODY_LIMIT=25mb
@@ -281,8 +393,53 @@ REQUEST_BODY_LIMIT=25mb
 
 Review provider quota and billing before increasing limits. Application
 credits protect Gemini usage, but they do not replace host/proxy rate limiting.
+They are deliberately approximate and are not a euro-denominated hard cap;
+configure provider billing alerts and an external budget as well.
 Review request and message limits against the selected host's proxy limits
 before enabling larger uploads.
+
+### Private Object Storage Activation Gate
+
+The private R2 lifecycle and deletion-outbox foundation is intentionally
+fail-closed. Do not enable it merely because the bucket credentials exist.
+The application-side prerequisites now implemented are:
+
+- signed-in browser upload integration using the initiate/PUT/complete flow;
+- server-side chat and project-document linking that verifies owner, purpose,
+  project, and `READY` status inside the write transaction;
+- stable chat-message reconciliation so ordinary autosave never drops links or
+  schedules still-referenced objects for deletion;
+- bounded Account/Project archive v2 entries with v1 import compatibility;
+- zero-write package validation plus quota-locked staged restore; and
+- exact unreferenced cleanup claims, delayed quarantine for ambiguous failure,
+  and atomic `READY`/relation finalization in the canonical import transaction;
+- persisted restore session/attempt/token fencing before and after every write
+  and inside finalization, with automated freeze and lease-boundary coverage;
+- exact lease-token CAS for cleanup renewal/failure/completion, scheduler-
+  visible conflicts, and a guarded real-PostgreSQL concurrency case; and
+- a fail-closed, sanitized EU R2 mutation runner covering conditional upload,
+  CORS, integrity, bounded reads, authorization, and exact retrying cleanup.
+
+Production configuration still refuses `PRIVATE_ASSETS_ENABLED=true`.
+Complete and record all of these activation checks before changing that guard:
+
+- run the existing real-PostgreSQL binary finalization/rollback tests; they
+  have not been run locally in the current environment;
+- run a real EU-jurisdiction R2 CORS/presigning/replay/expiry/interruption
+  matrix, including conditional PUT, checksum/content length, bounded/range
+  reads, authorization, delete, and cleanup retry;
+- prove process-kill/freeze recovery against real PostgreSQL and R2 at every
+  staging/write/finalize boundary;
+- exercise the locally covered maximum package size against production
+  transaction timeouts, serialization retries, storage latency, and API
+  memory limits; and
+- schedule and monitor `npm run assets:cleanup`, prove reconciliation after
+  failures, and validate coordination with multiple API instances.
+
+The current archive path is bounded to 64 assets, 4 MiB each and 8 MiB total;
+it is not an arbitrary-size streaming contract. Staging may exercise R2, but
+this production guard is not a waiver and must remain closed until the matrix
+above passes.
 
 ### Web Configuration
 
@@ -290,9 +447,15 @@ Build the frontend with:
 
 ```text
 VITE_API_BASE_URL=https://your-api-origin.example
+# Optional only after direct private-asset transfers are enabled:
+VITE_R2_ENDPOINT=https://<32-character-account-id>.eu.r2.cloudflarestorage.com
 ```
 
-The value is embedded at build time. Rebuild the web app when it changes.
+The values are embedded at build time. The Vite build generates
+`apps/web/dist/_headers` with those exact origins and fails when the API origin,
+or a configured R2 origin, is unsafe. Never use a wildcard. Rebuild the web app
+when either value changes, and use separate exact values for staging and
+production.
 
 ## Release Preparation
 
@@ -308,6 +471,9 @@ The value is embedded at build time. Rebuild the web app when it changes.
 - [ ] Known product gaps are explicitly accepted for the selected release type.
 
 ### Verification Gate
+
+Load the reviewed `VITE_API_BASE_URL` (and optional exact EU
+`VITE_R2_ENDPOINT`) into the build environment before running this gate.
 
 Run:
 
@@ -328,6 +494,10 @@ Also confirm:
 - The release commit and version are recorded.
 
 ## Deployment Procedure
+
+Follow the provider-specific account, DNS, and secret sequence in
+`docs/DEPLOYMENT_CLOUDFLARE_RENDER.md` in addition to the provider-neutral
+procedure below.
 
 ### 1. Provision Infrastructure
 
@@ -368,10 +538,84 @@ production deployment.
 
 ### 5. Run Post-Deploy Smoke Tests
 
+Run the compiled automated baseline before the manual checklist:
+
+```text
+npm run build:api
+npm run smoke:read-only
+```
+
+The operator supplies configuration through environment variables. Use
+`ops/smoke.env.example` as a reference, but keep real values in a local ignored
+file or CI/host secret manager:
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `ODDPATH_SMOKE_BASE_URL` | yes | Exact API origin, for example `https://api-staging.example.com`; credentials, paths, queries, and fragments are rejected. |
+| `ODDPATH_SMOKE_WEB_ORIGIN` | recommended for read-only; required for authenticated mutation | Exact deployed web origin. When present, the runner proves that origin is allowed and an unrelated origin is rejected; mutation requests always send this browser origin. |
+| `ODDPATH_SMOKE_TIMEOUT_MS` | no | Per-request bound from 500 through 30000 milliseconds; default 10000. |
+| `ODDPATH_SMOKE_CSRF_HEADER_NAME` | no | Defaults to `X-CSRF-Token`; set it only when the API's `CSRF_HEADER_NAME` was customized. |
+
+`smoke:read-only` sends only `GET` requests. It verifies API liveness and
+payload identity, database readiness, API security headers (including HSTS on
+HTTPS), registration/legal configuration, the unauthenticated session
+boundary, CSRF cookie issuance, and optional exact-origin CORS behavior. It
+needs no account credentials and is the safe default for repeated availability
+checks.
+
+After that passes on isolated staging, an operator may deliberately run the
+authenticated write baseline with a dedicated verified test account that has
+no valuable data:
+
+```text
+npm run smoke:authenticated-mutation
+```
+
+That command additionally requires the exact web origin plus all three
+secret-manager values below:
+
+```text
+ODDPATH_SMOKE_EMAIL=dedicated-verified-test-account@example.com
+ODDPATH_SMOKE_PASSWORD=stored-only-in-the-secret-manager
+ODDPATH_SMOKE_MUTATION_CONFIRMATION=CREATE_AND_DELETE_ODDPATH_SMOKE_PROJECT
+```
+
+The exact confirmation is an execution interlock, not a general approval for
+destructive testing. The runner logs in, verifies the current session, creates
+one uniquely named temporary project, updates and lists it, deletes that exact
+returned project id, confirms its absence, and logs out. If a later check fails
+after creation, it attempts that same id's cleanup before exiting. It never
+registers or deletes an account, touches a pre-existing project, or invokes AI.
+If `temporary_project_cleanup` fails, stop and remove the project with the
+`Oddpath deployment smoke` prefix through the product after investigating the
+target; do not treat that run as passed.
+
+Both commands refuse non-HTTPS remote targets, credentials embedded in URLs,
+redirects, oversized JSON responses, and unbounded waits. Their success output
+contains only fixed check names and durations. Failure output contains only a
+fixed check name and reason; URLs, email, password, cookies, CSRF/session
+tokens, response bodies, raw errors, and stack traces are deliberately omitted.
+The commands return a non-zero exit code on the first failed gate. Do not expose
+authenticated smoke secrets to pull-request jobs or untrusted logs.
+
+The `*:dev` variants execute TypeScript directly for local runner development.
+A release gate must use the unsuffixed commands above after `build:api`, so the
+exact compiled candidate is tested.
+
+The automated baseline does not replace the browser/provider/isolation checks
+below. Email delivery, two-user authorization, AI behavior, R2 presigning,
+mobile layout, and backup restoration still require their dedicated staging
+tests.
+
 - [ ] Health endpoint returns success.
 - [ ] Registration creates a user.
+- [ ] Closed mode rejects registration; invite mode rejects wrong codes and
+  records the current `acceptedTermsVersion` and `acceptedTermsAt` for a valid
+  registration.
 - [ ] Login succeeds and survives refresh.
 - [ ] Logout clears the session.
+- [ ] Account deletion rejects a wrong current password, accepts the correct
+  password, clears the session, and removes the user's database graph.
 - [ ] Guest chat works within its configured credit limit.
 - [ ] Signed-in chat is saved and reopens after refresh.
 - [ ] Project create/edit/delete works.
@@ -474,7 +718,6 @@ and backups if visitors can create accounts or content.
 
 Before inviting users to rely on stored data, also resolve or explicitly design:
 
-- Working account recovery.
 - Privacy policy and data-retention rules.
 - Account and user-data deletion.
 - Support and incident response ownership.
@@ -495,7 +738,6 @@ Provider plans and limits change. Before deployment, verify current:
 - Logging and alerting.
 - Pricing and quota limits.
 
-Possible hosts include Vercel or another static host for the web app, and
-Render, Railway, Fly.io, or another managed Node/PostgreSQL platform for the
-API and database. Select providers based on verified current capabilities, not
-this document alone.
+The selected providers are Cloudflare Pages/R2, Render, Brevo, and paid Gemini.
+Re-verify their current limits, contracts, regions, and prices at provisioning
+time; this document does not freeze external provider behavior.

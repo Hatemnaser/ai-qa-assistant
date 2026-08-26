@@ -1,18 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, ref, watch } from "vue";
 
 import { useI18n } from "../../i18n/useI18n";
 import { fetchUsageSummary } from "./usageApi";
+import { getUsageStatusTranslationKey } from "./usageStatus";
 import type { UsageSummary } from "./types";
 
 const emit = defineEmits<{
   "back-to-chat": [];
+}>();
+const props = defineProps<{
+  identityKey: string;
 }>();
 
 const summary = ref<UsageSummary | null>(null);
 const errorMessage = ref("");
 const isLoading = ref(false);
 const { formatDate: formatLocaleDate, t } = useI18n();
+let loadRevision = 0;
 
 const usagePercent = computed(() => {
   if (!summary.value || summary.value.limit <= 0) return 0;
@@ -29,28 +34,50 @@ const sinceLabel = computed(() => {
   });
 });
 
-onMounted(() => {
-  void loadUsageSummary();
-});
+watch(
+  () => props.identityKey,
+  () => {
+    summary.value = null;
+    errorMessage.value = "";
+    isLoading.value = false;
+    loadRevision += 1;
+
+    void loadUsageSummary();
+  },
+  { immediate: true }
+);
 
 async function loadUsageSummary() {
-  isLoading.value = true;
+  const identityKey = props.identityKey;
+  const requestRevision = ++loadRevision;
+
+  summary.value = null;
   errorMessage.value = "";
+  isLoading.value = true;
 
   try {
-    summary.value = await fetchUsageSummary();
+    const nextSummary = await fetchUsageSummary();
+
+    if (isCurrentRequest(identityKey, requestRevision)) {
+      summary.value = nextSummary;
+    }
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : t("usage.loadError");
+    if (isCurrentRequest(identityKey, requestRevision)) {
+      errorMessage.value = error instanceof Error ? error.message : t("usage.loadError");
+    }
   } finally {
-    isLoading.value = false;
+    if (isCurrentRequest(identityKey, requestRevision)) {
+      isLoading.value = false;
+    }
   }
 }
 
+function isCurrentRequest(identityKey: string, requestRevision: number) {
+  return props.identityKey === identityKey && loadRevision === requestRevision;
+}
+
 function formatStatus(status: string) {
-  return status
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+  return t(getUsageStatusTranslationKey(status));
 }
 
 function formatDate(value: string) {

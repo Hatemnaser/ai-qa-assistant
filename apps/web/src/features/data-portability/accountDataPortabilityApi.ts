@@ -3,9 +3,8 @@ import {
   createBackendApiError,
 } from "../../api/backendErrors";
 import { csrfFetch } from "../../api/csrf";
+import { API_BASE_URL } from "../../config/api";
 import { t } from "../../i18n/useI18n";
-
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 
 export type AccountImportKind = "account_archive" | "chat_archive";
 
@@ -15,6 +14,7 @@ export interface AccountImportCounts {
   chats: number;
   messages: number;
   accountMemories: number;
+  binaryAssets?: number;
 }
 
 export interface AccountImportPreview {
@@ -39,9 +39,10 @@ export async function exportAccountDataZip() {
     "/api/portability/account/export",
     {
       credentials: "include",
-      method: "GET",
+      method: "POST",
     },
-    t("portability.errors.export")
+    t("portability.errors.export"),
+    true
   );
 
   return response.blob();
@@ -173,7 +174,11 @@ function isImportCounts(value: unknown): value is AccountImportCounts {
       typeof counts[key] === "number" &&
       Number.isInteger(counts[key]) &&
       (counts[key] as number) >= 0
-  );
+  ) &&
+    (counts.binaryAssets === undefined ||
+      (typeof counts.binaryAssets === "number" &&
+        Number.isInteger(counts.binaryAssets) &&
+        counts.binaryAssets >= 0));
 }
 
 function isSkippedCounts(

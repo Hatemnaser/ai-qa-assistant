@@ -60,7 +60,10 @@ export function convertMarkdownTableToCsv(content: string) {
 }
 
 export function escapeCsvCell(cell: unknown) {
-  const value = String(cell ?? "");
+  const rawValue = String(cell ?? "");
+  // Spreadsheet applications may execute cells beginning with these formula
+  // markers. Treat AI and user-authored content as untrusted when exporting.
+  const value = /^[\t\r ]*[=+\-@]/u.test(rawValue) ? `'${rawValue}` : rawValue;
 
   if (/[",\n\r]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;
@@ -138,6 +141,7 @@ function formatRole(role: string) {
 
 function sanitizeMessageForExport(message: ChatMessage): ChatMessage {
   const attachments = getMessageAttachments(message).map((attachment) => ({
+    ...(attachment.assetId ? { assetId: attachment.assetId } : {}),
     type: attachment.type,
     name: attachment.name || "Attachment",
     mimeType: attachment.mimeType || "",

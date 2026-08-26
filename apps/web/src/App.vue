@@ -2,18 +2,14 @@
 import { computed, defineAsyncComponent, onMounted, ref, watch } from "vue";
 
 import { useAuthSession } from "./features/auth/composables/useAuthSession";
-import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage.vue";
-import LoginPage from "./features/auth/pages/LoginPage.vue";
-import RegisterPage from "./features/auth/pages/RegisterPage.vue";
-import VerifyEmailPage from "./features/auth/pages/VerifyEmailPage.vue";
 import type { AuthUser } from "./features/auth/types";
+import { clearAssetDownloadUrlCache } from "./features/assets/assetsApi";
+import { clearChats, getUserChatStorageScope } from "./features/chat/chatStorage";
 import ProjectFormModal from "./features/projects/components/ProjectFormModal.vue";
-import ProjectsPage from "./features/projects/ProjectsPage.vue";
 import { createProject, fetchProjects } from "./features/projects/projectsApi";
 import type { Project, ProjectInput } from "./features/projects/types";
 import { fetchUserSettings, updateUserSettings } from "./features/settings/settingsApi";
 import type { UserSettings } from "./features/settings/types";
-import UsagePage from "./features/usage/UsagePage.vue";
 import ChatComposer from "./features/chat/components/ChatComposer.vue";
 import ChatContextMenus from "./features/chat/components/ChatContextMenus.vue";
 import ChatDeleteModal from "./features/chat/components/ChatDeleteModal.vue";
@@ -27,9 +23,14 @@ import { useChatController } from "./features/chat/composables/useChatController
 import { useI18n } from "./i18n/useI18n";
 import { useAppRoute, type AuthView } from "./router/useAppRoute";
 
-const SettingsPage = defineAsyncComponent(
-  () => import("./features/settings/SettingsPage.vue")
-);
+const ForgotPasswordPage = defineAsyncComponent(() => import("./features/auth/pages/ForgotPasswordPage.vue"));
+const LoginPage = defineAsyncComponent(() => import("./features/auth/pages/LoginPage.vue"));
+const ProjectsPage = defineAsyncComponent(() => import("./features/projects/ProjectsPage.vue"));
+const RegisterPage = defineAsyncComponent(() => import("./features/auth/pages/RegisterPage.vue"));
+const ResetPasswordPage = defineAsyncComponent(() => import("./features/auth/pages/ResetPasswordPage.vue"));
+const SettingsPage = defineAsyncComponent(() => import("./features/settings/SettingsPage.vue"));
+const UsagePage = defineAsyncComponent(() => import("./features/usage/UsagePage.vue"));
+const VerifyEmailPage = defineAsyncComponent(() => import("./features/auth/pages/VerifyEmailPage.vue"));
 
 const {
   currentRoute,
@@ -39,7 +40,7 @@ const {
   navigateToSettings,
   navigateToUsage,
 } = useAppRoute();
-const { currentUser, loadCurrentUser, logoutCurrentUser, setAuthenticatedUser } = useAuthSession();
+const { clearCurrentUser, currentUser, loadCurrentUser, logoutCurrentUser, setAuthenticatedUser } = useAuthSession();
 const isGuestLimitModalOpen = ref(false);
 const accountSettings = ref<UserSettings | null>(null);
 const accountProjects = ref<Project[]>([]);
@@ -50,6 +51,9 @@ const chatPendingProjectCreate = ref<string | null>(null);
 const isProjectCreateModalOpen = ref(false);
 const isCreatingProject = ref(false);
 const projectCreateModalError = ref("");
+let accountSettingsLoadRevision = 0;
+let projectLoadRevision = 0;
+let themeSaveRevision = 0;
 
 function navigateToAuth(view: AuthView) {
   isGuestLimitModalOpen.value = false;
@@ -57,6 +61,7 @@ function navigateToAuth(view: AuthView) {
 }
 
 function handleAuthenticated(user: AuthUser) {
+  clearAssetDownloadUrlCache();
   setAuthenticatedUser(user);
   setChatStorageOwner(user.id, { adoptGuestChats: true });
   clearGuestLimitReached();
@@ -98,19 +103,40 @@ function handleCreateProjectForChat(chatId: string) {
 }
 
 async function handleLogout() {
-  await logoutCurrentUser(async () => {
-    clearScheduledChatPersist();
+  try {
+    await logoutCurrentUser(async () => {
+      clearScheduledChatPersist();
 
-    if (currentUser.value) {
-      await persistAccountChats();
-    }
-  });
+      if (currentUser.value) {
+        await persistAccountChats();
+      }
+    });
+  } catch (error) {
+    console.warn(error instanceof Error ? error.message : "Could not sign out.");
+    return;
+  }
+
+  // A newer login can supersede an in-flight logout. Never clear that newer
+  // account's local state after the older request settles.
+  if (currentUser.value) return;
+
+  clearAssetDownloadUrlCache();
+  setChatStorageOwner(null);
+  clearGuestLimitReached();
+}
+
+function handleAccountDeleted(userId: string) {
+  clearAssetDownloadUrlCache();
+  clearScheduledChatPersist();
+  clearChats(getUserChatStorageScope(userId));
+  clearCurrentUser();
   setChatStorageOwner(null);
   accountSettings.value = null;
   accountProjects.value = [];
   closeGlobalProjectCreateModal();
   projectLoadError.value = "";
   clearGuestLimitReached();
+  navigateToChat();
 }
 
 const {
@@ -165,7 +191,7 @@ const {
   submitRenameChat,
   startNewChat,
   usageSummary,
-} = useChatController();
+} = useChatController(currentUser);
 
 const { clearScheduledChatPersist, deletePersistedChat, persistAccountChats, syncAccountChats } =
   useAccountChatSync({
@@ -191,7 +217,11 @@ watch(isGuestLimitBlocked, (isBlocked) => {
 
 watch(
   () => currentUser.value?.id || null,
-  () => void loadAccountProjects()
+  () => {
+    resetAccountScopedState();
+    void loadAccountProjects();
+  },
+  { flush: "sync" }
 );
 
 watch(currentRoute, (route) => {
@@ -220,10 +250,16 @@ function confirmDeleteChatAndSync() {
 }
 
 async function applyAccountSettings() {
-  if (!currentUser.value) return;
+  const userId = currentUser.value?.id;
+  const requestRevision = ++accountSettingsLoadRevision;
+  if (!userId) return;
 
   try {
-    applySavedSettings(await fetchUserSettings());
+    const settings = await fetchUserSettings();
+
+    if (currentUser.value?.id === userId && accountSettingsLoadRevision === requestRevision) {
+      applySavedSettings(settings);
+    }
   } catch {
     // Settings should not block chat startup.
   }
@@ -264,7 +300,8 @@ function closeGlobalProjectCreateModal() {
 }
 
 async function handleGlobalProjectCreate(input: ProjectInput) {
-  if (!currentUser.value) {
+  const userId = currentUser.value?.id;
+  if (!userId) {
     closeGlobalProjectCreateModal();
     navigateToAuth("login");
     return;
@@ -275,6 +312,8 @@ async function handleGlobalProjectCreate(input: ProjectInput) {
 
   try {
     const project = await createProject(input);
+    if (currentUser.value?.id !== userId) return;
+
     const pendingChatId = chatPendingProjectCreate.value;
 
     accountProjects.value = [project, ...accountProjects.value.filter((item) => item.id !== project.id)];
@@ -288,9 +327,13 @@ async function handleGlobalProjectCreate(input: ProjectInput) {
     projectToOpenId.value = project.id;
     navigateToProjects();
   } catch (error) {
-    projectCreateModalError.value = error instanceof Error ? error.message : "Could not create this project.";
+    if (currentUser.value?.id === userId) {
+      projectCreateModalError.value = error instanceof Error ? error.message : "Could not create this project.";
+    }
   } finally {
-    isCreatingProject.value = false;
+    if (currentUser.value?.id === userId) {
+      isCreatingProject.value = false;
+    }
   }
 }
 
@@ -320,14 +363,15 @@ function handleProjectMessageSubmit(projectId: string) {
   navigateToChat();
 }
 
-async function loadAccountProjects() {
+async function loadAccountProjects(): Promise<Project[]> {
   const userId = currentUser.value?.id || null;
+  const requestRevision = ++projectLoadRevision;
   projectLoadError.value = "";
 
   if (!userId) {
     accountProjects.value = [];
     isLoadingProjects.value = false;
-    return;
+    return [];
   }
 
   isLoadingProjects.value = true;
@@ -335,19 +379,37 @@ async function loadAccountProjects() {
   try {
     const projects = await fetchProjects();
 
-    if (currentUser.value?.id !== userId) return;
+    if (currentUser.value?.id !== userId || projectLoadRevision !== requestRevision) return [];
 
     accountProjects.value = projects;
     clearUnavailableProjectAssignments(projects);
+    return projects;
   } catch (error) {
-    if (currentUser.value?.id === userId) {
+    if (currentUser.value?.id === userId && projectLoadRevision === requestRevision) {
       projectLoadError.value = error instanceof Error ? error.message : "Could not load projects.";
     }
+
+    return [];
   } finally {
-    if (!currentUser.value || currentUser.value.id === userId) {
+    if (currentUser.value?.id === userId && projectLoadRevision === requestRevision) {
       isLoadingProjects.value = false;
     }
   }
+}
+
+function resetAccountScopedState() {
+  accountSettingsLoadRevision += 1;
+  projectLoadRevision += 1;
+  themeSaveRevision += 1;
+  accountSettings.value = null;
+  accountProjects.value = [];
+  isLoadingProjects.value = false;
+  projectLoadError.value = "";
+  isProjectCreateModalOpen.value = false;
+  isCreatingProject.value = false;
+  chatPendingProjectCreate.value = null;
+  projectCreateModalError.value = "";
+  projectToOpenId.value = null;
 }
 
 function clearUnavailableProjectAssignments(projects: Project[]) {
@@ -377,14 +439,20 @@ function handleToggleTheme() {
 }
 
 async function persistThemeSetting() {
-  if (!currentUser.value) return;
+  const userId = currentUser.value?.id;
+  const requestRevision = ++themeSaveRevision;
+  if (!userId) return;
 
   try {
-    accountSettings.value = await updateUserSettings({
+    const settings = await updateUserSettings({
       defaultModel: accountSettings.value?.defaultModel || selectedModel.value,
       language: accountSettings.value?.language || locale.value,
       theme: theme.value,
     });
+
+    if (currentUser.value?.id === userId && themeSaveRevision === requestRevision) {
+      accountSettings.value = settings;
+    }
   } catch {
     // Local theme changes should still work if the account settings save fails.
   }
@@ -425,6 +493,14 @@ async function persistThemeSetting() {
     @toggle-theme="toggleTheme"
   />
 
+  <ResetPasswordPage
+    v-else-if="currentRoute === 'reset-password'"
+    :theme-toggle-label="themeToggleLabel"
+    @back-to-chat="navigateToChat"
+    @navigate="navigateToAuth"
+    @toggle-theme="toggleTheme"
+  />
+
   <div v-else class="app">
     <ChatSidebar
       :active-chat-id="activeChatId"
@@ -454,7 +530,10 @@ async function persistThemeSetting() {
     />
 
     <main v-if="currentRoute === 'usage'" class="chat-layout">
-      <UsagePage @back-to-chat="navigateToChat" />
+      <UsagePage
+        :identity-key="currentUser ? `user:${currentUser.id}` : 'guest'"
+        @back-to-chat="navigateToChat"
+      />
     </main>
 
     <main v-else-if="currentRoute === 'projects'" class="chat-layout">
@@ -464,10 +543,14 @@ async function persistThemeSetting() {
         :current-user="currentUser"
         :disabled="isGuestLimitBlocked"
         :disabled-message="t('errors.guestLimit')"
+        :is-loading-projects="isLoadingProjects"
         :is-sending="isSending"
         :mode="selectedMode"
+        :project-load-error="projectLoadError"
         :project-to-open-id="projectToOpenId"
+        :projects="accountProjects"
         :refresh-chats="syncAccountChats"
+        :refresh-projects="loadAccountProjects"
         :selected-attachments="selectedAttachments"
         @active-project-changed="projectToOpenId = $event"
         @add-chats-to-project="handleAddChatsToProject"
@@ -488,6 +571,7 @@ async function persistThemeSetting() {
         :current-user="currentUser"
         :model-options="modelOptions"
         :refresh-imported-account-data="handleAccountImported"
+        @account-deleted="handleAccountDeleted"
         @back-to-chat="navigateToChat"
         @settings-saved="handleSettingsSaved"
         @sign-in="navigateToAuth('login')"

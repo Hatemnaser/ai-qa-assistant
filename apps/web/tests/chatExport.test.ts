@@ -3,6 +3,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { DEFAULT_MODE, DEFAULT_MODEL } from "../src/features/chat/constants";
 import { parseImportedChatJson } from "../src/features/chat/chatExport";
+import { escapeCsvCell } from "../src/features/chat/chatExportFormatters";
 
 beforeEach(() => {
   Object.defineProperty(globalThis, "crypto", {
@@ -14,6 +15,14 @@ beforeEach(() => {
 });
 
 describe("chat export/import helpers", () => {
+  it("neutralizes spreadsheet formulas in exported CSV cells", () => {
+    for (const value of ["=1+1", "+SUM(A1:A2)", "-2+3", "@cmd", "  =HYPERLINK(\"x\")"]) {
+      assert.match(escapeCsvCell(value), /^"?'/u);
+    }
+
+    assert.equal(escapeCsvCell("ordinary text"), "ordinary text");
+  });
+
   it("parses wrapped exported chat JSON into a normalized chat", () => {
     const chat = parseImportedChatJson(
       JSON.stringify({

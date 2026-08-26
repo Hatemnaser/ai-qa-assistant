@@ -12,7 +12,7 @@ import {
 } from "../src/modules/auth/auth.schema.ts";
 
 const VALID_EMAIL = "person@example.com";
-const VALID_MIN_PASSWORD = "Abcdefg1";
+const VALID_MIN_PASSWORD = "violet river 42";
 const VALID_RESET_TOKEN = "a".repeat(24);
 const OVER_MAX_PASSWORD = `${"A".repeat(PASSWORD_MAX_LENGTH)}1`;
 
@@ -33,7 +33,7 @@ describe("auth password schemas", () => {
     );
   });
 
-  it("register accepts passwords exactly at the minimum when they include a letter and number", () => {
+  it("register accepts passphrases exactly at the minimum", () => {
     const result = registerRequestSchema.safeParse(registerPayload({ password: VALID_MIN_PASSWORD }));
 
     assert.equal(result.success, true);
@@ -47,19 +47,35 @@ describe("auth password schemas", () => {
     );
   });
 
-  it("register rejects passwords without a letter", () => {
-    assertValidationError(
-      registerRequestSchema.safeParse(registerPayload({ password: "12345678" })),
-      "password",
-      "Password must include at least one letter."
+  it("register does not impose character-composition rules", () => {
+    assert.equal(
+      registerRequestSchema.safeParse(registerPayload({ password: "987654321098765" })).success,
+      true
+    );
+    assert.equal(
+      registerRequestSchema.safeParse(registerPayload({ password: "VioletRiverTrail" })).success,
+      true
     );
   });
 
-  it("register rejects passwords without a number", () => {
+  it("register rejects a common password regardless of casing", () => {
     assertValidationError(
-      registerRequestSchema.safeParse(registerPayload({ password: "Password" })),
+      registerRequestSchema.safeParse(registerPayload({ password: "PasswordPassword" })),
       "password",
-      "Password must include at least one number."
+      "Choose a less common password or passphrase."
+    );
+  });
+
+  it("register requires explicit acceptance and a document version", () => {
+    assertValidationError(
+      registerRequestSchema.safeParse(registerPayload({ termsAccepted: false })),
+      "termsAccepted",
+      "You must accept the current terms and privacy notice."
+    );
+    assertValidationError(
+      registerRequestSchema.safeParse(registerPayload({ termsVersion: "" })),
+      "termsVersion",
+      "String must contain at least 1 character(s)"
     );
   });
 
@@ -79,7 +95,7 @@ describe("auth password schemas", () => {
     );
   });
 
-  it("reset-password accepts new passwords exactly at the minimum when they include a letter and number", () => {
+  it("reset-password accepts new passphrases exactly at the minimum", () => {
     const result = resetPasswordRequestSchema.safeParse(resetPayload({ newPassword: VALID_MIN_PASSWORD }));
 
     assert.equal(result.success, true);
@@ -93,19 +109,11 @@ describe("auth password schemas", () => {
     );
   });
 
-  it("reset-password rejects new passwords without a letter", () => {
+  it("reset-password applies the same common-password blocklist as registration", () => {
     assertValidationError(
-      resetPasswordRequestSchema.safeParse(resetPayload({ newPassword: "12345678" })),
+      resetPasswordRequestSchema.safeParse(resetPayload({ newPassword: "passwordpassword" })),
       "newPassword",
-      "Password must include at least one letter."
-    );
-  });
-
-  it("reset-password rejects new passwords without a number", () => {
-    assertValidationError(
-      resetPasswordRequestSchema.safeParse(resetPayload({ newPassword: "Password" })),
-      "newPassword",
-      "Password must include at least one number."
+      "Choose a less common password or passphrase."
     );
   });
 
@@ -125,7 +133,7 @@ describe("auth password schemas", () => {
     );
   });
 
-  it("login keeps creation composition rules out of login validation", () => {
+  it("login keeps new-password length and blocklist rules out of credential verification", () => {
     const result = loginRequestSchema.safeParse(loginPayload({ password: "12345678" }));
 
     assert.equal(result.success, true);
@@ -151,10 +159,20 @@ describe("auth password schemas", () => {
   });
 });
 
-function registerPayload(overrides: Partial<{ email: string; password: string }> = {}) {
+function registerPayload(
+  overrides: Partial<{
+    email: string;
+    inviteCode: string;
+    password: string;
+    termsAccepted: boolean;
+    termsVersion: string;
+  }> = {}
+) {
   return {
     email: VALID_EMAIL,
     password: VALID_MIN_PASSWORD,
+    termsAccepted: true,
+    termsVersion: "development-v1",
     ...overrides,
   };
 }

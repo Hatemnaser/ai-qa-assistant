@@ -1,4 +1,5 @@
 import { env } from "../../config/env.js";
+import { logOperationalEvent } from "../../lib/operational-events.js";
 import {
   isAiUsageLimitError,
   usageService,
@@ -15,9 +16,11 @@ import {
 } from "./project-document-index.js";
 import {
   projectDocumentRetrievalRepository,
-  type ProjectDocumentRetrievalRepository,
-  type ProjectDocumentSemanticCandidate,
 } from "./project-document-retrieval.repository.js";
+import type {
+  ProjectDocumentRetrievalRepository,
+  ProjectDocumentSemanticCandidate,
+} from "./project-document-retrieval.types.js";
 import {
   rankProjectDocumentChunksLexically,
   retrieveProjectDocumentChunks,
@@ -68,9 +71,10 @@ export function createProjectDocumentHybridRetriever({
   usage = usageService,
 }: ProjectDocumentHybridRetrieverDependencies): ProjectDocumentRetriever {
   async function retrieve(
-    input: ProjectDocumentRetrievalInput & { projectId: string }
+    input: ProjectDocumentRetrievalInput & { projectId: string; userId?: string }
   ): Promise<ProjectDocumentChunk[]> {
     const lexicalFallback = retrieveProjectDocumentChunks(input);
+    let providerAttempted = false;
     let usageReservation: AiOperationReservation | undefined;
 
     if (
@@ -111,7 +115,10 @@ export function createProjectDocumentHybridRetriever({
         credits: 1,
         model: provider.model,
         provider: provider.id,
+        userId: input.userId,
       });
+      await usage.recordAiOperationAttempt(usageReservation);
+      providerAttempted = true;
       const queryEmbedding = await provider.embed({
         content: input.query,
         purpose: "query",
@@ -143,21 +150,25 @@ export function createProjectDocumentHybridRetriever({
       await ignoreUsageFailure(() =>
         usage.failAiOperation(usageReservation, {
           model: provider?.model,
+          providerAttempted,
           provider: provider?.id,
         })
       );
 
       if (isAiUsageLimitError(error)) {
-        console.warn("Project document semantic retrieval skipped by AI usage guard:", {
-          projectId: input.projectId,
+        logOperationalEvent("warn", {
+          event: "project_document_processing",
+          operation: "semantic_retrieval",
+          outcome: "usage_guard_skipped",
         });
 
         return lexicalFallback;
       }
 
-      console.warn("Project document semantic retrieval failed:", {
-        error: getErrorMessage(error),
-        projectId: input.projectId,
+      logOperationalEvent("warn", {
+        event: "project_document_processing",
+        operation: "semantic_retrieval",
+        outcome: "failed",
       });
 
       return lexicalFallback;
@@ -361,10 +372,6 @@ function isValidVector(values: number[], dimensions: number) {
 
 function toChunkKey(chunk: ProjectDocumentChunk) {
   return `${chunk.documentId}:${chunk.chunkIndex}`;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Unknown semantic retrieval error";
 }
 
 export const projectDocumentRetriever = createProjectDocumentHybridRetriever({

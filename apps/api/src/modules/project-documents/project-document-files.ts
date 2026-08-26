@@ -1,3 +1,5 @@
+import { DATA_LIMITS } from "../../config/data-limits.js";
+
 const supportedMimeTypesByExtension: Record<string, ReadonlySet<string>> = {
   css: new Set(["text/css", "text/plain"]),
   csv: new Set(["text/csv", "text/plain"]),
@@ -12,7 +14,7 @@ const supportedMimeTypesByExtension: Record<string, ReadonlySet<string>> = {
 
 export const PROJECT_DOCUMENT_IMPORT_POLICY = Object.freeze({
   maxFiles: 4,
-  maxFileBytes: 1_000_000,
+  maxFileBytes: DATA_LIMITS.projectDocumentSourceBytes,
   maxNameChars: 255,
   supportedExtensions: Object.keys(supportedMimeTypesByExtension),
   supportedTypesLabel:

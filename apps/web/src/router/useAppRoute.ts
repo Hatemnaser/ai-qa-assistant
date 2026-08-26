@@ -1,9 +1,15 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
-export type AuthView = "login" | "register" | "forgot-password" | "verify-email";
+export type AuthView = "login" | "register" | "forgot-password" | "reset-password" | "verify-email";
 export type AppRoute = "chat" | "projects" | "settings" | "usage" | AuthView;
 
-const authRoutes = new Set<AuthView>(["login", "register", "forgot-password", "verify-email"]);
+const authRoutes = new Set<AuthView>([
+  "login",
+  "register",
+  "forgot-password",
+  "reset-password",
+  "verify-email",
+]);
 
 export function useAppRoute() {
   const currentRoute = ref<AppRoute>(readRoute());

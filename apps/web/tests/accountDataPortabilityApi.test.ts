@@ -22,7 +22,7 @@ describe("Account Data portability API", () => {
   it("downloads the full account ZIP from the owner-scoped endpoint", async () => {
     mockFetch(async (input, init) => {
       assert.equal(input, "/api/portability/account/export");
-      assert.equal(init?.method, "GET");
+      assert.equal(init?.method, "POST");
       assert.equal(init?.credentials, "include");
 
       return zipResponse("account-data");
@@ -57,6 +57,7 @@ describe("Account Data portability API", () => {
 
     assert.equal(preview.importKind, "account_archive");
     assert.deepEqual(preview.counts, createCounts());
+    assert.equal(preview.counts.binaryAssets, 2);
   });
 
   it("commits the same ZIP with only the preview digest identity", async () => {
@@ -83,6 +84,7 @@ describe("Account Data portability API", () => {
     const result = await commitAccountImport(file, createPreview().packageDigest);
 
     assert.equal(result.imported.chats, 3);
+    assert.equal(result.imported.binaryAssets, 2);
     assert.equal(result.skipped.accountMemories, 1);
   });
 
@@ -133,6 +135,7 @@ function createCounts() {
     chats: 3,
     messages: 12,
     accountMemories: 5,
+    binaryAssets: 2,
   };
 }
 

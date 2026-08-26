@@ -1,14 +1,8 @@
-import type { QaWorkflowAnalysis } from "./qa-workflow.js";
+import type { AiHistoryMessage } from "./ai-message.types.js";
+import type { QaWorkflowAnalysis } from "./qa-workflow.types.js";
 
-export type AiRole = "user" | "assistant";
+export type { AiHistoryMessage, AiRole } from "./ai-message.types.js";
 export type AiProviderId = "gemini";
-
-export interface AiHistoryMessage {
-  role?: AiRole;
-  content: string;
-  mode?: string;
-  model?: string;
-}
 
 export interface AiImage {
   mimeType: string;

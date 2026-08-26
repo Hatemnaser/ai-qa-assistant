@@ -2,7 +2,8 @@
 import { computed } from "vue";
 
 import { useI18n } from "../../../i18n/useI18n";
-import { renderMarkdown } from "../../chat/markdown";
+import { useDialogAccessibility } from "../../../ui/useDialogAccessibility";
+import { renderMarkdown } from "../../../ui/content/renderMarkdown";
 import {
   canUseRichProjectDocumentPreview,
   getProjectDocumentHighlightedHtml,
@@ -15,7 +16,7 @@ const props = defineProps<{
   document: ProjectDocument | null;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   cancel: [];
 }>();
 
@@ -40,18 +41,29 @@ const markdownHtml = computed(() => {
 const usesSourcePreview = computed(
   () => documentType.value?.previewKind !== "markdown" || !canUseRichPreview.value
 );
+
+function requestCancel() {
+  emit("cancel");
+}
+
+const { dialogRef, onDialogKeydown } = useDialogAccessibility({
+  isOpen: () => Boolean(props.document),
+  onClose: requestCancel,
+});
 </script>
 
 <template>
   <Teleport to="body">
     <div
       v-if="document"
+      ref="dialogRef"
       class="modal fade show d-block project-document-preview"
       tabindex="-1"
       role="dialog"
       aria-modal="true"
       aria-labelledby="project-document-preview-title"
-      @click.self="$emit('cancel')"
+      @click.self="requestCancel"
+      @keydown="onDialogKeydown"
     >
       <div class="modal-dialog modal-dialog-centered project-document-preview-dialog">
         <section class="modal-content app-modal project-document-preview-modal">
@@ -60,7 +72,7 @@ const usesSourcePreview = computed(
               <h2 id="project-document-preview-title" class="modal-title">{{ document.title }}</h2>
               <span>{{ documentType?.label || t("projects.documents.fallbackType") }}</span>
             </div>
-            <button class="btn-close" type="button" :aria-label="t('app.actions.close')" @click="$emit('cancel')"></button>
+            <button class="btn-close" type="button" :aria-label="t('app.actions.close')" @click="requestCancel"></button>
           </header>
 
           <div class="modal-body project-document-preview__body">

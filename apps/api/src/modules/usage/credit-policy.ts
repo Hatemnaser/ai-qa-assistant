@@ -24,6 +24,7 @@ export interface ChatCreditEstimate {
   estimatedPromptTokens: number;
   estimatedTotalTokens: number;
   fileCount: number;
+  fixedCredits: number;
   imageCount: number;
   mode: string;
   model: string;
@@ -63,10 +64,12 @@ export function estimateChatCredits(input: ChatCreditEstimateInput): ChatCreditE
   const attachmentCredits =
     input.imageCount * getImageCredits() + input.attachments.length * getTextFileCredits();
   const routerCredits = usesWorkflowRouter ? getRouterCredits() : 0;
-  const tokenCredits = Math.ceil(estimatedTotalTokens / getTokensPerCredit());
-  const credits = normalizeCredits(
-    Math.ceil((tokenCredits + attachmentCredits + routerCredits) * getModelCreditMultiplier(input.model))
+  const modelMultiplier = getModelCreditMultiplier(input.model);
+  const tokenCredits = normalizeCredits(
+    Math.ceil((estimatedTotalTokens / getTokensPerCredit()) * modelMultiplier)
   );
+  const fixedCredits = Math.ceil((attachmentCredits + routerCredits) * modelMultiplier);
+  const credits = normalizeCredits(tokenCredits + fixedCredits);
 
   return {
     attachmentCount: input.imageCount + input.attachments.length,
@@ -75,6 +78,7 @@ export function estimateChatCredits(input: ChatCreditEstimateInput): ChatCreditE
     estimatedPromptTokens,
     estimatedTotalTokens,
     fileCount: input.attachments.length,
+    fixedCredits,
     imageCount: input.imageCount,
     mode: input.mode,
     model: input.model,

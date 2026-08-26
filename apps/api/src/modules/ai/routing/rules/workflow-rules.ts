@@ -1,4 +1,4 @@
-import type { QaWorkflowIntent, QaWorkflowSource } from "../../qa-workflow.js";
+import type { QaWorkflowIntent, QaWorkflowSource } from "../../qa-workflow.types.js";
 
 interface QaWorkflowDetectionContext {
   hasImage: boolean;

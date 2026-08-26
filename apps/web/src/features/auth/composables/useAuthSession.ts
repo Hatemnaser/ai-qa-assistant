@@ -3,33 +3,61 @@ import { ref } from "vue";
 import { getCurrentUser, logout } from "../authApi";
 import type { AuthUser } from "../types";
 
-export function useAuthSession() {
+export interface AuthSessionDependencies {
+  getCurrentUser(): Promise<AuthUser | null>;
+  logout(): Promise<unknown>;
+}
+
+const defaultDependencies: AuthSessionDependencies = {
+  getCurrentUser,
+  logout,
+};
+
+export function useAuthSession(dependencies: AuthSessionDependencies = defaultDependencies) {
   const currentUser = ref<AuthUser | null>(null);
+  let sessionRevision = 0;
 
   function setAuthenticatedUser(user: AuthUser) {
+    sessionRevision += 1;
     currentUser.value = user;
   }
 
+  function clearCurrentUser() {
+    sessionRevision += 1;
+    currentUser.value = null;
+  }
+
   async function loadCurrentUser() {
+    const requestRevision = ++sessionRevision;
+
     try {
-      currentUser.value = await getCurrentUser();
+      const user = await dependencies.getCurrentUser();
+
+      if (sessionRevision === requestRevision) {
+        currentUser.value = user;
+      }
     } catch {
-      currentUser.value = null;
+      if (sessionRevision === requestRevision) {
+        currentUser.value = null;
+      }
     }
 
     return currentUser.value;
   }
 
   async function logoutCurrentUser(beforeLogout?: () => Promise<void> | void) {
-    try {
-      await beforeLogout?.();
-      await logout();
-    } finally {
+    const requestRevision = ++sessionRevision;
+
+    await beforeLogout?.();
+    await dependencies.logout();
+
+    if (sessionRevision === requestRevision) {
       currentUser.value = null;
     }
   }
 
   return {
+    clearCurrentUser,
     currentUser,
     loadCurrentUser,
     logoutCurrentUser,

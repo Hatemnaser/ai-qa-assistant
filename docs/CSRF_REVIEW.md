@@ -113,6 +113,15 @@ Protected settings routes:
 
 - `PUT /api/settings`.
 
+Protected data-portability routes:
+
+- `POST /api/portability/account/export`.
+- `POST /api/portability/account/import/preview`.
+- `POST /api/portability/account/import/commit`.
+- `POST /api/portability/projects/:projectId/export`.
+- `POST /api/portability/projects/import/preview`.
+- `POST /api/portability/projects/import/commit`.
+
 Unprotected safe/read routes include `GET /api/auth/csrf`, `GET /api/auth/me`,
 `GET /api/usage/summary`, `GET /api/ai/models`, health checks, and other
 read-only `GET` routes.

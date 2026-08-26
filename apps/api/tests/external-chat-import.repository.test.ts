@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { DATA_LIMITS } from "../src/config/data-limits.ts";
 import { prisma } from "../src/db/prisma.ts";
 import { createPrismaExternalChatImportRepository } from "../src/modules/data-portability/external-chat-import.repository.ts";
 import type { ValidatedExternalChatImport } from "../src/modules/data-portability/external-chat-import.types.ts";
@@ -23,7 +24,11 @@ describe("external chat import repository", () => {
       messages: 2,
     });
     assert.equal(database.transactionCalls, 1);
-    assert.equal(database.isolationLevel, "Serializable");
+    assert.deepEqual(database.transactionOptions, {
+      isolationLevel: "Serializable",
+      maxWait: 10_000,
+      timeout: 60_000,
+    });
     assert.equal(database.chats[0]?.id, "new-chat-1");
     assert.notEqual(database.chats[0]?.id, "source-chat-1");
     assert.equal(database.chats[0]?.userId, "user-1");
@@ -51,7 +56,20 @@ describe("external chat import repository", () => {
     assert.equal(database.transactionCalls, 1);
   });
 
-  it("batches large message inserts and preserves source order without timestamps", async () => {
+  it("retries a serialization conflict with the shared bounded policy", async () => {
+    const database = createFakeDatabase({ serializationFailures: 1 });
+    const repository = createPrismaExternalChatImportRepository(database.value);
+
+    assert.deepEqual(
+      await repository.createImportedChats("user-1", createPackage()),
+      { chats: 1, messages: 2 }
+    );
+    assert.equal(database.transactionCalls, 2);
+    assert.equal(database.chats.length, 1);
+    assert.equal(database.messages.length, 2);
+  });
+
+  it("preserves source order at the per-chat import limit without timestamps", async () => {
     const database = createFakeDatabase();
     const repository = createPrismaExternalChatImportRepository(
       database.value,
@@ -59,7 +77,7 @@ describe("external chat import repository", () => {
     );
     const packageData = createPackage();
 
-    packageData.chats[0]!.messages = Array.from({ length: 501 }, (_, index) => ({
+    packageData.chats[0]!.messages = Array.from({ length: 160 }, (_, index) => ({
       sourceId: `source-message-${index + 1}`,
       role: index % 2 === 0 ? "user" : "assistant",
       content: `Message ${index + 1}`,
@@ -71,9 +89,9 @@ describe("external chat import repository", () => {
 
     assert.deepEqual(result, {
       chats: 1,
-      messages: 501,
+      messages: 160,
     });
-    assert.equal(database.messageInsertCalls, 2);
+    assert.equal(database.messageInsertCalls, 1);
     const timestamps = database.messages.map((message) =>
       (message.createdAt as Date).getTime()
     );
@@ -86,15 +104,44 @@ describe("external chat import repository", () => {
       (database.chats[0]?.updatedAt as Date).getTime() >= timestamps.at(-1)!
     );
   });
+
+  it("rejects an import that would exceed the destination chat quota", async () => {
+    const database = createFakeDatabase({
+      existingChatCount: DATA_LIMITS.chatsPerUser,
+    });
+    const repository = createPrismaExternalChatImportRepository(database.value);
+
+    await assert.rejects(
+      () => repository.createImportedChats("user-1", createPackage()),
+      (error: unknown) =>
+        Boolean(
+          error &&
+            typeof error === "object" &&
+            "code" in error &&
+            error.code === "ACCOUNT_IMPORT_DESTINATION_LIMIT_EXCEEDED"
+        )
+    );
+    assert.deepEqual(database.chats, []);
+  });
 });
 
-function createFakeDatabase(options: { failMessages?: boolean } = {}) {
+function createFakeDatabase(
+  options: {
+    existingChatCount?: number;
+    failMessages?: boolean;
+    serializationFailures?: number;
+  } = {}
+) {
   const chats: Array<Record<string, unknown>> = [];
   const messages: Array<Record<string, unknown>> = [];
   let transactionCalls = 0;
   let messageInsertCalls = 0;
-  let isolationLevel: unknown;
+  let serializationFailures = options.serializationFailures || 0;
+  let transactionOptions: unknown;
   const transaction = {
+    async $executeRaw() {
+      return 0;
+    },
     userSettings: {
       async findUnique() {
         return {
@@ -103,6 +150,9 @@ function createFakeDatabase(options: { failMessages?: boolean } = {}) {
       },
     },
     chat: {
+      async count() {
+        return options.existingChatCount || 0;
+      },
       async create(args: { data: Record<string, unknown> }) {
         const chat = {
           id: `new-chat-${chats.length + 1}`,
@@ -131,15 +181,24 @@ function createFakeDatabase(options: { failMessages?: boolean } = {}) {
       callback: (tx: typeof transaction) => Promise<unknown>,
       options: {
         isolationLevel?: unknown;
+        maxWait?: number;
+        timeout?: number;
       }
     ) {
       transactionCalls += 1;
-      isolationLevel = options.isolationLevel;
+      transactionOptions = options;
       const chatSnapshot = [...chats];
       const messageSnapshot = [...messages];
 
       try {
-        return await callback(transaction);
+        const result = await callback(transaction);
+        if (serializationFailures > 0) {
+          serializationFailures -= 1;
+          throw Object.assign(new Error("serialization conflict"), {
+            code: "P2034",
+          });
+        }
+        return result;
       } catch (error) {
         chats.splice(0, chats.length, ...chatSnapshot);
         messages.splice(0, messages.length, ...messageSnapshot);
@@ -150,15 +209,15 @@ function createFakeDatabase(options: { failMessages?: boolean } = {}) {
 
   return {
     chats,
-    get isolationLevel() {
-      return isolationLevel;
-    },
     messages,
     get messageInsertCalls() {
       return messageInsertCalls;
     },
     get transactionCalls() {
       return transactionCalls;
+    },
+    get transactionOptions() {
+      return transactionOptions;
     },
     value: database as unknown as typeof prisma,
   };

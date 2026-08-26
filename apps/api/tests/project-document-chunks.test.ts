@@ -6,7 +6,7 @@ import {
   chunkProjectDocument,
   chunkStructuredText,
 } from "../src/modules/project-documents/project-document-chunks.ts";
-import type { ProjectDocumentRecord } from "../src/modules/project-documents/project-documents.repository.ts";
+import type { ProjectDocumentRecord } from "../src/modules/project-documents/project-documents.types.ts";
 
 const NOW = new Date("2026-06-11T10:00:00.000Z");
 
@@ -105,5 +105,6 @@ function createProjectDocument(
     createdAt: NOW,
     updatedAt: NOW,
     ...overrides,
+    sourceAssetId: overrides.sourceAssetId ?? null,
   };
 }

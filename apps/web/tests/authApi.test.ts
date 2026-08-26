@@ -4,9 +4,11 @@ import { afterEach, describe, it } from "node:test";
 import { resetCsrfTokenForTests } from "../src/api/csrf.ts";
 import {
   getCurrentUser,
+  getRegistrationConfig,
   login,
   register,
   resendVerification,
+  resetPassword,
   verifyEmail,
 } from "../src/features/auth/authApi.ts";
 import { createCsrfAwareFetch } from "./helpers/csrfFetch.ts";
@@ -62,9 +64,12 @@ describe("auth api", () => {
       assert.equal(init?.credentials, "include");
       assert.deepEqual(JSON.parse(String(init?.body)), {
         email: "person@example.com",
+        inviteCode: "private-beta-code",
         locale: "en",
         name: "Person",
         password: "Password1",
+        termsAccepted: true,
+        termsVersion: "2026-08-12",
       });
 
       return jsonResponse({
@@ -74,12 +79,39 @@ describe("auth api", () => {
 
     const response = await register({
       email: "person@example.com",
+      inviteCode: "private-beta-code",
       locale: "en",
       name: "Person",
       password: "Password1",
+      termsAccepted: true,
+      termsVersion: "2026-08-12",
     });
 
     assert.equal(response.message, "Check your email to verify your account.");
+  });
+
+  it("loads public registration policy without sending credentials or secrets", async () => {
+    mockFetch(async (input, init) => {
+      assert.equal(input, "/api/auth/registration-config");
+      assert.equal(init?.method, "GET");
+      assert.equal(init?.credentials, "include");
+
+      return jsonResponse({
+        legalUrls: {
+          ar: { privacy: "https://eluthira.com/oddpath/privacy", terms: "https://eluthira.com/oddpath/terms" },
+          de: { privacy: "https://eluthira.com/de/oddpath/privacy", terms: "https://eluthira.com/de/oddpath/terms" },
+          en: { privacy: "https://eluthira.com/oddpath/privacy", terms: "https://eluthira.com/oddpath/terms" },
+        },
+        mode: "invite",
+        termsVersion: "2026-08-12",
+      });
+    });
+
+    const response = await getRegistrationConfig();
+
+    assert.equal(response.mode, "invite");
+    assert.equal(response.termsVersion, "2026-08-12");
+    assert.equal(response.legalUrls.de.privacy, "https://eluthira.com/de/oddpath/privacy");
   });
 
   it("sends verify-email requests with the token in the body", async () => {
@@ -97,6 +129,24 @@ describe("auth api", () => {
     });
 
     const response = await verifyEmail("verification-token");
+
+    assert.equal(response.ok, true);
+  });
+
+  it("sends reset-password tokens and the new password in the request body", async () => {
+    mockFetch(async (input, init) => {
+      assert.equal(input, "/api/auth/reset-password");
+      assert.equal(init?.method, "POST");
+      assert.equal(init?.credentials, "include");
+      assert.deepEqual(JSON.parse(String(init?.body)), {
+        newPassword: "NewPassword1",
+        token: "password-reset-token-value",
+      });
+
+      return jsonResponse({ ok: true });
+    });
+
+    const response = await resetPassword("password-reset-token-value", "NewPassword1");
 
     assert.equal(response.ok, true);
   });

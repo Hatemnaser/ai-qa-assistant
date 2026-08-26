@@ -3,12 +3,14 @@ import { createHmac } from "node:crypto";
 import { env } from "../config/env.js";
 
 type SecurityEventCode =
+  | "AUTH_EMAIL_DELIVERY_FAILED"
   | "AI_USAGE_LIMIT_REACHED"
   | "PROVIDER_AI_ERROR"
   | "RATE_LIMITED"
   | "USAGE_LIMIT_REACHED";
 
 type SecurityEventName =
+  | "auth_email_delivery_failed"
   | "auth_rate_limited"
   | "chat_rate_limited"
   | "global_ai_limit_reached"
@@ -16,6 +18,11 @@ type SecurityEventName =
   | "usage_limit_reached";
 
 type ChatIdentityType = "anonymous" | "guest" | "user";
+export type ChatRateLimitReason =
+  | "global_in_flight"
+  | "identity_rate"
+  | "ip_in_flight"
+  | "ip_rate";
 
 export interface SecurityEventPayload {
   code: SecurityEventCode;
@@ -28,10 +35,11 @@ export interface SecurityEventPayload {
   method?: string;
   operation?: string;
   provider?: string;
+  reason?: ChatRateLimitReason;
   route?: string;
   scope?: "global" | "guest" | "user";
   timestamp?: string;
-  userId?: string;
+  userIdHash?: string;
 }
 
 type SecurityEventWriter = (payload: SecurityEventPayload) => void;
@@ -56,10 +64,21 @@ export function logAuthRateLimited(input: {
   });
 }
 
+export function logAuthEmailDeliveryFailed(input: {
+  operation: "email_verification" | "password_reset";
+}) {
+  logSecurityEvent({
+    code: "AUTH_EMAIL_DELIVERY_FAILED",
+    event: "auth_email_delivery_failed",
+    operation: input.operation,
+  });
+}
+
 export function logChatRateLimited(input: {
   guestId?: string;
   identityType: ChatIdentityType;
   ipAddress?: string;
+  reason?: ChatRateLimitReason;
   userId?: string;
 }) {
   logSecurityEvent({
@@ -69,7 +88,8 @@ export function logChatRateLimited(input: {
     identityType: input.identityType,
     ipHash: hashSecurityIdentifier(input.ipAddress, "ip"),
     operation: "chat",
-    userId: input.userId,
+    reason: input.reason,
+    userIdHash: hashSecurityIdentifier(input.userId, "user"),
   });
 }
 
@@ -87,7 +107,7 @@ export function logUsageLimitReached(input: {
     ipHash: input.ipHash,
     operation: input.operation,
     scope: input.scope,
-    userId: input.userId,
+    userIdHash: hashSecurityIdentifier(input.userId, "user"),
   });
 }
 
@@ -100,7 +120,7 @@ export function logGlobalAiLimitReached(input: {
     event: "global_ai_limit_reached",
     operation: input.operation,
     scope: "global",
-    userId: input.userId,
+    userIdHash: hashSecurityIdentifier(input.userId, "user"),
   });
 }
 

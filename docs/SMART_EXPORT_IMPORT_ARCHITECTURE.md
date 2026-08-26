@@ -1,8 +1,10 @@
 # Smart Export / Import Architecture
 
-> Status: Project portability and unified Account Export/Import are implemented.
+> Status: Project portability and unified Account Export/Import are implemented,
+> including bounded native v2 private files with v1 compatibility and staged
+> restore. Production private assets remain fail-closed pending operational proof.
 >
-> Last reviewed: 2026-07-26.
+> Last reviewed: 2026-08-25.
 >
 > This document defines the architecture and implementation order only. It does
 > not authorize application-code changes by itself.
@@ -40,9 +42,11 @@ The current implementation review established:
 
 * Existing chat export supports JSON, Markdown, TXT, and CSV.
 * Existing chat import accepts JSON and creates a new local chat identity.
-* Signed-in chats are persisted, but chat attachments are currently retained
-  as metadata such as name, type, and MIME type. The original attachment bytes
-  are not persisted as portable files.
+* Signed-in chat attachments and original Project Document sources can be
+  persisted as private `StoredAsset` objects with normalized relations.
+  Account/Project archive v2 carries eligible bytes; legacy v1 packages remain
+  accepted. The lightweight standalone Chat JSON exporter remains text and
+  metadata oriented.
 * Project metadata, Project Instructions, Project Memory, Project Documents,
   and project-linked chats are already stored as owner-scoped server data.
 * Project Documents retain their authoritative content and can be exported.
@@ -56,7 +60,8 @@ Consequences:
 1. Project Portable ZIP Export is the first implementation slice.
 2. Project Import is split into a read-only Preview and a separate Commit.
 3. Project Import MVP always creates a new project.
-4. Full Conversation ZIP is deferred until chat attachment persistence exists.
+4. Full Conversation ZIP remains a separate deferred product format even
+   though signed-in attachment persistence now exists.
 5. Full Account Data ZIP is the account-level feature exposed in Settings.
 6. External AI imports use provider adapters and must not claim native account
    restoration when the destination provider does not support it.
@@ -133,7 +138,9 @@ The Project ZIP source-of-truth JSON may include:
   * mode
   * model
   * messages
-  * portable attachment metadata only
+  * attachment metadata
+  * in v2, descriptors and separate `assets/` entries for exact eligible
+    stored-asset relations
 * Source identifiers for traceability only. Import must generate new database
   identifiers.
 
@@ -226,8 +233,9 @@ It includes:
 * provider-neutral conversation and memory reference files
 
 It excludes sessions, credentials, tokens, usage events, Conversation Summary,
-document chunks, embeddings, and index lifecycle state. Chat attachment
-metadata is included, but unavailable original bytes are reported honestly.
+document chunks, embeddings, and index lifecycle state. Legacy v1 packages
+carry no private-file entries. When eligible stored assets exist, v2 includes
+validated descriptors and original bytes under bounded `assets/` paths.
 
 ---
 
@@ -263,11 +271,11 @@ parsers.
 
 Full Conversation ZIP is deferred.
 
-Chat attachments are currently persisted as metadata only, not as original
-files. A portable Conversation ZIP must not claim to contain restorable
-attachments until explicit chat attachment persistence is implemented.
-
-After attachment persistence exists, a Conversation ZIP may include:
+Signed-in asset persistence now exists, but the lightweight Chat export/import
+flow has not been upgraded into a full Conversation ZIP contract. It must not
+claim restorable files until that separate package schema, relation validation,
+Preview/Commit path, and UI are implemented. A future Conversation ZIP may
+include:
 
 * canonical chat JSON
 * readable Markdown
@@ -445,51 +453,69 @@ The manifest describes:
 database schema. Importers must reject unsupported major versions. Backward-
 compatible additions may use a minor version.
 
-Initial version:
+Implemented native versions:
 
 ```txt
-formatVersion: "1.0"
+formatVersion: "1.0"  # legacy package with no binary entries
+formatVersion: "2.0"  # bounded stored-asset descriptors and ZIP entries
 ```
 
-Example:
+Simplified Project v2 example:
 
 ```json
 {
-  "formatVersion": "1.0",
+  "formatVersion": "2.0",
+  "exportType": "project",
   "exportedAt": "2026-06-24T10:00:00.000Z",
-  "type": "project_export",
-  "subject": {
-    "kind": "project",
-    "sourceId": "project_123",
-    "name": "Checkout QA"
-  },
-  "contains": {
-    "json": true,
-    "markdown": true,
-    "pdf": false,
+  "projectId": "project_123",
+  "projectName": "Checkout QA",
+  "include": {
+    "assets": true,
+    "chats": true,
     "documents": true,
-    "chats": true
+    "readable": true
   },
+  "counts": {
+    "assetBytes": 1024,
+    "assets": 1,
+    "documents": 3,
+    "chats": 5,
+    "messages": 20
+  },
+  "assets": [
+    {
+      "sourceAssetId": "asset_123",
+      "sourceProjectId": "project_123",
+      "purpose": "CHAT_ATTACHMENT",
+      "binding": {
+        "kind": "message_attachment",
+        "sourceMessageId": "message_123",
+        "ordinal": 0
+      },
+      "originalName": "screenshot.png",
+      "mimeType": "image/png",
+      "sizeBytes": 1024,
+      "checksumSha256": "...",
+      "file": {
+        "path": "assets/001-screenshot.png",
+        "sha256": "...",
+        "sizeBytes": 1024
+      }
+    }
+  ],
   "files": [
     {
       "path": "data/project.json",
-      "sha256": "..."
+      "sha256": "...",
+      "sizeBytes": 2048
     },
     {
-      "path": "readable/project.md",
-      "sha256": "..."
+      "path": "assets/001-screenshot.png",
+      "sha256": "...",
+      "sizeBytes": 1024
     }
   ],
-  "counts": {
-    "documents": 3,
-    "chats": 5
-  },
-  "warnings": [
-    "Chat attachment metadata is included, but original attachment files are not available."
-  ],
-  "compatibility": {
-    "minimumImporterFormatVersion": "1.0"
-  }
+  "warnings": []
 }
 ```
 
@@ -542,8 +568,9 @@ chat_export.zip
    └─ image_001.png
 ```
 
-This structure is deferred until attachment persistence exists. `chat.pdf` is
-optional, readable only, and never a restore source.
+This structure remains deferred until the standalone Conversation ZIP schema,
+Preview/Commit flow, and UI are implemented. `chat.pdf` is optional, readable
+only, and never a restore source.
 
 ---
 
@@ -556,6 +583,8 @@ project_export.zip
 │  ├─ project.json
 │  └─ chats/
 │     └─ chat_001.json
+├─ assets/
+│  └─ 001-screenshot.png
 ├─ documents/
 │  ├─ document_001.md
 │  └─ imported_file_002.json
@@ -568,8 +597,10 @@ project_export.zip
 ```
 
 `data/project.json` is the source of truth. The `readable/` files are
-convenience artifacts only. The MVP does not include original chat attachment
-files because they are not currently persisted.
+convenience artifacts only. Legacy v1 packages have no `assets/` directory.
+Version 2 includes it only when eligible stored private files exist and binds
+every descriptor to one canonical message attachment or Project Document
+source.
 
 ---
 
@@ -580,6 +611,8 @@ account_export.zip
 ├─ manifest.json
 ├─ account.json
 ├─ settings.json
+├─ assets/
+│  └─ 001-screenshot.png
 ├─ memories/
 │  └─ account_memory.json
 ├─ projects/
@@ -595,7 +628,9 @@ account_export.zip
 
 The implemented account export uses this concept with versioned canonical
 JSON, readable Markdown, document content, and provider-neutral migration
-reference files. It excludes sensitive server-side secrets and derived state.
+reference files. Version 2 adds bounded stored-asset entries and exact
+relational descriptors when present; version 1 remains importable. Both
+versions exclude sensitive server-side secrets and derived state.
 
 ---
 
@@ -677,9 +712,10 @@ Keep the current text-oriented behavior:
 * table intent → CSV if structured rows exist
 
 If a full portable conversation is requested and messages contain attachment
-metadata, return a blocker/warning that original files are not currently
-portable. Do not produce a misleading full ZIP. Conversation ZIP becomes
-eligible only after chat attachment persistence is implemented.
+metadata, do not present the lightweight Chat JSON/Markdown export as a full
+file-restorable package. Direct users to the containing Project or Account v2
+archive when applicable, or return an explicit blocker until the standalone
+Conversation ZIP contract is implemented.
 
 ---
 
@@ -695,7 +731,10 @@ Include:
 * readable Instructions and Project Memory files when present.
 * canonical Project Document content and metadata.
 * project-linked chats when requested.
-* warnings for chat attachment metadata that has no persisted file.
+* bounded v2 `assets/` entries and exact relational descriptors when eligible
+  stored files are present.
+* warnings only when legacy metadata cannot be matched to a portable stored
+  file.
 
 Do not include Conversation Summary, document chunks, embeddings, or index
 state.
@@ -741,11 +780,13 @@ Preview must:
 * validate the manifest and canonical project JSON schemas
 * verify every referenced file exists
 * verify declared file digests
+* for v2, verify each binary descriptor, byte length, content hash, MIME/magic
+  content, unique binding, and source message/document relation
 * reject undeclared or prohibited executable entries
 * enforce current project, memory, instruction, document, chat, and message
   limits
 * report unsupported or omitted fields
-* report unavailable chat attachment files
+* report legacy attachment metadata that has no packaged file
 * calculate the whole-package SHA-256 digest
 * return a bounded preview containing:
   * proposed project name
@@ -774,12 +815,21 @@ Commit must:
 * create a new project with new local identifiers
 * restore canonical Project Instructions, Project Memory, Project Documents,
   and selected chats
+* for v2, stage quota-reserved assets and durable deletion jobs before object
+  writes, then finalize `READY` assets and relations inside the canonical
+  transaction
 * set imported Project Memory and Project Documents provenance to `IMPORTED`
 * map source identifiers to new identifiers only inside the import operation
 * persist canonical records in one database transaction
 * roll back all canonical database writes if any required record fails
 * start Project Document re-indexing only after the transaction succeeds
 * return the new project identity and any post-commit indexing warnings
+
+Failed or ambiguous v2 restores must never issue a blind inline delete. Cleanup
+may claim only the exact unreferenced staging row; otherwise the object/job is
+quarantined for durable reconciliation. Persisted restore-session fencing is
+implemented and checked around every object write plus finalization. A real
+PostgreSQL/R2 process-kill and freeze/resume drill remains a production gate.
 
 The MVP must not overwrite, update, merge, or deduplicate against an existing
 project. The imported project is always named `<Original Name> (Imported)`.
@@ -952,16 +1002,18 @@ Result section above. No application code or refactor was part of Phase 0.
 
 Status: completed on 2026-06-24.
 
-The backend now exposes an owner-scoped Project ZIP export with canonical JSON,
-readable Markdown, Project Document files, optional project chats, per-file
-SHA-256 metadata, and explicit warnings when chat attachment metadata has no
-persisted file bytes. The implementation uses the small zero-dependency
-`fflate` package and currently builds the ZIP in API-process memory.
+The backend exposes an owner-scoped Project ZIP export with canonical JSON,
+readable Markdown, Project Document files, optional project chats, and per-file
+SHA-256 metadata. The original v1 contract remains supported. The current v2
+extension adds bounded private-file descriptors and `assets/` entries when
+eligible stored relations exist. The implementation uses the small
+zero-dependency `fflate` package and builds the ZIP in API-process memory.
 
 Goals:
 
 * [x] add the deterministic Project export plan
-* [x] define and validate `formatVersion: "1.0"`
+* [x] define and validate legacy `formatVersion: "1.0"`
+* [x] add compatible binary `formatVersion: "2.0"`
 * [x] create `manifest.json`
 * [x] export canonical `data/project.json`
 * [x] export Project Instructions and Project Memory when present
@@ -982,7 +1034,7 @@ Status: completed on 2026-06-24.
 The backend now exposes authenticated, read-only package inspection through
 `POST /api/portability/projects/import/preview`. The route accepts
 `application/zip` and `application/octet-stream` through a route-specific raw
-body parser capped at 50 MB. Preview performs no project access lookup,
+body parser capped at 8,000,000 bytes. Preview performs no project access lookup,
 repository call, database write, identifier reservation, indexing, or AI
 provider work.
 
@@ -1063,9 +1115,10 @@ not modify the lightweight Chat Quick Export/Import flow.
 
 ### Phase 4 — Full Account Data ZIP Export
 
-Status: completed on 2026-07-03.
+Status: canonical export plus bounded private-file v2 implemented; production
+storage activation remains gated on operational proof.
 
-`GET /api/portability/account/export` creates an owner-scoped
+`POST /api/portability/account/export` requires CSRF and creates an owner-scoped
 `account-data-export.zip`. The Settings "Your data" panel exposes the action.
 
 The ZIP includes:
@@ -1076,11 +1129,20 @@ The ZIP includes:
 * readable account, memory, project, and chat Markdown
 * provider-neutral migration conversation JSON and memory Markdown
 * `manifest.json`, counts, warnings, sizes, and SHA-256 file digests
+* for v2, exact stored-asset descriptors and bounded `assets/` entries
 
-Sensitive, operational, and derived state is excluded. Attachment metadata is
-portable; unavailable attachment bytes are warned about. Export is currently
-bounded and assembled in API memory. The same archive is accepted by the
-unified Account Import flow. Restore never replaces account identity,
+Sensitive, operational, and derived state is excluded. Legacy v1 packages
+remain importable; v2 is used when eligible stored private files exist. Export
+is bounded and assembled synchronously in API memory. The single-instance MVP
+caps output at 10 MB compressed, 5 MB per entry, 20 MB across generated
+entries, and 600 entries. The authenticated endpoint permits three attempts per hour
+per account and per source IP, returns `Retry-After` with
+`ACCOUNT_EXPORT_RATE_LIMITED`, and intentionally uses an in-memory limiter that
+resets on process restart and does not coordinate across replicas. Replace it
+with a shared limiter before running multiple API instances. Only one
+portability operation per user and two per API process may be active. The same archive
+is accepted by the unified Account Import flow; these export-only limits do not
+change Account Import limits. Restore never replaces account identity,
 credentials, sessions, or settings; portable records are created as new local
 records and exact Account Memory duplicates are skipped.
 
@@ -1088,7 +1150,7 @@ records and exact Account Memory duplicates are skipped.
 
 ### Phase 5 — Unified Account Import
 
-Status: completed on 2026-07-26.
+Status: implemented behind a production-default-off feature flag.
 
 The backend exposes:
 
@@ -1101,6 +1163,8 @@ format. There is no provider selector or provider identity header. Preview
 performs no writes and returns portable-record counts, warnings, import kind,
 and a whole-file SHA-256 digest. Commit re-parses the ZIP, requires matching
 `X-Package-Digest`, and rejects changed bytes before any database write.
+`PORTABILITY_IMPORTS_ENABLED` defaults to false in production. Rate and
+concurrency guards execute before raw-body parsing.
 
 For a native Full Account Data ZIP, Commit creates new projects, memberships,
 instructions, Project Memory, Project Documents, chats, messages, and
@@ -1110,6 +1174,14 @@ trace metadata only. Project-linked chats are mapped to the newly created
 project IDs. Imported Project Memory, Project Documents, and Account Memory use
 `IMPORTED` provenance. Existing email, password, sessions, account profile,
 and settings are never overwritten.
+
+For native v2 packages, Preview also validates each private-file descriptor,
+manifest entry, checksum, MIME/content match, and exact source relation. Commit
+stages quota-reserved `PENDING` assets plus durable deletion jobs before
+immutable object writes. The canonical serializable transaction then promotes
+the exact assets to `READY`, creates message/document relations, and removes
+their jobs atomically. Failed cleanup claims only exact unreferenced staging
+rows; ambiguous outcomes are quarantined and never blindly deleted inline.
 
 Project and chat restore is create-new only. Imported project names use the
 existing bounded `(Imported)` / `(Imported 2)` collision policy. Account Memory
@@ -1124,13 +1196,26 @@ transactionally create new standalone chats/messages with new IDs. External
 conversion remains best-effort and does not claim a complete foreign-account
 restore.
 
-The current in-memory adapter limits are 100 MB compressed ZIP bytes, 10,000
-entries, 100 MB per entry, 250 MB total uncompressed bytes, 5,000 chats,
-100,000 messages, and 200,000 characters per message. ZIP paths reject parent
+External archive commit does not yet persist a digest-scoped idempotency
+receipt. Retrying a commit after an ambiguous client/network outcome can create
+another set of chats, so this path must remain production-disabled until a
+forward-only receipt schema and replay contract are implemented.
+
+The current account/native limits are 10 MB compressed ZIP bytes, 600 entries,
+5 MB per entry, and 20 MB total expanded bytes. External conversation archives
+use the same compressed/entry-count/expanded limits with a 10 MB maximum source
+entry. Semantic limits reuse the application quotas (currently 40 chats, 160
+messages per chat, 50,000 characters per message, and 1,000,000 UTF-8 content
+bytes per chat), plus a 5,000,000-character aggregate import ceiling. ZIP paths reject parent
 traversal, absolute/drive paths, backslashes, normalization conflicts,
 duplicate/case-conflicting paths, encrypted entries, unsupported compression,
 Unix symlinks, and executable Unix file modes. Larger or unknown packages must
 fail safely rather than partially import.
+
+Commit obtains the same advisory quota locks as ordinary project/chat/memory
+creation, then checks current destination counts plus imported records inside
+the serializable transaction. This prevents concurrent ordinary creates from
+crossing the same account caps.
 
 The Settings UI lazy-loads one generic Account Import modal. It stores the
 selected `File`, Preview, and digest only in local modal state, has no provider
@@ -1151,26 +1236,25 @@ complete foreign-account migration.
 
 ### Phase 7 — Chat Attachment Persistence
 
-Persist original chat attachment files behind an explicit storage and retention
-policy.
+Status: implemented for signed-in chat attachments and original Project
+Document sources behind the disabled-by-default private-assets flag.
 
-This phase must define:
+The implementation defines owner-scoped authorization, a storage port and R2
+adapter, conservative upload/download limits, MIME/content checks, normalized
+relations, retention/deletion outbox behavior, and Account/Project portability
+references. Persisted restore fencing, maximum-boundary contract coverage, and
+exact cleanup lease CAS are implemented. Production remains closed pending the
+real PostgreSQL/EU R2 interruption gates, deployed freeze/resume and
+production-scale timeout proof, and monitored multi-instance cleanup.
 
-* authorized file ownership
-* storage backend abstraction
-* upload and download limits
-* retention and deletion behavior
-* malware/content-type controls
-* portability references
-* production backup implications
-
-Conversation ZIP must remain deferred until this foundation exists.
+Standalone Conversation ZIP remains deferred as its own package/UI contract;
+it is no longer blocked on whether signed-in attachment persistence exists.
 
 ---
 
 ### Phase 8 — Conversation ZIP, PDF, And Work-Management Adapters
 
-After attachment persistence:
+When standalone Conversation ZIP is prioritized:
 
 * add full Conversation ZIP
 * include canonical JSON and persisted attachment files
@@ -1197,7 +1281,8 @@ The first complete MVP is the Project portability round trip:
 The MVP includes:
 
 * deterministic planning
-* `formatVersion: "1.0"`
+* backward-compatible native `formatVersion: "1.0"` import
+* bounded native `formatVersion: "2.0"` when stored private files are present
 * `manifest.json`
 * canonical project JSON as the restore source
 * readable Markdown companions
@@ -1205,10 +1290,12 @@ The MVP includes:
 * Project Memory
 * Project Documents
 * optional project-linked chats
+* exact owner-scoped stored-asset bindings and hashed v2 `assets/` entries
 * owner-scoped authorization
 * ZIP/path/size validation
 * Preview/Commit digest matching
 * transactional canonical writes
+* staged private-object restore with durable cleanup and atomic finalization
 * imported provenance
 * post-transaction Project Document re-indexing
 * local-only selected ZIP state in the import modal
@@ -1229,8 +1316,7 @@ MVP should not include:
 
 * AI-based export planning
 * full Conversation ZIP
-* original chat attachment export
-* chat attachment persistence
+* a standalone Conversation ZIP attachment-export flow
 * Conversation Summary restore
 * document chunk, embedding, or index-state restore
 * project overwrite
@@ -1264,17 +1350,22 @@ The Project MVP is successful when:
   embeddings, and index state.
 * Preview validates schema, version, ownership, paths, sizes, entries, and
   digests without database writes.
+* V2 Preview validates binary descriptors, bytes, MIME/content, hashes, and
+  exact source relations before storage or database mutation.
 * Commit rejects changed package bytes or a digest mismatch.
 * Commit creates a new project and never overwrites or merges.
 * Imported Project Memory and Project Documents use `IMPORTED` provenance.
 * Canonical writes are transactional.
+* V2 restore stages assets/deletion jobs before object writes and promotes the
+  exact `READY` assets and relations inside the canonical transaction.
 * Document re-indexing starts only after transaction success.
 * Indexing failure does not destroy imported canonical data.
 * The Projects UI exports ZIP packages and commits only the same file that was
   successfully previewed.
 * Tests cover planner decisions, export exclusions, ZIP safety, Preview
-  no-write behavior, digest revalidation, owner isolation, rollback, and the
-  project round trip.
+  no-write behavior, digest revalidation, owner isolation, v1/v2 compatibility,
+  binary binding/tamper checks, staged cleanup, rollback, and the project round
+  trip.
 
 ---
 
@@ -1287,5 +1378,6 @@ before their relevant implementation slice:
    size inside one imported project, in addition to the global ZIP limits?
 2. Which stable additional account-archive fixtures and schema versions can be
    supported?
-3. Which storage and retention policy should be selected before chat
-   attachment persistence?
+3. What final retention periods, cleanup ownership, alert thresholds, and
+   restore-reconciliation procedure should be approved before production
+   private assets are enabled?

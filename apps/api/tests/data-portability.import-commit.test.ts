@@ -4,15 +4,16 @@ import { describe, it } from "node:test";
 
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 
-import {
-  createPrismaDataPortabilityRepository,
-  resolveImportedProjectName,
-  type DataPortabilityRepository,
-} from "../src/modules/data-portability/data-portability.repository.ts";
+import { DATA_LIMITS } from "../src/config/data-limits.ts";
+import { createPrismaDataPortabilityRepository } from "../src/modules/data-portability/data-portability.repository.ts";
 import { createDataPortabilityService } from "../src/modules/data-portability/data-portability.service.ts";
+import { resolveImportedProjectName } from "../src/modules/data-portability/imported-project-name.ts";
 import { validateProjectImportPackage } from "../src/modules/data-portability/import-package.ts";
-import type { ValidatedProjectImportPackage } from "../src/modules/data-portability/data-portability.types.ts";
-import type { ProjectDocumentRecord } from "../src/modules/project-documents/project-documents.repository.ts";
+import type {
+  DataPortabilityRepository,
+  ValidatedProjectImportPackage,
+} from "../src/modules/data-portability/data-portability.types.ts";
+import type { ProjectDocumentRecord } from "../src/modules/project-documents/project-documents.types.ts";
 import { createFakeProjectAccess } from "./helpers/projectAccess.ts";
 import {
   createProjectExportSource,
@@ -78,7 +79,8 @@ describe("project import commit", () => {
         messages: 2,
       },
       warnings: [
-        "Chat attachment files are not included because chat file persistence is not implemented. Attachment metadata is included only.",
+        "Chat attachment metadata is included, but original attachment files are not included in this archive.",
+        "Private object-storage binaries are not included in this legacy version 1 archive. Export again with available private assets to create a version 2 archive.",
       ],
     });
     assert.deepEqual(events, ["transaction-committed", "indexed"]);
@@ -309,6 +311,30 @@ describe("project import commit", () => {
     assert.deepEqual(failingDatabase.state.chats, []);
     assert.deepEqual(failingDatabase.state.messages, []);
   });
+
+  it("rejects an import when the destination project quota is full", async () => {
+    const packageData = validateProjectImportPackage(
+      createTestProjectExportArchive()
+    );
+    const database = createTransactionTestDatabase(
+      Array.from(
+        { length: DATA_LIMITS.projectsPerUser },
+        (_, index) => `Existing ${index + 1}`
+      )
+    );
+    const repository = createPrismaDataPortabilityRepository(
+      database.database as Parameters<
+        typeof createPrismaDataPortabilityRepository
+      >[0]
+    );
+
+    await assert.rejects(
+      () => repository.createImportedProject("user-1", packageData),
+      (error: unknown) =>
+        isErrorWithCode(error, "PROJECT_IMPORT_DESTINATION_LIMIT_EXCEEDED")
+    );
+    assert.deepEqual(database.state.projects, []);
+  });
 });
 
 function createCommitRepository(
@@ -355,6 +381,7 @@ function createImportedDocument(
     title,
     content: '{"guestCheckout":false}\n',
     source: "IMPORTED",
+    sourceAssetId: null,
     mimeType: "application/json",
     metadata: {
       originalName: "requirements.json",
@@ -459,6 +486,9 @@ function createTransactionClient(
   }
 ) {
   return {
+    async $executeRaw() {
+      return 0;
+    },
     project: {
       async findMany() {
         return existingNames.map((name) => ({ name }));
@@ -510,6 +540,9 @@ function createTransactionClient(
       },
     },
     chat: {
+      async count() {
+        return 0;
+      },
       async create({ data }: { data: Record<string, unknown> }) {
         const chat = {
           id: `new-chat-${state.chats.length + 1}`,

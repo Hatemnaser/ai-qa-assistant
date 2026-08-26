@@ -1,17 +1,5 @@
 import { prisma } from "../../db/prisma.js";
-import type { UserSettingsInput } from "./settings.types.js";
-
-export interface UserSettingsRecord {
-  defaultModel: string;
-  language: string;
-  theme: string;
-  updatedAt: Date;
-}
-
-export interface SettingsRepository {
-  getUserSettings(userId: string): Promise<UserSettingsRecord | null>;
-  upsertUserSettings(userId: string, input: UserSettingsInput): Promise<UserSettingsRecord>;
-}
+import type { SettingsRepository } from "./settings.types.js";
 
 export function createPrismaSettingsRepository(): SettingsRepository {
   return {

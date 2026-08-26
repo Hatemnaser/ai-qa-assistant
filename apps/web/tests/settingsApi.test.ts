@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import { resetCsrfTokenForTests } from "../src/api/csrf.ts";
+import { ApiAdapterError } from "../src/api/apiAdapterError.ts";
 import { fetchUserSettings, updateUserSettings } from "../src/features/settings/settingsApi.ts";
 import { createCsrfAwareFetch } from "./helpers/csrfFetch.ts";
 
@@ -70,6 +71,22 @@ describe("settings api", () => {
     mockFetch(async () => jsonResponse({ code: "SESSION_REQUIRED", error: "Authentication is required." }, 401));
 
     await assert.rejects(() => fetchUserSettings(), /Authentication is required/);
+  });
+
+  it("returns stable client error data for network failures", async () => {
+    mockFetch(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+
+    await assert.rejects(
+      () => fetchUserSettings(),
+      (error: unknown) => {
+        assert.ok(error instanceof ApiAdapterError);
+        assert.equal(error.code, "NETWORK_UNAVAILABLE");
+        assert.equal(error.message, "NETWORK_UNAVAILABLE");
+        return true;
+      }
+    );
   });
 });
 

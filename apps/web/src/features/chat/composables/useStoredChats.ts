@@ -4,10 +4,14 @@ import type { Ref } from "vue";
 import {
   clearActiveChatId,
   createChat,
+  discardVolatileChatCreates,
   GUEST_CHAT_STORAGE_SCOPE,
   getActiveChatId,
   getUserChatStorageScope,
   loadChats,
+  markChatPendingCreate,
+  markChatPendingDelete,
+  markChatPendingUpsert,
   migrateGuestChatsToUser,
   saveChats,
   setActiveChatId,
@@ -73,6 +77,7 @@ export function useStoredChats({
 
   function deleteChat(chatId: string) {
     const nextChats = chats.value.filter((chat) => chat.id !== chatId);
+    markChatPendingDelete(chatId, storageScope.value);
     persist(nextChats);
 
     if (activeChatId.value !== chatId) return;
@@ -126,6 +131,7 @@ export function useStoredChats({
   }
 
   function addChatAndSelect(chat: Chat) {
+    markChatPendingCreate(chat.id, storageScope.value);
     persist([chat, ...chats.value]);
     selectChat(chat.id);
   }
@@ -147,6 +153,7 @@ export function useStoredChats({
   }
 
   function updateChat(updatedChat: Chat) {
+    markChatPendingUpsert(updatedChat.id, storageScope.value);
     persist(
       chats.value.map((chat) =>
         chat.id === updatedChat.id
@@ -183,7 +190,13 @@ export function useStoredChats({
       migrateGuestChatsToUser(userId);
     }
 
-    storageScope.value = userId ? getUserChatStorageScope(userId) : GUEST_CHAT_STORAGE_SCOPE;
+    const nextScope = userId ? getUserChatStorageScope(userId) : GUEST_CHAT_STORAGE_SCOPE;
+
+    if (storageScope.value !== nextScope) {
+      discardVolatileChatCreates(storageScope.value);
+    }
+
+    storageScope.value = nextScope;
     chats.value = loadChats(storageScope.value);
     activeChatId.value = getActiveChatId(storageScope.value);
     messageInput.value = "";

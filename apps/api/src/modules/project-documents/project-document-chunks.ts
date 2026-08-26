@@ -1,4 +1,4 @@
-import type { ProjectDocumentRecord } from "./project-documents.repository.js";
+import type { ProjectDocumentRecord } from "./project-documents.types.js";
 
 export const PROJECT_DOCUMENT_CHUNKING_POLICY = Object.freeze({
   chunkOverlapChars: 120,

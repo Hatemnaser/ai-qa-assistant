@@ -216,6 +216,10 @@ function handleComposerClick() {
       {{ disabledMessage }}
     </p>
 
+    <p class="composer-ai-notice mb-0" role="note">
+      {{ t("chat.composer.aiNotice") }}
+    </p>
+
     <section class="quick-actions d-flex flex-wrap gap-2">
       <button
         v-for="action in QUICK_ACTIONS"

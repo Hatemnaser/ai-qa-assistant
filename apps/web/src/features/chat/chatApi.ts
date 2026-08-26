@@ -1,9 +1,8 @@
 import type { ChatApiResponse, ChatHistoryItem, RequestAttachment } from "./types";
 import { BackendApiError, createBackendApiError } from "../../api/backendErrors";
 import { csrfFetch } from "../../api/csrf";
+import { API_BASE_URL } from "../../config/api";
 import { t } from "../../i18n/useI18n";
-
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 const REQUEST_TIMEOUT_MS = 60000;
 
 export class ChatApiError extends BackendApiError {

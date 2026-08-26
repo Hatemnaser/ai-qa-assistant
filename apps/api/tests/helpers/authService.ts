@@ -2,14 +2,16 @@ import { createAuthService, type AuthSecurity } from "../../src/modules/auth/aut
 import type { AuthEmailService } from "../../src/modules/auth/auth.email.ts";
 import type {
   AuthRepository,
+  AuthSessionRecord,
+  AuthUserRecord,
   CreateEmailVerificationTokenInput,
   CreatePasswordResetTokenInput,
   CreatePasswordUserInput,
   CreateSessionInput,
   ResetPasswordWithTokenInput,
   VerifyEmailWithTokenInput,
-} from "../../src/modules/auth/auth.repository.ts";
-import type { AuthSessionRecord, AuthUserRecord } from "../../src/modules/auth/auth.types.ts";
+} from "../../src/modules/auth/auth.types.ts";
+import type { RegistrationPolicy } from "../../src/modules/auth/registration-policy.ts";
 
 export const NOW = new Date("2026-05-19T00:00:00.000Z");
 export const EXPIRED_SESSION = new Date("2026-05-18T00:00:00.000Z");
@@ -19,12 +21,16 @@ const FUTURE_SESSION = new Date("2026-05-26T00:00:00.000Z");
 export function setupAuthService(options: AuthServiceTestOptions = {}) {
   const repository = createFakeAuthRepository(options.users);
   const service = createAuthService({
+    authEmailResponseFloorMs: options.authEmailResponseFloorMs,
+    emailDeliveryMode: options.emailDeliveryMode,
+    emailOutboxEncryptionSecret: options.emailOutboxEncryptionSecret,
     emailService: options.emailService,
     emailVerificationLink: options.emailVerificationLink,
     emailVerificationTokenTtlMinutes: options.emailVerificationTokenTtlMinutes,
     now: options.now || (() => NOW),
     passwordResetLink: options.passwordResetLink,
     passwordResetTokenTtlMinutes: options.passwordResetTokenTtlMinutes,
+    registrationPolicy: options.registrationPolicy,
     repository,
     security: createFakeSecurity(options.security),
   });
@@ -36,6 +42,9 @@ export function setupAuthService(options: AuthServiceTestOptions = {}) {
 }
 
 export interface AuthServiceTestOptions {
+  authEmailResponseFloorMs?: number;
+  emailDeliveryMode?: "direct" | "outbox";
+  emailOutboxEncryptionSecret?: string;
   emailService?: AuthEmailService;
   emailVerificationLink?: {
     appOrigin?: string;
@@ -48,6 +57,7 @@ export interface AuthServiceTestOptions {
     resetPath?: string;
   };
   passwordResetTokenTtlMinutes?: number;
+  registrationPolicy?: RegistrationPolicy;
   security?: Partial<AuthSecurity>;
   users?: AuthUserRecord[];
 }
@@ -56,6 +66,8 @@ export function createUserRecord(overrides: Partial<AuthUserRecord> = {}): AuthU
   const createdAt = overrides.createdAt ?? NOW;
 
   return {
+    acceptedTermsAt: null,
+    acceptedTermsVersion: null,
     createdAt,
     email: "person@example.com",
     emailVerifiedAt: NOW,
@@ -82,22 +94,30 @@ function createFakeSecurity(overrides: Partial<AuthSecurity> = {}): AuthSecurity
   };
 }
 
+type FakeEmailVerificationToken = CreateEmailVerificationTokenInput & {
+  createdAt: Date;
+  id: string;
+  usedAt: Date | null;
+};
+
+type FakePasswordResetToken = CreatePasswordResetTokenInput & {
+  createdAt: Date;
+  id: string;
+  usedAt: Date | null;
+};
+
+interface FakeAuthRepository extends AuthRepository {
+  addSession(user: AuthUserRecord, overrides?: Partial<CreateSessionInput>): void;
+  emailVerificationTokens: FakeEmailVerificationToken[];
+  passwordResetTokens: FakePasswordResetToken[];
+  sessions: CreateSessionInput[];
+  users: AuthUserRecord[];
+}
+
 function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
-  const repository = {
-    emailVerificationTokens: [] as Array<
-      CreateEmailVerificationTokenInput & {
-        createdAt: Date;
-        id: string;
-        usedAt: Date | null;
-      }
-    >,
-    passwordResetTokens: [] as Array<
-      CreatePasswordResetTokenInput & {
-        createdAt: Date;
-        id: string;
-        usedAt: Date | null;
-      }
-    >,
+  const repository: FakeAuthRepository = {
+    emailVerificationTokens: [],
+    passwordResetTokens: [],
     sessions: [] as CreateSessionInput[],
     users: [...initialUsers],
 
@@ -112,6 +132,8 @@ function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
 
     async createPasswordUser(input: CreatePasswordUserInput) {
       const user = createUserRecord({
+        acceptedTermsAt: input.acceptedTermsAt,
+        acceptedTermsVersion: input.acceptedTermsVersion,
         email: input.email,
         id: `user-${repository.users.length + 1}`,
         locale: input.locale,
@@ -125,6 +147,12 @@ function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
     },
 
     async createPasswordResetToken(input: CreatePasswordResetTokenInput) {
+      for (const token of repository.passwordResetTokens) {
+        if (token.userId === input.userId && !token.usedAt) {
+          token.usedAt = input.now;
+        }
+      }
+
       repository.passwordResetTokens.push({
         ...input,
         createdAt: NOW,
@@ -228,24 +256,6 @@ function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
 
       return true;
     },
-  } satisfies AuthRepository & {
-    addSession(user: AuthUserRecord, overrides?: Partial<CreateSessionInput>): void;
-    emailVerificationTokens: Array<
-      CreateEmailVerificationTokenInput & {
-        createdAt: Date;
-        id: string;
-        usedAt: Date | null;
-      }
-    >;
-    passwordResetTokens: Array<
-      CreatePasswordResetTokenInput & {
-        createdAt: Date;
-        id: string;
-        usedAt: Date | null;
-      }
-    >;
-    sessions: CreateSessionInput[];
-    users: AuthUserRecord[];
   };
 
   return repository;

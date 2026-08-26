@@ -1,42 +1,22 @@
-import type { AiHistoryMessage } from "./ai.types.js";
 import {
   detectLocalWorkflowIntent,
   isArtifactWorkflowIntent,
 } from "./routing/rules/workflow-rules.js";
+import type {
+  QaWorkflowAnalysis,
+  QaWorkflowInput,
+  QaWorkflowIntent,
+  QaWorkflowLanguage,
+  QaWorkflowSource,
+} from "./qa-workflow.types.js";
 
-export type QaWorkflowIntent =
-  | "bug_report"
-  | "checklist"
-  | "clarification"
-  | "conversational"
-  | "edge_cases"
-  | "file_context"
-  | "general_qa"
-  | "language_preference"
-  | "screenshot_review"
-  | "test_cases"
-  | "visual_context";
-
-export type QaWorkflowLanguage = "arabic" | "english" | "mixed" | "unknown";
-export type QaWorkflowSource = "ai_router" | "fallback" | "local_rule" | "selected_mode";
-
-export interface QaWorkflowInput {
-  hasTextAttachment?: boolean;
-  history?: AiHistoryMessage[];
-  hasImage?: boolean;
-  message: string;
-  mode: string;
-}
-
-export interface QaWorkflowAnalysis {
-  confidence: number;
-  effectiveMode: string;
-  intent: QaWorkflowIntent;
-  language: QaWorkflowLanguage;
-  source: QaWorkflowSource;
-  shouldUseArtifactTemplate: boolean;
-  shouldAskClarifyingQuestion: boolean;
-}
+export type {
+  QaWorkflowAnalysis,
+  QaWorkflowInput,
+  QaWorkflowIntent,
+  QaWorkflowLanguage,
+  QaWorkflowSource,
+} from "./qa-workflow.types.js";
 
 export function analyzeQaWorkflow({
   hasImage = false,

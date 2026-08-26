@@ -1,17 +1,5 @@
 import { prisma } from "../../db/prisma.js";
-
-export interface ProjectInstructionRecord {
-  projectId: string;
-  content: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface ProjectInstructionsRepository {
-  deleteProjectInstruction(projectId: string): Promise<void>;
-  findProjectInstruction(projectId: string): Promise<ProjectInstructionRecord | null>;
-  upsertProjectInstruction(projectId: string, content: string): Promise<ProjectInstructionRecord>;
-}
+import type { ProjectInstructionsRepository } from "./project-instructions.types.js";
 
 export function createPrismaProjectInstructionsRepository(): ProjectInstructionsRepository {
   return {

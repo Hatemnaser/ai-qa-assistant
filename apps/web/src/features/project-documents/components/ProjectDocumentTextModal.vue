@@ -2,6 +2,7 @@
 import { computed, reactive, watch } from "vue";
 
 import { useI18n } from "../../../i18n/useI18n";
+import { useDialogAccessibility } from "../../../ui/useDialogAccessibility";
 import type { ProjectDocument, ProjectDocumentInput } from "../types";
 
 const props = defineProps<{
@@ -48,18 +49,26 @@ function requestSave() {
     title: form.title.trim(),
   });
 }
+
+const { dialogRef, onDialogKeydown } = useDialogAccessibility({
+  canClose: () => !props.isSaving,
+  isOpen: () => props.isOpen,
+  onClose: requestCancel,
+});
 </script>
 
 <template>
   <Teleport to="body">
     <div
       v-if="isOpen"
+      ref="dialogRef"
       class="modal fade show d-block"
       tabindex="-1"
       role="dialog"
       aria-modal="true"
       aria-labelledby="project-document-text-title"
       @click.self="requestCancel"
+      @keydown="onDialogKeydown"
     >
       <div class="modal-dialog modal-dialog-centered project-document-text-dialog">
         <form class="modal-content app-modal project-document-text-modal" @submit.prevent="requestSave">

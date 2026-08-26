@@ -1,8 +1,8 @@
-import { createBackendApiError } from "../../api/backendErrors";
+import { BackendApiError, createBackendApiError } from "../../api/backendErrors";
+import { ApiAdapterError, isFetchNetworkError } from "../../api/apiAdapterError";
 import { csrfFetch } from "../../api/csrf";
+import { API_BASE_URL } from "../../config/api";
 import type { Memory, MemoryInput } from "./types";
-
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 
 export async function fetchAccountMemories(): Promise<Memory[]> {
   return requestMemoryList("/api/memories");
@@ -40,7 +40,7 @@ async function requestMemory(path: string, options: { body: MemoryInput; method:
   const payload = await requestMemoryAction(path, options);
 
   if (!payload.memory) {
-    throw new Error("Memory response was missing memory data.");
+    throw new ApiAdapterError("INVALID_RESPONSE");
   }
 
   return payload.memory;
@@ -63,21 +63,25 @@ async function requestMemoryAction(
     });
 
     if (!response.ok) {
-      throw await createBackendApiError(response, "Could not load memory.");
+      const backendError = await createBackendApiError(response, "");
+
+      if (!backendError.message) {
+        throw new ApiAdapterError("REQUEST_FAILED", { status: response.status });
+      }
+
+      throw backendError;
     }
 
     return (await response.json()) as { memories?: Memory[]; memory?: Memory; ok?: boolean };
   } catch (error) {
-    if (error instanceof TypeError || (error instanceof Error && error.message === "Failed to fetch")) {
-      throw new Error(
-        "Could not connect to the backend. Make sure the API server is running on http://127.0.0.1:5000."
-      );
+    if (isFetchNetworkError(error)) {
+      throw new ApiAdapterError("NETWORK_UNAVAILABLE");
     }
 
-    if (error instanceof Error) {
+    if (error instanceof ApiAdapterError || error instanceof BackendApiError) {
       throw error;
     }
 
-    throw new Error("Could not load memory.");
+    throw new ApiAdapterError("REQUEST_FAILED");
   }
 }

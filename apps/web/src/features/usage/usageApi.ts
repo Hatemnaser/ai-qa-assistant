@@ -1,7 +1,6 @@
 import { createBackendApiError } from "../../api/backendErrors";
+import { API_BASE_URL } from "../../config/api";
 import type { UsageSummary } from "./types";
-
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 
 export async function fetchUsageSummary(): Promise<UsageSummary> {
   try {

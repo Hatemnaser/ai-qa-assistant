@@ -37,10 +37,12 @@ after(async () => {
   console.warn = originalConsoleWarn;
 });
 
-describe("GET /api/portability/projects/:projectId/export", () => {
+describe("POST /api/portability/projects/:projectId/export", () => {
   it("requires an authenticated session", async () => {
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
     const response = await fetch(
-      `${baseUrl}/api/portability/projects/project-1/export`
+      `${baseUrl}/api/portability/projects/project-1/export`,
+      { headers: csrfHeaders, method: "POST" }
     );
     const body = await response.json();
 
@@ -49,15 +51,23 @@ describe("GET /api/portability/projects/:projectId/export", () => {
   });
 });
 
-describe("GET /api/portability/account/export", () => {
+describe("POST /api/portability/account/export", () => {
   it("requires an authenticated session", async () => {
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
     const response = await fetch(
-      `${baseUrl}/api/portability/account/export`
+      `${baseUrl}/api/portability/account/export`,
+      { headers: csrfHeaders, method: "POST" }
     );
     const body = await response.json();
 
     assert.equal(response.status, 401);
     assert.equal(body.code, "SESSION_REQUIRED");
+  });
+
+  it("never returns an export from the former GET download route", async () => {
+    const response = await fetch(`${baseUrl}/api/portability/account/export`);
+
+    assert.notEqual(response.status, 200);
   });
 });
 

@@ -1,50 +1,41 @@
+import { DATA_LIMITS } from "../../config/data-limits.js";
 import { prisma } from "../../db/prisma.js";
+import { Prisma } from "../../generated/prisma/client.js";
 import { MemoryScope, MemorySource } from "../../generated/prisma/enums.js";
+import { AppError } from "../../lib/errors.js";
+import type { MemoryRepository } from "./memory.types.js";
 
-export interface MemoryRecord {
-  id: string;
-  projectId: string | null;
-  scope: MemoryScope;
-  content: string;
-  source: MemorySource;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface CreateAccountMemoryInput {
-  content: string;
-  userId: string;
-}
-
-export interface UpdateAccountMemoryInput {
-  content: string;
-  memoryId: string;
-  userId: string;
-}
-
-export interface MemoryRepository {
-  createAccountMemory(input: CreateAccountMemoryInput): Promise<MemoryRecord>;
-  deleteAccountMemory(userId: string, memoryId: string): Promise<number>;
-  listAccountMemories(userId: string): Promise<MemoryRecord[]>;
-  updateAccountMemory(input: UpdateAccountMemoryInput): Promise<MemoryRecord | null>;
-}
-
-export function createPrismaMemoryRepository(): MemoryRepository {
+export function createPrismaMemoryRepository(database: typeof prisma = prisma): MemoryRepository {
   return {
     async createAccountMemory(input) {
-      return prisma.memory.create({
-        data: {
-          content: input.content,
-          confidence: 1,
-          scope: MemoryScope.USER,
-          source: MemorySource.USER_PROVIDED,
-          userId: input.userId,
-        },
+      return database.$transaction(async (tx) => {
+        await lockUserMemoryQuota(tx, input.userId);
+        const memoryCount = await tx.memory.count({
+          where: { scope: MemoryScope.USER, userId: input.userId },
+        });
+
+        if (memoryCount >= DATA_LIMITS.accountMemoriesPerUser) {
+          throw new AppError(
+            `You can save up to ${DATA_LIMITS.accountMemoriesPerUser} account memories. Delete one before creating another.`,
+            409,
+            "MEMORY_LIMIT_REACHED"
+          );
+        }
+
+        return tx.memory.create({
+          data: {
+            content: input.content,
+            confidence: 1,
+            scope: MemoryScope.USER,
+            source: MemorySource.USER_PROVIDED,
+            userId: input.userId,
+          },
+        });
       });
     },
 
     async deleteAccountMemory(userId, memoryId) {
-      const result = await prisma.memory.deleteMany({
+      const result = await database.memory.deleteMany({
         where: {
           id: memoryId,
           scope: MemoryScope.USER,
@@ -56,10 +47,11 @@ export function createPrismaMemoryRepository(): MemoryRepository {
     },
 
     async listAccountMemories(userId) {
-      return prisma.memory.findMany({
+      return database.memory.findMany({
         orderBy: {
           updatedAt: "desc",
         },
+        take: DATA_LIMITS.accountMemoriesPerUser,
         where: {
           scope: MemoryScope.USER,
           userId,
@@ -68,7 +60,7 @@ export function createPrismaMemoryRepository(): MemoryRepository {
     },
 
     async updateAccountMemory(input) {
-      const result = await prisma.memory.updateMany({
+      const result = await database.memory.updateMany({
         data: {
           content: input.content,
         },
@@ -81,7 +73,7 @@ export function createPrismaMemoryRepository(): MemoryRepository {
 
       if (result.count === 0) return null;
 
-      return prisma.memory.findFirst({
+      return database.memory.findFirst({
         where: {
           id: input.memoryId,
           scope: MemoryScope.USER,
@@ -94,3 +86,7 @@ export function createPrismaMemoryRepository(): MemoryRepository {
 }
 
 export const memoryRepository = createPrismaMemoryRepository();
+
+async function lockUserMemoryQuota(tx: Prisma.TransactionClient, userId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`oddpath:quota:memories:${userId}`}, 0))`;
+}

@@ -1,10 +1,8 @@
-import {
-  conversationSummaryRepository,
-  type ConversationSummaryRecord,
-  type ConversationSummaryRepository,
-} from "./conversation-summary.repository.js";
+import { conversationSummaryRepository } from "./conversation-summary.repository.js";
 import type {
   ConversationSummaryDto,
+  ConversationSummaryRecord,
+  ConversationSummaryRepository,
   SaveConversationSummaryInput,
 } from "./conversation-summary.types.js";
 

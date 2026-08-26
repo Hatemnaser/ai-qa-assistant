@@ -137,6 +137,16 @@ Run this before considering a cleanup done:
 npm run verify
 ```
 
+The API check type-checks both `src` and the TypeScript test suite. Keep test
+fixtures and fakes aligned with the same application contracts instead of
+relying on transpile-only execution.
+
+The same check runs `npm run check:architecture`. This gate rejects repository
+contracts declared or re-exported by concrete repository files, contract files
+that depend on repository implementations, repository-port imports from
+concrete modules, and runtime dependency cycles. Fix the boundary instead of
+weakening or bypassing the gate.
+
 For local development, run the app through Vite:
 
 ```bash

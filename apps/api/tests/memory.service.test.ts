@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { MemoryScope, MemorySource } from "../src/generated/prisma/enums.ts";
-import type { MemoryRecord, MemoryRepository } from "../src/modules/memory/memory.repository.ts";
+import type { MemoryRecord, MemoryRepository } from "../src/modules/memory/memory.types.ts";
 import { memoryInputSchema } from "../src/modules/memory/memory.schema.ts";
 import { createMemoryService } from "../src/modules/memory/memory.service.ts";
 

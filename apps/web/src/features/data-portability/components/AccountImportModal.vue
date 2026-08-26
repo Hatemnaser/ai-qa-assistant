@@ -2,6 +2,7 @@
 import { ref, watch } from "vue";
 
 import { useI18n } from "../../../i18n/useI18n";
+import { useDialogAccessibility } from "../../../ui/useDialogAccessibility";
 import type { AccountImportCommitResult } from "../accountDataPortabilityApi";
 import { useAccountImportFlow } from "../accountImportFlow";
 import { localizeAccountImportWarning } from "../accountImportWarnings";
@@ -76,18 +77,26 @@ function resetFileState() {
   reset();
   if (fileInput.value) fileInput.value.value = "";
 }
+
+const { dialogRef, onDialogKeydown } = useDialogAccessibility({
+  canClose: () => !isPreviewing.value && !isCommitting.value,
+  isOpen: () => props.isOpen,
+  onClose: requestCancel,
+});
 </script>
 
 <template>
   <Teleport to="body">
     <div
       v-if="isOpen"
+      ref="dialogRef"
       class="modal fade show d-block"
       tabindex="-1"
       role="dialog"
       aria-modal="true"
       aria-labelledby="account-import-title"
       @click.self="requestCancel"
+      @keydown="onDialogKeydown"
     >
       <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable account-import-dialog">
         <div class="modal-content app-modal account-import-modal">
@@ -173,6 +182,10 @@ function resetFileState() {
                 <div>
                   <strong>{{ preview.counts.accountMemories }}</strong>
                   <span>{{ t("portability.import.accountMemories") }}</span>
+                </div>
+                <div v-if="preview.counts.binaryAssets !== undefined">
+                  <strong>{{ preview.counts.binaryAssets }}</strong>
+                  <span>{{ t("portability.import.assets") }}</span>
                 </div>
               </div>
 

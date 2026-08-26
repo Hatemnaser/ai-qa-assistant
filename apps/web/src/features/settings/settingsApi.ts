@@ -1,8 +1,8 @@
-import { createBackendApiError } from "../../api/backendErrors";
+import { BackendApiError, createBackendApiError } from "../../api/backendErrors";
+import { ApiAdapterError, isFetchNetworkError } from "../../api/apiAdapterError";
 import { csrfFetch } from "../../api/csrf";
+import { API_BASE_URL } from "../../config/api";
 import type { UserSettings, UserSettingsInput } from "./types";
-
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 
 export async function fetchUserSettings(): Promise<UserSettings> {
   return requestSettings("/api/settings", {
@@ -31,27 +31,31 @@ async function requestSettings(path: string, options: { body?: unknown; method: 
     });
 
     if (!response.ok) {
-      throw await createBackendApiError(response, "Could not load settings.");
+      const backendError = await createBackendApiError(response, "");
+
+      if (!backendError.message) {
+        throw new ApiAdapterError("REQUEST_FAILED", { status: response.status });
+      }
+
+      throw backendError;
     }
 
     const payload = (await response.json()) as { settings?: UserSettings };
 
     if (!payload.settings) {
-      throw new Error("Settings response was missing settings data.");
+      throw new ApiAdapterError("INVALID_RESPONSE");
     }
 
     return payload.settings;
   } catch (error) {
-    if (error instanceof TypeError || (error instanceof Error && error.message === "Failed to fetch")) {
-      throw new Error(
-        "Could not connect to the backend. Make sure the API server is running on http://127.0.0.1:5000."
-      );
+    if (isFetchNetworkError(error)) {
+      throw new ApiAdapterError("NETWORK_UNAVAILABLE");
     }
 
-    if (error instanceof Error) {
+    if (error instanceof ApiAdapterError || error instanceof BackendApiError) {
       throw error;
     }
 
-    throw new Error("Could not load settings.");
+    throw new ApiAdapterError("REQUEST_FAILED");
   }
 }

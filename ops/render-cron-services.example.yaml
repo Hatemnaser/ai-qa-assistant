@@ -1,0 +1,147 @@
+# OPT-IN, PAID Render cron service examples.
+#
+# This file is intentionally NOT the repository-root render.yaml, so connecting
+# the production Blueprint cannot create extra paid services unexpectedly.
+# Do not apply this file by itself: after reviewing current Render cron support
+# and the estimated charge, merge the selected service entries into the root
+# render.yaml so `fromDatabase: oddpath-db` resolves in the same Blueprint.
+# Every `sync: false` value must be copied from the matching API environment;
+# never commit its value. Keep PRIVATE_ASSETS_ENABLED=false until the documented
+# staging activation gate passes. R2 credentials are still required by the
+# deletion worker so disabling uploads never strands deletion jobs.
+# Each build emits the cleanup runners under apps/api/dist/scripts. The start
+# commands intentionally use the API package's compiled production scripts;
+# never replace them with a `*:dev` command or a direct `tsx` invocation.
+
+services:
+  - type: cron
+    name: oddpath-retention-cleanup
+    runtime: node
+    branch: main
+    plan: starter
+    region: frankfurt
+    autoDeployTrigger: checksPass
+    schedule: "17 3 * * *"
+    buildCommand: npm ci --include=dev && npm run build:api
+    startCommand: npm --prefix apps/api run cleanup:retention
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: oddpath-db
+          property: connectionString
+      - key: APP_ORIGIN
+        value: https://oddpath.eluthira.com
+      - key: CORS_ORIGIN
+        value: https://oddpath.eluthira.com
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: CSRF_SECRET
+        sync: false
+      - key: USAGE_IP_HASH_SALT
+        sync: false
+      - key: REGISTRATION_MODE
+        value: disabled
+      - key: LEGAL_DOCUMENTS_PUBLISHED_CONFIRMED
+        value: "false"
+      - key: EMAIL_PROVIDER
+        value: smtp
+      - key: EMAIL_FROM
+        value: "Oddpath <no-reply@eluthira.com>"
+      - key: SMTP_HOST
+        value: smtp-relay.brevo.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_OUTBOX_ENCRYPTION_SECRET
+        sync: false
+      - key: AI_ENABLED
+        value: "false"
+      - key: GUEST_AI_ENABLED
+        value: "false"
+      - key: PRIVATE_ASSETS_ENABLED
+        value: "false"
+      - key: AUTH_TOKEN_RETENTION_DAYS
+        value: "7"
+      - key: UNVERIFIED_ACCOUNT_RETENTION_DAYS
+        value: "7"
+      - key: USAGE_RECORD_RETENTION_DAYS
+        value: "32"
+      - key: RETENTION_CLEANUP_BATCH_SIZE
+        value: "100"
+
+  - type: cron
+    name: oddpath-asset-cleanup
+    runtime: node
+    branch: main
+    plan: starter
+    region: frankfurt
+    autoDeployTrigger: checksPass
+    schedule: "*/5 * * * *"
+    buildCommand: npm ci --include=dev && npm run build:api
+    startCommand: npm --prefix apps/api run assets:cleanup
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: oddpath-db
+          property: connectionString
+      - key: APP_ORIGIN
+        value: https://oddpath.eluthira.com
+      - key: CORS_ORIGIN
+        value: https://oddpath.eluthira.com
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: CSRF_SECRET
+        sync: false
+      - key: USAGE_IP_HASH_SALT
+        sync: false
+      - key: REGISTRATION_MODE
+        value: disabled
+      - key: LEGAL_DOCUMENTS_PUBLISHED_CONFIRMED
+        value: "false"
+      - key: EMAIL_PROVIDER
+        value: smtp
+      - key: EMAIL_FROM
+        value: "Oddpath <no-reply@eluthira.com>"
+      - key: SMTP_HOST
+        value: smtp-relay.brevo.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_OUTBOX_ENCRYPTION_SECRET
+        sync: false
+      - key: AI_ENABLED
+        value: "false"
+      - key: GUEST_AI_ENABLED
+        value: "false"
+      - key: PRIVATE_ASSETS_ENABLED
+        value: "false"
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_REGION
+        value: auto
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: ASSET_CLEANUP_BATCH_SIZE
+        value: "100"

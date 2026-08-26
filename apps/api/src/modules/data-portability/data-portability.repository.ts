@@ -1,61 +1,84 @@
-import type { InputJsonValue } from "@prisma/client/runtime/client";
+import { randomUUID } from "node:crypto";
 
+import { DATA_LIMITS } from "../../config/data-limits.js";
 import { prisma } from "../../db/prisma.js";
-import { Prisma } from "../../generated/prisma/client.js";
+import type { Prisma } from "../../generated/prisma/client.js";
+import { AppError } from "../../lib/errors.js";
 import {
   ChatRole,
   MemorySource,
   ProjectDocumentSource,
   ProjectRole,
 } from "../../generated/prisma/enums.js";
-import type { ProjectDocumentRecord } from "../project-documents/project-documents.repository.js";
+import type { ProjectDocumentRecord } from "../project-documents/project-documents.types.js";
+import { BINARY_ASSET_PORTABILITY_LIMITS } from "./binary-assets.js";
+import {
+  assertUploadedAssetsMatchPackage,
+  finalizeStagedBinaryAssets,
+} from "./binary-asset-finalize.js";
 import type {
+  DataPortabilityRepository,
+  ProjectExportChatRecord,
   ProjectExportSourceRecord,
   ValidatedProjectImportPackage,
 } from "./data-portability.types.js";
-
-export interface PersistedProjectImport {
-  projectId: string;
-  projectName: string;
-  documents: ProjectDocumentRecord[];
-  counts: {
-    documents: number;
-    chats: number;
-    messages: number;
-  };
-}
-
-export interface DataPortabilityRepository {
-  createImportedProject(
-    userId: string,
-    packageData: ValidatedProjectImportPackage
-  ): Promise<PersistedProjectImport>;
-  findOwnedProjectExportData(
-    userId: string,
-    projectId: string,
-    includeChats: boolean
-  ): Promise<ProjectExportSourceRecord | null>;
-  findProjectDocumentIndexStatuses(
-    projectId: string,
-    documentIds: string[]
-  ): Promise<Array<{ id: string; indexStatus: "PENDING" | "READY" | "FAILED" }>>;
-}
+import { PROJECT_EXPORT_LIMITS } from "./data-portability.types.js";
+import { bindCompleteExportAssetRows } from "./export-asset-relations.js";
+import { resolveImportedProjectName } from "./imported-project-name.js";
+import {
+  PORTABILITY_SERIALIZABLE_TRANSACTION_OPTIONS,
+  PORTABILITY_SNAPSHOT_TRANSACTION_OPTIONS,
+  withSerializableTransactionRetry,
+} from "./portability-transaction.js";
 
 export function createPrismaDataPortabilityRepository(
   database: typeof prisma = prisma
 ): DataPortabilityRepository {
   return {
-    async createImportedProject(userId, packageData) {
-      return database.$transaction(
+    async createImportedProject(userId, packageData, uploadedAssets = []) {
+      assertUploadedAssetsMatchPackage(
+        packageData.project.binaryAssets,
+        uploadedAssets
+      );
+
+      return withSerializableTransactionRetry(() => database.$transaction(
         async (tx) => {
-          const existingProjects = await tx.project.findMany({
-            select: {
-              name: true,
-            },
-            where: {
-              ownerId: userId,
-            },
-          });
+          await lockProjectImportQuotas(tx, userId);
+          const [existingProjects, existingChatCount] = await Promise.all([
+            tx.project.findMany({
+              select: {
+                name: true,
+              },
+              take: DATA_LIMITS.projectsPerUser,
+              where: {
+                ownerId: userId,
+              },
+            }),
+            tx.chat.count({ where: { userId } }),
+          ]);
+
+          if (
+            existingProjects.length >= DATA_LIMITS.projectsPerUser ||
+            existingChatCount + packageData.project.chats.length >
+              DATA_LIMITS.chatsPerUser ||
+            packageData.project.documents.length >
+              DATA_LIMITS.documentsPerProject ||
+            packageData.project.chats.some(
+              (chat) =>
+                chat.messages.length > DATA_LIMITS.messagesPerChat ||
+                chat.messages.some(
+                  (message) =>
+                    message.content.length > DATA_LIMITS.chatMessageContentChars
+                ) ||
+                chat.messages.reduce(
+                  (total, message) =>
+                    total + Buffer.byteLength(message.content, "utf8"),
+                  0
+                ) > DATA_LIMITS.chatMessageContentBytesPerChat
+            )
+          ) {
+            throwProjectImportDestinationLimitExceeded();
+          }
           const projectName = resolveImportedProjectName(
             packageData.project.name,
             existingProjects.map((project) => project.name)
@@ -96,21 +119,32 @@ export function createPrismaDataPortabilityRepository(
           }
 
           const documents: ProjectDocumentRecord[] = [];
+          const documentsBySourceId = new Map<
+            string,
+            { documentId: string; projectId: string }
+          >();
           for (const document of packageData.project.documents) {
-            documents.push(
-              await tx.projectDocument.create({
-                data: {
-                  content: document.content,
-                  metadata: toPrismaJson(document.metadata),
-                  mimeType: document.mimeType,
-                  projectId: project.id,
-                  source: ProjectDocumentSource.IMPORTED,
-                  title: document.title,
-                },
-              })
-            );
+            const importedDocument = await tx.projectDocument.create({
+              data: {
+                content: document.content,
+                metadata: toPrismaJson(document.metadata),
+                mimeType: document.mimeType,
+                projectId: project.id,
+                source: ProjectDocumentSource.IMPORTED,
+                title: document.title,
+              },
+            });
+            documents.push(importedDocument);
+            documentsBySourceId.set(document.sourceId, {
+              documentId: importedDocument.id,
+              projectId: project.id,
+            });
           }
 
+          const messagesBySourceId = new Map<
+            string,
+            { messageId: string; projectId: string | null }
+          >();
           for (const chat of packageData.project.chats) {
             const createdChat = await tx.chat.create({
               data: {
@@ -126,26 +160,41 @@ export function createPrismaDataPortabilityRepository(
 
             if (chat.messages.length > 0) {
               await tx.message.createMany({
-                data: chat.messages.map((message) => ({
-                  attachment:
-                    message.attachments.length > 0
-                      ? toPrismaJson(message.attachments)
+                data: chat.messages.map((message) => {
+                  const messageId = randomUUID();
+                  messagesBySourceId.set(message.sourceId, {
+                    messageId,
+                    projectId: project.id,
+                  });
+                  return {
+                    attachment:
+                      message.attachments.length > 0
+                        ? toPrismaJson(message.attachments)
+                        : undefined,
+                    chatId: createdChat.id,
+                    content: message.content,
+                    createdAt: message.createdAt,
+                    id: messageId,
+                    metadata: message.isError
+                      ? toPrismaJson({
+                          isError: true,
+                        })
                       : undefined,
-                  chatId: createdChat.id,
-                  content: message.content,
-                  createdAt: message.createdAt,
-                  metadata: message.isError
-                    ? toPrismaJson({
-                        isError: true,
-                      })
-                    : undefined,
-                  mode: message.mode,
-                  model: message.model,
-                  role: toPrismaChatRole(message.role),
-                })),
+                    mode: message.mode,
+                    model: message.model,
+                    role: toPrismaChatRole(message.role),
+                  };
+                }),
               });
             }
           }
+
+          await finalizeStagedBinaryAssets(
+            tx,
+            userId,
+            uploadedAssets,
+            { documentsBySourceId, messagesBySourceId }
+          );
 
           return {
             projectId: project.id,
@@ -158,17 +207,19 @@ export function createPrismaDataPortabilityRepository(
                 (total, chat) => total + chat.messages.length,
                 0
               ),
+              ...(uploadedAssets.length > 0
+                ? { assets: uploadedAssets.length }
+                : {}),
             },
           };
         },
-        {
-          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-        }
-      );
+        PORTABILITY_SERIALIZABLE_TRANSACTION_OPTIONS
+      ));
     },
 
     async findOwnedProjectExportData(userId, projectId, includeChats) {
-      const project = await database.project.findFirst({
+      return database.$transaction(async (tx) => {
+      const project = await tx.project.findFirst({
         select: {
           id: true,
           name: true,
@@ -204,11 +255,13 @@ export function createPrismaDataPortabilityRepository(
               title: true,
               content: true,
               source: true,
+              sourceAssetId: true,
               mimeType: true,
               metadata: true,
               createdAt: true,
               updatedAt: true,
             },
+            take: PROJECT_EXPORT_LIMITS.maxDocuments + 1,
           },
         },
         where: {
@@ -219,8 +272,12 @@ export function createPrismaDataPortabilityRepository(
 
       if (!project) return null;
 
-      const chats = includeChats
-        ? await database.chat.findMany({
+      if (project.documents.length > PROJECT_EXPORT_LIMITS.maxDocuments) {
+        throwProjectExportTooLarge();
+      }
+
+      const chatRows = includeChats
+        ? await tx.chat.findMany({
             orderBy: [
               {
                 createdAt: "asc",
@@ -236,27 +293,8 @@ export function createPrismaDataPortabilityRepository(
               model: true,
               createdAt: true,
               updatedAt: true,
-              messages: {
-                orderBy: [
-                  {
-                    createdAt: "asc",
-                  },
-                  {
-                    id: "asc",
-                  },
-                ],
-                select: {
-                  id: true,
-                  role: true,
-                  content: true,
-                  mode: true,
-                  model: true,
-                  attachment: true,
-                  metadata: true,
-                  createdAt: true,
-                },
-              },
             },
+            take: PROJECT_EXPORT_LIMITS.maxChats + 1,
             where: {
               projectId,
               userId,
@@ -264,10 +302,123 @@ export function createPrismaDataPortabilityRepository(
           })
         : [];
 
+      if (chatRows.length > PROJECT_EXPORT_LIMITS.maxChats) {
+        throwProjectExportTooLarge();
+      }
+
+      const messageRows = includeChats
+        ? await tx.message.findMany({
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            select: {
+              id: true,
+              chatId: true,
+              role: true,
+              content: true,
+              mode: true,
+              model: true,
+              attachment: true,
+              attachments: {
+                orderBy: { ordinal: "asc" },
+                select: { assetId: true, ordinal: true },
+              },
+              metadata: true,
+              createdAt: true,
+            },
+            take: PROJECT_EXPORT_LIMITS.maxMessages + 1,
+            where: {
+              chat: {
+                projectId,
+                userId,
+              },
+            },
+          })
+        : [];
+
+      if (messageRows.length > PROJECT_EXPORT_LIMITS.maxMessages) {
+        throwProjectExportTooLarge();
+      }
+
+      const assetRows = await tx.storedAsset.findMany({
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: {
+          checksumSha256: true,
+          createdAt: true,
+          declaredMimeType: true,
+          detectedMimeType: true,
+          etag: true,
+          expectedSizeBytes: true,
+          id: true,
+          messageAttachment: {
+            select: { messageId: true, ordinal: true },
+          },
+          objectKey: true,
+          originalName: true,
+          ownerId: true,
+          projectId: true,
+          purpose: true,
+          readyAt: true,
+          sizeBytes: true,
+          sourceDocument: { select: { id: true } },
+          status: true,
+          updatedAt: true,
+          uploadExpiresAt: true,
+          validationStartedAt: true,
+        },
+        take: BINARY_ASSET_PORTABILITY_LIMITS.maxAssets + 1,
+        where: {
+          OR: [
+            { sourceDocument: { projectId } },
+            ...(includeChats
+              ? [
+                  {
+                    messageAttachment: {
+                      message: { chat: { projectId, userId } },
+                    },
+                  },
+                ]
+              : []),
+          ],
+          ownerId: userId,
+        },
+      });
+      if (assetRows.length > BINARY_ASSET_PORTABILITY_LIMITS.maxAssets) {
+        throwProjectExportTooLarge();
+      }
+
+      const binaryAssets = bindCompleteExportAssetRows(
+        userId,
+        assetRows,
+        project.documents,
+        messageRows
+      );
+
+      const messagesByChat = new Map<
+        string,
+        ProjectExportChatRecord["messages"]
+      >();
+      for (const { attachments, chatId, ...message } of messageRows) {
+        void attachments;
+        const messages = messagesByChat.get(chatId) || [];
+        messages.push(message);
+        messagesByChat.set(chatId, messages);
+      }
+      const chats = chatRows.map((chat) => ({
+        ...chat,
+        messages: messagesByChat.get(chat.id) || [],
+      }));
+      const { documents: documentRows, ...projectRecord } = project;
+      const documents = documentRows.map(({ sourceAssetId, ...document }) => {
+        void sourceAssetId;
+        return document;
+      });
+
       return {
-        ...project,
+        ...projectRecord,
+        binaryAssets,
         chats,
+        documents,
       };
+      }, PORTABILITY_SNAPSHOT_TRANSACTION_OPTIONS);
     },
 
     async findProjectDocumentIndexStatuses(projectId, documentIds) {
@@ -291,29 +442,6 @@ export function createPrismaDataPortabilityRepository(
 
 export const dataPortabilityRepository = createPrismaDataPortabilityRepository();
 
-export function resolveImportedProjectName(
-  sourceProjectName: string,
-  existingProjectNames: string[]
-) {
-  const names = new Set(
-    existingProjectNames.map((name) => name.toLocaleLowerCase("en-US"))
-  );
-
-  for (let sequence = 1; sequence <= existingProjectNames.length + 2; sequence += 1) {
-    const suffix =
-      sequence === 1 ? " (Imported)" : ` (Imported ${sequence})`;
-    const availableChars = 120 - suffix.length;
-    const sourceName = sourceProjectName.slice(0, availableChars).trimEnd();
-    const candidate = `${sourceName}${suffix}`;
-
-    if (!names.has(candidate.toLocaleLowerCase("en-US"))) {
-      return candidate;
-    }
-  }
-
-  throw new Error("Unable to resolve an imported project name.");
-}
-
 function toPrismaChatRole(role: "user" | "assistant" | "system") {
   if (role === "assistant") return ChatRole.ASSISTANT;
   if (role === "system") return ChatRole.SYSTEM;
@@ -321,6 +449,30 @@ function toPrismaChatRole(role: "user" | "assistant" | "system") {
   return ChatRole.USER;
 }
 
-function toPrismaJson(value: unknown): InputJsonValue {
-  return value as InputJsonValue;
+function toPrismaJson(value: unknown): Prisma.InputJsonValue {
+  return value as Prisma.InputJsonValue;
+}
+
+function throwProjectExportTooLarge(): never {
+  throw new AppError(
+    "Project export is too large to package safely.",
+    413,
+    "PROJECT_EXPORT_TOO_LARGE"
+  );
+}
+
+function throwProjectImportDestinationLimitExceeded(): never {
+  throw new AppError(
+    "This import would exceed an account data limit. Delete existing data or import a smaller archive.",
+    409,
+    "PROJECT_IMPORT_DESTINATION_LIMIT_EXCEEDED"
+  );
+}
+
+async function lockProjectImportQuotas(
+  tx: Prisma.TransactionClient,
+  userId: string
+) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`oddpath:quota:chats:${userId}`}, 0))`;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`oddpath:quota:projects:${userId}`}, 0))`;
 }

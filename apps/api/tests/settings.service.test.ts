@@ -7,7 +7,7 @@ import {
 import type {
   SettingsRepository,
   UserSettingsRecord,
-} from "../src/modules/settings/settings.repository.ts";
+} from "../src/modules/settings/settings.types.ts";
 
 describe("settings service", () => {
   it("returns safe defaults when the user has no saved settings", async () => {

@@ -34,7 +34,7 @@ export async function createBackendApiError(response: Response, fallback: string
   }
 
   return new BackendApiError(
-    getUserFacingBackendMessage(payload, fallback),
+    getUserFacingBackendMessage(payload, response.status, fallback),
     {
       code: payload.code,
       issues: payload.issues,
@@ -55,24 +55,32 @@ async function readBackendErrorPayload(response: Response): Promise<BackendError
   }
 
   try {
-    const parsed = JSON.parse(text) as BackendErrorPayload;
+    const parsed = JSON.parse(text) as unknown;
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+
+    const record = parsed as Record<string, unknown>;
 
     return {
-      code: parsed.code,
-      error: parsed.error,
-      issues: parsed.issues,
-      message: parsed.message,
+      code: readBackendErrorCode(record.code),
+      error: readNonEmptyString(record.error),
+      issues: readBackendErrorIssues(record.issues),
+      message: readNonEmptyString(record.message),
     };
   } catch {
-    return {
-      error: text,
-    };
+    // Plain-text and HTML responses may come from a proxy or an upstream
+    // service. They are not part of Oddpath's typed API error contract.
+    return null;
   }
 }
 
-function getUserFacingBackendMessage(payload: BackendErrorPayload, fallback: string) {
-  const serverMessage = payload.error || payload.message || fallback;
-
+function getUserFacingBackendMessage(
+  payload: BackendErrorPayload,
+  status: number,
+  fallback: string
+) {
   if (payload.code === "DATABASE_UNAVAILABLE") {
     return t("errors.databaseUnavailable");
   }
@@ -93,7 +101,23 @@ function getUserFacingBackendMessage(payload: BackendErrorPayload, fallback: str
     return t("errors.modelUnavailable");
   }
 
-  return serverMessage;
+  if (payload.code === "REGISTRATION_DISABLED") {
+    return t("auth.register.closed");
+  }
+
+  if (payload.code === "INVITE_REQUIRED") {
+    return t("errors.auth.inviteRequired");
+  }
+
+  if (payload.code === "TERMS_VERSION_OUTDATED") {
+    return t("errors.auth.termsOutdated");
+  }
+
+  if (status >= 500) {
+    return t("errors.serverNoDetails");
+  }
+
+  return payload.error || payload.message || fallback;
 }
 
 function getFallbackBackendMessage(response: Response, fallback: string) {
@@ -102,4 +126,32 @@ function getFallbackBackendMessage(response: Response, fallback: string) {
   }
 
   return fallback;
+}
+
+function readBackendErrorCode(value: unknown) {
+  return typeof value === "string" && /^[a-z0-9_-]{1,64}$/i.test(value)
+    ? value
+    : undefined;
+}
+
+function readBackendErrorIssues(value: unknown): BackendErrorIssue[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+
+  const issues = value.flatMap((issue) => {
+    if (!issue || typeof issue !== "object" || Array.isArray(issue)) return [];
+
+    const record = issue as Record<string, unknown>;
+    const message = readNonEmptyString(record.message);
+    const path = typeof record.path === "string" ? record.path : undefined;
+
+    return message !== undefined && path !== undefined
+      ? [{ message, path }]
+      : [];
+  });
+
+  return issues.length > 0 ? issues : undefined;
+}
+
+function readNonEmptyString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : undefined;
 }

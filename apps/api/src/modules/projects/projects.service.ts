@@ -1,11 +1,12 @@
 import { ProjectRole } from "../../generated/prisma/enums.js";
 import { AppError } from "../../lib/errors.js";
-import {
-  projectsRepository,
-  type ProjectRecord,
-  type ProjectsRepository,
-} from "./projects.repository.js";
-import type { ProjectDto, ProjectInput } from "./projects.types.js";
+import { projectsRepository } from "./projects.repository.js";
+import type {
+  ProjectDto,
+  ProjectInput,
+  ProjectRecord,
+  ProjectsRepository,
+} from "./projects.types.js";
 
 export interface ProjectsServiceDependencies {
   repository: ProjectsRepository;

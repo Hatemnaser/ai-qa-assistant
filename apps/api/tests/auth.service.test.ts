@@ -6,9 +6,81 @@ import type {
   EmailVerificationEmailMessage,
   PasswordResetEmailMessage,
 } from "../src/modules/auth/auth.email.ts";
+import { LOGIN_DUMMY_PASSWORD_HASH } from "../src/modules/auth/auth.security.ts";
+import {
+  buildAuthEmailPayloadContext,
+  decryptAuthEmailPayload,
+} from "../src/modules/auth/auth-email-outbox.crypto.ts";
+import {
+  setSecurityEventLoggerForTests,
+  type SecurityEventPayload,
+} from "../src/lib/security-events.ts";
 import { EXPIRED_SESSION, createUserRecord, setupAuthService } from "./helpers/authService.ts";
 
 describe("auth service", () => {
+  it("keeps auth responses safe and emits sanitized events when email delivery fails", async () => {
+    const events: SecurityEventPayload[] = [];
+    const restoreLogger = setSecurityEventLoggerForTests((event) => events.push(event));
+    const emailService: AuthEmailService = {
+      async sendEmailVerificationEmail() {
+        throw new Error("SMTP rejected person@example.com token=verification-token provider-id=secret");
+      },
+      async sendPasswordResetEmail() {
+        throw new Error("SMTP rejected person@example.com token=reset-token provider-id=secret");
+      },
+    };
+    const { service } = setupAuthService({
+      emailService,
+      users: [createUserRecord({ email: "reset@example.com", id: "reset-user" })],
+    });
+
+    try {
+      const registration = await service.register(
+        {
+          email: "register@example.com",
+          locale: "en",
+          password: "a sufficiently long passphrase",
+          termsAccepted: true,
+          termsVersion: "development-v1",
+        },
+        {}
+      );
+      const reset = await service.requestPasswordReset({ email: "reset@example.com" });
+
+      assert.equal(registration.message, "Check your email to verify your account.");
+      assert.equal(reset.message, "If an account exists for this email, a reset link has been sent.");
+    } finally {
+      restoreLogger();
+    }
+
+    assert.deepEqual(
+      events.map(({ code, event, operation }) => ({ code, event, operation })),
+      [
+        {
+          code: "AUTH_EMAIL_DELIVERY_FAILED",
+          event: "auth_email_delivery_failed",
+          operation: "email_verification",
+        },
+        {
+          code: "AUTH_EMAIL_DELIVERY_FAILED",
+          event: "auth_email_delivery_failed",
+          operation: "password_reset",
+        },
+      ]
+    );
+    const serialized = JSON.stringify(events);
+    for (const secret of [
+      "register@example.com",
+      "reset@example.com",
+      "verification-token",
+      "reset-token",
+      "provider-id",
+      "SMTP rejected",
+    ]) {
+      assert.equal(serialized.includes(secret), false);
+    }
+  });
+
   it("registers a password user as unverified and sends a hashed verification token", async () => {
     const emailService = createFakeEmailService();
     const { repository, service } = setupAuthService({
@@ -26,6 +98,8 @@ describe("auth service", () => {
         locale: "en",
         name: "Person",
         password: "Password1",
+        termsAccepted: true,
+        termsVersion: "development-v1",
       },
       {
         ipAddress: "127.0.0.1",
@@ -36,6 +110,8 @@ describe("auth service", () => {
     assert.equal(repository.users.length, 1);
     assert.equal(repository.users[0].passwordHash, "hashed-password:Password1");
     assert.equal(repository.users[0].emailVerifiedAt, null);
+    assert.equal(repository.users[0].acceptedTermsVersion, "development-v1");
+    assert.equal(repository.users[0].acceptedTermsAt?.toISOString(), "2026-05-19T00:00:00.000Z");
     assert.equal(repository.sessions.length, 0);
     assert.deepEqual(response, {
       message: "Check your email to verify your account.",
@@ -49,7 +125,47 @@ describe("auth service", () => {
     assert.equal(new URL(emailService.verificationMessages[0].verificationUrl).searchParams.get("token"), "verification-token");
   });
 
-  it("rejects duplicate registrations", async () => {
+  it("queues an encrypted verification email without waiting for SMTP in outbox mode", async () => {
+    const secret = "test-email-outbox-secret-that-is-long-enough";
+    const emailService = createFakeEmailService();
+    const { repository, service } = setupAuthService({
+      emailDeliveryMode: "outbox",
+      emailOutboxEncryptionSecret: secret,
+      emailService,
+      emailVerificationLink: {
+        appOrigin: "https://oddpath.example",
+        verificationPath: "/#/verify-email",
+      },
+    });
+
+    await service.register(
+      {
+        email: "queued@example.com",
+        locale: "en",
+        password: "a sufficiently long passphrase",
+        termsAccepted: true,
+        termsVersion: "development-v1",
+      },
+      {}
+    );
+
+    const token = repository.emailVerificationTokens[0];
+    assert.ok(token.emailJob);
+    assert.equal(emailService.verificationMessages.length, 0);
+    assert.equal(token.emailJob.encryptedPayload.includes("verification-token"), false);
+
+    const payload = decryptAuthEmailPayload(token.emailJob.encryptedPayload, {
+      context: buildAuthEmailPayloadContext({
+        jobId: token.emailJob.id,
+        kind: "EMAIL_VERIFICATION",
+        userId: token.userId,
+      }),
+      secret,
+    });
+    assert.equal(new URL(payload.url).hash.includes("verification-token"), true);
+  });
+
+  it("keeps duplicate registration responses generic without creating another account", async () => {
     const { repository, service } = setupAuthService({
       users: [
         createUserRecord({
@@ -58,22 +174,53 @@ describe("auth service", () => {
       ],
     });
 
+    const response = await service.register(
+      {
+        email: "taken@example.com",
+        locale: "en",
+        password: "Password1",
+        termsAccepted: true,
+        termsVersion: "development-v1",
+      },
+      {}
+    );
+    assert.deepEqual(response, { message: "Check your email to verify your account." });
+    assert.equal(repository.users.length, 1);
+    assert.equal(repository.sessions.length, 0);
+  });
+
+  it("rejects registration before password hashing when the gate is closed", async () => {
+    let passwordHashCalls = 0;
+    const { repository, service } = setupAuthService({
+      registrationPolicy: {
+        currentTermsVersion: "2026-08-12",
+        inviteCodeHashes: [],
+        mode: "disabled",
+      },
+      security: {
+        async hashPassword(password) {
+          passwordHashCalls += 1;
+          return `hashed-password:${password}`;
+        },
+      },
+    });
+
     await assert.rejects(
       () =>
         service.register(
           {
-            email: "taken@example.com",
+            email: "person@example.com",
             locale: "en",
-            password: "Password1",
+            password: "a sufficiently long passphrase",
+            termsAccepted: true,
+            termsVersion: "2026-08-12",
           },
           {}
         ),
-      {
-        code: "EMAIL_ALREADY_REGISTERED",
-        statusCode: 409,
-      }
+      { code: "REGISTRATION_DISABLED", statusCode: 403 }
     );
-    assert.equal(repository.sessions.length, 0);
+    assert.equal(passwordHashCalls, 0);
+    assert.equal(repository.users.length, 0);
   });
 
   it("logs in existing password users and supports remember sessions", async () => {
@@ -169,7 +316,14 @@ describe("auth service", () => {
   });
 
   it("keeps missing-user login failures generic", async () => {
+    const verificationCalls: Array<{ password: string; passwordHash: string }> = [];
     const { repository, service } = setupAuthService({
+      security: {
+        async verifyPassword(password, passwordHash) {
+          verificationCalls.push({ password, passwordHash });
+          return false;
+        },
+      },
       users: [],
     });
 
@@ -188,6 +342,12 @@ describe("auth service", () => {
         statusCode: 401,
       }
     );
+    assert.deepEqual(verificationCalls, [
+      {
+        password: "Password1",
+        passwordHash: LOGIN_DUMMY_PASSWORD_HASH,
+      },
+    ]);
     assert.equal(repository.sessions.length, 0);
   });
 
@@ -241,6 +401,36 @@ describe("auth service", () => {
     assert.equal(emailService.messages.length, 1);
     assert.equal(emailService.messages[0].to, "person@example.com");
     assert.equal(new URL(emailService.messages[0].resetUrl).searchParams.get("token"), "reset-token");
+  });
+
+  it("invalidates earlier reset links when a newer link is requested", async () => {
+    let tokenNumber = 0;
+    const user = createUserRecord();
+    const { repository, service } = setupAuthService({
+      security: {
+        createPasswordResetToken: () => `reset-token-${++tokenNumber}`,
+      },
+      users: [user],
+    });
+
+    await service.requestPasswordReset({ email: user.email });
+    await service.requestPasswordReset({ email: user.email });
+
+    assert.equal(repository.passwordResetTokens.length, 2);
+    assert.equal(repository.passwordResetTokens[0].usedAt?.toISOString(), "2026-05-19T00:00:00.000Z");
+    assert.equal(repository.passwordResetTokens[1].usedAt, null);
+
+    await assert.rejects(
+      () =>
+        service.resetPassword({
+          newPassword: "a sufficiently long passphrase",
+          token: "reset-token-1",
+        }),
+      {
+        code: "INVALID_RESET_TOKEN",
+        statusCode: 400,
+      }
+    );
   });
 
   it("verifies an email with a valid token and does not allow reuse", async () => {
@@ -372,6 +562,7 @@ describe("auth service", () => {
     });
     await repository.createPasswordResetToken({
       expiresAt: new Date("2026-05-19T00:30:00.000Z"),
+      now: new Date("2026-05-19T00:00:00.000Z"),
       tokenHash: "hashed-reset:valid-token",
       userId: user.id,
     });
@@ -396,6 +587,7 @@ describe("auth service", () => {
     });
     await repository.createPasswordResetToken({
       expiresAt: EXPIRED_SESSION,
+      now: new Date("2026-05-18T00:00:00.000Z"),
       tokenHash: "hashed-reset:expired-token",
       userId: user.id,
     });
@@ -421,6 +613,7 @@ describe("auth service", () => {
     });
     await repository.createPasswordResetToken({
       expiresAt: new Date("2026-05-19T00:30:00.000Z"),
+      now: new Date("2026-05-19T00:00:00.000Z"),
       tokenHash: "hashed-reset:used-token",
       userId: user.id,
     });
@@ -447,6 +640,7 @@ describe("auth service", () => {
     });
     await repository.createPasswordResetToken({
       expiresAt: new Date("2026-05-19T00:30:00.000Z"),
+      now: new Date("2026-05-19T00:00:00.000Z"),
       tokenHash: "hashed-reset:single-use-token",
       userId: user.id,
     });
@@ -483,6 +677,7 @@ describe("auth service", () => {
     });
     await repository.createPasswordResetToken({
       expiresAt: new Date("2026-05-19T00:30:00.000Z"),
+      now: new Date("2026-05-19T00:00:00.000Z"),
       tokenHash: "hashed-reset:login-token",
       userId: user.id,
     });

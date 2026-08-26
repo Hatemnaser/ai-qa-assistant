@@ -1,3 +1,4 @@
+import { logOperationalEvent } from "../../lib/operational-events.js";
 import {
   needsProjectDocumentIndex,
   prepareProjectDocumentIndex,
@@ -7,22 +8,23 @@ import {
   type ProjectDocumentEmbeddingService,
 } from "./project-document-embedding.service.js";
 import {
+  PROJECT_DOCUMENT_INDEX_FAILURE_MESSAGE,
   projectDocumentIndexRepository,
-  type ProjectDocumentIndexRepository,
 } from "./project-document-index.repository.js";
-import type { ProjectDocumentRecord } from "./project-documents.repository.js";
+import type { ProjectDocumentIndexRepository } from "./project-document-index.types.js";
+import type { ProjectDocumentRecord } from "./project-documents.types.js";
 
 export interface ProjectDocumentIndexer {
-  ensureDocumentsIndexed(documents: ProjectDocumentRecord[]): Promise<void>;
-  indexDocument(document: ProjectDocumentRecord): Promise<void>;
-  indexDocuments(documents: ProjectDocumentRecord[]): Promise<void>;
+  ensureDocumentsIndexed(documents: ProjectDocumentRecord[], userId?: string): Promise<void>;
+  indexDocument(document: ProjectDocumentRecord, userId?: string): Promise<void>;
+  indexDocuments(documents: ProjectDocumentRecord[], userId?: string): Promise<void>;
 }
 
 export function createProjectDocumentIndexer(
   repository: ProjectDocumentIndexRepository,
   embeddings: ProjectDocumentEmbeddingService = projectDocumentEmbeddingService
 ): ProjectDocumentIndexer {
-  async function indexDocument(document: ProjectDocumentRecord) {
+  async function indexDocument(document: ProjectDocumentRecord, userId?: string) {
     let index: ReturnType<typeof prepareProjectDocumentIndex>;
 
     try {
@@ -31,51 +33,51 @@ export function createProjectDocumentIndexer(
       const persisted = await repository.replaceDocumentIndex(index);
 
       if (!persisted) return;
-    } catch (error) {
-      const message = getErrorMessage(error);
-
+    } catch {
       try {
         await repository.markDocumentIndexFailed(
           document.id,
           document.updatedAt,
-          message
+          PROJECT_DOCUMENT_INDEX_FAILURE_MESSAGE
         );
       } catch {
         // The source document remains authoritative and lexical retrieval can still derive chunks.
       }
 
-      console.warn("Project document indexing failed:", {
-        documentId: document.id,
-        error: message,
+      logOperationalEvent("warn", {
+        event: "project_document_processing",
+        operation: "index_persistence",
+        outcome: "failed",
       });
 
       return;
     }
 
     try {
-      await embeddings.embedPreparedIndex(index);
-    } catch (error) {
-      console.warn("Project document embedding orchestration failed:", {
-        documentId: document.id,
-        error: getErrorMessage(error),
+      await embeddings.embedPreparedIndex(index, userId);
+    } catch {
+      logOperationalEvent("warn", {
+        event: "project_document_processing",
+        operation: "embedding_orchestration",
+        outcome: "failed",
       });
     }
   }
 
-  async function indexDocuments(documents: ProjectDocumentRecord[]) {
+  async function indexDocuments(documents: ProjectDocumentRecord[], userId?: string) {
     for (const document of documents) {
-      await indexDocument(document);
+      await indexDocument(document, userId);
     }
   }
 
-  async function ensureDocumentsIndexed(documents: ProjectDocumentRecord[]) {
+  async function ensureDocumentsIndexed(documents: ProjectDocumentRecord[], userId?: string) {
     for (const document of documents) {
       if (needsProjectDocumentIndex(document)) {
-        await indexDocument(document);
+        await indexDocument(document, userId);
         continue;
       }
 
-      await embeddings.embedPendingDocumentChunks(document.id);
+      await embeddings.embedPendingDocumentChunks(document.id, userId);
     }
   }
 
@@ -90,7 +92,3 @@ export const projectDocumentIndexer = createProjectDocumentIndexer(
   projectDocumentIndexRepository,
   projectDocumentEmbeddingService
 );
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Unknown indexing error";
-}

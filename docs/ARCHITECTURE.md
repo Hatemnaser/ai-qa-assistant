@@ -1,8 +1,8 @@
-# AI QA Assistant Architecture
+# Oddpath Architecture
 
 ## Direction
 
-AI QA Assistant has moved from the original vanilla prototype into a Vue and TypeScript product structure. The legacy frontend and CommonJS backend have been removed after parity migration.
+Oddpath has moved from the original vanilla prototype into a Vue and TypeScript product structure. The legacy frontend and CommonJS backend have been removed after parity migration.
 
 Target stack:
 
@@ -71,6 +71,12 @@ modules/<feature>/
 
 Small modules can start with fewer files, but should not put business logic directly in route definitions.
 
+Repository ports and persistence records belong in the module's
+`<feature>.types.ts`; `<feature>.repository.ts` implements those contracts.
+Services and other modules may import the runtime repository instance from the
+implementation file, but must take repository dependency types from the
+contract file. This keeps orchestration testable without coupling it to Prisma.
+
 ## Active Backend Modules
 
 - `health`: service status and deployment checks.
@@ -91,8 +97,13 @@ Small modules can start with fewer files, but should not put business logic dire
   and supported external conversation archives. Preview performs no writes;
   Commit revalidates the same ZIP/digest and uses transactional create-new
   writes without replacing identity, credentials, sessions, or settings.
+  Native Account and Project formats accept legacy v1 packages and use v2 when
+  stored private files are present. The binary path validates exact
+  owner-scoped message/document relations, stages assets and deletion jobs
+  before object writes, and finalizes `READY` records and canonical relations
+  inside the same import transaction.
 - Frontend Account Data portability lives under `features/data-portability`.
-  Settings exposes a separate "Your data" panel for complete ZIP export and one
+  Settings exposes a separate "Your data" panel for bounded canonical ZIP export and one
   lazy-loaded local-file Account Import Preview/Commit modal with automatic
   archive detection. Account Memory CRUD remains focused on editing memory and
   has no standalone portability UI.
@@ -104,9 +115,13 @@ Small modules can start with fewer files, but should not put business logic dire
 - `#/login`: sign-in page wired to cookie-backed auth.
 - `#/register`: account creation page wired to cookie-backed auth.
 - `#/forgot-password`: password reset request page.
+- `#/reset-password`: token-backed password replacement page. The token is
+  consumed from the link and removed from the visible URL/history entry.
+- `#/verify-email`: token-backed email verification page with the same URL
+  token cleanup.
 - `#/usage`: personal `My Usage` page for the current guest or signed-in user.
 - `#/settings`: signed-in user preferences for language, theme, and default
-  model, plus complete Account Data export and unified account import.
+  model, plus bounded Account Data export and unified account import.
   Language drives the core web i18n state for `en`, `ar`, and `de`, including
   Arabic RTL through `html dir`.
 - `#/projects`: signed-in project management page with a searchable/sortable project grid, project detail view, project chat list, project Add Chats modal, project-scoped composer, and modal create/edit/delete flows.
@@ -114,7 +129,10 @@ Small modules can start with fewer files, but should not put business logic dire
   local-file Import Preview/Commit modal that refreshes project and chat state
   before opening the newly created project.
 
-The frontend auth pages call the API with `credentials: "include"` so sessions stay in the httpOnly cookie. Google OAuth and real reset emails are still future integrations.
+The frontend auth pages call the API with `credentials: "include"` so sessions
+stay in the httpOnly cookie. Verification and reset email delivery use the
+backend auth-email adapter (SMTP in production); Google OAuth remains a future
+integration.
 
 ### Auth Security Direction
 
@@ -133,13 +151,23 @@ these paths:
    delivery, MFA/passkeys, organization roles, or managed session/account
    flows.
 
-The current recommendation is to defer the library migration decision until
-auth becomes the active workstream. If we keep custom auth, the minimum
-hardening backlog is login/register/forgot-password rate limiting, real reset
-tokens and email delivery, optional email verification, password policy review,
-session rotation/invalidating all sessions after password reset, CSRF review for
-cookie-authenticated state-changing routes, and production cookie settings
-verified over HTTPS.
+The owned auth checkpoint now includes route-specific rate limiting, reset and
+verification tokens with SMTP delivery, a reviewed passphrase policy, session
+invalidation after password reset, signed double-submit CSRF protection, and
+production cookie fail-fast checks. Live HTTPS cookie, SMTP delivery, and proxy
+behavior still require the staging smoke gate. Revisit a maintained auth library
+when OAuth, MFA/passkeys, organizations, or broader identity-provider support
+becomes active product scope.
+
+### Application Rate-Limit Storage
+
+Auth, chat, account deletion, asset initiation, and data-portability fixed-window
+guards share one process-local storage primitive. Each limiter tracks at most
+10,000 identities, fails closed for an unseen identity when full, and uses an
+expiration min-heap so requests do not scan the full key set. Counters still
+reset on process restart and are not shared across replicas; a multi-instance
+deployment therefore still requires trusted proxy/host limits and eventually a
+shared rate-limit store.
 
 ## Later Backend Work
 
@@ -159,10 +187,18 @@ verified over HTTPS.
 ## Active API Routes
 
 - `GET /api/health`: health check.
+- `GET /api/health/ready`: database-aware deployment readiness check with a
+  short result cache, one coalesced in-flight probe, and fail-fast behavior
+  while a timed-out raw probe is still unresolved.
 - `POST /api/auth/register`: create a password user with a supported locale
   (`en`, `ar`, or `de`) and start the email verification flow.
 - `POST /api/auth/login`: validate credentials and set a session cookie.
 - `POST /api/auth/forgot-password`: accept reset requests with a generic response.
+- `POST /api/auth/reset-password`: consume a one-time reset token, replace the
+  password, and invalidate existing sessions.
+- `POST /api/auth/verify-email`: consume a one-time verification token.
+- `POST /api/auth/resend-verification`: issue a generic response while sending
+  a replacement verification link when appropriate.
 - `GET /api/auth/me`: read the current user from the session cookie.
 - `POST /api/auth/logout`: delete the current session when present and clear the cookie.
 - `GET /api/ai/models`: expose the active provider/model catalog for the frontend model selector.
@@ -178,25 +214,41 @@ verified over HTTPS.
 - `POST /api/memories`: create a manual account memory note.
 - `PUT /api/memories/:memoryId`: update a manual account memory note owned by the signed-in user.
 - `DELETE /api/memories/:memoryId`: delete a manual account memory note owned by the signed-in user.
-- `GET /api/portability/projects/:projectId/export`: download an owned project
+- `POST /api/portability/projects/:projectId/export`: download an owned project
   as a versioned portable ZIP. `includeChats=true` is the default;
-  `includeChats=false` omits project chat JSON/Markdown. Chat attachment
-  metadata may be included, but original chat files are not exported because
-  chat file persistence is not implemented.
+  `includeChats=false` excludes project chat JSON/Markdown and their attachment
+  relations. Legacy v1 archives remain supported. When eligible stored private
+  files exist, the export uses v2 with bounded binary descriptors, hashed
+  `assets/` entries, and exact source message/document bindings. The
+  state-changing download trigger requires CSRF and is guarded by per-user/IP
+  rate limits plus one active portability operation per user and two per API
+  process.
 - `POST /api/portability/projects/import/preview`: inspect an authenticated
   Project Portable ZIP without database writes. Accepts `application/zip` or
-  `application/octet-stream` up to 50 MB and returns compatibility, package
+  `application/octet-stream` up to 8 MB and returns compatibility, package
   digest, suggested project name, counts, warnings, and unsupported safe
   entries.
 - `POST /api/portability/projects/import/commit`: create a new project from the
   same validated ZIP. Accepts `application/zip`, requires the Preview digest in
   `X-Package-Digest`, never overwrites or merges, writes canonical records
   transactionally with new IDs, and starts document indexing only after the
-  transaction succeeds.
-- `GET /api/portability/account/export`: download the authenticated user's
-  complete canonical account data as `account-data-export.zip`, including safe
+  transaction succeeds. For v2 files it first creates quota-locked staging
+  assets and durable deletion jobs, writes immutable objects, then promotes and
+  binds them atomically inside the canonical import transaction.
+- `POST /api/portability/account/export`: download the authenticated user's
+  portable canonical account data as `account-data-export.zip`, including safe
   profile/settings fields, Account Memory, projects, documents, chats,
-  messages, readable Markdown, and provider-neutral migration references.
+  messages, readable Markdown, and provider-neutral migration references. The
+  synchronous single-instance path is capped at 10 MB compressed, 5 MB per
+  entry, 20 MB across generated entries, and 600 entries, with an in-memory
+  three-per-hour limiter enforced independently for the account and source IP.
+  It requires CSRF. Legacy v1 packages remain compatible; exports with eligible
+  stored files use v2 and include bounded, hashed private-file entries with
+  validated relational bindings. Production startup still rejects
+  `PRIVATE_ASSETS_ENABLED=true` pending real PostgreSQL/R2 interruption proof,
+  production-scale latency/timeout validation, and monitored multi-instance
+  cleanup operations. Persisted restore fencing and exact cleanup lease CAS
+  are implemented. See `docs/BINARY_ASSET_PORTABILITY.md`.
 - `POST /api/portability/account/import/preview`: safely inspect a native
   Account Data ZIP or recognized external conversation ZIP through automatic
   format detection, then return project/document/chat/message/memory counts,
@@ -206,7 +258,15 @@ verified over HTTPS.
   canonical records with new IDs in one serializable transaction. Native
   project-chat links are remapped to new project IDs; exact trimmed Account
   Memory duplicates are skipped; Project Documents are indexed only after the
-  transaction succeeds.
+  transaction succeeds. Native v2 binary objects use the same staged durable
+  cleanup and atomic relation-finalization protocol as Project import.
+
+All ZIP import routes are fail-closed in production unless
+`PORTABILITY_IMPORTS_ENABLED=true` is explicitly set. Rate and concurrency
+guards run before the route-specific raw parser. Imports reuse the persisted
+account quotas, take the same advisory quota locks as ordinary creates, and
+reject a package if its records plus current destination data would exceed a
+limit.
 - `GET /api/projects`: list projects owned by the signed-in user.
 - `POST /api/projects`: create a signed-in user's project.
 - `PUT /api/projects/:projectId`: update a project owned by the signed-in user.
@@ -226,11 +286,11 @@ verified over HTTPS.
 
 `POST /api/chat` allows anonymous portfolio usage. Guests receive an httpOnly `qa_guest_id` cookie and are limited separately from signed-in users. The API also hashes the request IP as a fallback abuse guard. Usage credits are reserved before calling Gemini so the API key is protected from unbounded demo traffic. Successful chat responses update the reserved usage with provider token metadata when available and include a public `usage` summary with `used`, `remaining`, and `limit`.
 
-Signed-in chat persistence can store an optional `projectId`. The chat history service validates that linked projects are owned by the current user before saving, so a user cannot attach a chat to another user's project. Existing chats can be assigned or moved to projects through the chat context menu once the account has at least one project. Project-linked chats show a topbar breadcrumb with the project and chat title; ordinary chats do not show a project state. The Projects page lists owned projects with search/sort controls and app-modal create/edit/delete flows. Opening a project shows its project chat list, a search/multi-select Add Chats modal for moving existing chats into the project, and the main chat composer; submitting there prepares a new chat linked to that project and opens the normal chat workspace. If a signed-in user opens Projects with no projects yet, the create-project modal opens and the page also shows a no-projects empty state. The sidebar moves project navigation into a collapsible scroll-area section once projects exist, above a collapsible Recent Chats section. The Projects section includes New Project and All Projects rows before the project folders; project rows expand to show chats linked to that project. Recent Chats shows chats without a project and remains a shortcut list, not a separate managed entity. Deleting a project leaves existing chats with `projectId` set to null through the database relation and the frontend clears stale local project assignments after project reloads.
+Signed-in chat persistence can store an optional `projectId`. The chat history service validates that linked projects are owned by the current user before saving, so a user cannot attach a chat to another user's project. Signed-in `localStorage` is a server-authoritative cache: only explicit pending edits or adopted guest drafts may upload, and durable deletion tombstones prevent an old browser cache from resurrecting a chat removed elsewhere. The precise reconciliation and launch quota contract is documented in `docs/DATA_LIMITS_AND_CHAT_SYNC.md`. Existing chats can be assigned or moved to projects through the chat context menu once the account has at least one project. Project-linked chats show a topbar breadcrumb with the project and chat title; ordinary chats do not show a project state. The Projects page lists owned projects with search/sort controls and app-modal create/edit/delete flows. Opening a project shows its project chat list, a search/multi-select Add Chats modal for moving existing chats into the project, and the main chat composer; submitting there prepares a new chat linked to that project and opens the normal chat workspace. If a signed-in user opens Projects with no projects yet, the create-project modal opens and the page also shows a no-projects empty state. The sidebar moves project navigation into a collapsible scroll-area section once projects exist, above a collapsible Recent Chats section. The Projects section includes New Project and All Projects rows before the project folders; project rows expand to show chats linked to that project. Recent Chats shows chats without a project and remains a shortcut list, not a separate managed entity. Deleting a project leaves existing chats with `projectId` set to null through the database relation and the frontend clears stale local project assignments after project reloads.
 
-Projects are workspace containers. They own one optional Project Instructions record, manual Project Documents, and imported text/data/code files. Imported files are stored as read-only `ProjectDocument` records with `source: IMPORTED`, MIME type, original name, and size metadata. V1 accepts `txt`, `md`, `log`, `csv`, `json`, `html`, `css`, `js`, and `ts`, up to four files per import and 1MB per file. User-entered document text is stored as Markdown-backed `ProjectDocument` content. Recent Chats should not grow into a parallel management surface. If full chat browsing is needed later, the Search entry should become a Search/Chat History experience with filters for all chats, project chats, and non-project chats.
+Projects are workspace containers. They own one optional Project Instructions record, manual Project Documents, and imported text/data/code files. Imported files are stored as read-only `ProjectDocument` records with `source: IMPORTED`, MIME type, original name, and size metadata. V1 accepts `txt`, `md`, `log`, `csv`, `json`, `html`, `css`, `js`, and `ts`, up to four files per import and 250KB per file. User-entered document text is stored as Markdown-backed `ProjectDocument` content. Recent Chats should not grow into a parallel management surface. If full chat browsing is needed later, the Search entry should become a Search/Chat History experience with filters for all chats, project chats, and non-project chats.
 
-The frontend project-document registry maps extensions to MIME types, preview modes, labels, and syntax-highlight languages. Document cards open a read-only preview: Markdown is rendered through the existing sanitized Markdown pipeline, source files use a line-numbered viewer, and supported code files use `highlight.js`. Imported HTML is always displayed as escaped source and is never mounted in an iframe or executed. Files above 200,000 characters fall back to plain source rendering so the viewer remains responsive. Download, delete, and manual-Markdown edit actions stay in the card dropdown.
+The frontend project-document registry maps extensions to MIME types, preview modes, labels, and syntax-highlight languages. Document cards open a read-only preview: chat and document surfaces share the sanitized Markdown renderer from `src/ui/content`, source files use a line-numbered viewer, and supported code files use `highlight.js`. Imported HTML is always displayed as escaped source and is never mounted in an iframe or executed. Files above 200,000 characters fall back to plain source rendering so the viewer remains responsive. Download, delete, and manual-Markdown edit actions stay in the card dropdown.
 
 `ProjectsPage.vue` owns project navigation and CRUD orchestration. Project Instructions and Project Documents loading/mutations live in `useProjectKnowledge`, which guards active-project changes so stale async responses cannot overwrite the newly selected project. Project Knowledge styles live in their own SCSS partial rather than the generic workspace partial.
 

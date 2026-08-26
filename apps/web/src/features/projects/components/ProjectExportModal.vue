@@ -3,6 +3,7 @@ import { ref, watch } from "vue";
 
 import { useI18n } from "../../../i18n/useI18n";
 import CheckboxField from "../../../ui/CheckboxField.vue";
+import { useDialogAccessibility } from "../../../ui/useDialogAccessibility";
 import type { Project } from "../types";
 
 const props = defineProps<{
@@ -31,18 +32,26 @@ function requestCancel() {
 
   emit("cancel");
 }
+
+const { dialogRef, onDialogKeydown } = useDialogAccessibility({
+  canClose: () => !props.isExporting,
+  isOpen: () => Boolean(props.project),
+  onClose: requestCancel,
+});
 </script>
 
 <template>
   <Teleport to="body">
     <div
       v-if="project"
+      ref="dialogRef"
       class="modal fade show d-block"
       tabindex="-1"
       role="dialog"
       aria-modal="true"
       aria-labelledby="project-export-title"
       @click.self="requestCancel"
+      @keydown="onDialogKeydown"
     >
       <div class="modal-dialog modal-dialog-centered project-portability-dialog">
         <form

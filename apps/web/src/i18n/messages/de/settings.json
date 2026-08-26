@@ -14,5 +14,14 @@
   "settings.save": "Einstellungen speichern",
   "settings.saving": "Wird gespeichert...",
   "settings.accountMemory": "Account Memory",
-  "settings.noAccountMemory": "Noch kein Account Memory."
+  "settings.noAccountMemory": "Noch kein Account Memory.",
+  "settings.dangerZone": "Gefahrenbereich",
+  "settings.deleteAccountTitle": "Konto löschen",
+  "settings.deleteAccountDescription": "Lösche dein Oddpath-Konto und die zugehörigen Chats, Projekte, Erinnerungen, Einstellungen und Daten dauerhaft.",
+  "settings.deleteAccount": "Konto löschen...",
+  "settings.deleteAccountWarning": "Dies kann nicht rückgängig gemacht werden. Gib dein aktuelles Passwort ein, um die dauerhafte Löschung zu bestätigen.",
+  "settings.currentPassword": "Aktuelles Passwort",
+  "settings.confirmDeleteAccount": "Konto dauerhaft löschen",
+  "settings.deletingAccount": "Konto wird gelöscht...",
+  "settings.deleteAccountError": "Das Konto konnte nicht gelöscht werden."
 }

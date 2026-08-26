@@ -3,13 +3,22 @@ export class AppError extends Error {
   readonly code: string;
   readonly expose: boolean;
 
-  constructor(message: string, statusCode = 500, code = "APP_ERROR", expose = true) {
+  constructor(
+    message: string,
+    statusCode = 500,
+    code = "APP_ERROR",
+    expose = isClientErrorStatus(statusCode)
+  ) {
     super(message);
     this.name = "AppError";
     this.statusCode = statusCode;
     this.code = code;
     this.expose = expose;
   }
+}
+
+function isClientErrorStatus(statusCode: number) {
+  return statusCode >= 400 && statusCode < 500;
 }
 
 export function getErrorStatus(error: unknown, fallbackStatus = 500) {

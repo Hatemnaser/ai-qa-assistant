@@ -1,5 +1,6 @@
 import type { Ref } from "vue";
 
+import { useI18n } from "../../../i18n/useI18n";
 import {
   exportAnswerByFormat,
   exportChatByFormat,
@@ -18,9 +19,11 @@ export function useChatExportImport({
   addChatAndSelect,
   closeChatMenus,
 }: ChatExportImportOptions) {
+  const { t } = useI18n();
+
   function exportActiveChat(format: ExportFormat = "json") {
     if (!activeChat.value) {
-      alert("There is no active chat to export.");
+      alert(t("chat.export.noActive"));
       return;
     }
 
@@ -41,15 +44,18 @@ export function useChatExportImport({
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith(".json")) {
-      alert("Please choose a JSON chat export file.");
+      alert(t("chat.import.jsonOnly"));
       return;
     }
 
     try {
-      const importedChat = parseImportedChatJson(await file.text());
+      const importedChat = parseImportedChatJson(await file.text(), {
+        defaultAttachmentName: t("chat.import.defaultAttachmentName"),
+        defaultTitle: t("chat.import.defaultTitle"),
+      });
       addChatAndSelect(importedChat);
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Could not import this chat JSON file.");
+    } catch {
+      alert(t("chat.import.failed"));
     }
   }
 
@@ -62,7 +68,7 @@ export function useChatExportImport({
       await navigator.clipboard.writeText(content);
       return true;
     } catch {
-      alert("Copy failed.");
+      alert(t("chat.messages.copyFailed"));
       return false;
     }
   }

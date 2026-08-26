@@ -1,9 +1,21 @@
 node_modules
 .env
+.env.*
+!.env.example
+!.env.*.example
 .idea
+.vscode
+.codex-remote-attachments
+.npm-cache
+
+# Eluthira is a separate repository; never record it as an embedded Git link.
+/eluthira-site/
 
 apps/*/node_modules
 apps/*/.env
+apps/*/.env.*
+!apps/*/.env.example
+!apps/*/.env.*.example
 apps/*/dist
 apps/*/src/generated
 *.tsbuildinfo

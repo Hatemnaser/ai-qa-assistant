@@ -1,83 +1,90 @@
 import type { NextFunction, Request, Response } from "express";
 
 import { env } from "../../config/env.js";
+import { InMemoryFixedWindowRateLimiter } from "../../lib/fixed-window-rate-limiter.js";
 import { logAuthRateLimited } from "../../lib/security-events.js";
 
 const RATE_LIMITED_MESSAGE = "Too many attempts. Please try again later.";
 
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
+const authMutationLimits = new Map<string, number>([
+  ["/forgot-password", env.authForgotPasswordRateLimitMax],
+  ["/login", env.authLoginRateLimitMax],
+  ["/register", env.authRegisterRateLimitMax],
+  ["/resend-verification", env.authResendVerificationRateLimitMax],
+  ["/reset-password", env.authResetPasswordRateLimitMax],
+  ["/verify-email", env.authVerifyEmailRateLimitMax],
+]);
+
+/**
+ * Applies route-specific IP throttling before a JSON parser reads the body.
+ * This makes malformed and oversized requests consume the same coarse abuse
+ * budget as well-formed attempts. Account/email throttling remains post-parse.
+ */
+export function createAuthPreBodyIpRateLimitMiddleware(
+  routeLimits: ReadonlyMap<string, number> = authMutationLimits
+) {
+  const routeLimiters = new Map(
+    [...routeLimits].map(([path, maxAttempts]) => [
+      normalizeAuthMutationPath(path),
+      new InMemoryFixedWindowRateLimiter({
+        maxAttempts,
+        windowMs: env.authRateLimitWindowMs,
+      }),
+    ])
+  );
+
+  authRateLimiters.push(...routeLimiters.values());
+
+  return function authPreBodyIpRateLimit(req: Request, res: Response, next: NextFunction) {
+    // Express routes are case-insensitive and accept a trailing slash by
+    // default. Normalize with the same semantics so an equivalent spelling
+    // cannot skip the pre-body limiter while still reaching the route.
+    const normalizedPath = normalizeAuthMutationPath(req.path);
+    const limiter = req.method === "POST" ? routeLimiters.get(normalizedPath) : undefined;
+
+    if (!limiter) {
+      next();
+      return;
+    }
+
+    const now = Date.now();
+    const ipAddress = readIpAddress(req);
+    const result = limiter.consume(`ip:${ipAddress}`, now);
+
+    if (!result.limited) {
+      next();
+      return;
+    }
+
+    rejectRateLimited(req, res, {
+      closeConnection: true,
+      ipAddress,
+      now,
+      route: `${req.baseUrl}${normalizedPath}`,
+      resetAt: result.resetAt,
+    });
+  };
 }
 
-class InMemoryAuthRateLimiter {
-  private readonly attempts = new Map<string, RateLimitEntry>();
-
-  constructor(
-    private readonly options: {
-      maxAttempts: number;
-      windowMs: number;
-    }
-  ) {}
-
-  consume(key: string, now = Date.now()) {
-    this.pruneExpired(now);
-
-    const current = this.attempts.get(key);
-
-    if (!current || current.resetAt <= now) {
-      this.attempts.set(key, {
-        count: 1,
-        resetAt: now + this.options.windowMs,
-      });
-      return false;
-    }
-
-    current.count += 1;
-    return current.count > this.options.maxAttempts;
-  }
-
-  reset() {
-    this.attempts.clear();
-  }
-
-  private pruneExpired(now: number) {
-    for (const [key, entry] of this.attempts) {
-      if (entry.resetAt <= now) {
-        this.attempts.delete(key);
-      }
-    }
-  }
-}
-
-function createAuthRateLimitMiddleware(maxAttempts: number) {
-  const ipLimiter = new InMemoryAuthRateLimiter({
+export function createAuthRateLimitMiddleware(maxAttempts: number) {
+  const emailLimiter = new InMemoryFixedWindowRateLimiter({
     maxAttempts,
     windowMs: env.authRateLimitWindowMs,
   });
-  const emailLimiter = new InMemoryAuthRateLimiter({
-    maxAttempts,
-    windowMs: env.authRateLimitWindowMs,
-  });
 
-  authRateLimiters.push(ipLimiter, emailLimiter);
+  authRateLimiters.push(emailLimiter);
 
   return function authRateLimit(req: Request, res: Response, next: NextFunction) {
+    const now = Date.now();
     const keys = createRateLimitKeys(req);
-    const isIpLimited = ipLimiter.consume(keys.ipKey);
-    const isEmailLimited = keys.emailKey ? emailLimiter.consume(keys.emailKey) : false;
+    const emailResult = keys.emailKey ? emailLimiter.consume(keys.emailKey, now) : undefined;
 
-    if (isIpLimited || isEmailLimited) {
-      logAuthRateLimited({
+    if (emailResult?.limited) {
+      rejectRateLimited(req, res, {
         email: keys.normalizedEmail,
         ipAddress: keys.ipAddress,
-        method: req.method,
-        route: `${req.baseUrl}${req.path}`,
-      });
-      res.status(429).json({
-        code: "RATE_LIMITED",
-        error: RATE_LIMITED_MESSAGE,
-        message: RATE_LIMITED_MESSAGE,
+        now,
+        resetAt: emailResult.resetAt,
       });
       return;
     }
@@ -87,15 +94,56 @@ function createAuthRateLimitMiddleware(maxAttempts: number) {
 }
 
 function createRateLimitKeys(req: Request) {
-  const ipAddress = req.ip || req.socket.remoteAddress || "unknown-ip";
+  const ipAddress = readIpAddress(req);
   const email = normalizeEmail(readEmail(req.body));
 
   return {
-    emailKey: email ? `ip-email:${ipAddress}:${email}` : "",
-    ipKey: `ip:${ipAddress}`,
+    // Keep the account-oriented limiter independent from IP so rotating
+    // addresses cannot bypass throttling for one email address.
+    emailKey: email ? `email:${email}` : "",
     ipAddress,
     normalizedEmail: email,
   };
+}
+
+function readIpAddress(req: Request) {
+  return req.ip || req.socket.remoteAddress || "unknown-ip";
+}
+
+function rejectRateLimited(
+  req: Request,
+  res: Response,
+  input: {
+    closeConnection?: boolean;
+    email?: string;
+    ipAddress: string;
+    now: number;
+    route?: string;
+    resetAt: number;
+  }
+) {
+  logAuthRateLimited({
+    email: input.email,
+    ipAddress: input.ipAddress,
+    method: req.method,
+    route: input.route ?? `${req.baseUrl}${req.path}`,
+  });
+  if (input.closeConnection) {
+    // The pre-body limiter must not drain an unbounded attacker-controlled
+    // stream. Close after the small response so unread bytes are never reused.
+    req.pause();
+    res.shouldKeepAlive = false;
+    res.setHeader("Connection", "close");
+  }
+  res.setHeader(
+    "Retry-After",
+    Math.max(1, Math.ceil((input.resetAt - input.now) / 1000)).toString()
+  );
+  res.status(429).json({
+    code: "RATE_LIMITED",
+    error: RATE_LIMITED_MESSAGE,
+    message: RATE_LIMITED_MESSAGE,
+  });
 }
 
 function readEmail(body: unknown) {
@@ -111,8 +159,15 @@ function normalizeEmail(email: string | undefined) {
   return email?.trim().toLowerCase() || "";
 }
 
-const authRateLimiters: InMemoryAuthRateLimiter[] = [];
+function normalizeAuthMutationPath(path: string) {
+  const normalized = path.toLowerCase().replace(/\/+$/, "");
 
+  return normalized || "/";
+}
+
+const authRateLimiters: InMemoryFixedWindowRateLimiter[] = [];
+
+export const authPreBodyIpRateLimit = createAuthPreBodyIpRateLimitMiddleware();
 export const authLoginRateLimit = createAuthRateLimitMiddleware(env.authLoginRateLimitMax);
 export const authRegisterRateLimit = createAuthRateLimitMiddleware(env.authRegisterRateLimitMax);
 export const authForgotPasswordRateLimit = createAuthRateLimitMiddleware(

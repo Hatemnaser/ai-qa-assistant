@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { DATA_LIMITS } from "../src/config/data-limits.ts";
 import { prisma } from "../src/db/prisma.ts";
 import { createPrismaAccountImportRepository } from "../src/modules/data-portability/account-import.repository.ts";
 import type { ValidatedNativeAccountImport } from "../src/modules/data-portability/account-import.types.ts";
@@ -61,6 +62,27 @@ describe("native account import repository", () => {
       assert.deepEqual(records, []);
     }
   });
+
+  it("rejects an import that would exceed the destination chat quota", async () => {
+    const database = createFakeDatabase({
+      existingChatCount: DATA_LIMITS.chatsPerUser,
+    });
+    const repository = createPrismaAccountImportRepository(database.value);
+
+    await assert.rejects(
+      () => repository.createImportedAccount("user-1", createPackage()),
+      (error: unknown) =>
+        Boolean(
+          error &&
+            typeof error === "object" &&
+            "code" in error &&
+            error.code === "ACCOUNT_IMPORT_DESTINATION_LIMIT_EXCEEDED"
+        )
+    );
+    for (const records of Object.values(database.state)) {
+      assert.deepEqual(records, []);
+    }
+  });
 });
 
 function createPackage(): ValidatedNativeAccountImport {
@@ -68,6 +90,7 @@ function createPackage(): ValidatedNativeAccountImport {
     importKind: "account_archive",
     packageDigest: "a".repeat(64),
     sourceAccountId: "source-account-1",
+    binaryAssets: [],
     warnings: [],
     accountMemories: [
       createMemory("source-memory-1", "Keep Me"),
@@ -141,7 +164,9 @@ function createMessage(
   };
 }
 
-function createFakeDatabase(options: { failMessages?: boolean } = {}) {
+function createFakeDatabase(
+  options: { existingChatCount?: number; failMessages?: boolean } = {}
+) {
   const state = {
     memories: [] as Array<Record<string, unknown>>,
     projects: [] as Array<Record<string, unknown>>,
@@ -155,6 +180,9 @@ function createFakeDatabase(options: { failMessages?: boolean } = {}) {
   let transactionCalls = 0;
   let isolationLevel: unknown;
   const tx = {
+    async $executeRaw() {
+      return 0;
+    },
     project: {
       async findMany() {
         return [{ name: "Checkout (Imported)" }];
@@ -197,6 +225,9 @@ function createFakeDatabase(options: { failMessages?: boolean } = {}) {
       },
     },
     chat: {
+      async count() {
+        return options.existingChatCount || 0;
+      },
       async create(args: { data: Record<string, unknown> }) {
         const record = { id: `new-chat-${state.chats.length + 1}`, ...args.data };
         state.chats.push(record);

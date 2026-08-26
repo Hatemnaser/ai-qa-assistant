@@ -65,12 +65,35 @@ describe("useProjectKnowledge", () => {
 
     assert.deepEqual(knowledge.projectDocuments.value, []);
   });
+
+  it("best-effort releases uploaded source assets when project import fails", async () => {
+    const cancelled: string[] = [];
+    const activeProjectId = ref<string | null>("project-1");
+    const knowledge = useProjectKnowledge(activeProjectId, createDependencies({
+      async cancelPreparedFiles(files) {
+        cancelled.push(...files.flatMap((file) => "sourceAssetId" in file ? [file.sourceAssetId] : []));
+      },
+      async importDocuments() {
+        throw new Error("Import failed");
+      },
+      async prepareFiles() {
+        return [{ sourceAssetId: "asset-source-1" }];
+      },
+    }));
+
+    await flushPromises();
+    await knowledge.importProjectFiles([{} as File]);
+
+    assert.deepEqual(cancelled, ["asset-source-1"]);
+    assert.equal(knowledge.documentErrorMessage.value, "Import failed");
+  });
 });
 
 function createDependencies(
   overrides: Partial<ProjectKnowledgeDependencies> = {}
 ): ProjectKnowledgeDependencies {
   const dependencies: ProjectKnowledgeDependencies = {
+    async cancelPreparedFiles() {},
     async createDocument(projectId, input) {
       return createDocument({
         content: input.content,

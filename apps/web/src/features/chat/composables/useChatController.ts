@@ -1,5 +1,7 @@
 import { ref, watch } from "vue";
+import type { Ref } from "vue";
 
+import type { AuthUser } from "../../auth/types";
 import { fetchAiModelCatalog } from "../chatModelsApi";
 import { AI_MODELS, DEFAULT_MODE, DEFAULT_MODEL, getModelForMode } from "../constants";
 import { useI18n } from "../../../i18n/useI18n";
@@ -11,7 +13,7 @@ import { useChatMenus } from "./useChatMenus";
 import type { QuickAction } from "../constants";
 import type { Chat, AiModelOption } from "../types";
 
-export function useChatController() {
+export function useChatController(currentUser: Ref<AuthUser | null>) {
   const messageInput = ref("");
   const selectedMode = ref(DEFAULT_MODE);
   const selectedModel = ref(DEFAULT_MODEL);
@@ -89,6 +91,7 @@ export function useChatController() {
     clearSelectedAttachments,
     ensureActiveChat,
     getAttachmentOnlyMessage,
+    isAuthenticated: () => Boolean(currentUser.value),
     messageInput,
     modelOptions,
     quickActionMode,

@@ -6,12 +6,22 @@ export const ACCOUNT_IMPORT_WARNING_TRANSLATION_KEYS = {
     "portability.import.warning.documentIndexing",
   "Account identity, sign-in credentials, sessions, and settings are not replaced. Portable records are imported as new local data.":
     "portability.import.warning.accountIdentity",
+  "Account identity, sign-in credentials, sessions, settings, and source terms acceptance are not replaced. Portable records are imported as new local data.":
+    "portability.import.warning.accountIdentity",
   "Attachment references from the external service are not imported because original attachment file mapping is not supported yet.":
+    "portability.import.warning.attachments",
+  "Chat attachment metadata is included, but original attachment files are not included in this archive.":
     "portability.import.warning.attachments",
   "Chat attachment metadata is included, but original attachment files are unavailable because chat file persistence is not implemented.":
     "portability.import.warning.attachments",
   "One or more ChatGPT conversations did not expose an active branch; messages were imported in timestamp order.":
     "portability.import.warning.chatBranch",
+  "Private binary files are included and must be restored atomically with their database bindings.":
+    "portability.import.warning.binaryAssets",
+  "Private binary files are included in this archive. They can only be restored by an importer that supports the version 2 atomic binary-asset restore contract.":
+    "portability.import.warning.binaryAssetCompatibility",
+  "Private object-storage binaries are not included in this export. They require a version 2 archive and an importer with atomic binary-asset restore support.":
+    "portability.import.warning.privateAssetsLegacy",
   "Projects and chats are created as new copies. Exact Account Memory duplicates are skipped.":
     "portability.import.warning.newCopies",
   "Some conversations without supported text messages were skipped.":

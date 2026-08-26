@@ -17,6 +17,12 @@ import {
 import { analyzeQaWorkflowWithRouter } from "../ai/routing/workflow-router.js";
 import { shouldUseAiWorkflowRouter, type WorkflowRouter } from "../ai/routing/workflow-router.js";
 import { env } from "../../config/env.js";
+import { AppError } from "../../lib/errors.js";
+import {
+  assetConsumptionService,
+  type ReadyAsset,
+  type ReadReadyAsset,
+} from "../assets/assets-consumption.service.js";
 import {
   memoryContextService,
   type PreparedChatMemoryContext,
@@ -31,6 +37,10 @@ import {
 } from "../usage/usage.service.js";
 import type { UsageIdentity, UsageReservation } from "../usage/usage.types.js";
 import type { ChatRequest, ChatRequestContext } from "./chat.types.js";
+import {
+  isSupportedImageMimeType,
+  isSupportedTextAttachment,
+} from "./chat.attachments.js";
 
 type ChatAiProvider = (input: AiChatInput) => Promise<AiChatResponse>;
 type ChatUsageGuard = (
@@ -45,6 +55,9 @@ type ChatUsageFailureHandler = (
   reservation: UsageReservation,
   failure?: ChatUsageFailureInput
 ) => Promise<UsageReservation>;
+type ChatUsageAttemptRecorder = (
+  reservation: UsageReservation
+) => Promise<void>;
 type ChatMemoryContextPreparer = (input: {
   projectId?: string | null;
   query: string;
@@ -63,6 +76,18 @@ type ChatConversationSummaryLoader = (
   userId: string,
   chatId: string
 ) => Promise<string | undefined>;
+type StoredChatAttachmentReader = (input: {
+  assetId: string;
+  ownerId: string;
+  projectId: string | null;
+  purpose: "CHAT_ATTACHMENT";
+}) => Promise<ReadReadyAsset>;
+type StoredChatAttachmentResolver = (input: {
+  assetId: string;
+  ownerId: string;
+  projectId: string | null;
+  purpose: "CHAT_ATTACHMENT";
+}) => Promise<ReadyAsset>;
 
 export interface ChatServiceDependencies {
   chatWithAi: ChatAiProvider;
@@ -71,8 +96,11 @@ export interface ChatServiceDependencies {
   loadConversationSummary?: ChatConversationSummaryLoader;
   loadRecentTurns?: ChatRecentTurnsLoader;
   prepareMemoryContext?: ChatMemoryContextPreparer;
+  getStoredAttachment?: StoredChatAttachmentResolver;
+  recordUsageAttempt?: ChatUsageAttemptRecorder;
   reserveUsage?: ChatUsageGuard;
   resolveMemoryContext?: ChatMemoryContextResolver;
+  readStoredAttachment?: StoredChatAttachmentReader;
   routeWorkflow?: WorkflowRouter;
 }
 
@@ -80,11 +108,14 @@ export function createChatService({
   chatWithAi,
   completeUsage,
   failUsage,
+  getStoredAttachment,
   loadConversationSummary,
   loadRecentTurns,
   prepareMemoryContext,
+  recordUsageAttempt,
   reserveUsage,
   resolveMemoryContext,
+  readStoredAttachment,
   routeWorkflow,
 }: ChatServiceDependencies) {
   async function createChatReply(input: ChatRequest, context: ChatRequestContext = {}) {
@@ -95,7 +126,11 @@ export function createChatService({
       model: requestedModel,
       provider: requestedProvider,
     });
-    const providerAttachments = getProviderAttachments(input);
+    const providerAttachmentPlan = await prepareProviderAttachments(
+      input,
+      context,
+      getStoredAttachment
+    );
     const [conversationSummary, recentTurns] = await Promise.all([
       resolveConversationSummary({
         chatId: input.chatId,
@@ -110,8 +145,8 @@ export function createChatService({
       }),
     ]);
     const workflowInput = {
-      hasImage: providerAttachments.images.length > 0,
-      hasTextAttachment: providerAttachments.attachments.length > 0,
+      hasImage: providerAttachmentPlan.images.length > 0,
+      hasTextAttachment: providerAttachmentPlan.attachments.length > 0,
       history: recentTurns,
       message: input.message,
       mode: input.mode,
@@ -120,16 +155,16 @@ export function createChatService({
       enabled: false,
     });
     const preflightModelRouting = routeAiModel({
-      hasImage: providerAttachments.images.length > 0,
-      hasTextAttachment: providerAttachments.attachments.length > 0,
+      hasImage: providerAttachmentPlan.images.length > 0,
+      hasTextAttachment: providerAttachmentPlan.attachments.length > 0,
       requestedModel: resolvedModel,
       resolveModel: resolveAiModel,
       workflow: preflightWorkflow,
     });
 
     assertAiModelCapabilities(preflightModelRouting.model.config, {
-      images: providerAttachments.images.length > 0,
-      textAttachments: providerAttachments.attachments.length > 0,
+      images: providerAttachmentPlan.images.length > 0,
+      textAttachments: providerAttachmentPlan.attachments.length > 0,
     });
     const preparedMemoryContext = context.userId
       ? await prepareMemoryContext?.({
@@ -140,10 +175,10 @@ export function createChatService({
       : undefined;
 
     const creditEstimate = estimateChatCredits({
-      attachments: providerAttachments.attachments,
+      attachments: providerAttachmentPlan.attachments,
       conversationSummary,
       history: recentTurns,
-      imageCount: providerAttachments.images.length,
+      imageCount: providerAttachmentPlan.images.length,
       memoryContext: preparedMemoryContext?.context,
       message: input.message,
       mode: input.mode,
@@ -164,6 +199,41 @@ export function createChatService({
       },
       creditEstimate
     );
+    const recordProviderAttempt = async (kind: "generation" | "router") => {
+      if (!usage) return;
+
+      await recordUsageAttempt?.(usage);
+      usage.providerAttempts = (usage.providerAttempts || 0) + 1;
+
+      if (kind === "router") {
+        usage.routerAttempts = (usage.routerAttempts || 0) + 1;
+      } else {
+        usage.generationAttempts = (usage.generationAttempts || 0) + 1;
+      }
+    };
+    let providerAttachments: Pick<ProviderAttachmentPlan, "attachments" | "images">;
+    try {
+      providerAttachments = await materializeProviderAttachments(
+        providerAttachmentPlan,
+        input,
+        context,
+        readStoredAttachment
+      );
+    } catch (error) {
+      if (usage && failUsage) {
+        try {
+          await failUsage(usage, {
+            model: preflightModelRouting.model.model,
+            providerAttempts: 0,
+            provider: preflightModelRouting.model.provider,
+            routerAttempted: false,
+          });
+        } catch {
+          // Keep the storage/authorization error as the response error.
+        }
+      }
+      throw error;
+    }
     let memoryContext = preparedMemoryContext?.context;
 
     if (preparedMemoryContext && resolveMemoryContext) {
@@ -174,7 +244,13 @@ export function createChatService({
     const workflow = await analyzeQaWorkflowWithRouter(workflowInput, {
       enabled: env.aiWorkflowRouterEnabled,
       minConfidence: env.aiWorkflowRouterMinConfidence,
-      router: routeWorkflow,
+      router: routeWorkflow
+        ? async (routerInput) => {
+            await recordProviderAttempt("router");
+
+            return routeWorkflow(routerInput);
+          }
+        : undefined,
     });
     const modelRouting = routeAiModel({
       hasImage: providerAttachments.images.length > 0,
@@ -215,6 +291,7 @@ export function createChatService({
           hasImages: providerAttachments.images.length > 0,
           hasTextAttachments: providerAttachments.attachments.length > 0,
           modelRouting: modelRouting.routing,
+          onProviderAttempt: () => recordProviderAttempt("generation"),
         }
       );
     } catch (error) {
@@ -222,7 +299,9 @@ export function createChatService({
         try {
           await failUsage(usage, {
             model: modelRouting.model.model,
+            providerAttempts: usage.providerAttempts,
             provider: modelRouting.model.provider,
+            routerAttempted: Boolean(usage.routerAttempts),
           });
         } catch {
           // Keep the original AI/provider error as the response error.
@@ -256,11 +335,13 @@ export function createChatService({
       hasImages: boolean;
       hasTextAttachments: boolean;
       modelRouting: NonNullable<AiChatResponse["modelRouting"]>;
+      onProviderAttempt?: (input: AiChatInput) => Promise<void> | void;
     }
   ) {
     return chatWithAiFallback({
       chatWithAi,
       input,
+      onProviderAttempt: options.onProviderAttempt,
       requiredCapabilities: {
         hasImages: options.hasImages,
         hasTextAttachments: options.hasTextAttachments,
@@ -309,11 +390,75 @@ function toPublicUsageSummary(usage: UsageReservation) {
   };
 }
 
-function getProviderAttachments(input: ChatRequest) {
+interface ProviderAttachmentPlan {
+  attachments: AiTextAttachment[];
+  images: Array<{ data: string; mimeType: string }>;
+  stored: Array<{
+    assetId: string;
+    index: number;
+    kind: "image" | "text";
+  }>;
+}
+
+async function prepareProviderAttachments(
+  input: ChatRequest,
+  context: ChatRequestContext,
+  getStoredAttachment?: StoredChatAttachmentResolver
+): Promise<ProviderAttachmentPlan> {
   const textAttachments: AiTextAttachment[] = [];
   const images = input.image ? [input.image] : [];
+  const stored: ProviderAttachmentPlan["stored"] = [];
 
   for (const attachment of input.attachments || []) {
+    if ("assetId" in attachment) {
+      if (!context.userId) {
+        throw new AppError(
+          "Sign in to use stored attachments.",
+          401,
+          "AUTH_REQUIRED"
+        );
+      }
+      if (!getStoredAttachment) {
+        throw new AppError(
+          "Private attachment content is temporarily unavailable.",
+          503,
+          "ASSET_READ_UNAVAILABLE"
+        );
+      }
+
+      const asset = await getStoredAttachment({
+        assetId: attachment.assetId,
+        ownerId: context.userId,
+        projectId: input.projectId || null,
+        purpose: "CHAT_ATTACHMENT",
+      });
+      const mimeType = asset.detectedMimeType;
+
+      if (isSupportedImageMimeType(mimeType)) {
+        stored.push({ assetId: attachment.assetId, index: images.length, kind: "image" });
+        images.push({
+          data: "",
+          mimeType,
+        });
+        continue;
+      }
+
+      if (!isSupportedTextAttachment(asset.originalName, mimeType)) {
+        throw new AppError("Unsupported asset type.", 415, "ASSET_TYPE_UNSUPPORTED");
+      }
+
+      stored.push({ assetId: attachment.assetId, index: textAttachments.length, kind: "text" });
+      textAttachments.push({
+        type: "file" as const,
+        name: asset.originalName,
+        mimeType,
+        // A byte-sized ASCII placeholder is conservative for credit
+        // reservation and avoids an R2 read before the usage guard succeeds.
+        content: "x".repeat(asset.sizeBytes),
+      });
+      continue;
+    }
+
     if (attachment.type === "image") {
       images.push({
         data: attachment.data,
@@ -333,7 +478,65 @@ function getProviderAttachments(input: ChatRequest) {
   return {
     attachments: textAttachments,
     images,
+    stored,
   };
+}
+
+async function materializeProviderAttachments(
+  plan: ProviderAttachmentPlan,
+  input: ChatRequest,
+  context: ChatRequestContext,
+  readStoredAttachment?: StoredChatAttachmentReader
+): Promise<Pick<ProviderAttachmentPlan, "attachments" | "images">> {
+  if (plan.stored.length === 0) {
+    return { attachments: plan.attachments, images: plan.images };
+  }
+  if (!context.userId || !readStoredAttachment) {
+    throw new AppError(
+      "Private attachment content is temporarily unavailable.",
+      503,
+      "ASSET_READ_UNAVAILABLE"
+    );
+  }
+
+  const attachments = plan.attachments.map((attachment) => ({ ...attachment }));
+  const images = plan.images.map((image) => ({ ...image }));
+
+  for (const reference of plan.stored) {
+    const stored = await readStoredAttachment({
+      assetId: reference.assetId,
+      ownerId: context.userId,
+      projectId: input.projectId || null,
+      purpose: "CHAT_ATTACHMENT",
+    });
+
+    if (reference.kind === "image") {
+      const image = images[reference.index];
+      if (!image || !isSupportedImageMimeType(stored.asset.detectedMimeType)) {
+        throw new AppError("Stored attachment content is invalid.", 422, "ASSET_CONTENT_INVALID");
+      }
+      image.data = Buffer.from(stored.bytes).toString("base64");
+      image.mimeType = stored.asset.detectedMimeType;
+      continue;
+    }
+
+    const attachment = attachments[reference.index];
+    if (!attachment || !isSupportedTextAttachment(
+      stored.asset.originalName,
+      stored.asset.detectedMimeType
+    )) {
+      throw new AppError("Stored attachment content is invalid.", 422, "ASSET_CONTENT_INVALID");
+    }
+    try {
+      attachment.content = new TextDecoder("utf-8", { fatal: true }).decode(stored.bytes);
+      attachment.name = stored.asset.originalName;
+      attachment.mimeType = stored.asset.detectedMimeType;
+    } catch {
+      throw new AppError("Stored attachment content is invalid.", 422, "ASSET_CONTENT_INVALID");
+    }
+  }
+
+  return { attachments, images };
 }
 
 async function resolveRecentTurns(input: {
@@ -399,10 +602,13 @@ export const { createChatReply } = createChatService({
   chatWithAi,
   completeUsage: usageService.completeChatCredits,
   failUsage: usageService.failChatCredits,
+  getStoredAttachment: assetConsumptionService.getReadyOwnedAsset,
   loadConversationSummary: conversationSummaryService.loadConversationSummaryContext,
   loadRecentTurns: chatHistoryService.loadRecentCompleteTurns,
   prepareMemoryContext: memoryContextService.prepareChatMemoryContext,
+  recordUsageAttempt: usageService.recordAiOperationAttempt,
   routeWorkflow: routeWorkflowWithAi,
   reserveUsage: usageService.reserveChatCredits,
   resolveMemoryContext: memoryContextService.resolveChatMemoryContext,
+  readStoredAttachment: assetConsumptionService.readReadyOwnedAsset,
 });

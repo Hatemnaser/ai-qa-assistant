@@ -51,6 +51,21 @@ describe("CSRF protection", () => {
     assert.doesNotMatch(body.csrfToken, /session/i);
   });
 
+  it("reuses a valid CSRF cookie so another browser tab does not invalidate it", async () => {
+    const firstResponse = await fetch(`${baseUrl}/api/auth/csrf`);
+    const firstBody = (await firstResponse.json()) as { csrfToken: string };
+    const cookie = (firstResponse.headers.get("set-cookie") || "").split(";")[0];
+
+    const secondResponse = await fetch(`${baseUrl}/api/auth/csrf`, {
+      headers: { cookie },
+    });
+    const secondBody = (await secondResponse.json()) as { csrfToken: string };
+
+    assert.equal(secondResponse.status, 200);
+    assert.equal(secondBody.csrfToken, firstBody.csrfToken);
+    assert.equal(secondResponse.headers.get("set-cookie"), null);
+  });
+
   it("rejects POST /api/chat without a CSRF token", async () => {
     const response = await postJson("/api/chat", chatBody());
     const body = await response.json();

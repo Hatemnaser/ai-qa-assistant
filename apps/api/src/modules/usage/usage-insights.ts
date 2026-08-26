@@ -1,7 +1,11 @@
 import { env } from "../../config/env.js";
-import type { UsageRepository } from "./usage.repository.js";
 import { countScopedUsage, getUsageIdentityScope, getUsageWindowStart } from "./usage.scope.js";
-import { CHAT_MESSAGE_ACTION, type UsageEventRecord, type UsageIdentity } from "./usage.types.js";
+import {
+  CHAT_MESSAGE_ACTION,
+  type UsageEventRecord,
+  type UsageIdentity,
+  type UsageRepository,
+} from "./usage.types.js";
 
 export interface UsageInsightsDependencies {
   now?: () => Date;

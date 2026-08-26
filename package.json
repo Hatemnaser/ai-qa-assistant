@@ -2,7 +2,10 @@
   "name": "ai-qa-assistant",
   "version": "1.0.0",
   "private": true,
-  "description": "AI QA Assistant is an AI-powered workspace for QA engineers. It helps generate test cases, bug reports, edge cases, and QA checklists using Gemini API.",
+  "description": "Oddpath is an AI-powered workspace for QA engineers. It helps generate test cases, bug reports, edge cases, and QA checklists using Gemini API.",
+  "engines": {
+    "node": ">=24.19.0 <25"
+  },
   "scripts": {
     "dev": "npm run dev:web",
     "dev:api": "npm --prefix apps/api run dev",
@@ -10,12 +13,25 @@
     "build:api": "npm --prefix apps/api run build",
     "build:web": "npm --prefix apps/web run build",
     "check:api": "npm --prefix apps/api run check",
+    "check:architecture": "npm --prefix apps/api run check:architecture",
     "check:web": "npm --prefix apps/web run check",
     "test:api": "npm --prefix apps/api run test",
+    "test:integration:db": "npm --prefix apps/api run test:integration:db",
     "test:web": "npm --prefix apps/web run test",
     "test:i18n": "npm --prefix apps/web run test:i18n",
-    "verify": "npm run test:api && npm run test:web && npm run check:api && npm run check:web",
+    "audit:production": "npm audit --omit=dev --audit-level=high",
+    "verify": "npm run check:api && npm run check:web && npm run test:api && npm run test:web",
     "eval:retrieval": "npm --prefix apps/api run eval:retrieval",
+    "cleanup:retention": "npm --prefix apps/api run cleanup:retention",
+    "cleanup:retention:dev": "npm --prefix apps/api run cleanup:retention:dev",
+    "smoke:read-only": "npm --prefix apps/api run smoke:read-only",
+    "smoke:read-only:dev": "npm --prefix apps/api run smoke:read-only:dev",
+    "smoke:authenticated-mutation": "npm --prefix apps/api run smoke:authenticated-mutation",
+    "smoke:authenticated-mutation:dev": "npm --prefix apps/api run smoke:authenticated-mutation:dev",
+    "smoke:r2": "npm --prefix apps/api run smoke:r2",
+    "smoke:r2:dev": "npm --prefix apps/api run smoke:r2:dev",
+    "assets:cleanup": "npm --prefix apps/api run assets:cleanup",
+    "assets:cleanup:dev": "npm --prefix apps/api run assets:cleanup:dev",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f postgres",
@@ -23,12 +39,16 @@
     "db:generate": "npm --prefix apps/api run db:generate",
     "db:migrate": "npm --prefix apps/api run db:migrate",
     "db:migrate:deploy": "npm --prefix apps/api run db:migrate:deploy",
+    "db:drift:check": "npm --prefix apps/api run db:drift:check",
     "db:studio": "npm --prefix apps/api run db:studio"
   },
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
+  "overrides": {
+    "deepmerge-ts": "$deepmerge-ts"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Hatemnaser/ai-qa-assistant.git"
@@ -40,5 +60,9 @@
   "bugs": {
     "url": "https://github.com/Hatemnaser/ai-qa-assistant/issues"
   },
-  "homepage": "https://github.com/Hatemnaser/ai-qa-assistant#readme"
+  "homepage": "https://github.com/Hatemnaser/ai-qa-assistant#readme",
+  "devDependencies": {
+    "deepmerge-ts": "8.0.1",
+    "prisma": "7.9.1"
+  }
 }

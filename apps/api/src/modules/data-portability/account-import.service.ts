@@ -5,21 +5,19 @@ import {
   projectDocumentIndexer,
   type ProjectDocumentIndexer,
 } from "../project-documents/project-document-index.service.js";
-import {
-  accountImportRepository,
-  type AccountImportRepository,
-} from "./account-import.repository.js";
+import { accountImportRepository } from "./account-import.repository.js";
+import { binaryAssetRestoreService } from "./binary-asset-restore.service.js";
+import type { BinaryAssetRestoreService } from "./binary-asset-restore.types.js";
 import { validateAccountImportPackage } from "./account-import-package.js";
 import type {
   AccountImportCommitResult,
   AccountImportCounts,
   AccountImportPreview,
+  AccountImportRepository,
   ValidatedAccountImport,
 } from "./account-import.types.js";
-import {
-  externalChatImportRepository,
-  type ExternalChatImportRepository,
-} from "./external-chat-import.repository.js";
+import { externalChatImportRepository } from "./external-chat-import.repository.js";
+import type { ExternalChatImportRepository } from "./external-chat-import.types.js";
 
 const INDEXING_WARNING =
   "Account data was imported, but one or more Project Documents are still pending or failed indexing. Canonical document content remains available for retry.";
@@ -35,12 +33,14 @@ export interface AccountImportService {
 
 export interface AccountImportServiceDependencies {
   accountRepository: AccountImportRepository;
+  binaryAssetRestore?: BinaryAssetRestoreService;
   externalRepository: ExternalChatImportRepository;
   indexer: ProjectDocumentIndexer;
 }
 
 export function createAccountImportService({
   accountRepository,
+  binaryAssetRestore = binaryAssetRestoreService,
   externalRepository,
   indexer,
 }: AccountImportServiceDependencies): AccountImportService {
@@ -76,15 +76,21 @@ export function createAccountImportService({
         };
       }
 
-      const persisted = await accountRepository.createImportedAccount(
+      const persisted = await binaryAssetRestore.runWithPreparedAssets(
         userId,
-        packageData
+        packageData.binaryAssets,
+        (uploadedAssets) =>
+          accountRepository.createImportedAccount(
+            userId,
+            packageData,
+            uploadedAssets
+          )
       );
       const warnings = [...packageData.warnings];
 
       if (persisted.documents.length > 0) {
         try {
-          await indexer.indexDocuments(persisted.documents);
+          await indexer.indexDocuments(persisted.documents, userId);
           const statuses = await accountRepository.findDocumentIndexStatuses(
             persisted.documents.map((document) => document.id)
           );
@@ -126,6 +132,7 @@ export function createAccountImportService({
 
 export const accountImportService = createAccountImportService({
   accountRepository: accountImportRepository,
+  binaryAssetRestore: binaryAssetRestoreService,
   externalRepository: externalChatImportRepository,
   indexer: projectDocumentIndexer,
 });
@@ -156,6 +163,9 @@ function getCounts(packageData: ValidatedAccountImport): AccountImportCounts {
       0
     ),
     accountMemories: packageData.accountMemories.length,
+    ...(packageData.binaryAssets.length > 0
+      ? { binaryAssets: packageData.binaryAssets.length }
+      : {}),
   };
 }
 

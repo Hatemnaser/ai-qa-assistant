@@ -8,11 +8,20 @@ import {
   isSupportedTextAttachment,
 } from "./chat.attachments.js";
 
+export const QA_CHAT_MODES = [
+  "general",
+  "test_cases",
+  "bug_report",
+  "edge_cases",
+  "checklist",
+  "screenshot_review",
+] as const;
+
 export const chatHistoryMessageSchema = z.object({
   role: z.enum(["user", "assistant"]).optional(),
-  content: z.string(),
-  mode: z.string().optional(),
-  model: z.string().optional(),
+  content: z.string().max(env.maxMessageChars),
+  mode: z.string().trim().max(32).optional(),
+  model: z.string().trim().max(191).optional(),
 });
 
 export const chatImageSchema = z.object({
@@ -51,9 +60,14 @@ export const chatFileAttachmentSchema = z.object({
   });
 });
 
+export const chatStoredAttachmentSchema = z.object({
+  assetId: z.string().trim().min(1).max(191),
+});
+
 export const chatAttachmentSchema = z.union([
   chatImageAttachmentSchema,
   chatFileAttachmentSchema,
+  chatStoredAttachmentSchema,
 ]);
 
 export const chatRequestSchema = z.object({
@@ -63,9 +77,9 @@ export const chatRequestSchema = z.object({
     .trim()
     .min(1, "Message is required and must be a string.")
     .max(env.maxMessageChars, `Message must be ${env.maxMessageChars} characters or fewer.`),
-  mode: z.string().default("general"),
-  model: z.string().trim().optional(),
-  provider: z.string().trim().optional(),
+  mode: z.enum(QA_CHAT_MODES).default("general"),
+  model: z.string().trim().min(1).max(191).optional(),
+  provider: z.enum(["gemini"]).optional(),
   projectId: z.preprocess(normalizeOptionalString, z.string().min(1).max(191).optional()),
   history: z.array(chatHistoryMessageSchema).max(env.maxHistoryMessages).default([]),
   attachments: z.preprocess(
@@ -79,6 +93,28 @@ export const chatRequestSchema = z.object({
       .optional()
   ),
   image: z.preprocess((value) => (value === null ? undefined : value), chatImageSchema.optional()),
+}).superRefine((input, context) => {
+  const historyChars = input.history.reduce((total, message) => total + message.content.length, 0);
+
+  if (historyChars > env.maxHistoryTotalChars) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Chat history must be ${env.maxHistoryTotalChars} characters or fewer.`,
+      path: ["history"],
+    });
+  }
+
+  const storedAssetIds = (input.attachments || [])
+    .filter((attachment): attachment is { assetId: string } => "assetId" in attachment)
+    .map((attachment) => attachment.assetId);
+
+  if (new Set(storedAssetIds).size !== storedAssetIds.length) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Each stored attachment may only be included once.",
+      path: ["attachments"],
+    });
+  }
 });
 
 function normalizeOptionalString(value: unknown) {

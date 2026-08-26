@@ -53,27 +53,60 @@ enum ProjectDocumentEmbeddingStatus {
   FAILED
 }
 
-model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String?
-  passwordHash String?
-  locale       String   @default("en")
-  emailVerifiedAt DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+enum StoredAssetPurpose {
+  CHAT_ATTACHMENT
+  PROJECT_DOCUMENT_SOURCE
+}
 
-  sessions              Session[]
-  settings              UserSettings?
-  ownedProjects         Project[]             @relation("ProjectOwner")
-  projectMemberships    ProjectMember[]
-  chats                 Chat[]
-  conversationSummaries ConversationSummary[]
-  memories              Memory[]
-  aiUsageLogs           AiUsageLog[]
-  usageEvents           UsageEvent[]
-  passwordResetTokens   PasswordResetToken[]
-  emailVerificationTokens EmailVerificationToken[]
+enum StoredAssetStatus {
+  PENDING
+  VALIDATING
+  READY
+  FAILED
+  DELETE_PENDING
+}
+
+enum AuthEmailKind {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+enum AuthEmailJobStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  name                 String?
+  passwordHash         String?
+  locale               String    @default("en")
+  emailVerifiedAt      DateTime?
+  acceptedTermsVersion String?
+  acceptedTermsAt      DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  sessions                   Session[]
+  settings                   UserSettings?
+  ownedProjects              Project[]                   @relation("ProjectOwner")
+  projectMemberships         ProjectMember[]
+  chats                      Chat[]
+  conversationSummaries      ConversationSummary[]
+  memories                   Memory[]
+  aiUsageLogs                AiUsageLog[]
+  usageEvents                UsageEvent[]
+  passwordResetTokens        PasswordResetToken[]
+  emailVerificationTokens    EmailVerificationToken[]
+  authEmailJobs              AuthEmailJob[]
+  storedAssets               StoredAsset[]
+  binaryAssetRestoreSessions BinaryAssetRestoreSession[]
+
+  @@index([emailVerifiedAt, createdAt, id])
 }
 
 model Session {
@@ -100,10 +133,12 @@ model PasswordResetToken {
   usedAt    DateTime?
   createdAt DateTime  @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailJob AuthEmailJob?
 
   @@index([userId, createdAt])
   @@index([expiresAt])
+  @@index([usedAt])
 }
 
 model EmailVerificationToken {
@@ -114,10 +149,40 @@ model EmailVerificationToken {
   usedAt    DateTime?
   createdAt DateTime  @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailJob AuthEmailJob?
 
   @@index([userId, createdAt])
   @@index([expiresAt])
+  @@index([usedAt])
+}
+
+model AuthEmailJob {
+  id                       String             @id
+  userId                   String
+  kind                     AuthEmailKind
+  status                   AuthEmailJobStatus @default(PENDING)
+  encryptedPayload         String?
+  emailVerificationTokenId String?            @unique
+  passwordResetTokenId     String?            @unique
+  attempts                 Int                @default(0)
+  nextAttemptAt            DateTime           @default(now())
+  lockedAt                 DateTime?
+  sentAt                   DateTime?
+  expiresAt                DateTime
+  lastErrorCode            String?
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+
+  user                   User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailVerificationToken EmailVerificationToken? @relation(fields: [emailVerificationTokenId], references: [id], onDelete: Cascade)
+  passwordResetToken     PasswordResetToken?     @relation(fields: [passwordResetTokenId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([status, expiresAt])
+  @@index([status, updatedAt])
+  @@index([userId, kind, status])
+  @@index([lockedAt])
 }
 
 model UserSettings {
@@ -148,6 +213,7 @@ model Project {
   documents     ProjectDocument[]
   instruction   ProjectInstruction?
   projectMemory ProjectMemory?
+  storedAssets  StoredAsset[]
 
   @@index([ownerId])
 }
@@ -199,8 +265,9 @@ model Message {
   metadata   Json?
   createdAt  DateTime @default(now())
 
-  chat        Chat         @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chat        Chat                @relation(fields: [chatId], references: [id], onDelete: Cascade)
   aiUsageLogs AiUsageLog[]
+  attachments MessageAttachment[]
 
   @@index([chatId, createdAt])
 }
@@ -258,12 +325,92 @@ model ProjectDocument {
   indexedAt       DateTime?
   createdAt       DateTime                   @default(now())
   updatedAt       DateTime                   @updatedAt
+  sourceAssetId   String?                    @unique
 
-  project Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  chunks  ProjectDocumentChunk[]
+  project     Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  chunks      ProjectDocumentChunk[]
+  sourceAsset StoredAsset?           @relation(fields: [sourceAssetId], references: [id], onDelete: SetNull)
 
   @@index([projectId, updatedAt])
   @@index([projectId, indexStatus])
+}
+
+model StoredAsset {
+  id                  String             @id @default(cuid())
+  ownerId             String
+  projectId           String?
+  objectKey           String             @unique
+  purpose             StoredAssetPurpose
+  status              StoredAssetStatus  @default(PENDING)
+  originalName        String
+  declaredMimeType    String
+  detectedMimeType    String?
+  expectedSizeBytes   Int
+  checksumSha256      String
+  sizeBytes           Int?
+  etag                String?
+  uploadExpiresAt     DateTime?
+  validationStartedAt DateTime?
+  readyAt             DateTime?
+  restoreSessionId    String?
+  restoreAttempt      Int?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  owner             User                       @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  project           Project?                   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  messageAttachment MessageAttachment?
+  sourceDocument    ProjectDocument?
+  restoreSession    BinaryAssetRestoreSession? @relation(fields: [restoreSessionId, restoreAttempt], references: [id, attempt], onDelete: SetNull, map: "StoredAsset_restoreSessionId_fkey")
+
+  @@index([ownerId, status])
+  @@index([projectId, status])
+  @@index([status, uploadExpiresAt])
+  @@index([status, validationStartedAt])
+  @@index([status, readyAt])
+  @@index([restoreSessionId, restoreAttempt, status])
+}
+
+model BinaryAssetRestoreSession {
+  id             String   @id
+  ownerId        String
+  attempt        Int      @default(1)
+  attemptToken   String   @unique
+  leaseExpiresAt DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  owner  User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  assets StoredAsset[]
+
+  @@unique([id, attempt])
+  @@index([ownerId])
+  @@index([leaseExpiresAt])
+}
+
+model MessageAttachment {
+  id        String @id @default(cuid())
+  messageId String
+  assetId   String @unique
+  ordinal   Int
+
+  message Message     @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  asset   StoredAsset @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([messageId, ordinal])
+  @@index([messageId])
+}
+
+model ObjectDeletionJob {
+  id            String   @id @default(cuid())
+  objectKey     String   @unique
+  attempts      Int      @default(0)
+  nextAttemptAt DateTime @default(now())
+  lastError     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([nextAttemptAt])
 }
 
 model ProjectDocumentChunk {
@@ -330,6 +477,7 @@ model AiUsageLog {
   @@index([userId, createdAt])
   @@index([chatId, createdAt])
   @@index([provider, model])
+  @@index([createdAt, id])
 }
 
 model UsageEvent {
@@ -357,6 +505,7 @@ model UsageEvent {
   attachmentCount       Int      @default(0)
   imageCount            Int      @default(0)
   fileCount             Int      @default(0)
+  providerAttempts      Int      @default(0)
   createdAt             DateTime @default(now())
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -365,4 +514,6 @@ model UsageEvent {
   @@index([guestId, action, createdAt])
   @@index([ipHash, action, createdAt])
   @@index([model, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt, id])
 }

@@ -7,28 +7,18 @@ import type {
   UsageEventRecord,
   UsageListInput,
   UsageRecordInput,
+  UsageRepository,
   UsageReservationInput,
   UsageReservationRecord,
   UsageUpdateInput,
 } from "./usage.types.js";
-
-export interface UsageRepository {
-  cleanupStaleReservedUsage(input: UsageCleanupStaleReservedInput): Promise<number>;
-  countUsage(input: UsageCountInput): Promise<number>;
-  listUsageEvents(input: UsageListInput): Promise<UsageEventRecord[]>;
-  recordUsage(input: UsageRecordInput): Promise<{ id: string }>;
-  reserveUsage(input: UsageReservationInput): Promise<UsageReservationRecord>;
-  updateUsage(input: UsageUpdateInput): Promise<void>;
-}
 
 export function createPrismaUsageRepository(): UsageRepository {
   return {
     async cleanupStaleReservedUsage(input) {
       const result = await prisma.usageEvent.updateMany({
         data: {
-          creditsUsed: 0,
-          status: "failed",
-          units: 0,
+          status: "unknown",
         },
         where: buildStaleReservedCleanupWhere(input),
       });
@@ -77,6 +67,7 @@ export function createPrismaUsageRepository(): UsageRepository {
           outputTokens: true,
           promptTokens: true,
           provider: true,
+          providerAttempts: true,
           status: true,
           totalTokens: true,
           units: true,
@@ -108,6 +99,7 @@ export function createPrismaUsageRepository(): UsageRepository {
           outputTokens: input.outputTokens,
           promptTokens: input.promptTokens,
           provider: input.provider,
+          providerAttempts: input.providerAttempts,
           status: input.status,
           totalTokens: input.totalTokens,
           units: input.units,
@@ -117,6 +109,19 @@ export function createPrismaUsageRepository(): UsageRepository {
         },
         select: {
           id: true,
+        },
+      });
+    },
+
+    async recordUsageAttempt(id) {
+      await prisma.usageEvent.update({
+        data: {
+          providerAttempts: {
+            increment: 1,
+          },
+        },
+        where: {
+          id,
         },
       });
     },
@@ -131,18 +136,22 @@ export function createPrismaUsageRepository(): UsageRepository {
           }
 
           if (input.globalGuard) {
-            const globalUsage = await aggregateGlobalUsage(tx, input);
+            const windows = [input.globalGuard, ...(input.globalGuard.additionalWindows || [])];
 
-            if (
-              globalUsage.requestCount + 1 > input.globalGuard.requestLimit ||
-              globalUsage.unitsUsed + input.requestedUnits > input.globalGuard.creditLimit
-            ) {
-              return {
-                accepted: false,
-                rejectionReason: "global_limit",
-                usedAfter: globalUsage.unitsUsed,
-                usedBefore: globalUsage.unitsUsed,
-              };
+            for (const window of windows) {
+              const globalUsage = await aggregateGlobalUsage(tx, input, window.since);
+
+              if (
+                globalUsage.requestCount + 1 > window.requestLimit ||
+                globalUsage.unitsUsed + input.requestedUnits > window.creditLimit
+              ) {
+                return {
+                  accepted: false,
+                  rejectionReason: "global_limit",
+                  usedAfter: globalUsage.unitsUsed,
+                  usedBefore: globalUsage.unitsUsed,
+                };
+              }
             }
           }
 
@@ -152,6 +161,18 @@ export function createPrismaUsageRepository(): UsageRepository {
             return {
               accepted: false,
               rejectionReason: "identity_limit",
+              usedAfter: usedBefore,
+              usedBefore,
+            };
+          }
+
+          if (
+            input.inFlightLimit !== undefined &&
+            (await countInFlightScopeUsage(tx, input)) >= input.inFlightLimit
+          ) {
+            return {
+              accepted: false,
+              rejectionReason: "identity_in_flight",
               usedAfter: usedBefore,
               usedBefore,
             };
@@ -176,6 +197,7 @@ export function createPrismaUsageRepository(): UsageRepository {
               outputTokens: input.event.outputTokens,
               promptTokens: input.event.promptTokens,
               provider: input.event.provider,
+              providerAttempts: input.event.providerAttempts,
               status: input.event.status,
               totalTokens: input.event.totalTokens,
               units: input.event.units,
@@ -197,7 +219,10 @@ export function createPrismaUsageRepository(): UsageRepository {
           };
         },
         {
-          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          // The advisory locks serialize every shared quota scope. ReadCommitted
+          // lets a transaction that waited for a lock observe the prior commit;
+          // Serializable can retain an older snapshot and surface P2034 instead.
+          isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
         }
       );
     },
@@ -212,6 +237,7 @@ export function createPrismaUsageRepository(): UsageRepository {
           outputTokens: input.outputTokens,
           promptTokens: input.promptTokens,
           provider: input.provider,
+          providerAttempts: input.providerAttempts,
           status: input.status,
           totalTokens: input.totalTokens,
           units: input.units,
@@ -232,7 +258,7 @@ async function countReservedScopeUsage(
 ) {
   if (input.isSignedIn) {
     return aggregateUsageUnits(tx, {
-      action: input.action,
+      action: buildActionFilter(input),
       since: input.since,
       userId: input.userId,
     });
@@ -241,14 +267,14 @@ async function countReservedScopeUsage(
   const counts = await Promise.all([
     input.guestId
       ? aggregateUsageUnits(tx, {
-          action: input.action,
+          action: buildActionFilter(input),
           guestId: input.guestId,
           since: input.since,
         })
       : 0,
     input.ipHash
       ? aggregateUsageUnits(tx, {
-          action: input.action,
+          action: buildActionFilter(input),
           ipHash: input.ipHash,
           since: input.since,
         })
@@ -260,7 +286,9 @@ async function countReservedScopeUsage(
 
 async function aggregateUsageUnits(
   tx: Prisma.TransactionClient,
-  input: UsageCountInput
+  input: Omit<UsageCountInput, "action"> & {
+    action: string | { in: string[] };
+  }
 ) {
   const usage = await tx.usageEvent.aggregate({
     _sum: {
@@ -280,9 +308,43 @@ async function aggregateUsageUnits(
   return usage._sum.units || 0;
 }
 
-async function aggregateGlobalUsage(
+async function countInFlightScopeUsage(
   tx: Prisma.TransactionClient,
   input: UsageReservationInput
+) {
+  const identityFilters: Array<{ guestId: string } | { ipHash: string } | { userId: string }> = [];
+
+  if (input.isSignedIn && input.userId) {
+    identityFilters.push({ userId: input.userId });
+  } else {
+    if (input.guestId) identityFilters.push({ guestId: input.guestId });
+    if (input.ipHash) identityFilters.push({ ipHash: input.ipHash });
+  }
+
+  if (identityFilters.length === 0) return 0;
+
+  return tx.usageEvent.count({
+    where: {
+      action: buildActionFilter(input),
+      createdAt: {
+        gte: input.globalGuard?.staleReservedCutoff || input.since,
+      },
+      OR: identityFilters,
+      status: "reserved",
+    },
+  });
+}
+
+function buildActionFilter(input: UsageReservationInput) {
+  return input.scopeActions?.length
+    ? { in: [...input.scopeActions] }
+    : input.action;
+}
+
+async function aggregateGlobalUsage(
+  tx: Prisma.TransactionClient,
+  input: UsageReservationInput,
+  since: Date
 ) {
   if (!input.globalGuard) {
     return {
@@ -291,7 +353,7 @@ async function aggregateGlobalUsage(
     };
   }
 
-  const where = buildGlobalUsageWhere(input);
+  const where = buildGlobalUsageWhere(input, since);
   const [requestCount, usage] = await Promise.all([
     tx.usageEvent.count({
       where,
@@ -314,21 +376,21 @@ function createUsageLockKeys(input: UsageReservationInput) {
   const keys = input.globalGuard ? ["ai_operation:global"] : [];
 
   if (input.isSignedIn && input.userId) {
-    keys.push(`${input.action}:user:${input.userId}`);
+    keys.push(`ai_operation:user:${input.userId}`);
 
     return keys.sort();
   }
 
   keys.push(
-    input.guestId ? `${input.action}:guest:${input.guestId}` : "",
-    input.ipHash ? `${input.action}:ip:${input.ipHash}` : ""
+    input.guestId ? `ai_operation:guest:${input.guestId}` : "",
+    input.ipHash ? `ai_operation:ip:${input.ipHash}` : ""
   );
   const filteredKeys = keys.filter(Boolean);
 
-  return filteredKeys.length > 0 ? filteredKeys.sort() : [`${input.action}:anonymous`];
+  return filteredKeys.length > 0 ? filteredKeys.sort() : ["ai_operation:anonymous"];
 }
 
-function buildUsageListWhere(input: UsageListInput) {
+export function buildUsageListWhere(input: UsageListInput) {
   const base = {
     action: input.action,
     createdAt: {
@@ -343,30 +405,23 @@ function buildUsageListWhere(input: UsageListInput) {
     };
   }
 
-  const identityFilters: Array<{ guestId: string } | { ipHash: string }> = [];
-
   if (input.guestId) {
-    identityFilters.push({
+    return {
+      ...base,
       guestId: input.guestId,
-    });
+    };
   }
 
   if (input.ipHash) {
-    identityFilters.push({
-      ipHash: input.ipHash,
-    });
-  }
-
-  if (identityFilters.length === 0) {
     return {
       ...base,
-      id: "__no_usage_identity__",
+      ipHash: input.ipHash,
     };
   }
 
   return {
     ...base,
-    OR: identityFilters,
+    id: "__no_usage_identity__",
   };
 }
 
@@ -413,7 +468,7 @@ function buildStaleReservedCleanupWhere(input: UsageCleanupStaleReservedInput) {
   };
 }
 
-function buildGlobalUsageWhere(input: UsageReservationInput) {
+function buildGlobalUsageWhere(input: UsageReservationInput, since: Date) {
   const globalGuard = input.globalGuard;
 
   if (!globalGuard) {
@@ -427,22 +482,7 @@ function buildGlobalUsageWhere(input: UsageReservationInput) {
       in: [...aiUsageActions],
     },
     createdAt: {
-      gte: globalGuard.since,
-    },
-    OR: [
-      {
-        status: {
-          not: "reserved",
-        },
-      },
-      {
-        createdAt: {
-          gte: globalGuard.staleReservedCutoff,
-        },
-      },
-    ],
-    status: {
-      not: "failed",
+      gte: since,
     },
   };
 }

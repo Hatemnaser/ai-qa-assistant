@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { AppError } from "../src/lib/errors.ts";
+import {
+  setOperationalEventLoggerForTests,
+  type OperationalEventRecord,
+} from "../src/lib/operational-events.ts";
 import type {
   EmbeddingProviderAdapter,
 } from "../src/modules/ai/embeddings/embedding.types.ts";
@@ -17,13 +21,13 @@ import type {
   ListProjectDocumentSemanticCandidatesInput,
   ProjectDocumentRetrievalRepository,
   ProjectDocumentSemanticCandidate,
-} from "../src/modules/project-documents/project-document-retrieval.repository.ts";
+} from "../src/modules/project-documents/project-document-retrieval.types.ts";
 import {
   PROJECT_DOCUMENT_RETRIEVAL_POLICY,
 } from "../src/modules/project-documents/project-document-retrieval.ts";
 import type {
   ProjectDocumentRecord,
-} from "../src/modules/project-documents/project-documents.repository.ts";
+} from "../src/modules/project-documents/project-documents.types.ts";
 import type {
   AiOperationCompletionInput,
   AiOperationFailureInput,
@@ -51,20 +55,23 @@ describe("project document hybrid retrieval", () => {
       createCandidate(unrelated, [0, 1]),
       createCandidate(relevant, [1, 0]),
     ]);
+    const usage = createFakeOperationUsageService();
     const retriever = createProjectDocumentHybridRetriever({
       enabled: true,
       provider: createFakeProvider([1, 0]),
       repository,
-      usage: createFakeOperationUsageService(),
+      usage,
     });
 
     const chunks = await retriever.retrieve({
       documents: [unrelated, relevant],
       projectId: "project-1",
       query: "car insurance rules",
+      userId: "user-1",
     });
 
     assert.equal(chunks[0]?.documentId, "document-coverage");
+    assert.equal(usage.reservations[0]?.userId, "user-1");
     assert.deepEqual(repository.requests[0], {
       chunkingVersion: PROJECT_DOCUMENT_CHUNKING_VERSION,
       dimensions: 2,
@@ -203,12 +210,17 @@ describe("project document hybrid retrieval", () => {
     );
     const retriever = createProjectDocumentHybridRetriever({
       enabled: true,
-      provider: createFakeProvider([], new Error("Provider unavailable")),
-      repository: createFakeRepository([]),
+      provider: createFakeProvider(
+        [],
+        new Error("Provider unavailable; query=private-text; token=super-secret")
+      ),
+      repository: createFakeRepository([createCandidate(checkout, [1, 0])]),
       usage: createFakeOperationUsageService(),
     });
-    const originalConsoleWarn = console.warn;
-    console.warn = () => {};
+    const events: OperationalEventRecord[] = [];
+    const restore = setOperationalEventLoggerForTests((_level, event) => {
+      events.push(event);
+    });
 
     try {
       const chunks = await retriever.retrieve({
@@ -219,8 +231,20 @@ describe("project document hybrid retrieval", () => {
 
       assert.equal(chunks[0]?.documentId, "document-checkout");
     } finally {
-      console.warn = originalConsoleWarn;
+      restore();
     }
+
+    assert.equal(events[0]?.event, "project_document_processing");
+    assert.equal(
+      events[0]?.event === "project_document_processing"
+        ? events[0].operation
+        : undefined,
+      "semantic_retrieval"
+    );
+    assert.doesNotMatch(
+      JSON.stringify(events),
+      /project-1|private-text|super-secret|query=|token=/i
+    );
   });
 
   it("falls back lexically without calling the provider when the global AI operation guard rejects", async () => {
@@ -245,8 +269,10 @@ describe("project document hybrid retrieval", () => {
       repository: createFakeRepository([createCandidate(checkout, [1, 0])]),
       usage,
     });
-    const originalConsoleWarn = console.warn;
-    console.warn = () => {};
+    const events: OperationalEventRecord[] = [];
+    const restore = setOperationalEventLoggerForTests((_level, event) => {
+      events.push(event);
+    });
 
     try {
       const chunks = await retriever.retrieve({
@@ -257,13 +283,19 @@ describe("project document hybrid retrieval", () => {
 
       assert.equal(chunks[0]?.documentId, "document-checkout");
     } finally {
-      console.warn = originalConsoleWarn;
+      restore();
     }
 
     assert.equal(providerCalls, 0);
     assert.equal(usage.reservations[0]?.action, RAG_QUERY_EMBEDDING_ACTION);
     assert.equal(usage.completions.length, 0);
     assert.equal(usage.failures.length, 0);
+    assert.equal(
+      events[0]?.event === "project_document_processing"
+        ? events[0].outcome
+        : undefined,
+      "usage_guard_skipped"
+    );
   });
 
   it("does not call the provider or repository while semantic retrieval is disabled", async () => {
@@ -387,6 +419,7 @@ function createFakeRepository(
 }
 
 interface FakeOperationUsageService extends AiOperationUsageService {
+  attempts: AiOperationReservation[];
   completions: Array<{
     completion?: AiOperationCompletionInput;
     reservation?: AiOperationReservation;
@@ -400,6 +433,7 @@ interface FakeOperationUsageService extends AiOperationUsageService {
 
 function createFakeOperationUsageService(error?: Error): FakeOperationUsageService {
   const usage: FakeOperationUsageService = {
+    attempts: [],
     completions: [],
     failures: [],
     reservations: [],
@@ -420,6 +454,12 @@ function createFakeOperationUsageService(error?: Error): FakeOperationUsageServi
         failure,
         reservation,
       });
+    },
+
+    async recordAiOperationAttempt(reservation) {
+      if (reservation && "action" in reservation) {
+        usage.attempts.push(reservation as AiOperationReservation);
+      }
     },
 
     async reserveAiOperation(input) {
@@ -517,6 +557,7 @@ function createProjectDocument(
     mimeType: "text/markdown",
     projectId: "project-1",
     source: "USER_PROVIDED",
+    sourceAssetId: null,
     title,
     updatedAt: NOW,
   };

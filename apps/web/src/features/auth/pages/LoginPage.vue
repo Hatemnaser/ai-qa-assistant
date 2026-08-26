@@ -8,6 +8,7 @@ import { login } from "../authApi";
 import AuthLayout from "../components/AuthLayout.vue";
 import type { AuthUser } from "../types";
 import { useAuthRequest } from "../useAuthRequest";
+import { PASSWORD_MAX_LENGTH } from "../passwordPolicy";
 
 defineProps<{
   themeToggleLabel: string;
@@ -70,6 +71,7 @@ async function submitLogin() {
         autocomplete="current-password"
         :placeholder="t('auth.login.passwordPlaceholder')"
         :disabled="isSubmitting"
+        :max-length="PASSWORD_MAX_LENGTH"
         required
       />
 

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ProjectRole } from "../src/generated/prisma/enums.ts";
-import type { ProjectRecord, ProjectsRepository } from "../src/modules/projects/projects.repository.ts";
+import type { ProjectRecord, ProjectsRepository } from "../src/modules/projects/projects.types.ts";
 import { projectInputSchema } from "../src/modules/projects/projects.schema.ts";
 import { createProjectsService } from "../src/modules/projects/projects.service.ts";
 

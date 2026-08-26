@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { normalizeGeminiError } from "../src/modules/ai/gemini.errors.ts";
 import {
+  logAuthEmailDeliveryFailed,
   logAuthRateLimited,
   logChatRateLimited,
   setSecurityEventLoggerForTests,
@@ -10,6 +11,35 @@ import {
 } from "../src/lib/security-events.ts";
 
 describe("security event logging", () => {
+  it("logs auth email delivery failures without recipient or provider details", () => {
+    const events = captureSecurityEvents(() => {
+      logAuthEmailDeliveryFailed({ operation: "email_verification" });
+      logAuthEmailDeliveryFailed({ operation: "password_reset" });
+    });
+
+    assert.deepEqual(
+      events.map(({ code, event, operation }) => ({ code, event, operation })),
+      [
+        {
+          code: "AUTH_EMAIL_DELIVERY_FAILED",
+          event: "auth_email_delivery_failed",
+          operation: "email_verification",
+        },
+        {
+          code: "AUTH_EMAIL_DELIVERY_FAILED",
+          event: "auth_email_delivery_failed",
+          operation: "password_reset",
+        },
+      ]
+    );
+    for (const event of events) {
+      assert.deepEqual(Object.keys(event).sort(), ["code", "event", "operation", "timestamp"]);
+      assert.equal("emailHash" in event, false);
+      assert.equal("provider" in event, false);
+      assert.equal("errorCode" in event, false);
+    }
+  });
+
   it("hashes auth rate-limit identifiers instead of logging raw email or IP", () => {
     const events = captureSecurityEvents(() => {
       logAuthRateLimited({
@@ -34,7 +64,7 @@ describe("security event logging", () => {
     assert.equal(serialized.includes("203.0.113.10"), false);
   });
 
-  it("hashes guest chat identifiers while keeping signed-in user ids explicit", () => {
+  it("hashes guest and signed-in identifiers before external logging", () => {
     const events = captureSecurityEvents(() => {
       logChatRateLimited({
         guestId: "guest-secret-cookie-value",
@@ -53,10 +83,12 @@ describe("security event logging", () => {
     assert.equal(events[0]?.identityType, "guest");
     assert.equal(typeof events[0]?.guestIdHash, "string");
     assert.equal(events[1]?.identityType, "user");
-    assert.equal(events[1]?.userId, "user-1");
+    assert.equal(typeof events[1]?.userIdHash, "string");
+    assert.notEqual(events[1]?.userIdHash, "user-1");
     assert.equal(serialized.includes("guest-secret-cookie-value"), false);
     assert.equal(serialized.includes("198.51.100.20"), false);
     assert.equal(serialized.includes("198.51.100.21"), false);
+    assert.equal(serialized.includes('\"userId\":\"user-1\"'), false);
   });
 
   it("logs Gemini quota/model provider errors without prompt content", () => {

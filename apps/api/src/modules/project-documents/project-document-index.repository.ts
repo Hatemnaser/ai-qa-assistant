@@ -1,47 +1,16 @@
 import { prisma } from "../../db/prisma.js";
-import type { PreparedProjectDocumentIndex } from "./project-document-index.js";
+import type {
+  ProjectDocumentEmbeddingFailureMessage,
+  ProjectDocumentIndexFailureMessage,
+  ProjectDocumentIndexRepository,
+} from "./project-document-index.types.js";
 
 const MAX_INDEX_ERROR_LENGTH = 500;
 
-export interface ProjectDocumentEmbeddingCandidate {
-  chunkIndex: number;
-  content: string;
-  contentHash: string;
-  documentId: string;
-  title: string;
-}
-
-export interface SaveProjectDocumentChunkEmbeddingInput {
-  chunkIndex: number;
-  contentHash: string;
-  dimensions: number;
-  documentId: string;
-  model: string;
-  values: number[];
-}
-
-export interface ProjectDocumentIndexRepository {
-  listEmbeddingCandidates(
-    documentId: string,
-    model: string,
-    dimensions: number
-  ): Promise<ProjectDocumentEmbeddingCandidate[]>;
-  markChunkEmbeddingFailed(
-    documentId: string,
-    chunkIndex: number,
-    contentHash: string,
-    model: string,
-    dimensions: number,
-    error: string
-  ): Promise<void>;
-  markDocumentIndexFailed(
-    documentId: string,
-    sourceUpdatedAt: Date,
-    error: string
-  ): Promise<void>;
-  replaceDocumentIndex(input: PreparedProjectDocumentIndex): Promise<boolean>;
-  saveChunkEmbedding(input: SaveProjectDocumentChunkEmbeddingInput): Promise<void>;
-}
+export const PROJECT_DOCUMENT_INDEX_FAILURE_MESSAGE: ProjectDocumentIndexFailureMessage =
+  "Document indexing failed.";
+export const PROJECT_DOCUMENT_EMBEDDING_FAILURE_MESSAGE: ProjectDocumentEmbeddingFailureMessage =
+  "Document embedding failed.";
 
 export function createPrismaProjectDocumentIndexRepository(): ProjectDocumentIndexRepository {
   return {

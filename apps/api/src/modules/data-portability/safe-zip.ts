@@ -20,18 +20,37 @@ export interface SafeZipError {
   message: string;
 }
 
-interface ZipEntryMetadata {
+export interface SafeZipOptions {
+  isPathAllowed?: (path: string) => boolean;
+}
+
+export interface SafeZipEntryMetadata {
   path: string;
   compressedSize: number;
   uncompressedSize: number;
   isDirectory: boolean;
 }
 
+export interface SafeZipArchive {
+  entries: Record<string, Uint8Array>;
+  metadata: SafeZipEntryMetadata[];
+}
+
 export function readSafeZip(
   archive: Buffer,
   limits: SafeZipLimits,
-  error: SafeZipError
+  error: SafeZipError,
+  options: SafeZipOptions = {}
 ) {
+  return readSafeZipArchive(archive, limits, error, options).entries;
+}
+
+export function readSafeZipArchive(
+  archive: Buffer,
+  limits: SafeZipLimits,
+  error: SafeZipError,
+  options: SafeZipOptions = {}
+): SafeZipArchive {
   if (
     archive.byteLength === 0 ||
     archive.byteLength > limits.maxCompressedBytes
@@ -39,7 +58,7 @@ export function readSafeZip(
     throwInvalidZip(error);
   }
 
-  const metadata = inspectCentralDirectory(archive, limits, error);
+  const metadata = inspectCentralDirectory(archive, limits, error, options);
   const entries = unzipArchive(archive, error);
 
   if (Object.keys(entries).length !== metadata.length) {
@@ -64,7 +83,7 @@ export function readSafeZip(
     }
   }
 
-  return entries;
+  return { entries, metadata };
 }
 
 export function decodeSafeUtf8(
@@ -81,7 +100,8 @@ export function decodeSafeUtf8(
 function inspectCentralDirectory(
   archive: Uint8Array,
   limits: SafeZipLimits,
-  error: SafeZipError
+  error: SafeZipError,
+  options: SafeZipOptions
 ) {
   const view = new DataView(
     archive.buffer,
@@ -112,7 +132,7 @@ function inspectCentralDirectory(
     throwInvalidZip(error);
   }
 
-  const entries: ZipEntryMetadata[] = [];
+  const entries: SafeZipEntryMetadata[] = [];
   const exactPaths = new Set<string>();
   const caseInsensitivePaths = new Set<string>();
   let cursor = centralDirectoryOffset;
@@ -152,7 +172,7 @@ function inspectCentralDirectory(
     );
     const isDirectory = path.endsWith("/");
 
-    validateZipPath(path, limits, error);
+    validateSafeZipPath(path, limits, error, options);
 
     if (isUnsafeUnixEntry(versionMadeBy, externalAttributes, isDirectory)) {
       throwInvalidZip(error);
@@ -228,10 +248,11 @@ function decodeZipPath(bytes: Uint8Array, error: SafeZipError) {
   }
 }
 
-function validateZipPath(
+export function validateSafeZipPath(
   path: string,
   limits: SafeZipLimits,
-  error: SafeZipError
+  error: SafeZipError,
+  options: SafeZipOptions = {}
 ) {
   const pathWithoutTrailingSlash = path.endsWith("/")
     ? path.slice(0, -1)
@@ -245,7 +266,8 @@ function validateZipPath(
     /[\u0000-\u001f\u007f]/.test(path) ||
     path.includes("\\") ||
     path.startsWith("/") ||
-    /^[a-z]:/i.test(path)
+    /^[a-z]:/i.test(path) ||
+    options.isPathAllowed?.(path) === false
   ) {
     throwInvalidZip(error);
   }

@@ -2,7 +2,7 @@
 
 Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`. Memory Intelligence decisions and retained review requirements live in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 
-Last updated: 2026-07-26
+Last updated: 2026-08-25
 
 ## Core Documentation Map
 
@@ -24,18 +24,32 @@ Last updated: 2026-07-26
   foundation, Slice 4 controlled Summary Generation, and Slice 5 manual
   Project Memory are committed on `main`. The former Project Memory AI
   suggestion/review flow was removed from the MVP.
-- Migration `20260614000100_add_conversation_summary` was applied locally on
-  2026-06-14. Migration `20260614000200_add_project_memory` was also applied
-  locally. Prisma reports all nine migrations are up to date.
+- The repository contains 17 ordered Prisma migrations. `prisma validate`
+  passes; GitHub CI applies the complete migration set to a fresh PostgreSQL 16
+  database before verification. Do not infer that an unstarted local Docker
+  database has received the latest migrations.
 - The local PostgreSQL volume was found empty on 2026-06-14. The services and
   migrations were healthy, but there were zero users, projects, chats,
   messages, or sessions. Treat prior local data as unavailable unless it can
   still be recovered from browser-local chat storage or an external backup.
-- Latest Account Data portability verification on 2026-07-26:
-  419 API tests, 126 web tests, API/web TypeScript checks,
-  `npm run build:api`, and `npm run build:web` passed. `git diff --check`
-  also passed with only the repository's expected Windows line-ending
-  warnings.
+- Final verification was recorded on 2026-08-25: API checks passed, including
+  the architecture gate over 224 source files and 118 test files; the API suite
+  passed 711/711 tests in 122 suites; web checks and the production build
+  passed; and the web suite passed 209/209 tests in 53 suites. The API
+  production build, Prisma validation/generation, the production dependency
+  audit (0 vulnerabilities), and `git diff --check` also passed. Eluthira's
+  repository boundary/Astro checks, 15-page static build, and 17/17 tests
+  passed as well.
+- `check:api` now includes a TypeScript-AST architecture gate for repository
+  contracts and runtime cycles. A fail-closed deployment smoke harness provides
+  GET-only and explicitly confirmed authenticated project-lifecycle modes.
+- The guarded real-PostgreSQL suite verifies migration parity, PostgreSQL 16+,
+  ownership/rollback behavior, concurrent usage/project/chat/document/asset
+  quotas, binary-import finalization/rollback, and exact cleanup lease fencing
+  across concurrent instances. It was not run locally as of 2026-08-25 because
+  the Docker daemon was unavailable; CI runs it
+  against the explicitly named disposable `oddpath_ci` database after
+  migrations.
 - Start the API with `npm run dev:api` when needed; do not assume a server is
   already running.
 - `main` matched `origin/main` before the current production-safety script work
@@ -176,7 +190,7 @@ npm run build:api
 - Context preparation is two-phase: ownership checks and lexical context are prepared before usage reservation; query embeddings and semantic enhancement run only after credits are reserved.
 - Hybrid retrieval remains disabled by default. Missing, stale, failed, oversized, or unavailable semantic candidate sets fall back to the deterministic lexical baseline.
 - In-process semantic scoring is capped at 1,000 compatible chunks. Larger projects require a future database vector index instead of an unbounded application-memory scan.
-- Project File Import v1 accepts up to four `txt`, `md`, `log`, `csv`, `json`, `html`, `css`, `js`, or `ts` files per import, with a 1MB limit per file. Imported files are stored as read-only `ProjectDocument` records with source metadata; replacement is delete and re-import.
+- Project File Import v1 accepts up to four `txt`, `md`, `log`, `csv`, `json`, `html`, `css`, `js`, or `ts` files per import, with a 250KB limit per file. Imported files are stored as read-only `ProjectDocument` records with source metadata; replacement is delete and re-import.
 - Rich Markdown rendering and syntax highlighting fall back to plain source for files above 200,000 characters to keep the preview responsive.
 - Project-linked chat saves, Project Instructions, Project Documents, and project retrieval all use `projects/project-access.service.ts` as the owner-only authorization boundary. Add future member/role logic there instead of duplicating ownership checks.
 - `ProjectsPage.vue` delegates Project Instructions/Documents async state to `useProjectKnowledge`, including stale-response protection when the active project changes.
@@ -201,9 +215,11 @@ Complete enough:
 - Manual Account Memory CRUD plus singleton Project Instructions with signed-in prompt retrieval and owner isolation.
 - Project document CRUD, text/data/code file import, safe previews, Add text, drag/drop, and signed-in project prompt retrieval.
 - Owner-scoped Project Portable ZIP export through
-  `GET /api/portability/projects/:projectId/export`, with canonical
+  `POST /api/portability/projects/:projectId/export`, with CSRF, canonical
   `data/project.json`, document files, optional chats, readable Markdown, and
-  no derived retrieval state.
+  no derived retrieval state. Legacy v1 packages remain supported; exports
+  with stored private files use bounded v2 descriptors/entries and exact
+  message/document bindings.
 - Authenticated zero-write Project Import Preview through
   `POST /api/portability/projects/import/preview`, with bounded ZIP/path/schema
   validation, per-file hashes, package digest, counts, warnings, and no
@@ -218,10 +234,18 @@ Complete enough:
   local-file Preview/Commit modal that displays counts and warnings, commits
   the same previewed file, refreshes project and account-chat state, and opens
   the imported project.
-- Full Account Data portability is the Settings product. Owner-scoped
-  `GET /api/portability/account/export` downloads canonical profile/settings,
+- Account Data portability is the Settings product. Owner-scoped
+  `POST /api/portability/account/export` requires CSRF and downloads canonical profile/settings,
   Account Memory, projects, documents, chats/messages, readable Markdown, and
   provider-neutral migration references as `account-data-export.zip`.
+  Legacy v1 packages remain importable. Exports containing stored private
+  files use bounded v2 descriptors and ZIP entries; Preview validates their
+  bytes/bindings, and Commit uses staged assets plus durable cleanup jobs and
+  atomic canonical finalization. Web Preview/Commit surfaces optional binary
+  counts for Account and Project packages. Restore rows now carry a persisted
+  session/attempt/token fence revalidated around every object write and inside
+  finalization. Cleanup renewal/failure/completion uses an exact database lease
+  CAS and exposes lease conflicts to scheduler monitoring.
 - Unified Account Import exposes zero-write Preview and digest-confirmed
   create-new Commit under `/api/portability/account/import/...`. It
   automatically detects native Account Data ZIPs and supported external
@@ -229,6 +253,10 @@ Complete enough:
   provider dropdown, displays all portable-record counts and localized
   warnings, then
   refreshes Account Memory, projects, and chats after transactional Commit.
+  Production import routes default off through
+  `PORTABILITY_IMPORTS_ENABLED=false`; when deliberately enabled they enforce
+  bounded ZIP/semantic limits, shared persisted-data quotas, advisory locks,
+  per-user/IP rates, and process-local concurrency caps before extraction.
 - Centralized project access checks and stale-response-safe Project Knowledge state.
 - Sidebar Projects navigation.
 - Gemini model strategy, routing, and fallback.
@@ -239,17 +267,30 @@ Complete enough:
   prompts, and locale-aware dates. Translation copy uses domain-split JSON
   catalogs with typed locale loaders and a dedicated `npm run test:i18n` gate.
 - The production runbook is documented and a production-safe
-  `npm run db:migrate:deploy` command exists. Real-user deployment remains
-  blocked on deployment provider selection, managed PostgreSQL, automated
-  backups, a tested restore drill, staging smoke tests, host/proxy rate
-  limiting, and the auth security checkpoint.
+  `npm run db:migrate:deploy` command exists. Cloudflare Pages/R2, Render,
+  Brevo, and paid Gemini are the selected provider shape. Real-user deployment
+  remains blocked on provisioning managed PostgreSQL, automated backups, a
+  tested restore drill, staging smoke tests, host/proxy rate limiting, and the
+  remaining operational/legal gates. Keep `PRIVATE_ASSETS_ENABLED=false` in
+  production until the real PostgreSQL suite and EU R2 interruption matrix are
+  recorded, process-kill/freeze recovery is proven against the real services,
+  production-scale timeout/latency behavior is measured, and scheduled cleanup
+  is validated across multiple API instances. The fail-closed, sanitized R2
+  mutation runner and its local contract tests are implemented; actual bucket
+  credentials/CORS and provider execution remain operator work.
+- Phase 1's repository foundation is complete: `render.yaml`, a pinned Node
+  version, clean-checkout CI, production environment fail-fast checks,
+  liveness/readiness separation, security headers, graceful shutdown, exact
+  web API-origin validation, and reset/verification URL-token cleanup.
 
 Still unfinished:
 
 - Google OAuth.
-- Real forgot-password email delivery.
-- Auth security checkpoint: decide whether to keep and harden owned auth or
-  migrate to Better Auth/Auth.js before real-user production.
+- Live SMTP/domain-deliverability and HTTPS cookie/CSRF smoke testing remain;
+  reset and verification delivery are implemented behind the email adapter.
+- The owned-auth checkpoint is implemented for the initial beta. Revisit a
+  maintained auth library when OAuth, MFA/passkeys, or organizations enter
+  scope.
 - Project member authorization.
 - Project Knowledge Retrieval v2: implementation and controlled real-provider evaluation are complete. Embeddings remain disabled by default and are ready for controlled opt-in use.
 - The Memory Intelligence architecture checkpoint, typed context contract,
@@ -278,12 +319,12 @@ Pick one track before coding:
 
 3. Production safety:
    - Follow `docs/PRODUCTION_READINESS.md`.
-   - Keep provider selection deferred while product features are still moving,
-     but preserve the target shape: static web, long-running Node API, managed
-     PostgreSQL.
+   - Provision the selected Cloudflare/Render/Brevo/Gemini shape from
+     `docs/DEPLOYMENT_CLOUDFLARE_RENDER.md` without committing secrets.
    - Provision managed PostgreSQL with backups and test a restore.
    - Run staging and production smoke/rollback rehearsals.
-   - Complete the auth security checkpoint before real-user launch.
+   - Smoke-test the hardened auth flow over the real HTTPS domains before
+     opening invite-only registration.
 
 4. AI quality:
    - Expand AI behavior evals.

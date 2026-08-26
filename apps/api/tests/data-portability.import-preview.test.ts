@@ -12,9 +12,11 @@ import {
 } from "fflate";
 
 import { createDataPortabilityService } from "../src/modules/data-portability/data-portability.service.ts";
-import type { DataPortabilityRepository } from "../src/modules/data-portability/data-portability.repository.ts";
 import { previewProjectImportPackage } from "../src/modules/data-portability/import-package.ts";
-import { PROJECT_IMPORT_LIMITS } from "../src/modules/data-portability/data-portability.types.ts";
+import {
+  PROJECT_IMPORT_LIMITS,
+  type DataPortabilityRepository,
+} from "../src/modules/data-portability/data-portability.types.ts";
 import { createTestProjectExportArchive } from "./helpers/projectExportPackage.ts";
 
 describe("project import preview", () => {
@@ -35,7 +37,8 @@ describe("project import preview", () => {
         messages: 2,
       },
       warnings: [
-        "Chat attachment files are not included because chat file persistence is not implemented. Attachment metadata is included only.",
+        "Chat attachment metadata is included, but original attachment files are not included in this archive.",
+        "Private object-storage binaries are not included in this legacy version 1 archive. Export again with available private assets to create a version 2 archive.",
       ],
       unsupported: [],
     });

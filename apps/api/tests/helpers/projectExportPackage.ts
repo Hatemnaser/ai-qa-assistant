@@ -23,6 +23,7 @@ export function createTestProjectExportArchive(
 
 export function createProjectExportSource(): ProjectExportSourceRecord {
   return {
+    binaryAssets: [],
     id: "project-1",
     name: "Checkout QA",
     description: "Checkout and payment quality workspace.",

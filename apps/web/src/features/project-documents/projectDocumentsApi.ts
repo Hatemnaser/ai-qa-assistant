@@ -1,13 +1,12 @@
 import { createBackendApiError } from "../../api/backendErrors";
 import { csrfFetch } from "../../api/csrf";
+import { API_BASE_URL } from "../../config/api";
 import { t } from "../../i18n/useI18n";
 import type {
   ProjectDocument,
   ProjectDocumentImportFileInput,
   ProjectDocumentInput,
 } from "./types";
-
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 
 export async function fetchProjectDocuments(projectId: string): Promise<ProjectDocument[]> {
   return requestProjectDocumentList(`/api/projects/${encodeURIComponent(projectId)}/documents`);

@@ -116,6 +116,10 @@ Default limits come from `apps/api/src/config/env.ts`:
 - `AI_GLOBAL_USAGE_WINDOW_MS`: default `3600000` (one hour).
 - `AI_GLOBAL_REQUEST_LIMIT`: default `1000`.
 - `AI_GLOBAL_CREDIT_LIMIT`: default `5000`.
+- `AI_GLOBAL_DAILY_REQUEST_LIMIT`: default `2500` (rolling 24 hours).
+- `AI_GLOBAL_DAILY_CREDIT_LIMIT`: default `10000` (rolling 24 hours).
+- `AI_GLOBAL_MONTHLY_REQUEST_LIMIT`: default `30000` (current UTC calendar month).
+- `AI_GLOBAL_MONTHLY_CREDIT_LIMIT`: default `100000` (current UTC calendar month).
 
 For signed-in users, usage is counted by `userId`. For guests, usage is counted
 by both `guestId` and `ipHash`; the effective used value is the maximum of the
@@ -128,7 +132,9 @@ IP-scoped quota.
 
 High-level backend flow:
 
-1. Express applies the JSON body limit from `REQUEST_BODY_LIMIT`, default
+1. The chat IP limiter runs before Express reads the request body. Chat JSON then
+   uses `REQUEST_BODY_LIMIT` (default `25mb`) for the temporary inline-attachment
+   compatibility path; other JSON routes use a smaller `5mb` ceiling.
    `25mb`.
 2. The controller applies the `/api/chat` per-IP rate limiter.
 3. `chatRequestSchema` validates the request:
@@ -249,10 +255,13 @@ the relevant usage scope before it counts and inserts:
 This prevents normal parallel requests for the same signed-in user, guest id,
 or guest IP hash from all passing the same pre-insert count.
 
-Slice 1.6 adds a global AI usage guard to the same reservation path. Before a
-chat reservation is inserted, the repository counts non-failed chat usage in
-the `AI_GLOBAL_USAGE_WINDOW_MS` window and rejects the request if adding it
-would exceed either `AI_GLOBAL_REQUEST_LIMIT` or `AI_GLOBAL_CREDIT_LIMIT`.
+The global AI usage guard runs in the same reservation transaction. Before an
+AI reservation is inserted, the repository counts all known AI usage actions
+across the configured short window, a rolling 24-hour window, and the current
+UTC calendar month. It rejects the request if adding it would exceed the
+request or credit limit for any window. Failed and unknown provider attempts
+remain visible to the global request guard; fresh reservations are included,
+while abandoned reservations are conservatively converted to `unknown`.
 Rejected requests return `AI_USAGE_LIMIT_REACHED` and do not call the workflow
 router or AI provider.
 
@@ -332,14 +341,13 @@ when a `projectId` is present.
 - Chat usage reservation is transactional and uses PostgreSQL advisory locks
   for the current usage scope before counting and inserting the reserved event.
 - Usage records store reserved/completed/failed status and credit metadata.
-- Slice 1.5C cleans stale `reserved` chat usage events for the current usage
-  scope before a new reservation. Events older than
-  `USAGE_STALE_RESERVED_MINUTES` are marked `failed` with `units=0`, so a crash
-  after reservation does not leave credits blocked forever.
-- Slice 1.6 adds a global DB-backed chat usage guard using
-  `AI_GLOBAL_USAGE_WINDOW_MS`, `AI_GLOBAL_REQUEST_LIMIT`, and
-  `AI_GLOBAL_CREDIT_LIMIT`. It rejects with `AI_USAGE_LIMIT_REACHED` before
-  workflow router or AI provider calls.
+- Stale `reserved` events older than `USAGE_STALE_RESERVED_MINUTES` are marked
+  `unknown` without erasing their reserved units. A process can crash after a
+  provider accepted work, so treating the outcome as free would undercount
+  potentially billed usage.
+- The DB-backed global guard enforces short, rolling daily, and calendar-month
+  request/credit limits. It rejects with `AI_USAGE_LIMIT_REACHED` before the
+  workflow router or AI provider is called.
 - Slice 1.7 adds the same DB-backed global AI operation guard for non-chat AI
   operations:
   - `conversation_summary` is reserved before `summarizer.generate`; if the
@@ -411,8 +419,9 @@ Current rate limits:
   guest quota.
 - Proxy accuracy: `req.ip` depends on correct deployment/proxy configuration.
   Needs verification before relying on IP quotas in production.
-- No separate hourly quota exists unless `USAGE_WINDOW_HOURS` is configured to
-  a shorter window. The default is a 24-hour rolling window.
+- Identity quotas use the rolling `USAGE_WINDOW_HOURS` window (24 hours by
+  default). Separately, the global guard has short, rolling daily, and monthly
+  windows.
 - A DB-backed global AI usage guard now covers chat plus known non-chat AI
   operations, but no provider-budget circuit breaker, billing dashboard, or
   provider-side budget integration exists.
@@ -439,10 +448,11 @@ Current rate limits:
   usage. It does not appear to leak other identities, but it is not
   rate-limited.
 - If the API process crashes after reserving usage but before completion/fail
-  update, Slice 1.5C now clears stale reservations for the same usage scope on
-  the next chat reservation after `USAGE_STALE_RESERVED_MINUTES`. This is not a
-  background worker, so identities that never make another request may still
-  have old `reserved` rows until a later cleanup mechanism exists.
+  update, the next reservation for that scope converts the stale row to
+  `unknown` after `USAGE_STALE_RESERVED_MINUTES` and keeps its conservative
+  units. The scheduled retention job later purges old usage records according
+  to `USAGE_RECORD_RETENTION_DAYS`, which is kept at 32 days or more so a
+  31-day calendar month is not partially removed before its cap resets.
 - Slice 1.7 guards the known non-chat AI operations reviewed in this codebase:
   conversation summaries, document embeddings, and semantic RAG query
   embeddings. Any new future AI operation must be wired through
@@ -453,9 +463,8 @@ Current rate limits:
 Implemented.
 
 - Central guard: `usageService.reserveAiOperation` records a reserved
-  `UsageEvent` through `UsageRepository.reserveUsage`, using
-  `AI_GLOBAL_USAGE_WINDOW_MS`, `AI_GLOBAL_REQUEST_LIMIT`, and
-  `AI_GLOBAL_CREDIT_LIMIT`.
+  `UsageEvent` through `UsageRepository.reserveUsage`, enforcing the configured
+  short, rolling daily, and UTC calendar-month request/credit windows.
 - Global counting is shared across chat and non-chat actions:
   `chat_message`, `conversation_summary`, `document_embedding`, and
   `rag_query_embedding`.

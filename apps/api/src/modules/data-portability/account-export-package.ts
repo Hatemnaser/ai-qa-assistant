@@ -2,11 +2,15 @@ import { createHash } from "node:crypto";
 
 import { strToU8, zipSync } from "fflate";
 
+import { DATA_LIMITS } from "../../config/data-limits.js";
 import { AppError } from "../../lib/errors.js";
 import { ChatRole } from "../../generated/prisma/enums.js";
+import { CHAT_ATTACHMENT_LIMITS } from "../chat/chat.attachments.js";
 import {
+  ACCOUNT_EXPORT_BINARY_FORMAT_VERSION,
   ACCOUNT_EXPORT_FORMAT_VERSION,
   ACCOUNT_EXPORT_LIMITS,
+  type AccountExportFormatVersion,
   type AccountExportChatRecord,
   type AccountExportDocumentRecord,
   type AccountExportManifest,
@@ -15,29 +19,50 @@ import {
   type AccountExportProjectRecord,
   type AccountExportSourceRecord,
 } from "./account-data-portability.types.js";
+import {
+  validatePortableBinaryAssets,
+  type CollectedPortableBinaryAssets,
+  type PortableBinaryAssetDescriptor,
+} from "./binary-assets.js";
 
 const ATTACHMENT_WARNING =
-  "Chat attachment metadata is included, but original attachment files are unavailable because chat file persistence is not implemented.";
+  "Chat attachment metadata is included, but original attachment files are not included in this archive.";
+const PRIVATE_ASSET_WARNING =
+  "Private object-storage binaries are not included in this export. They require a version 2 archive and an importer with atomic binary-asset restore support.";
+const BINARY_ASSET_WARNING =
+  "Private binary files are included in this archive. They can only be restored by an importer that supports the version 2 atomic binary-asset restore contract.";
 const MIGRATION_WARNING =
   "The migration/conversations.json file is a provider-neutral reference file. External AI services may accept it as chat context, but it does not guarantee restoration of their native chat history or account settings.";
 
 export function createAccountExportPackage(
   account: AccountExportSourceRecord,
-  exportedAt = new Date()
+  exportedAt = new Date(),
+  binaryAssets?: CollectedPortableBinaryAssets
 ): AccountExportPackage {
+  validateSourceSemantics(account);
+
+  const formatVersion: AccountExportFormatVersion = binaryAssets
+    ? ACCOUNT_EXPORT_BINARY_FORMAT_VERSION
+    : ACCOUNT_EXPORT_FORMAT_VERSION;
+  const portableBinaryAssets = binaryAssets
+    ? validateExportBinaryAssets(account, binaryAssets)
+    : [];
+
   const entries = new Map<string, Uint8Array>();
   const projectReferences = account.projects.map((project, index) =>
-    addProjectEntries(entries, project, index, account.chats)
+    addProjectEntries(entries, project, index, account.chats, formatVersion)
   );
   const chatReferences = account.chats.map((chat, index) =>
-    addChatEntries(entries, chat, index)
+    addChatEntries(entries, chat, index, formatVersion)
   );
 
   const accountDocument = {
-    formatVersion: ACCOUNT_EXPORT_FORMAT_VERSION,
+    formatVersion,
     exportType: "account",
     account: {
       sourceId: account.id,
+      acceptedTermsAt: account.acceptedTermsAt?.toISOString() || null,
+      acceptedTermsVersion: account.acceptedTermsVersion,
       email: account.email,
       name: account.name,
       locale: account.locale,
@@ -62,7 +87,15 @@ export function createAccountExportPackage(
     })),
     projects: projectReferences,
     chats: chatReferences,
+    ...(binaryAssets ? { binaryAssets: portableBinaryAssets } : {}),
   };
+
+  if (binaryAssets) {
+    for (const [path, content] of binaryAssets.entries) {
+      if (entries.has(path)) throwInvalidBinaryAssets();
+      entries.set(path, content);
+    }
+  }
 
   entries.set("data/account.json", encodeJson(accountDocument));
   entries.set(
@@ -75,7 +108,7 @@ export function createAccountExportPackage(
   );
   entries.set(
     "migration/conversations.json",
-    encodeJson(createMigrationConversations(account.chats))
+    encodeJson(createMigrationConversations(account.chats, formatVersion))
   );
   entries.set(
     "migration/account-memory.md",
@@ -85,13 +118,18 @@ export function createAccountExportPackage(
 
   validateEntries(entries);
 
-  const warnings = [MIGRATION_WARNING];
-  if (hasAttachmentMetadata(account.chats)) {
+  const warnings = [
+    portableBinaryAssets.length > 0
+      ? BINARY_ASSET_WARNING
+      : PRIVATE_ASSET_WARNING,
+    MIGRATION_WARNING,
+  ];
+  if (hasUnpackagedAttachmentMetadata(account.chats, portableBinaryAssets)) {
     warnings.unshift(ATTACHMENT_WARNING);
   }
 
   const manifest: AccountExportManifest = {
-    formatVersion: ACCOUNT_EXPORT_FORMAT_VERSION,
+    formatVersion,
     exportType: "account",
     exportedAt: exportedAt.toISOString(),
     accountId: account.id,
@@ -107,12 +145,18 @@ export function createAccountExportPackage(
         0
       ),
       accountMemories: account.memories.length,
+      ...(binaryAssets ? { binaryAssets: portableBinaryAssets.length } : {}),
     },
     contains: {
       canonicalJson: true,
       readableMarkdown: true,
       migrationReference: true,
-      attachmentFiles: false,
+      attachmentFiles: portableBinaryAssets.some(
+        (asset) => asset.binding.kind === "message_attachment"
+      ),
+      ...(binaryAssets
+        ? { privateAssetFiles: portableBinaryAssets.length > 0 }
+        : {}),
       derivedData: false,
       secrets: false,
     },
@@ -144,7 +188,8 @@ function addProjectEntries(
   entries: Map<string, Uint8Array>,
   project: AccountExportProjectRecord,
   projectIndex: number,
-  chats: AccountExportChatRecord[]
+  chats: AccountExportChatRecord[],
+  formatVersion: AccountExportFormatVersion
 ) {
   const sequence = padSequence(projectIndex);
   const documentReferences = project.documents.map((document, documentIndex) => {
@@ -175,7 +220,7 @@ function addProjectEntries(
   entries.set(
     dataPath,
     encodeJson({
-      formatVersion: ACCOUNT_EXPORT_FORMAT_VERSION,
+      formatVersion,
       exportType: "account_project",
       project: {
         sourceId: project.id,
@@ -221,7 +266,8 @@ function addProjectEntries(
 function addChatEntries(
   entries: Map<string, Uint8Array>,
   chat: AccountExportChatRecord,
-  index: number
+  index: number,
+  formatVersion: AccountExportFormatVersion
 ) {
   const sequence = padSequence(index);
   const dataPath = `data/chats/chat-${sequence}.json`;
@@ -230,7 +276,7 @@ function addChatEntries(
   entries.set(
     dataPath,
     encodeJson({
-      formatVersion: ACCOUNT_EXPORT_FORMAT_VERSION,
+      formatVersion,
       exportType: "account_chat",
       chat: {
         sourceId: chat.id,
@@ -271,9 +317,12 @@ function toPortableMessage(message: AccountExportMessageRecord) {
   };
 }
 
-function createMigrationConversations(chats: AccountExportChatRecord[]) {
+function createMigrationConversations(
+  chats: AccountExportChatRecord[],
+  formatVersion: AccountExportFormatVersion
+) {
   return {
-    formatVersion: ACCOUNT_EXPORT_FORMAT_VERSION,
+    formatVersion,
     exportType: "conversation_reference",
     conversations: chats.map((chat) => ({
       title: chat.title,
@@ -308,6 +357,8 @@ function formatAccountAsMarkdown(
     `- Name: ${account.name || ""}`,
     `- Email: ${account.email}`,
     `- Locale: ${account.locale}`,
+    `- Accepted Terms Version: ${account.acceptedTermsVersion || ""}`,
+    `- Accepted Terms At: ${account.acceptedTermsAt?.toISOString() || ""}`,
     `- Created At: ${account.createdAt.toISOString()}`,
     `- Projects: ${projects.length}`,
     `- Chats: ${chats.length}`,
@@ -493,11 +544,195 @@ function validateEntries(entries: Map<string, Uint8Array>) {
   }
 }
 
+function validateExportBinaryAssets(
+  account: AccountExportSourceRecord,
+  collected: CollectedPortableBinaryAssets
+): PortableBinaryAssetDescriptor[] {
+  let validated;
+  try {
+    validated = validatePortableBinaryAssets(
+      collected.assets,
+      Object.fromEntries(collected.entries)
+    );
+  } catch {
+    throwInvalidBinaryAssets();
+  }
+
+  const descriptorPaths = new Set(
+    validated.map((asset) => asset.file.path)
+  );
+  const entryPaths = Array.from(collected.entries.keys());
+  const actualTotalBytes = Array.from(collected.entries.values()).reduce(
+    (total, content) => total + content.byteLength,
+    0
+  );
+  if (
+    descriptorPaths.size !== validated.length ||
+    entryPaths.length !== descriptorPaths.size ||
+    entryPaths.some((path) => !descriptorPaths.has(path)) ||
+    collected.totalBytes !== actualTotalBytes
+  ) {
+    throwInvalidBinaryAssets();
+  }
+
+  const messages = new Map<
+    string,
+    { attachments: ReturnType<typeof normalizeAttachmentMetadata>; projectId: string | null }
+  >();
+  for (const chat of account.chats) {
+    for (const message of chat.messages) {
+      if (messages.has(message.id)) throwInvalidBinaryAssets();
+      messages.set(message.id, {
+        attachments: normalizeAttachmentMetadata(message.attachment),
+        projectId: chat.projectId,
+      });
+    }
+  }
+
+  const documents = new Map<
+    string,
+    {
+      mimeType: string | null;
+      originalName: string;
+      projectId: string;
+    }
+  >();
+  for (const project of account.projects) {
+    for (const document of project.documents) {
+      if (documents.has(document.id)) throwInvalidBinaryAssets();
+      documents.set(document.id, {
+        mimeType: document.mimeType,
+        originalName:
+          toPortableDocumentMetadata(document.metadata)?.originalName ||
+          document.title,
+        projectId: project.id,
+      });
+    }
+  }
+
+  for (const asset of validated) {
+    if (asset.binding.kind === "message_attachment") {
+      const message = messages.get(asset.binding.sourceMessageId);
+      const attachment = message?.attachments[asset.binding.ordinal];
+      if (
+        !message ||
+        !attachment ||
+        message.projectId !== asset.sourceProjectId ||
+        attachment.name !== asset.originalName ||
+        attachment.mimeType !== asset.mimeType ||
+        attachment.type !==
+          (asset.mimeType.startsWith("image/") ? "image" : "file")
+      ) {
+        throwInvalidBinaryAssets();
+      }
+      continue;
+    }
+
+    const document = documents.get(asset.binding.sourceDocumentId);
+    if (
+      !document ||
+      document.projectId !== asset.sourceProjectId ||
+      document.mimeType !== asset.mimeType ||
+      document.originalName !== asset.originalName
+    ) {
+      throwInvalidBinaryAssets();
+    }
+  }
+
+  return validated.map(({ bytes: _bytes, ...descriptor }) => descriptor);
+}
+
+function validateSourceSemantics(account: AccountExportSourceRecord) {
+  const documentCount = account.projects.reduce(
+    (total, project) => total + project.documents.length,
+    0
+  );
+  const messageCount = account.chats.reduce(
+    (total, chat) => total + chat.messages.length,
+    0
+  );
+
+  if (
+    account.projects.length > ACCOUNT_EXPORT_LIMITS.maxProjects ||
+    documentCount > ACCOUNT_EXPORT_LIMITS.maxDocuments ||
+    account.chats.length > ACCOUNT_EXPORT_LIMITS.maxChats ||
+    messageCount > ACCOUNT_EXPORT_LIMITS.maxMessages ||
+    account.memories.length > ACCOUNT_EXPORT_LIMITS.maxAccountMemories ||
+    account.projects.some(
+      (project) => project.documents.length > DATA_LIMITS.documentsPerProject
+    ) ||
+    account.chats.some(
+      (chat) => chat.messages.length > ACCOUNT_EXPORT_LIMITS.maxMessagesPerChat
+    )
+  ) {
+    throwExportTooLarge();
+  }
+
+  let totalTextChars = account.memories.reduce(
+    (total, memory) => total + memory.content.length,
+    0
+  );
+
+  for (const project of account.projects) {
+    totalTextChars += project.name.length + (project.description?.length || 0);
+    totalTextChars += project.instruction?.content.length || 0;
+    totalTextChars += project.projectMemory?.content.length || 0;
+
+    for (const document of project.documents) {
+      if (
+        Buffer.byteLength(document.content, "utf8") >
+        ACCOUNT_EXPORT_LIMITS.maxDocumentBytes
+      ) {
+        throwExportTooLarge();
+      }
+      totalTextChars += document.title.length + document.content.length;
+    }
+  }
+
+  for (const chat of account.chats) {
+    const chatContentBytes = chat.messages.reduce(
+      (total, message) => total + Buffer.byteLength(message.content, "utf8"),
+      0
+    );
+    if (chatContentBytes > DATA_LIMITS.chatMessageContentBytesPerChat) {
+      throwExportTooLarge();
+    }
+    totalTextChars += chat.title.length;
+    for (const message of chat.messages) {
+      const attachments = normalizeAttachmentMetadata(message.attachment);
+      if (
+        message.content.length > ACCOUNT_EXPORT_LIMITS.maxMessageChars ||
+        attachments.length > CHAT_ATTACHMENT_LIMITS.maxAttachments ||
+        attachments.some(
+          (attachment) =>
+            attachment.name.length > CHAT_ATTACHMENT_LIMITS.maxNameChars ||
+            attachment.mimeType.length > 120
+        )
+      ) {
+        throwExportTooLarge();
+      }
+      totalTextChars += message.content.length;
+    }
+  }
+
+  if (totalTextChars > ACCOUNT_EXPORT_LIMITS.maxTotalTextChars) {
+    throwExportTooLarge();
+  }
+}
+
 function throwExportTooLarge(): never {
   throw new AppError(
     "Account data export is too large to package safely.",
     413,
     "ACCOUNT_EXPORT_TOO_LARGE"
+  );
+}
+
+function throwInvalidBinaryAssets(): never {
+  throw new AppError(
+    "Private binary assets could not be added to the account export safely.",
+    500,
+    "ACCOUNT_EXPORT_BINARY_ASSETS_INVALID"
   );
 }
 
@@ -518,6 +753,31 @@ function hasAttachmentMetadata(chats: AccountExportChatRecord[]) {
   return chats.some((chat) =>
     chat.messages.some(
       (message) => normalizeAttachmentMetadata(message.attachment).length > 0
+    )
+  );
+}
+
+function hasUnpackagedAttachmentMetadata(
+  chats: AccountExportChatRecord[],
+  binaryAssets: PortableBinaryAssetDescriptor[]
+) {
+  if (!hasAttachmentMetadata(chats)) return false;
+  const packagedBindings = new Set(
+    binaryAssets.flatMap((asset) =>
+      asset.binding.kind === "message_attachment"
+        ? [
+            `${asset.binding.sourceMessageId}:${asset.binding.ordinal}`,
+          ]
+        : []
+    )
+  );
+
+  return chats.some((chat) =>
+    chat.messages.some((message) =>
+      normalizeAttachmentMetadata(message.attachment).some(
+        (_attachment, ordinal) =>
+          !packagedBindings.has(`${message.id}:${ordinal}`)
+      )
     )
   );
 }

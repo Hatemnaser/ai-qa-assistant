@@ -19,7 +19,7 @@ describe("backend error helpers", () => {
     assert.equal(error.message, "Authentication is required.");
   });
 
-  it("maps infrastructure errors to clearer local setup guidance", async () => {
+  it("maps infrastructure errors to production-safe user guidance", async () => {
     const message = await getBackendError(
       jsonResponse({
         code: "DATABASE_UNAVAILABLE",
@@ -28,8 +28,8 @@ describe("backend error helpers", () => {
       "Request failed."
     );
 
-    assert.match(message, /PostgreSQL is not available/);
-    assert.match(message, /Start Docker\/PostgreSQL/);
+    assert.match(message, /temporarily unavailable/i);
+    assert.doesNotMatch(message, /Docker|PostgreSQL|localhost|127\.0\.0\.1|npm/i);
   });
 
   it("maps provider availability codes without leaking provider internals", async () => {
@@ -45,13 +45,70 @@ describe("backend error helpers", () => {
     assert.match(error.message, /temporarily unavailable/);
   });
 
-  it("maps empty server failures to local backend setup guidance", async () => {
+  it("keeps unknown server error codes while hiding their messages", async () => {
+    const error = await createBackendApiError(
+      jsonResponse({
+        code: "INTERNAL_FAILURE",
+        error: "connection=private-db.internal; password=super-secret",
+      }, 500),
+      "Request failed."
+    );
+
+    assert.equal(error.code, "INTERNAL_FAILURE");
+    assert.equal(error.status, 500);
+    assert.doesNotMatch(error.message, /private-db|super-secret/i);
+    assert.match(error.message, /something went wrong/i);
+  });
+
+  it("does not trust plain-text or HTML error bodies", async () => {
+    const clientError = await createBackendApiError(
+      textResponse("validation token=private", 400),
+      "Request could not be completed."
+    );
+    const serverError = await createBackendApiError(
+      textResponse("<html>proxy password=secret</html>", 502),
+      "Request failed."
+    );
+
+    assert.equal(clientError.message, "Request could not be completed.");
+    assert.doesNotMatch(clientError.message, /private/);
+    assert.doesNotMatch(serverError.message, /proxy|password|secret/i);
+    assert.match(serverError.message, /something went wrong/i);
+  });
+
+  it("falls back safely for non-object JSON error bodies", async () => {
+    const error = await createBackendApiError(
+      textResponse("null", 500, "application/json"),
+      "Request failed."
+    );
+
+    assert.equal(error.status, 500);
+    assert.match(error.message, /something went wrong/i);
+  });
+
+  it("maps registration gate errors to safe user-facing copy", async () => {
+    const inviteError = await createBackendApiError(
+      jsonResponse({ code: "INVITE_REQUIRED", error: "internal invite failure" }, 403),
+      "Request failed."
+    );
+    const termsError = await createBackendApiError(
+      jsonResponse({ code: "TERMS_VERSION_OUTDATED", error: "internal terms failure" }, 409),
+      "Request failed."
+    );
+
+    assert.equal(inviteError.code, "INVITE_REQUIRED");
+    assert.match(inviteError.message, /private beta invite code/i);
+    assert.doesNotMatch(inviteError.message, /internal/i);
+    assert.match(termsError.message, /documents changed/i);
+    assert.doesNotMatch(termsError.message, /internal/i);
+  });
+
+  it("maps empty server failures to production-safe guidance", async () => {
     const error = await createBackendApiError(emptyResponse(500), "Request failed.");
 
     assert.equal(error.status, 500);
-    assert.match(error.message, /server error without details/);
-    assert.match(error.message, /127\.0\.0\.1:5000/);
-    assert.match(error.message, /PostgreSQL/);
+    assert.match(error.message, /something went wrong/i);
+    assert.doesNotMatch(error.message, /Docker|PostgreSQL|localhost|127\.0\.0\.1|npm/i);
   });
 });
 
@@ -66,4 +123,13 @@ function jsonResponse(body: unknown, status = 200) {
 
 function emptyResponse(status = 500) {
   return new Response("", { status });
+}
+
+function textResponse(text: string, status: number, contentType = "text/plain") {
+  return new Response(text, {
+    headers: {
+      "Content-Type": contentType,
+    },
+    status,
+  });
 }

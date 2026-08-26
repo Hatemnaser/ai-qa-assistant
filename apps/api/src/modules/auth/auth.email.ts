@@ -71,7 +71,7 @@ export class SmtpAuthEmailService implements AuthEmailService {
   async sendEmailVerificationEmail(message: EmailVerificationEmailMessage) {
     await this.config.transporter.sendMail({
       from: this.config.from,
-      subject: "Verify your AI QA Assistant email",
+      subject: "Verify your Oddpath email",
       text: buildEmailVerificationText(message),
       to: message.to,
     });
@@ -80,7 +80,7 @@ export class SmtpAuthEmailService implements AuthEmailService {
   async sendPasswordResetEmail(message: PasswordResetEmailMessage) {
     await this.config.transporter.sendMail({
       from: this.config.from,
-      subject: "Reset your AI QA Assistant password",
+      subject: "Reset your Oddpath password",
       text: buildPasswordResetText(message),
       to: message.to,
     });
@@ -143,15 +143,23 @@ export function buildSpaTokenUrl(
 }
 
 export function createSmtpTransporter(config: AppEnv = env): AuthEmailTransporter {
-  return nodemailer.createTransport({
+  return nodemailer.createTransport(buildSmtpTransportOptions(config));
+}
+
+export function buildSmtpTransportOptions(config: AppEnv = env) {
+  return {
     auth: {
       pass: config.smtpPass,
       user: config.smtpUser,
     },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
     host: config.smtpHost,
     port: config.smtpPort,
+    requireTLS: !config.smtpSecure,
     secure: config.smtpSecure,
-  });
+    socketTimeout: 30_000,
+  };
 }
 
 export function createAuthEmailService(config: AppEnv = env) {
@@ -175,7 +183,7 @@ function withTrailingSlash(origin: string) {
 
 function buildPasswordResetText(message: PasswordResetEmailMessage) {
   return [
-    "We received a request to reset your AI QA Assistant password.",
+    "We received a request to reset your Oddpath password.",
     `Open this link to choose a new password: ${message.resetUrl}`,
     `This link expires at ${message.expiresAt.toISOString()}.`,
     "If you did not request a password reset, you can ignore this email.",
@@ -184,7 +192,7 @@ function buildPasswordResetText(message: PasswordResetEmailMessage) {
 
 function buildEmailVerificationText(message: EmailVerificationEmailMessage) {
   return [
-    "Please verify your AI QA Assistant email address.",
+    "Please verify your Oddpath email address.",
     `Open this link to verify your email: ${message.verificationUrl}`,
     `This link expires at ${message.expiresAt.toISOString()}.`,
     "If you did not create an account, you can ignore this email.",

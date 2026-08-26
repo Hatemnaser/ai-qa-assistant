@@ -1,6 +1,6 @@
 # Deploy/Auth Readiness
 
-Last reviewed: 2026-06-23
+Last reviewed: 2026-08-12
 
 This review focuses on production/deploy readiness for auth, cookies, CSRF,
 CORS, SMTP, and IP-dependent abuse controls. It is documentation only and does
@@ -83,12 +83,17 @@ Required for production:
 
 ```text
 EMAIL_PROVIDER=smtp
-EMAIL_FROM="AI QA Assistant <no-reply@your-domain.example>"
+EMAIL_FROM="Oddpath <no-reply@eluthira.com>"
 SMTP_HOST=smtp.your-provider.example
 SMTP_PORT=587
 SMTP_USER=...
 SMTP_PASS=...
 SMTP_SECURE=false
+EMAIL_OUTBOX_ENCRYPTION_SECRET=separate_random_secret_at_least_32_characters
+EMAIL_OUTBOX_POLL_INTERVAL_MS=5000
+EMAIL_OUTBOX_BATCH_SIZE=10
+EMAIL_OUTBOX_MAX_ATTEMPTS=5
+AUTH_EMAIL_RESPONSE_FLOOR_MS=350
 PASSWORD_RESET_PATH=/#/reset-password
 PASSWORD_RESET_TOKEN_TTL_MINUTES=30
 EMAIL_VERIFICATION_PATH=/#/verify-email
@@ -102,10 +107,70 @@ Notes:
   `SMTP_USER`, or `SMTP_PASS` is missing.
 - `SMTP_SECURE=false` is typical for port `587` with STARTTLS.
   `SMTP_SECURE=true` is typical for implicit TLS on port `465`.
+- SMTP delivery uses an encrypted database outbox. Keep its encryption secret
+  separate from CSRF and other secrets, and rotate it only after the pending
+  queue is empty.
 - Hash routes are recommended for reset/verification links so raw tokens stay
   after `#`, reducing exposure in server, proxy, and hosting logs.
 - Full reset/verification URLs should appear only in the email body sent to the
   provider, not in application logs or security events.
+
+### Private-Beta Registration And Terms Audit
+
+Production registration fails closed. With no explicit value,
+`REGISTRATION_MODE` resolves to `disabled` in production (`public` is only a
+development/test default), and production rejects `REGISTRATION_MODE=public`.
+
+Keep this configuration until the legal pages have final operator-approved
+content:
+
+```text
+REGISTRATION_MODE=disabled
+```
+
+To open the reviewed private beta:
+
+```text
+REGISTRATION_MODE=invite
+CURRENT_TERMS_VERSION=2026-08-26-v1
+REGISTRATION_INVITE_CODE_HASHES=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+LEGAL_DOCUMENTS_PUBLISHED_CONFIRMED=true
+```
+
+- The date-based version and digest above demonstrate the accepted formats;
+  replace both with the identifier of the archived reviewed text and the real
+  digest of a newly generated invite code. No raw invite code for the example
+  digest is supplied.
+- Generate high-entropy invite codes in a password manager or cryptographic
+  random generator. Give invitees the raw code, but put only its 64-character
+  SHA-256 hex digest in Render. Never commit or log raw invite codes.
+- `GET /api/auth/registration-config` exposes only the mode, active terms
+  version, and Oddpath-specific localized legal URLs under
+  `eluthira.com/oddpath/*` and `eluthira.com/de/oddpath/*`. It never exposes
+  hashes or raw codes. Those routes must exist with reviewed product-specific
+  text before setting the publication acknowledgement.
+- Registration requires `termsAccepted: true` and the exact server-advertised
+  `termsVersion`. The new `User` row records `acceptedTermsVersion` and
+  `acceptedTermsAt`; existing pre-migration accounts remain null.
+- Change `CURRENT_TERMS_VERSION` whenever the accepted documents materially
+  change. A tab holding an older version receives `TERMS_VERSION_OUTDATED` and
+  must fetch/review the current documents again.
+- Never reuse a version identifier for changed text. Archive the exact reviewed
+  Terms/Privacy documents and their publication date for every version; a
+  database version/time pair is not meaningful without that operator record.
+- The configured hashes are reusable beta access codes, not single-use
+  invitations. Use separate codes and rotate/remove a digest if a code leaks.
+- Arabic currently links to the English legal documents because no reviewed
+  Arabic legal route exists. Do not invent or silently publish an unreviewed
+  Arabic legal translation.
+
+This is an auditable consent mechanism, not legal approval. Eluthira's current
+legal pages still contain explicit draft/operator placeholders; keep
+registration disabled until those pages and the version value are reviewed.
+Production refuses to boot with registration enabled unless
+`LEGAL_DOCUMENTS_PUBLISHED_CONFIRMED=true`. That flag is an explicit operator
+acknowledgement only; it does not perform or replace legal review. The committed
+Render Blueprint intentionally keeps it `false`.
 
 ### Auth And Chat Rate Limits
 
@@ -132,9 +197,18 @@ USER_DAILY_CREDITS=100
 USAGE_WINDOW_HOURS=24
 USAGE_IP_HASH_SALT=long-random-production-secret
 AI_GLOBAL_USAGE_WINDOW_MS=3600000
-AI_GLOBAL_REQUEST_LIMIT=1000
-AI_GLOBAL_CREDIT_LIMIT=5000
+AI_GLOBAL_REQUEST_LIMIT=100
+AI_GLOBAL_CREDIT_LIMIT=500
+AI_GLOBAL_DAILY_REQUEST_LIMIT=500
+AI_GLOBAL_DAILY_CREDIT_LIMIT=2500
+AI_GLOBAL_MONTHLY_REQUEST_LIMIT=5000
+AI_GLOBAL_MONTHLY_CREDIT_LIMIT=25000
 ```
+
+Those values are a conservative private-beta deployment profile, not provider
+currency limits. Keep provider billing alerts and a provider-side budget in
+place, and leave `AI_ENABLED=false` until the paid EEA-capable provider project
+has been verified.
 
 Current application rate limiters are in-memory. They are acceptable for a
 single API process baseline, but multi-instance deployments need Redis,
@@ -320,6 +394,11 @@ Run these checks after staging or production deploy:
 
 - [ ] `GET /api/health` works on the deployed API.
 - [ ] `GET /api/auth/csrf` returns a CSRF token and sets `qa_csrf`.
+- [ ] `GET /api/auth/registration-config` exposes no invite hash or secret.
+- [ ] Registration is blocked with `REGISTRATION_DISABLED` in closed mode.
+- [ ] Private-beta registration rejects missing/wrong codes and an outdated
+  terms version, then accepts a valid code with the current version.
+- [ ] The created `User` stores the expected terms version and acceptance time.
 - [ ] Register creates an unverified account and sends a verification email.
 - [ ] Register response does not set `qa_session`.
 - [ ] Verification email link opens the frontend route.

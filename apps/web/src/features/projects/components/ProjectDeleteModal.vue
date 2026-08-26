@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "../../../i18n/useI18n";
+import { useDialogAccessibility } from "../../../ui/useDialogAccessibility";
 import type { Project } from "../types";
 
 const props = defineProps<{
@@ -19,18 +20,26 @@ function requestCancel() {
 
   emit("cancel");
 }
+
+const { dialogRef, onDialogKeydown } = useDialogAccessibility({
+  canClose: () => !props.isDeleting,
+  isOpen: () => Boolean(props.project),
+  onClose: requestCancel,
+});
 </script>
 
 <template>
   <Teleport to="body">
     <div
       v-if="project"
+      ref="dialogRef"
       class="modal fade show d-block"
       tabindex="-1"
       role="dialog"
       aria-modal="true"
       aria-labelledby="delete-project-title"
       @click.self="requestCancel"
+      @keydown="onDialogKeydown"
     >
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content app-modal">

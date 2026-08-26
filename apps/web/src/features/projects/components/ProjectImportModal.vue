@@ -2,10 +2,12 @@
 import { ref, watch } from "vue";
 
 import { useI18n } from "../../../i18n/useI18n";
+import { useDialogAccessibility } from "../../../ui/useDialogAccessibility";
 import {
   type ProjectImportCommitResult,
 } from "../projectPortabilityApi";
 import { useProjectImportFlow } from "../projectPortabilityFlow";
+import { localizeProjectImportWarning } from "../projectImportWarnings";
 
 const props = defineProps<{
   isOpen: boolean;
@@ -80,18 +82,26 @@ async function createImportedProject() {
   reset();
   if (fileInput.value) fileInput.value.value = "";
 }
+
+const { dialogRef, onDialogKeydown } = useDialogAccessibility({
+  canClose: () => !isPreviewing.value && !isCommitting.value,
+  isOpen: () => props.isOpen,
+  onClose: requestCancel,
+});
 </script>
 
 <template>
   <Teleport to="body">
     <div
       v-if="isOpen"
+      ref="dialogRef"
       class="modal fade show d-block"
       tabindex="-1"
       role="dialog"
       aria-modal="true"
       aria-labelledby="project-import-title"
       @click.self="requestCancel"
+      @keydown="onDialogKeydown"
     >
       <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable project-portability-dialog">
         <div class="modal-content app-modal project-portability-modal">
@@ -188,12 +198,18 @@ async function createImportedProject() {
                   <strong>{{ preview.counts.messages }}</strong>
                   <span>{{ t("projects.portability.import.messages") }}</span>
                 </div>
+                <div v-if="preview.counts.assets !== undefined">
+                  <strong>{{ preview.counts.assets }}</strong>
+                  <span>{{ t("projects.portability.import.assets") }}</span>
+                </div>
               </div>
 
               <div v-if="preview.warnings.length > 0" class="project-portability-list">
                 <h3>{{ t("projects.portability.import.warnings") }}</h3>
                 <ul>
-                  <li v-for="warning in preview.warnings" :key="warning">{{ warning }}</li>
+                  <li v-for="warning in preview.warnings" :key="warning">
+                    {{ localizeProjectImportWarning(warning) }}
+                  </li>
                 </ul>
               </div>
 

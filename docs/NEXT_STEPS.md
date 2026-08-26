@@ -1,8 +1,8 @@
-# AI QA Assistant Next Steps
+# Oddpath Next Steps
 
 This file is the working roadmap for what is done, what is still foundation work, and what should come next. Use it as the reference when asking "what is next?" or "what still needs cleanup?"
 
-Last reviewed: 2026-07-26
+Last reviewed: 2026-08-25
 
 For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 Before future work on Project Memory, conversation summaries, AI-extracted memory,
@@ -16,12 +16,22 @@ smoke tests, follow `docs/PRODUCTION_READINESS.md`.
 - [x] Legacy vanilla app was migrated to Vue + TypeScript.
 - [x] Backend is modular Express + TypeScript + Prisma.
 - [x] PostgreSQL schema is established for users, sessions, chats, projects, memory, usage events, and settings.
-- [x] Latest Account Data portability verification on 2026-07-26
-  passed:
-  - 419 API tests passing.
-  - 126 web tests passing.
-  - API and web TypeScript checks and production builds passing.
-- [x] Latest pushed baseline was clean before the current project assignment work.
+- [x] Record the final repository-wide API/web verification after restore
+  fencing, cleanup CAS, and the R2 harness: API 711/711 tests in 122 suites,
+  web 209/209 tests in 53 suites, API/web production builds, Prisma
+  validation/generation, production dependency audit (0 vulnerabilities), and
+  `git diff --check` all passed on 2026-08-25. Eluthira was unchanged; its last
+  recorded verification remains 15 pages and 17/17 tests.
+- [x] API verification enforces repository contract boundaries and rejects
+  runtime dependency cycles.
+- [x] Add a fail-closed deployment smoke harness with a GET-only default and an
+  explicitly confirmed, exact-ID-cleaned authenticated project lifecycle mode.
+- [x] Guard the real-PostgreSQL suite against non-test targets and cover
+  migration parity, ownership/rollback, and concurrent quota reservations.
+- [x] Add bounded Account/Project archive v2 with original private files,
+  exact owner-scoped relational bindings, staged/outbox restore, atomic
+  canonical finalization, and backward-compatible v1 import. Keep the
+  production private-assets guard closed pending real-provider proof.
 
 ## What Is Complete Enough For The Current Foundation
 
@@ -74,7 +84,8 @@ smoke tests, follow `docs/PRODUCTION_READINESS.md`.
 ## Not Complete Yet
 
 - [ ] Google OAuth is not wired. The UI button is intentionally disabled.
-- [ ] Forgot password only returns a safe generic response. It does not send reset emails yet.
+- [x] Forgot/reset password uses expiring single-use tokens, SMTP delivery,
+  session invalidation, and a working reset page.
 - [x] Settings page/API is implemented for language, theme, and default model.
 - [x] Project assignment controls are implemented for signed-in chat workspaces.
 - [x] Project Knowledge v1 includes singleton Project Instructions, manual/imported Project Documents, and isolated prompt retrieval.
@@ -84,22 +95,20 @@ smoke tests, follow `docs/PRODUCTION_READINESS.md`.
 - [x] Project document cards open a read-only preview and expose Download/Delete actions, plus Edit for user-created Markdown documents, through a three-dot dropdown.
 - [x] Markdown previews are sanitized; code previews use syntax highlighting and line numbers; imported HTML is displayed as source and never executed.
 - [x] Project Knowledge Retrieval v2 implementation and controlled real-provider evaluation are complete; shared environments remain opt-in.
-- [ ] Memory Intelligence remains incomplete: controlled Conversation Summary
-  and manual Project Memory are implemented. The Project Portable ZIP
-  Export/Preview/Commit round trip, frontend workflow, and Account Memory
-  portability backend are complete; AI-assisted memory suggestions remain
-  future work.
+- [x] The current Memory Intelligence foundation is complete: controlled
+  Conversation Summary, manual Project Memory, Account Memory, and their
+  portability paths are implemented. AI-assisted memory suggestions are an
+  explicitly deferred future feature, not an open MVP foundation task.
 - [ ] Admin usage dashboard does not exist. Current `My Usage` is personal only.
 - [ ] Credits are configured through environment variables, not plans/entitlements from the database.
 - [ ] Billing/subscriptions are not implemented.
 - [ ] PDF/video/large file upload is not implemented.
 - [ ] Provider Files API is not implemented.
-- [ ] Full i18n cleanup is not complete. Core web i18n is implemented for
-  `en`, `ar`, and `de` across auth, chat shell, settings, account memory,
-  usage, Projects, Project Knowledge, Project Documents, known frontend API
-  error mappings, localized quick-action prompts, locale-aware dates, and
-  `html lang/dir`. Continue catalog audits as new admin, billing, upload, and
-  future product surfaces are added.
+- [x] Current web surfaces are localized for `en`, `ar`, and `de` across auth,
+  chat, settings, memory, usage, Projects, Project Knowledge/Documents,
+  portability warnings, known API errors, quick actions, locale-aware dates,
+  and `html lang/dir`. Catalog alignment/placeholder tests are enforced;
+  future product surfaces must add their own translations when implemented.
 
 ## Active Release Plan
 
@@ -114,22 +123,35 @@ data. `docs/PRODUCTION_READINESS.md` is the source of truth.
 - [x] Add `db:migrate:deploy` using `prisma migrate deploy`.
 - [x] Keep `prisma migrate dev`, `migrate reset`, and `db push` out of
   production release commands.
-- [ ] Keep deployment provider selection deferred until the core releasable
-  feature set is closer to done.
-- [ ] Keep the app compatible with static web hosting, a long-running Node API,
+- [x] Select Cloudflare Pages/R2, Render Frankfurt, Brevo, and paid Gemini for
+  the first Oddpath beta.
+- [x] Keep the app compatible with static web hosting, a long-running Node API,
   and managed PostgreSQL.
-- [ ] Select and provision the production hosts and managed PostgreSQL plan.
+- [x] Select Cloudflare Pages/R2 and Render Frankfurt with managed PostgreSQL
+  as the target shape; actual provisioning and billing remain operator work.
 - [ ] Enable automated database backups and record retention.
 - [ ] Enable point-in-time recovery if supported by the selected plan.
 - [ ] Complete a restore drill into an isolated temporary database.
 - [ ] Provision a separate staging database and environment.
 - [ ] Run the full staging deployment and smoke checklist.
+- [x] Automate the safe API baseline and authenticated project lifecycle smoke
+  checks; real staging execution still remains operator work.
 - [ ] Add host/proxy-level public API rate limiting.
-- [ ] Complete the auth security checkpoint before real-user launch.
-- [ ] Decide and document whether the first release is a disposable portfolio
-  demo or a real-user production release.
-- [ ] For real-user production, define account recovery, privacy/data
-  retention, account deletion, monitoring, and incident ownership.
+- [x] Keep and harden the owned auth module for this private beta; re-evaluate a
+  maintained auth platform when OAuth, MFA/passkeys, or organizations enter scope.
+- [x] Decide on a verified-account, invite-only real-user beta with guest AI
+  disabled initially.
+- [x] Implement authenticated, current-password-confirmed relational account
+  deletion, queue owned object keys transactionally, and clear the deleted
+  user's browser account state.
+- [ ] For real-user production, finish privacy/data retention, run and monitor
+  the external-object deletion worker, and define incident ownership.
+- [x] Bound retention/object cleanup runs, make overlap non-blocking, emit
+  count/status-only structured readiness and cleanup events, and return a
+  scheduler-visible failure exit code when object deletion fails or a bounded
+  retention invocation leaves eligible backlog.
+- [ ] After reviewing the added Render cron charges, opt into and monitor the
+  selected examples from `ops/render-cron-services.example.yaml`.
 
 ### Project Knowledge Retrieval v2
 
@@ -186,14 +208,16 @@ Current state:
 
 Required before real-user launch:
 
-- [ ] Decide custom hardening vs Better Auth/Auth.js migration.
-- [ ] Add auth route rate limiting for login, register, and forgot password.
-- [ ] Implement real password reset tokens and email delivery.
-- [ ] Invalidate existing sessions after password reset.
-- [ ] Review password policy against OWASP/NIST-style guidance.
-- [ ] Review CSRF risk for cookie-authenticated state-changing routes.
+- [x] Keep the hardened custom auth boundary for the initial private beta; this
+  is a scoped release decision, not a permanent rejection of migration.
+- [x] Add auth route rate limiting for login, register, forgot-password,
+  reset-password, resend-verification, and verify-email.
+- [x] Implement real password reset tokens and email delivery.
+- [x] Invalidate existing sessions after password reset.
+- [x] Review password policy against OWASP/NIST-style guidance.
+- [x] Review CSRF risk for cookie-authenticated state-changing routes.
 - [ ] Verify production cookie settings over HTTPS.
-- [ ] Consider email verification before enabling real user accounts broadly.
+- [x] Require email verification before password users can sign in.
 
 Library direction:
 
@@ -412,8 +436,8 @@ These should happen before large new product features.
   proves valuable enough to justify provider cost, abuse protection, and review
   UX. Do not add automatic canonical writes.
 - [x] Add owner-scoped Project Portable ZIP Export with versioned canonical
-  JSON, readable Markdown, Project Documents, optional chats, attachment
-  metadata warnings, and no derived retrieval state.
+  JSON, readable Markdown, Project Documents, optional chats, bounded v2
+  private-file entries when present, and no derived retrieval state.
 - [x] Add Project Import Preview with ZIP/path/digest validation and no
   project-data reads or database writes beyond normal session authentication.
 - [x] Add Project Import Commit as create-new only, then re-index imported
@@ -425,7 +449,8 @@ These should happen before large new product features.
   of the complete Account Data ZIP and its normal CRUD UI.
 - [x] Add Full Account Data ZIP export in Settings with canonical profile,
   settings, memory, projects, documents, chats/messages, readable companions,
-  hashes, and provider-neutral migration references.
+  hashes, provider-neutral migration references, and bounded v2 private-file
+  entries when present while preserving v1 compatibility.
 - [x] Add unified Account Import Preview/Commit with automatic native/external
   archive detection, same-file digest confirmation, transactional create-new
   records, and immediate Account Memory/project/chat refresh.
@@ -447,11 +472,15 @@ These should happen before large new product features.
 ### Phase 6: Attachments V2
 
 - [x] Inline images and text/data files.
+- [x] Persist signed-in chat attachments and original Project Document sources
+  as private assets with normalized relational links and authorized reads.
+- [x] Include eligible stored files in bounded Account/Project archive v2 and
+  restore them through staged durable cleanup plus atomic finalization.
 - [ ] Add provider file upload path for large files.
 - [ ] Add PDF support.
 - [ ] Add video support only when the provider path is clear.
-- [ ] Add file persistence if users should reopen old attachments.
-- [ ] Keep exports from embedding large base64 content unless explicitly requested.
+- [x] Keep portable file bytes as bounded ZIP entries rather than base64 inside
+  canonical JSON.
 
 ### Phase 7: Deployment And Portfolio Readiness
 
@@ -466,6 +495,21 @@ These should happen before large new product features.
 - [ ] Provision managed PostgreSQL with automated backups.
 - [ ] Complete and record a database restore drill.
 - [ ] Deploy staging and complete the smoke/rollback checklist.
+- [ ] Run the guarded real-PostgreSQL binary restore/cleanup integration suite;
+  the CI test exists but has not been run locally in the current environment.
+- [x] Add a fail-closed, sanitized EU R2 mutation harness for conditional PUT,
+  CORS, checksum/length/type, bounded/range reads, authorization, and exact
+  retrying cleanup.
+- [ ] Run that harness and the interruption matrix against a real EU R2 bucket.
+- [x] Add persisted restore-session fencing, stale/frozen-worker and in-flight
+  lease tests, plus a sequential 64-asset/8-MiB restore boundary case.
+- [ ] Prove process-kill/freeze recovery with real PostgreSQL/R2 and validate
+  the maximum boundary against production latency, timeout, retry, and memory.
+- [x] Add exact cleanup lease-token CAS, scheduler-visible conflicts, and a
+  guarded real-PostgreSQL concurrent-instance case.
+- [ ] Run the guarded database case and validate scheduled cleanup,
+  reconciliation alerts, and rate/concurrency behavior across deployed API
+  instances.
 - [ ] Add host/proxy rate limiting and production monitoring.
 - [ ] Add screenshots/GIFs to README.
 

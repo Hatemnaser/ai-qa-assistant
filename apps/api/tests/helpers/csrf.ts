@@ -1,4 +1,4 @@
-export interface TestCsrfHeaders {
+export interface TestCsrfHeaders extends Record<string, string> {
   cookie: string;
   "x-csrf-token": string;
 }

@@ -3,9 +3,10 @@ import { describe, it } from "node:test";
 
 import { strFromU8, unzipSync } from "fflate";
 
+import { DATA_LIMITS } from "../src/config/data-limits.ts";
 import { createDataPortabilityService } from "../src/modules/data-portability/data-portability.service.ts";
-import type { DataPortabilityRepository } from "../src/modules/data-portability/data-portability.repository.ts";
 import type {
+  DataPortabilityRepository,
   ProjectExportSourceRecord,
 } from "../src/modules/data-portability/data-portability.types.ts";
 import { createFakeProjectAccess } from "./helpers/projectAccess.ts";
@@ -213,7 +214,8 @@ describe("data portability project export", () => {
     }).messages;
 
     assert.deepEqual(manifest.warnings, [
-      "Chat attachment files are not included because chat file persistence is not implemented. Attachment metadata is included only.",
+      "Chat attachment metadata is included, but original attachment files are not included in this archive.",
+      "Private object-storage binaries are not included in this legacy version 1 archive. Export again with available private assets to create a version 2 archive.",
     ]);
     assert.deepEqual(messages?.[0]?.attachments, [
       {
@@ -275,6 +277,22 @@ describe("data portability project export", () => {
     const paths = Object.keys(unzipSync(result.archive));
 
     assert.ok(paths.includes("documents/001-release-notes.exe.md"));
+  });
+
+  it("rejects project exports outside shared persisted-data limits", async () => {
+    const source = createProjectExportSource();
+    source.chats[0]!.messages[0]!.content = "x".repeat(
+      DATA_LIMITS.chatMessageContentChars + 1
+    );
+    const { service } = createTestService({ source });
+
+    await assert.rejects(
+      () =>
+        service.exportOwnedProject("user-1", "project-1", {
+          includeChats: true,
+        }),
+      (error: unknown) => isErrorWithCode(error, "PROJECT_EXPORT_TOO_LARGE")
+    );
   });
 });
 

@@ -35,11 +35,15 @@ export const LOCALE_OPTIONS: readonly LocaleOption[] = [
 const localeOptionsByCode = new Map(LOCALE_OPTIONS.map((option) => [option.code, option]));
 
 export function normalizeLocale(value: unknown): AppLocale {
-  if (typeof value !== "string") return DEFAULT_LOCALE;
+  return parseLocale(value) ?? DEFAULT_LOCALE;
+}
+
+export function parseLocale(value: unknown): AppLocale | null {
+  if (typeof value !== "string") return null;
 
   const normalized = value.trim().toLowerCase().split(/[-_]/)[0];
 
-  return isSupportedLocale(normalized) ? normalized : DEFAULT_LOCALE;
+  return isSupportedLocale(normalized) ? normalized : null;
 }
 
 export function isSupportedLocale(value: string): value is AppLocale {

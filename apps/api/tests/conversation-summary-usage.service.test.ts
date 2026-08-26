@@ -22,6 +22,7 @@ describe("conversation summary usage service", () => {
       provider: "test-provider",
       userId: "user-1",
     });
+    await service.recordAttempt?.(reservation);
     await service.complete(reservation, {
       inputTokens: 100,
       outputTokens: 40,
@@ -45,6 +46,7 @@ describe("conversation summary usage service", () => {
       },
       reservation,
     });
+    assert.deepEqual(usage.attempts, [reservation]);
   });
 
   it("marks failed summary provider work through operation usage", async () => {
@@ -57,16 +59,19 @@ describe("conversation summary usage service", () => {
       userId: "user-1",
     });
 
-    await service.fail(reservation);
+    await service.fail(reservation, true);
 
     assert.deepEqual(usage.failures[0], {
-      failure: undefined,
+      failure: {
+        providerAttempted: true,
+      },
       reservation,
     });
   });
 });
 
 interface FakeOperationUsageService extends AiOperationUsageService {
+  attempts: AiOperationReservation[];
   completions: Array<{
     completion?: AiOperationCompletionInput;
     reservation?: AiOperationReservation;
@@ -80,6 +85,7 @@ interface FakeOperationUsageService extends AiOperationUsageService {
 
 function createFakeOperationUsageService(): FakeOperationUsageService {
   const usage: FakeOperationUsageService = {
+    attempts: [],
     completions: [],
     failures: [],
     reservations: [],
@@ -96,6 +102,12 @@ function createFakeOperationUsageService(): FakeOperationUsageService {
         failure,
         reservation,
       });
+    },
+
+    async recordAiOperationAttempt(reservation) {
+      if (reservation && "action" in reservation) {
+        usage.attempts.push(reservation as AiOperationReservation);
+      }
     },
 
     async reserveAiOperation(input) {

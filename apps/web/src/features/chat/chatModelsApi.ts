@@ -1,7 +1,6 @@
+import { API_BASE_URL } from "../../config/api";
 import { AI_MODELS } from "./constants";
 import type { AiModelCatalogResponse, AiModelOption } from "./types";
-
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 
 export async function fetchAiModelCatalog(): Promise<AiModelOption[]> {
   const response = await fetch(`${API_BASE_URL}/api/ai/models`, {

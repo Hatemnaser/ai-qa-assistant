@@ -5,7 +5,7 @@ import {
   normalizeStructuredContent,
   type ProjectDocumentChunk,
 } from "./project-document-chunks.js";
-import type { ProjectDocumentRecord } from "./project-documents.repository.js";
+import type { ProjectDocumentRecord } from "./project-documents.types.js";
 
 export const PROJECT_DOCUMENT_CHUNKING_VERSION = "boundary-v1";
 

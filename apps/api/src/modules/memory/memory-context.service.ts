@@ -6,29 +6,24 @@ import {
   retrieveProjectDocumentChunks,
   type ProjectDocumentRetriever,
 } from "../project-documents/project-document-retrieval.js";
+import { projectDocumentsRepository } from "../project-documents/project-documents.repository.js";
+import type {
+  ProjectDocumentRecord,
+  ProjectDocumentsRepository,
+} from "../project-documents/project-documents.types.js";
+import { projectInstructionsRepository } from "../project-instructions/project-instructions.repository.js";
+import type { ProjectInstructionsRepository } from "../project-instructions/project-instructions.types.js";
+import { projectMemoryRepository } from "../project-memory/project-memory.repository.js";
 import {
-  projectDocumentsRepository,
-  type ProjectDocumentRecord,
-  type ProjectDocumentsRepository,
-} from "../project-documents/project-documents.repository.js";
-import {
-  projectInstructionsRepository,
-  type ProjectInstructionsRepository,
-} from "../project-instructions/project-instructions.repository.js";
-import {
-  projectMemoryRepository,
+  PROJECT_MEMORY_MAX_CHARS,
   type ProjectMemoryRepository,
-} from "../project-memory/project-memory.repository.js";
-import { PROJECT_MEMORY_MAX_CHARS } from "../project-memory/project-memory.types.js";
+} from "../project-memory/project-memory.types.js";
 import {
   projectAccessService,
   type ProjectAccessService,
 } from "../projects/project-access.service.js";
-import {
-  memoryRepository,
-  type MemoryRecord,
-  type MemoryRepository,
-} from "./memory.repository.js";
+import { memoryRepository } from "./memory.repository.js";
+import type { MemoryRecord, MemoryRepository } from "./memory.types.js";
 
 const MAX_MEMORY_ITEMS_PER_SCOPE = 8;
 const MAX_MEMORY_ITEM_CHARS = 700;
@@ -54,6 +49,7 @@ export interface PreparedChatMemoryContext {
   documents: ProjectDocumentRecord[];
   projectId?: string;
   query: string;
+  userId?: string;
 }
 
 export function createMemoryContextService({
@@ -104,6 +100,7 @@ export function createMemoryContextService({
       documents: projectContext.documents,
       ...(input.projectId ? { projectId: input.projectId } : {}),
       query: input.query,
+      userId: input.userId,
     };
   }
 
@@ -125,6 +122,7 @@ export function createMemoryContextService({
             documents: prepared.documents,
             projectId: prepared.projectId,
             query: prepared.query,
+            userId: prepared.userId,
           }),
         },
       });

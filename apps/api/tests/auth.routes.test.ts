@@ -45,6 +45,20 @@ afterEach(() => {
 });
 
 describe("POST /api/auth", () => {
+  it("returns a public registration config without invite material", async () => {
+    const response = await fetch(`${baseUrl}/api/auth/registration-config`);
+    const body = await response.json();
+    const serialized = JSON.stringify(body);
+
+    assert.equal(response.status, 200);
+    assert.equal(body.mode, "public");
+    assert.equal(body.termsVersion, "development-v1");
+    assert.equal(body.legalUrls.de.terms, "https://eluthira.com/de/oddpath/terms");
+    assert.equal("inviteCodeHashes" in body, false);
+    assert.doesNotMatch(serialized, /REGISTRATION_INVITE_CODE_HASHES/);
+    assert.doesNotMatch(serialized, /[a-f0-9]{64}/i);
+  });
+
   it("returns validation errors for invalid register payloads", async () => {
     const response = await postJson("/api/auth/register", {
       email: "not-an-email",
@@ -125,6 +139,7 @@ describe("POST /api/auth", () => {
     assert.equal(body.code, "RATE_LIMITED");
     assert.equal(body.error, "Too many attempts. Please try again later.");
     assert.equal(body.message, "Too many attempts. Please try again later.");
+    assert.match(response.headers.get("retry-after") || "", /^\d+$/);
   });
 
   it("rate limits login attempts even when the submitted email changes", async () => {
@@ -135,6 +150,75 @@ describe("POST /api/auth", () => {
         email: `rotated-login-${attempt}@example.com`,
       })
     );
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(response.headers.get("connection"), "close");
+    assert.equal(body.code, "RATE_LIMITED");
+  });
+
+  it("applies the IP limit before parsing a malformed auth body", async () => {
+    for (let attempt = 0; attempt < env.authLoginRateLimitMax; attempt += 1) {
+      await postJson("/api/auth/login", {
+        email: `malformed-limit-${attempt}@example.com`,
+      });
+    }
+
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
+    const response = await fetch(`${baseUrl}/api/auth/login`, {
+      body: "{",
+      headers: {
+        "content-type": "application/json",
+        ...csrfHeaders,
+      },
+      method: "POST",
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.code, "RATE_LIMITED");
+  });
+
+  it("cannot bypass the login pre-body limit with Express-equivalent casing", async () => {
+    const response = await exhaustRateLimitWithBodyFactory(
+      "/api/auth/LOGIN",
+      env.authLoginRateLimitMax,
+      (attempt) => ({ email: `case-variant-${attempt}@example.com` })
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.code, "RATE_LIMITED");
+  });
+
+  it("cannot bypass the login pre-body limit with a trailing slash", async () => {
+    const response = await exhaustRateLimitWithBodyFactory(
+      "/api/auth/login/",
+      env.authLoginRateLimitMax,
+      (attempt) => ({ email: `slash-variant-${attempt}@example.com` })
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.code, "RATE_LIMITED");
+  });
+
+  it("applies the IP limit before buffering an oversized auth body", async () => {
+    for (let attempt = 0; attempt < env.authLoginRateLimitMax; attempt += 1) {
+      await postJson("/api/auth/login", {
+        email: `oversized-limit-${attempt}@example.com`,
+      });
+    }
+
+    const csrfHeaders = await getCsrfHeaders(baseUrl);
+    const response = await fetch(`${baseUrl}/api/auth/login`, {
+      body: JSON.stringify({ email: "person@example.com", password: "x".repeat(20_000) }),
+      headers: {
+        "content-type": "application/json",
+        ...csrfHeaders,
+      },
+      method: "POST",
+    });
     const body = await response.json();
 
     assert.equal(response.status, 429);
@@ -246,6 +330,23 @@ describe("POST /api/auth", () => {
     assert.equal(body.code, "RATE_LIMITED");
     assert.equal(body.error, "Too many attempts. Please try again later.");
     assert.equal(body.message, "Too many attempts. Please try again later.");
+  });
+
+  it("rate limits verify-email attempts", async () => {
+    const response = await exhaustRateLimit(
+      "/api/auth/verify-email",
+      env.authVerifyEmailRateLimitMax,
+      {
+        token: "short",
+      }
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.code, "RATE_LIMITED");
+    assert.equal(body.error, "Too many attempts. Please try again later.");
+    assert.equal(body.message, "Too many attempts. Please try again later.");
+    assert.match(response.headers.get("retry-after") || "", /^\d+$/);
   });
 });
 

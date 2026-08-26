@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import { resetCsrfTokenForTests } from "../src/api/csrf.ts";
+import { ApiAdapterError } from "../src/api/apiAdapterError.ts";
 import {
   createAccountMemory,
   fetchAccountMemories,
@@ -63,6 +64,20 @@ describe("memory api", () => {
     mockFetch(async () => jsonResponse({ code: "MEMORY_NOT_FOUND", error: "Memory was not found." }, 404));
 
     await assert.rejects(() => updateAccountMemory("missing-memory", { content: "Missing" }), /Memory was not found/);
+  });
+
+  it("returns stable client error data instead of English adapter fallback copy", async () => {
+    mockFetch(async () => jsonResponse({ ok: true }));
+
+    await assert.rejects(
+      () => createAccountMemory({ content: "Remember this" }),
+      (error: unknown) => {
+        assert.ok(error instanceof ApiAdapterError);
+        assert.equal(error.code, "INVALID_RESPONSE");
+        assert.equal(error.message, "INVALID_RESPONSE");
+        return true;
+      }
+    );
   });
 });
 

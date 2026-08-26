@@ -22,6 +22,10 @@ export interface VerifyEmailResponse {
   ok: true;
 }
 
+export interface ResetPasswordResponse {
+  ok: true;
+}
+
 export interface LoginInput {
   email: string;
   password: string;
@@ -30,7 +34,23 @@ export interface LoginInput {
 
 export interface RegisterInput {
   email: string;
+  inviteCode?: string;
   locale?: string;
   name: string;
   password: string;
+  termsAccepted: boolean;
+  termsVersion: string;
+}
+
+export type RegistrationMode = "disabled" | "invite" | "public";
+
+export interface RegistrationLegalUrls {
+  privacy: string;
+  terms: string;
+}
+
+export interface RegistrationConfig {
+  legalUrls: Record<"ar" | "de" | "en", RegistrationLegalUrls>;
+  mode: RegistrationMode;
+  termsVersion: string | null;
 }

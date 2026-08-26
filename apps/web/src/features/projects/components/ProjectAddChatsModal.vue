@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 
 import { useI18n } from "../../../i18n/useI18n";
 import Icon from "../../../ui/Icon.vue";
+import { useDialogAccessibility } from "../../../ui/useDialogAccessibility";
 import type { Chat } from "../../chat/types";
 import { formatRelativeDate } from "../projectDate";
 import type { Project } from "../types";
@@ -78,24 +79,35 @@ function addSelectedChats() {
 
   emit("add", [...selectedChatIds.value]);
 }
+
+function requestCancel() {
+  emit("cancel");
+}
+
+const { dialogRef, onDialogKeydown } = useDialogAccessibility({
+  isOpen: () => props.isOpen && Boolean(props.project),
+  onClose: requestCancel,
+});
 </script>
 
 <template>
   <Teleport to="body">
     <div
       v-if="isOpen && project"
+      ref="dialogRef"
       class="modal fade show d-block"
       tabindex="-1"
       role="dialog"
       aria-modal="true"
       aria-labelledby="project-add-chats-title"
-      @click.self="emit('cancel')"
+      @click.self="requestCancel"
+      @keydown="onDialogKeydown"
     >
       <div class="modal-dialog modal-dialog-centered project-add-chats-dialog">
         <form class="modal-content app-modal project-add-chats-modal" @submit.prevent="addSelectedChats">
           <div class="modal-header">
             <h2 id="project-add-chats-title" class="modal-title">{{ t("projects.addChats.title") }}</h2>
-            <button class="btn-close" type="button" :aria-label="t('app.actions.close')" @click="emit('cancel')"></button>
+            <button class="btn-close" type="button" :aria-label="t('app.actions.close')" @click="requestCancel"></button>
           </div>
 
           <div class="modal-body project-add-chats-modal__body">
@@ -149,7 +161,7 @@ function addSelectedChats() {
           </div>
 
           <div class="modal-footer">
-            <button class="btn btn-outline-secondary" type="button" @click="emit('cancel')">
+            <button class="btn btn-outline-secondary" type="button" @click="requestCancel">
               {{ t("app.actions.cancel") }}
             </button>
             <button class="btn btn-primary" type="submit" :disabled="!canAdd">

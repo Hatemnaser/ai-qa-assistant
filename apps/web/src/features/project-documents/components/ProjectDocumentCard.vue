@@ -30,10 +30,14 @@ function requestEdit() {
   emit("edit", props.document);
 }
 
-function requestDownload() {
+async function requestDownload() {
   if (props.isBusy) return;
 
-  downloadProjectDocument(props.document);
+  try {
+    await downloadProjectDocument(props.document);
+  } catch (error) {
+    alert(error instanceof Error ? error.message : t("projects.documents.errors.load"));
+  }
 }
 
 </script>

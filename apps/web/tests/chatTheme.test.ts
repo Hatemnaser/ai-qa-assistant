@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
+import { effectScope } from "vue";
 
 import { STORAGE_KEYS } from "../src/features/chat/constants";
 import { useTheme } from "../src/features/chat/chatTheme";
@@ -65,7 +66,75 @@ describe("chat theme", () => {
     assert.equal(localStorage.getItem(STORAGE_KEYS.THEME), "light");
     assert.equal(document.documentElement.dataset.theme, "light");
   });
+
+  it("keeps the selected theme usable when persistence is blocked", () => {
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      get: () => {
+        throw new DOMException("Storage is blocked", "SecurityError");
+      },
+    });
+
+    const { setTheme, theme } = useTheme();
+
+    assert.equal(theme.value, "light");
+    assert.doesNotThrow(() => setTheme("dark"));
+    assert.equal(theme.value, "dark");
+    assert.equal(document.documentElement.dataset.theme, "dark");
+  });
+
+  it("updates a system theme live and removes its listener when the scope stops", () => {
+    localStorage.setItem(STORAGE_KEYS.THEME, "system");
+    const systemTheme = installSystemTheme(false);
+    const scope = effectScope();
+    const themeState = scope.run(() => useTheme());
+
+    assert.ok(themeState);
+    assert.equal(systemTheme.listenerCount(), 1);
+    assert.equal(document.documentElement.dataset.theme, "light");
+    assert.equal(themeState.themeToggleLabel.value, "Dark");
+
+    systemTheme.setDark(true);
+
+    assert.equal(document.documentElement.dataset.theme, "dark");
+    assert.equal(themeState.themeToggleLabel.value, "Light");
+
+    scope.stop();
+
+    assert.equal(systemTheme.listenerCount(), 0);
+    systemTheme.setDark(false);
+    assert.equal(document.documentElement.dataset.theme, "dark");
+  });
 });
+
+function installSystemTheme(initiallyDark: boolean) {
+  let isDark = initiallyDark;
+  const listeners = new Set<() => void>();
+  const query = {
+    get matches() {
+      return isDark;
+    },
+    addEventListener: (event: string, listener: () => void) => {
+      if (event === "change") listeners.add(listener);
+    },
+    removeEventListener: (event: string, listener: () => void) => {
+      if (event === "change") listeners.delete(listener);
+    },
+  } as unknown as MediaQueryList;
+
+  Object.defineProperty(globalThis, "matchMedia", {
+    configurable: true,
+    value: () => query,
+  });
+
+  return {
+    listenerCount: () => listeners.size,
+    setDark(nextValue: boolean) {
+      isDark = nextValue;
+      for (const listener of listeners) listener();
+    },
+  };
+}
 
 function installDomGlobals() {
   const store = new Map<string, string>();

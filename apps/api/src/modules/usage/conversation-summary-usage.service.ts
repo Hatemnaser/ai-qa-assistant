@@ -23,7 +23,11 @@ export interface ConversationSummaryUsageTracker {
     reservation: AiOperationReservation | undefined,
     input?: ConversationSummaryUsageCompletionInput
   ): Promise<void>;
-  fail(reservation: AiOperationReservation | undefined): Promise<void>;
+  fail(
+    reservation: AiOperationReservation | undefined,
+    providerAttempted?: boolean
+  ): Promise<void>;
+  recordAttempt(reservation: AiOperationReservation | undefined): Promise<void>;
   start(input: ConversationSummaryUsageStartInput): Promise<AiOperationReservation | undefined>;
 }
 
@@ -39,8 +43,14 @@ export function createConversationSummaryUsageService(
       });
     },
 
-    async fail(reservation) {
-      await usage.failAiOperation(reservation);
+    async fail(reservation, providerAttempted = false) {
+      await usage.failAiOperation(reservation, {
+        providerAttempted,
+      });
+    },
+
+    async recordAttempt(reservation) {
+      await usage.recordAiOperationAttempt(reservation);
     },
 
     async start(input) {

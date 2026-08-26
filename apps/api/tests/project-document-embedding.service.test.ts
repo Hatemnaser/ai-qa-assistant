@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { AppError } from "../src/lib/errors.ts";
+import {
+  setOperationalEventLoggerForTests,
+  type OperationalEventRecord,
+} from "../src/lib/operational-events.ts";
 import type {
   EmbeddingProviderAdapter,
 } from "../src/modules/ai/embeddings/embedding.types.ts";
@@ -11,6 +15,9 @@ import {
 import type {
   ProjectDocumentIndexRepository,
   SaveProjectDocumentChunkEmbeddingInput,
+} from "../src/modules/project-documents/project-document-index.types.ts";
+import {
+  PROJECT_DOCUMENT_EMBEDDING_FAILURE_MESSAGE,
 } from "../src/modules/project-documents/project-document-index.repository.ts";
 import type {
   AiOperationCompletionInput,
@@ -32,7 +39,7 @@ describe("project document embedding service", () => {
       usage,
     });
 
-    await service.embedPendingDocumentChunks("document-1");
+    await service.embedPendingDocumentChunks("document-1", "user-1");
 
     assert.deepEqual(repository.savedEmbeddings, [
       {
@@ -53,6 +60,7 @@ describe("project document embedding service", () => {
     ]);
     assert.deepEqual(repository.failures, []);
     assert.equal(usage.reservations[0]?.action, DOCUMENT_EMBEDDING_ACTION);
+    assert.equal(usage.reservations[0]?.userId, "user-1");
     assert.equal(usage.completions.length, 1);
   });
 
@@ -61,17 +69,22 @@ describe("project document embedding service", () => {
     const usage = createFakeOperationUsageService();
     const service = createProjectDocumentEmbeddingService({
       enabled: true,
-      provider: createFakeProvider([], new Error("Provider unavailable")),
+      provider: createFakeProvider(
+        [],
+        new Error("Provider unavailable; prompt=private-text; token=super-secret")
+      ),
       repository,
       usage,
     });
-    const originalConsoleWarn = console.warn;
-    console.warn = () => {};
+    const events: OperationalEventRecord[] = [];
+    const restore = setOperationalEventLoggerForTests((_level, event) => {
+      events.push(event);
+    });
 
     try {
       await service.embedPendingDocumentChunks("document-1");
     } finally {
-      console.warn = originalConsoleWarn;
+      restore();
     }
 
     assert.deepEqual(repository.savedEmbeddings, []);
@@ -81,11 +94,57 @@ describe("project document embedding service", () => {
         contentHash: "chunk-hash",
         dimensions: 2,
         documentId: "document-1",
-        error: "Provider unavailable",
+        error: PROJECT_DOCUMENT_EMBEDDING_FAILURE_MESSAGE,
         model: "test-embedding-model",
       },
     ]);
     assert.equal(usage.failures.length, 1);
+    assert.equal(events[0]?.event, "project_document_processing");
+    assert.equal(
+      events[0]?.event === "project_document_processing"
+        ? events[0].operation
+        : undefined,
+      "embedding_generation"
+    );
+    assert.doesNotMatch(
+      JSON.stringify(events),
+      /document-1|private-text|super-secret|prompt=|token=/i
+    );
+  });
+
+  it("reports embedding candidate lookup failures without raw error details", async () => {
+    const repository = createFakeRepository();
+    repository.listEmbeddingCandidates = async () => {
+      throw new Error("database=private; document=document-1; token=super-secret");
+    };
+    const service = createProjectDocumentEmbeddingService({
+      enabled: true,
+      provider: createFakeProvider([0.2, 0.8]),
+      repository,
+      usage: createFakeOperationUsageService(),
+    });
+    const events: OperationalEventRecord[] = [];
+    const restore = setOperationalEventLoggerForTests((_level, event) => {
+      events.push(event);
+    });
+
+    try {
+      await service.embedPendingDocumentChunks("document-1");
+    } finally {
+      restore();
+    }
+
+    assert.equal(events[0]?.event, "project_document_processing");
+    assert.equal(
+      events[0]?.event === "project_document_processing"
+        ? events[0].operation
+        : undefined,
+      "embedding_lookup"
+    );
+    assert.doesNotMatch(
+      JSON.stringify(events),
+      /document-1|private|super-secret|database=|token=/i
+    );
   });
 
   it("does not call the embedding provider when the global AI operation guard rejects", async () => {
@@ -106,13 +165,15 @@ describe("project document embedding service", () => {
       repository,
       usage,
     });
-    const originalConsoleWarn = console.warn;
-    console.warn = () => {};
+    const events: OperationalEventRecord[] = [];
+    const restore = setOperationalEventLoggerForTests((_level, event) => {
+      events.push(event);
+    });
 
     try {
       await service.embedPendingDocumentChunks("document-1");
     } finally {
-      console.warn = originalConsoleWarn;
+      restore();
     }
 
     assert.equal(providerCalls, 0);
@@ -121,6 +182,12 @@ describe("project document embedding service", () => {
     assert.equal(usage.reservations.length, 1);
     assert.equal(usage.completions.length, 0);
     assert.equal(usage.failures.length, 0);
+    assert.equal(
+      events[0]?.event === "project_document_processing"
+        ? events[0].outcome
+        : undefined,
+      "usage_guard_skipped"
+    );
   });
 
   it("does not call providers while embeddings are disabled", async () => {
@@ -214,6 +281,7 @@ function createFakeRepository(): FakeRepository {
 }
 
 interface FakeOperationUsageService extends AiOperationUsageService {
+  attempts: AiOperationReservation[];
   completions: Array<{
     completion?: AiOperationCompletionInput;
     reservation?: AiOperationReservation;
@@ -227,6 +295,7 @@ interface FakeOperationUsageService extends AiOperationUsageService {
 
 function createFakeOperationUsageService(error?: Error): FakeOperationUsageService {
   const usage: FakeOperationUsageService = {
+    attempts: [],
     completions: [],
     failures: [],
     reservations: [],
@@ -245,6 +314,12 @@ function createFakeOperationUsageService(error?: Error): FakeOperationUsageServi
         failure,
         reservation,
       });
+    },
+
+    async recordAiOperationAttempt(reservation) {
+      if (reservation && "action" in reservation) {
+        usage.attempts.push(reservation as AiOperationReservation);
+      }
     },
 
     async reserveAiOperation(input) {

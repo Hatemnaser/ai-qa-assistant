@@ -1,19 +1,26 @@
-import type { ProjectDocumentRecord } from "../project-documents/project-documents.repository.js";
+import type { ProjectDocumentRecord } from "../project-documents/project-documents.types.js";
+import { DATA_LIMITS } from "../../config/data-limits.js";
 import type { ValidatedExternalChatImport } from "./external-chat-import.types.js";
+import type { ValidatedPortableBinaryAsset } from "./binary-assets.js";
+import type { UploadedPortableBinaryAsset } from "./binary-asset-restore.types.js";
 
 export const ACCOUNT_IMPORT_LIMITS = Object.freeze({
-  maxCompressedBytes: 100_000_000,
-  maxEntries: 10_000,
-  maxEntryBytes: 100_000_000,
-  maxNestingDepth: 12,
+  maxCompressedBytes: 10_000_000,
+  maxEntries: 600,
+  maxEntryBytes: 5_000_000,
+  maxNestingDepth: 10,
   maxPathChars: 240,
-  maxTotalUncompressedBytes: 250_000_000,
-  maxProjects: 1_000,
-  maxDocuments: 5_000,
-  maxChats: 5_000,
-  maxMessages: 100_000,
-  maxAccountMemories: 10_000,
-  maxMessageChars: 200_000,
+  maxTotalUncompressedBytes: 20_000_000,
+  maxProjects: DATA_LIMITS.projectsPerUser,
+  maxDocuments:
+    DATA_LIMITS.projectsPerUser * DATA_LIMITS.documentsPerProject,
+  maxChats: DATA_LIMITS.chatsPerUser,
+  maxMessages: DATA_LIMITS.chatsPerUser * DATA_LIMITS.messagesPerChat,
+  maxMessagesPerChat: DATA_LIMITS.messagesPerChat,
+  maxAccountMemories: DATA_LIMITS.accountMemoriesPerUser,
+  maxMessageChars: DATA_LIMITS.chatMessageContentChars,
+  maxDocumentBytes: DATA_LIMITS.projectDocumentSourceBytes,
+  maxTotalTextChars: 5_000_000,
 });
 
 export type AccountImportKind = "account_archive" | "chat_archive";
@@ -24,6 +31,7 @@ export interface AccountImportCounts {
   chats: number;
   messages: number;
   accountMemories: number;
+  binaryAssets?: number;
 }
 
 export interface AccountImportPreview {
@@ -107,6 +115,7 @@ export interface ValidatedNativeAccountImport {
   accountMemories: NativeAccountImportMemory[];
   projects: NativeAccountImportProject[];
   chats: NativeAccountImportChat[];
+  binaryAssets: ValidatedPortableBinaryAsset[];
   warnings: string[];
 }
 
@@ -125,4 +134,15 @@ export interface PersistedNativeAccountImport {
   counts: AccountImportCounts;
   skippedAccountMemories: number;
   documents: ProjectDocumentRecord[];
+}
+
+export interface AccountImportRepository {
+  createImportedAccount(
+    userId: string,
+    packageData: ValidatedNativeAccountImport,
+    uploadedAssets?: readonly UploadedPortableBinaryAsset[]
+  ): Promise<PersistedNativeAccountImport>;
+  findDocumentIndexStatuses(
+    documentIds: string[]
+  ): Promise<Array<{ id: string; indexStatus: "PENDING" | "READY" | "FAILED" }>>;
 }

@@ -2,8 +2,15 @@ import { createHash } from "node:crypto";
 
 import { z } from "zod";
 
+import { DATA_LIMITS } from "../../config/data-limits.js";
 import { AppError } from "../../lib/errors.js";
+import { CHAT_ATTACHMENT_LIMITS } from "../chat/chat.attachments.js";
 import { validateExternalChatImport } from "./external-chat-adapters.js";
+import {
+  BINARY_ASSET_PORTABILITY_LIMITS,
+  validatePortableBinaryAssets,
+  type ValidatedPortableBinaryAsset,
+} from "./binary-assets.js";
 import { decodeSafeUtf8, readSafeZip } from "./safe-zip.js";
 import {
   ACCOUNT_IMPORT_LIMITS,
@@ -19,10 +26,12 @@ const INVALID_PACKAGE = {
   message: "Account import file is invalid or unsupported.",
 };
 const PROFILE_WARNING =
-  "Account identity, sign-in credentials, sessions, and settings are not replaced. Portable records are imported as new local data.";
+  "Account identity, sign-in credentials, sessions, settings, and source terms acceptance are not replaced. Portable records are imported as new local data.";
 const REPEAT_IMPORT_WARNING =
   "Projects and chats are created as new copies. Exact Account Memory duplicates are skipped.";
-const portableTimestampSchema = z.string().datetime();
+const BINARY_ASSET_WARNING =
+  "Private binary files are included and must be restored atomically with their database bindings.";
+const portableTimestampSchema = z.string().max(64).datetime();
 const traceIdSchema = z.string().min(1).max(240);
 const projectDataPathSchema = z
   .string()
@@ -48,7 +57,7 @@ const fileReferenceSchema = z
   .strict();
 const countSchema = z.number().int().nonnegative();
 
-const manifestSchema = z
+const manifestV1Schema = z
   .object({
     formatVersion: z.literal("1.0"),
     exportType: z.literal("account"),
@@ -56,11 +65,13 @@ const manifestSchema = z
     accountId: traceIdSchema,
     counts: z
       .object({
-        projects: countSchema,
-        documents: countSchema,
-        chats: countSchema,
-        messages: countSchema,
-        accountMemories: countSchema,
+        projects: countSchema.max(ACCOUNT_IMPORT_LIMITS.maxProjects),
+        documents: countSchema.max(ACCOUNT_IMPORT_LIMITS.maxDocuments),
+        chats: countSchema.max(ACCOUNT_IMPORT_LIMITS.maxChats),
+        messages: countSchema.max(ACCOUNT_IMPORT_LIMITS.maxMessages),
+        accountMemories: countSchema.max(
+          ACCOUNT_IMPORT_LIMITS.maxAccountMemories
+        ),
       })
       .strict(),
     contains: z
@@ -87,6 +98,30 @@ const manifestSchema = z
       .max(ACCOUNT_IMPORT_LIMITS.maxEntries),
   })
   .strict();
+
+const manifestV2Schema = manifestV1Schema
+  .extend({
+    formatVersion: z.literal("2.0"),
+    counts: manifestV1Schema.shape.counts
+      .extend({
+        binaryAssets: countSchema.max(
+          BINARY_ASSET_PORTABILITY_LIMITS.maxAssets
+        ),
+      })
+      .strict(),
+    contains: manifestV1Schema.shape.contains
+      .extend({
+        attachmentFiles: z.boolean(),
+        privateAssetFiles: z.boolean(),
+      })
+      .strict(),
+  })
+  .strict();
+
+const manifestSchema = z.discriminatedUnion("formatVersion", [
+  manifestV1Schema,
+  manifestV2Schema,
+]);
 
 const accountMemorySchema = z
   .object({
@@ -120,13 +155,17 @@ const chatReferenceSchema = z
   })
   .strict();
 
-const accountDocumentSchema = z
+const accountDocumentV1Schema = z
   .object({
     formatVersion: z.literal("1.0"),
     exportType: z.literal("account"),
     account: z
       .object({
         sourceId: traceIdSchema,
+        // Acceptance metadata is portable account history only. Import never
+        // treats a source archive as acceptance of this deployment's terms.
+        acceptedTermsAt: portableTimestampSchema.nullable().optional(),
+        acceptedTermsVersion: z.string().min(1).max(64).nullable().optional(),
         email: z.string().email().max(320),
         name: z.string().max(160).nullable(),
         locale: z.string().min(1).max(20),
@@ -154,6 +193,20 @@ const accountDocumentSchema = z
   })
   .strict();
 
+const accountDocumentV2Schema = accountDocumentV1Schema
+  .extend({
+    formatVersion: z.literal("2.0"),
+    binaryAssets: z
+      .array(z.unknown())
+      .max(BINARY_ASSET_PORTABILITY_LIMITS.maxAssets),
+  })
+  .strict();
+
+const accountDocumentSchema = z.discriminatedUnion("formatVersion", [
+  accountDocumentV1Schema,
+  accountDocumentV2Schema,
+]);
+
 const documentSchema = z
   .object({
     sourceId: traceIdSchema,
@@ -175,7 +228,7 @@ const documentSchema = z
 
 const projectDocumentSchema = z
   .object({
-    formatVersion: z.literal("1.0"),
+    formatVersion: z.enum(["1.0", "2.0"]),
     exportType: z.literal("account_project"),
     project: z
       .object({
@@ -208,7 +261,7 @@ const projectDocumentSchema = z
           .nullable(),
         documents: z
           .array(documentSchema)
-          .max(ACCOUNT_IMPORT_LIMITS.maxDocuments),
+          .max(DATA_LIMITS.documentsPerProject),
         chatSourceIds: z.array(traceIdSchema).max(ACCOUNT_IMPORT_LIMITS.maxChats),
       })
       .strict(),
@@ -218,7 +271,7 @@ const projectDocumentSchema = z
 const attachmentSchema = z
   .object({
     type: z.enum(["image", "file"]),
-    name: z.string().min(1).max(255),
+    name: z.string().min(1).max(CHAT_ATTACHMENT_LIMITS.maxNameChars),
     mimeType: z.string().max(120),
   })
   .strict();
@@ -231,14 +284,17 @@ const messageSchema = z
     mode: z.string().min(1).max(120),
     model: z.string().max(120).nullable(),
     createdAt: portableTimestampSchema,
-    attachments: z.array(attachmentSchema).max(20).optional(),
+    attachments: z
+      .array(attachmentSchema)
+      .max(CHAT_ATTACHMENT_LIMITS.maxAttachments)
+      .optional(),
     isError: z.literal(true).optional(),
   })
   .strict();
 
 const chatDocumentSchema = z
   .object({
-    formatVersion: z.literal("1.0"),
+    formatVersion: z.enum(["1.0", "2.0"]),
     exportType: z.literal("account_chat"),
     chat: z
       .object({
@@ -249,7 +305,9 @@ const chatDocumentSchema = z
         model: z.string().min(1).max(120),
         createdAt: portableTimestampSchema,
         updatedAt: portableTimestampSchema,
-        messages: z.array(messageSchema).max(ACCOUNT_IMPORT_LIMITS.maxMessages),
+        messages: z
+          .array(messageSchema)
+          .max(ACCOUNT_IMPORT_LIMITS.maxMessagesPerChat),
       })
       .strict(),
   })
@@ -302,7 +360,10 @@ function validateNativeAccountArchive(
     parseJson(accountEntry)
   );
 
-  if (accountDocument.account.sourceId !== manifest.accountId) {
+  if (
+    accountDocument.formatVersion !== manifest.formatVersion ||
+    accountDocument.account.sourceId !== manifest.accountId
+  ) {
     throwInvalidPackage();
   }
 
@@ -313,13 +374,22 @@ function validateNativeAccountArchive(
   assertUnique(accountDocument.chats.map((chat) => chat.dataPath));
 
   const projects = accountDocument.projects.map((reference) =>
-    parseProject(entries, reference)
+    parseProject(entries, reference, manifest.formatVersion)
   );
   const chats = accountDocument.chats.map((reference) =>
-    parseChat(entries, reference)
+    parseChat(entries, reference, manifest.formatVersion)
   );
 
+  validateAccountWideSourceIds(projects, chats);
   validateRelations(projects, chats);
+
+  const binaryAssets = validateArchiveBinaryAssets(
+    entries,
+    manifest,
+    accountDocument,
+    projects,
+    chats
+  );
 
   const counts = getNativeCounts(
     accountDocument.accountMemories.length,
@@ -329,6 +399,8 @@ function validateNativeAccountArchive(
   if (!sameCounts(counts, manifest.counts) || exceedsImportLimits(counts)) {
     throwInvalidPackage();
   }
+
+  validateTotalTextSize(accountDocument, projects, chats);
 
   return {
     importKind: "account_archive",
@@ -341,15 +413,22 @@ function validateNativeAccountArchive(
     })),
     projects,
     chats,
+    binaryAssets,
     warnings: Array.from(
-      new Set([...manifest.warnings, PROFILE_WARNING, REPEAT_IMPORT_WARNING])
+      new Set([
+        ...manifest.warnings,
+        PROFILE_WARNING,
+        REPEAT_IMPORT_WARNING,
+        ...(binaryAssets.length > 0 ? [BINARY_ASSET_WARNING] : []),
+      ])
     ),
   };
 }
 
 function parseProject(
   entries: Record<string, Uint8Array>,
-  reference: z.infer<typeof projectReferenceSchema>
+  reference: z.infer<typeof projectReferenceSchema>,
+  formatVersion: "1.0" | "2.0"
 ): NativeAccountImportProject {
   const entry = entries[reference.dataPath];
   if (!entry || !entries[reference.readablePath]) throwInvalidPackage();
@@ -357,6 +436,7 @@ function parseProject(
   const project = document.project;
 
   if (
+    document.formatVersion !== formatVersion ||
     project.sourceId !== reference.sourceId ||
     project.name !== reference.name ||
     project.documents.length !== reference.documentCount ||
@@ -381,10 +461,15 @@ function parseProject(
       const content = entries[item.file.path];
       if (!content) throwInvalidPackage();
 
+      const decodedContent = decodeSafeUtf8(content, INVALID_PACKAGE);
+      if (content.byteLength > ACCOUNT_IMPORT_LIMITS.maxDocumentBytes) {
+        throwInvalidPackage();
+      }
+
       return {
         sourceId: item.sourceId,
         title: item.title,
-        content: decodeSafeUtf8(content, INVALID_PACKAGE),
+        content: decodedContent,
         mimeType: item.mimeType,
         metadata: item.metadata,
         createdAt: new Date(item.createdAt),
@@ -397,7 +482,8 @@ function parseProject(
 
 function parseChat(
   entries: Record<string, Uint8Array>,
-  reference: z.infer<typeof chatReferenceSchema>
+  reference: z.infer<typeof chatReferenceSchema>,
+  formatVersion: "1.0" | "2.0"
 ): NativeAccountImportChat {
   const entry = entries[reference.dataPath];
   if (!entry || !entries[reference.readablePath]) throwInvalidPackage();
@@ -405,6 +491,7 @@ function parseChat(
   const chat = document.chat;
 
   if (
+    document.formatVersion !== formatVersion ||
     chat.sourceId !== reference.sourceId ||
     chat.sourceProjectId !== reference.sourceProjectId ||
     chat.title !== reference.title ||
@@ -450,6 +537,143 @@ function validateRelations(
       project.chatSourceIds.length !== expectedChatIds.length ||
       project.chatSourceIds.some((id) => !chatsById.has(id)) ||
       expectedChatIds.some((id) => !project.chatSourceIds.includes(id))
+    ) {
+      throwInvalidPackage();
+    }
+  }
+}
+
+function validateAccountWideSourceIds(
+  projects: NativeAccountImportProject[],
+  chats: NativeAccountImportChat[]
+) {
+  assertUnique(
+    projects.flatMap((project) =>
+      project.documents.map((document) => document.sourceId)
+    )
+  );
+  assertUnique(
+    chats.flatMap((chat) =>
+      chat.messages.map((message) => message.sourceId)
+    )
+  );
+}
+
+function validateArchiveBinaryAssets(
+  entries: Record<string, Uint8Array>,
+  manifest: z.infer<typeof manifestSchema>,
+  accountDocument: z.infer<typeof accountDocumentSchema>,
+  projects: NativeAccountImportProject[],
+  chats: NativeAccountImportChat[]
+): ValidatedPortableBinaryAsset[] {
+  const assetEntryPaths = Object.keys(entries).filter(
+    (path) => path.startsWith("assets/") && !path.endsWith("/")
+  );
+
+  if (manifest.formatVersion === "1.0") {
+    if (
+      accountDocument.formatVersion !== "1.0" ||
+      assetEntryPaths.length > 0
+    ) {
+      throwInvalidPackage();
+    }
+    return [];
+  }
+  if (accountDocument.formatVersion !== "2.0") throwInvalidPackage();
+
+  const assetEntries = Object.fromEntries(
+    assetEntryPaths.map((path) => [path, entries[path]!])
+  );
+  let binaryAssets: ValidatedPortableBinaryAsset[];
+  try {
+    binaryAssets = validatePortableBinaryAssets(
+      accountDocument.binaryAssets,
+      assetEntries
+    );
+  } catch {
+    throwInvalidPackage();
+  }
+
+  const descriptorPaths = new Set(
+    binaryAssets.map((asset) => asset.file.path)
+  );
+  const actualAssetEntryPaths = Object.keys(assetEntries);
+  if (
+    descriptorPaths.size !== binaryAssets.length ||
+    actualAssetEntryPaths.length !== descriptorPaths.size ||
+    actualAssetEntryPaths.some((path) => !descriptorPaths.has(path)) ||
+    manifest.counts.binaryAssets !== binaryAssets.length ||
+    manifest.contains.privateAssetFiles !== (binaryAssets.length > 0) ||
+    manifest.contains.attachmentFiles !==
+      binaryAssets.some((asset) => asset.binding.kind === "message_attachment")
+  ) {
+    throwInvalidPackage();
+  }
+
+  validateBinaryAssetRelations(binaryAssets, projects, chats);
+  return binaryAssets;
+}
+
+function validateBinaryAssetRelations(
+  binaryAssets: ValidatedPortableBinaryAsset[],
+  projects: NativeAccountImportProject[],
+  chats: NativeAccountImportChat[]
+) {
+  const messages = new Map<
+    string,
+    { attachments: NativeAccountImportChat["messages"][number]["attachments"]; projectId: string | null }
+  >();
+  for (const chat of chats) {
+    for (const message of chat.messages) {
+      messages.set(message.sourceId, {
+        attachments: message.attachments,
+        projectId: chat.sourceProjectId,
+      });
+    }
+  }
+
+  const documents = new Map<
+    string,
+    {
+      mimeType: string | null;
+      originalName: string;
+      projectId: string;
+    }
+  >();
+  for (const project of projects) {
+    for (const document of project.documents) {
+      documents.set(document.sourceId, {
+        mimeType: document.mimeType,
+        originalName: document.metadata?.originalName || document.title,
+        projectId: project.sourceId,
+      });
+    }
+  }
+
+  for (const asset of binaryAssets) {
+    if (asset.binding.kind === "message_attachment") {
+      const message = messages.get(asset.binding.sourceMessageId);
+      const attachment = message?.attachments[asset.binding.ordinal];
+      if (
+        !message ||
+        !attachment ||
+        message.projectId !== asset.sourceProjectId ||
+        attachment.name !== asset.originalName ||
+        attachment.mimeType !== asset.mimeType ||
+        attachment.type !==
+          (asset.mimeType.startsWith("image/") ? "image" : "file")
+      ) {
+        throwInvalidPackage();
+      }
+      continue;
+    }
+
+    const document = documents.get(asset.binding.sourceDocumentId);
+    if (
+      !document ||
+      document.projectId !== asset.sourceProjectId ||
+      document.mimeType !== asset.mimeType ||
+      document.originalName !== asset.originalName
     ) {
       throwInvalidPackage();
     }
@@ -520,6 +744,46 @@ function exceedsImportLimits(counts: AccountImportCounts) {
     counts.messages > ACCOUNT_IMPORT_LIMITS.maxMessages ||
     counts.accountMemories > ACCOUNT_IMPORT_LIMITS.maxAccountMemories
   );
+}
+
+function validateTotalTextSize(
+  accountDocument: z.infer<typeof accountDocumentSchema>,
+  projects: NativeAccountImportProject[],
+  chats: NativeAccountImportChat[]
+) {
+  let totalChars = accountDocument.accountMemories.reduce(
+    (total, memory) => total + memory.content.length,
+    0
+  );
+
+  for (const project of projects) {
+    totalChars += project.name.length + (project.description?.length || 0);
+    totalChars += project.instructions?.content.length || 0;
+    totalChars += project.memory?.content.length || 0;
+    totalChars += project.documents.reduce(
+      (total, document) => total + document.title.length + document.content.length,
+      0
+    );
+  }
+
+  for (const chat of chats) {
+    const chatContentBytes = chat.messages.reduce(
+      (total, message) => total + Buffer.byteLength(message.content, "utf8"),
+      0
+    );
+    if (chatContentBytes > DATA_LIMITS.chatMessageContentBytesPerChat) {
+      throwInvalidPackage();
+    }
+    totalChars += chat.title.length;
+    totalChars += chat.messages.reduce(
+      (total, message) => total + message.content.length,
+      0
+    );
+  }
+
+  if (totalChars > ACCOUNT_IMPORT_LIMITS.maxTotalTextChars) {
+    throwInvalidPackage();
+  }
 }
 
 function assertUnique(values: string[]) {

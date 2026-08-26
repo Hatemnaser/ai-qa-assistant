@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { AppError } from "../src/lib/errors.ts";
+import type { AssetConsumptionService, ReadReadyAsset } from "../src/modules/assets/assets-consumption.service.ts";
 import {
   projectDocumentImportInputSchema,
   projectDocumentInputSchema,
@@ -12,7 +14,7 @@ import {
 import type {
   ProjectDocumentRecord,
   ProjectDocumentsRepository,
-} from "../src/modules/project-documents/project-documents.repository.ts";
+} from "../src/modules/project-documents/project-documents.types.ts";
 import type {
   ProjectDocumentIndexer,
 } from "../src/modules/project-documents/project-document-index.service.ts";
@@ -62,6 +64,59 @@ describe("project documents service", () => {
     });
     assert.equal(repository.documents[0]?.title, "requirements.md");
     assert.deepEqual(indexer.indexedDocumentIds, ["document-1"]);
+  });
+
+  it("imports a READY owned project source asset and retains the original link", async () => {
+    const reads: Array<Record<string, unknown>> = [];
+    const assetConsumption = {
+      async getReadyOwnedAsset() { throw new Error("not used"); },
+      async readReadyOwnedAsset(input) {
+        reads.push(input);
+        return readyProjectSource();
+      },
+    } satisfies AssetConsumptionService;
+    const { indexer, repository, service } = setupProjectDocumentsService(
+      [],
+      [createFakeProject("project-1", "user-1")],
+      assetConsumption
+    );
+
+    const documents = await service.importProjectDocuments("user-1", "project-1", {
+      files: [{ sourceAssetId: "asset-1" }],
+    });
+
+    assert.deepEqual(reads, [{
+      assetId: "asset-1",
+      ownerId: "user-1",
+      projectId: "project-1",
+      purpose: "PROJECT_DOCUMENT_SOURCE",
+    }]);
+    assert.equal(repository.documents[0]?.content, "# Stored requirements");
+    assert.equal(repository.documents[0]?.sourceAssetId, "asset-1");
+    assert.equal(documents[0]?.sourceAssetId, "asset-1");
+    assert.deepEqual(indexer.indexedDocumentIds, ["document-1"]);
+  });
+
+  it("does not create a project document for an inaccessible stored source", async () => {
+    const assetConsumption = {
+      async getReadyOwnedAsset() { throw new Error("not used"); },
+      async readReadyOwnedAsset() {
+        throw new AppError("Asset was not found.", 404, "ASSET_NOT_FOUND");
+      },
+    } satisfies AssetConsumptionService;
+    const { repository, service } = setupProjectDocumentsService(
+      [],
+      [createFakeProject("project-1", "user-1")],
+      assetConsumption
+    );
+
+    await assert.rejects(
+      () => service.importProjectDocuments("user-1", "project-1", {
+        files: [{ sourceAssetId: "foreign-asset" }],
+      }),
+      { code: "ASSET_NOT_FOUND", statusCode: 404 }
+    );
+    assert.equal(repository.documents.length, 0);
   });
 
   it("lists only project documents after ownership checks", async () => {
@@ -207,20 +262,31 @@ describe("project documents service", () => {
       ],
     });
 
-    assert.equal(input.files[0]?.name, "requirements.md");
-    assert.equal(
-      projectDocumentImportInputSchema.parse({
-        files: [
-          {
-            name: "theme.css",
-            content: ":root { color-scheme: dark; }",
-            mimeType: "text/css",
-            sizeBytes: 29,
-          },
-        ],
-      }).files[0]?.name,
-      "theme.css"
+    const requirementsFile = input.files[0];
+    assert.ok(requirementsFile && "name" in requirementsFile);
+    assert.equal(requirementsFile.name, "requirements.md");
+    assert.deepEqual(
+      projectDocumentImportInputSchema.parse({ files: [{ assetId: "asset-1" }] }),
+      { files: [{ sourceAssetId: "asset-1" }] }
     );
+    assert.throws(
+      () => projectDocumentImportInputSchema.parse({
+        files: [{ sourceAssetId: "asset-1" }, { sourceAssetId: "asset-1" }],
+      }),
+      /only be imported once/
+    );
+    const stylesheet = projectDocumentImportInputSchema.parse({
+      files: [
+        {
+          name: "theme.css",
+          content: ":root { color-scheme: dark; }",
+          mimeType: "text/css",
+          sizeBytes: 29,
+        },
+      ],
+    }).files[0];
+    assert.ok(stylesheet && "name" in stylesheet);
+    assert.equal(stylesheet.name, "theme.css");
     assert.throws(
       () =>
         projectDocumentImportInputSchema.parse({
@@ -266,10 +332,15 @@ describe("project documents service", () => {
   });
 });
 
-function setupProjectDocumentsService(initialDocuments: ProjectDocumentRecord[] = [], projects: FakeProject[] = []) {
+function setupProjectDocumentsService(
+  initialDocuments: ProjectDocumentRecord[] = [],
+  projects: FakeProject[] = [],
+  assetConsumption?: AssetConsumptionService
+) {
   const indexer = createFakeProjectDocumentIndexer();
   const repository = createFakeProjectDocumentsRepository(initialDocuments);
   const service = createProjectDocumentsService({
+    assetConsumption,
     indexer,
     projectAccess: createFakeProjectAccess(
       new Map(projects.map((project) => [project.id, project.ownerId]))
@@ -281,6 +352,34 @@ function setupProjectDocumentsService(initialDocuments: ProjectDocumentRecord[] 
     indexer,
     repository,
     service,
+  };
+}
+
+function readyProjectSource(): ReadReadyAsset {
+  const bytes = new TextEncoder().encode("# Stored requirements");
+
+  return {
+    asset: {
+      checksumSha256: "checksum",
+      createdAt: NOW,
+      declaredMimeType: "text/markdown",
+      detectedMimeType: "text/markdown",
+      etag: "etag",
+      expectedSizeBytes: bytes.byteLength,
+      id: "asset-1",
+      objectKey: "project-documents/asset-1",
+      originalName: "requirements.md",
+      ownerId: "user-1",
+      projectId: "project-1",
+      purpose: "PROJECT_DOCUMENT_SOURCE",
+      readyAt: NOW,
+      sizeBytes: bytes.byteLength,
+      status: "READY",
+      updatedAt: NOW,
+      uploadExpiresAt: null,
+      validationStartedAt: null,
+    },
+    bytes,
   };
 }
 
@@ -328,6 +427,7 @@ function createFakeProjectDocumentsRepository(
         mimeType: input.mimeType || null,
         projectId: input.projectId,
         source: input.source || "USER_PROVIDED",
+        sourceAssetId: input.sourceAssetId || null,
         title: input.title,
       });
 
@@ -345,6 +445,7 @@ function createFakeProjectDocumentsRepository(
           mimeType: input.mimeType || null,
           projectId: input.projectId,
           source: input.source || "USER_PROVIDED",
+          sourceAssetId: input.sourceAssetId || null,
           title: input.title,
         })
       );
@@ -411,6 +512,7 @@ function createFakeProjectDocumentRecord(overrides: Partial<ProjectDocumentRecor
     title: "Project document",
     content: "Project document content",
     source: "USER_PROVIDED",
+    sourceAssetId: null,
     mimeType: null,
     metadata: null,
     createdAt: new Date("2026-06-06T09:00:00.000Z"),

@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 
+import { env } from "../../config/env.js";
+import { AppError } from "../../lib/errors.js";
 import { logChatRateLimited } from "../../lib/security-events.js";
 import { clearAuthCookie, getAuthCookie } from "../auth/auth.cookies.js";
 import { authService } from "../auth/auth.service.js";
@@ -7,7 +9,6 @@ import { getOrCreateGuestId } from "../usage/usage.cookies.js";
 import {
   CHAT_RATE_LIMITED_MESSAGE,
   isChatIdentityRateLimited,
-  isChatIpRateLimited,
 } from "./chat.rateLimit.js";
 import { createChatReply } from "./chat.service.js";
 import { chatRequestSchema } from "./chat.schema.js";
@@ -16,13 +17,12 @@ export async function sendChatMessage(req: Request, res: Response, next: NextFun
   try {
     const ipAddress = req.ip || req.socket.remoteAddress;
 
-    if (isChatIpRateLimited({ ipAddress })) {
-      logChatRateLimited({
-        identityType: "anonymous",
-        ipAddress,
-      });
-      sendRateLimitedResponse(res);
-      return;
+    if (!env.aiEnabled) {
+      throw new AppError(
+        "AI requests are temporarily disabled.",
+        503,
+        "AI_DISABLED"
+      );
     }
 
     const input = chatRequestSchema.parse(req.body);
@@ -32,6 +32,14 @@ export async function sendChatMessage(req: Request, res: Response, next: NextFun
 
     if (sessionToken && !currentUser) {
       clearAuthCookie(res);
+    }
+
+    if (!currentUser && !env.guestAiEnabled) {
+      throw new AppError(
+        "Sign in with a verified beta account to use AI.",
+        403,
+        "GUEST_AI_DISABLED"
+      );
     }
 
     if (
@@ -44,6 +52,7 @@ export async function sendChatMessage(req: Request, res: Response, next: NextFun
         guestId,
         identityType: currentUser ? "user" : guestId ? "guest" : "anonymous",
         ipAddress,
+        reason: "identity_rate",
         userId: currentUser?.id,
       });
       sendRateLimitedResponse(res);
@@ -63,6 +72,7 @@ export async function sendChatMessage(req: Request, res: Response, next: NextFun
 }
 
 function sendRateLimitedResponse(res: Response) {
+  res.setHeader("Retry-After", String(Math.ceil(env.chatRateLimitWindowMs / 1000)));
   res.status(429).json({
     code: "RATE_LIMITED",
     error: CHAT_RATE_LIMITED_MESSAGE,

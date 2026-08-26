@@ -2,7 +2,7 @@ import {
   chunkProjectDocument,
   type ProjectDocumentChunk,
 } from "./project-document-chunks.js";
-import type { ProjectDocumentRecord } from "./project-documents.repository.js";
+import type { ProjectDocumentRecord } from "./project-documents.types.js";
 
 const TOKEN_PATTERN = /[\p{L}\p{N}]+/gu;
 const QUERY_STOP_WORDS = new Set([
@@ -50,7 +50,7 @@ export interface ProjectDocumentRetrievalInput {
 }
 
 export interface ProjectDocumentRetriever {
-  retrieve(input: ProjectDocumentRetrievalInput & { projectId: string }): Promise<ProjectDocumentChunk[]>;
+  retrieve(input: ProjectDocumentRetrievalInput & { projectId: string; userId?: string }): Promise<ProjectDocumentChunk[]>;
 }
 
 export interface LexicalProjectDocumentRanking {

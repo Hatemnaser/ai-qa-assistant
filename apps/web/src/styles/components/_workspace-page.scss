@@ -71,6 +71,34 @@
   grid-column: 1 / -1;
 }
 
+.account-danger-zone {
+  display: grid;
+  gap: var(--space-4);
+  border-color: var(--status-danger);
+}
+
+.account-danger-zone__action {
+  justify-self: start;
+}
+
+.account-danger-zone__confirmation {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 560px;
+}
+
+.account-danger-zone__warning {
+  color: var(--status-danger-text);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-readable);
+}
+
+.account-danger-zone__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
 .workspace-empty {
   color: var(--text-muted);
   font-size: var(--font-size-md);

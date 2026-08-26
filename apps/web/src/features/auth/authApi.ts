@@ -4,13 +4,14 @@ import type {
   AuthUser,
   LoginInput,
   RegisterInput,
+  RegistrationConfig,
+  ResetPasswordResponse,
   VerifyEmailResponse,
 } from "./types";
 import { createBackendApiError, getBackendError } from "../../api/backendErrors";
 import { csrfFetch } from "../../api/csrf";
+import { API_BASE_URL } from "../../config/api";
 import { t } from "../../i18n/useI18n";
-
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 
 export function login(input: LoginInput) {
   return requestJson<AuthResponse>("/api/auth/login", {
@@ -26,10 +27,26 @@ export function register(input: RegisterInput) {
   });
 }
 
+export function getRegistrationConfig() {
+  return requestJson<RegistrationConfig>("/api/auth/registration-config", {
+    method: "GET",
+  });
+}
+
 export async function forgotPassword(email: string) {
   return requestJson<AuthMessageResponse>("/api/auth/forgot-password", {
     body: {
       email,
+    },
+    method: "POST",
+  });
+}
+
+export async function resetPassword(token: string, newPassword: string) {
+  return requestJson<ResetPasswordResponse>("/api/auth/reset-password", {
+    body: {
+      newPassword,
+      token,
     },
     method: "POST",
   });

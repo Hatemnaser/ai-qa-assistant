@@ -12,3 +12,20 @@ export interface ProjectMemoryDto {
 export interface ProjectMemoryInput {
   content: string;
 }
+
+export interface ProjectMemoryRecord {
+  content: string;
+  createdAt: Date;
+  projectId: string;
+  source: MemorySource;
+  updatedAt: Date;
+}
+
+export interface ProjectMemoryRepository {
+  deleteProjectMemory(projectId: string): Promise<void>;
+  findProjectMemory(projectId: string): Promise<ProjectMemoryRecord | null>;
+  upsertProjectMemory(
+    projectId: string,
+    content: string
+  ): Promise<ProjectMemoryRecord>;
+}

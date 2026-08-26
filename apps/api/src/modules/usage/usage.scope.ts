@@ -1,8 +1,7 @@
 import { createHmac } from "node:crypto";
 
 import { env } from "../../config/env.js";
-import type { UsageRepository } from "./usage.repository.js";
-import type { UsageIdentity } from "./usage.types.js";
+import type { UsageIdentity, UsageRepository } from "./usage.types.js";
 
 export interface UsageIdentityScope {
   guestId?: string;

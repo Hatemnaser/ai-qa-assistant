@@ -22,6 +22,8 @@ export interface AuthRequestContext {
 }
 
 export interface AuthUserRecord {
+  acceptedTermsAt: Date | null;
+  acceptedTermsVersion: string | null;
   createdAt: Date;
   email: string;
   emailVerifiedAt: Date | null;
@@ -65,4 +67,63 @@ export interface AuthSessionRecord {
   id: string;
   user: AuthUserRecord;
   userId: string;
+}
+
+export interface CreatePasswordUserInput {
+  acceptedTermsAt: Date;
+  acceptedTermsVersion: string;
+  email: string;
+  locale: string;
+  name?: string;
+  passwordHash: string;
+}
+
+export interface CreateSessionInput extends AuthRequestContext {
+  expiresAt: Date;
+  tokenHash: string;
+  userId: string;
+}
+
+export interface CreateAuthEmailJobInput {
+  encryptedPayload: string;
+  id: string;
+}
+
+export interface CreatePasswordResetTokenInput {
+  emailJob?: CreateAuthEmailJobInput;
+  expiresAt: Date;
+  now: Date;
+  tokenHash: string;
+  userId: string;
+}
+
+export interface CreateEmailVerificationTokenInput {
+  emailJob?: CreateAuthEmailJobInput;
+  expiresAt: Date;
+  now: Date;
+  tokenHash: string;
+  userId: string;
+}
+
+export interface ResetPasswordWithTokenInput {
+  newPasswordHash: string;
+  now: Date;
+  tokenHash: string;
+}
+
+export interface VerifyEmailWithTokenInput {
+  now: Date;
+  tokenHash: string;
+}
+
+export interface AuthRepository {
+  createPasswordUser(input: CreatePasswordUserInput): Promise<AuthUserRecord>;
+  createEmailVerificationToken(input: CreateEmailVerificationTokenInput): Promise<void>;
+  createPasswordResetToken(input: CreatePasswordResetTokenInput): Promise<void>;
+  createSession(input: CreateSessionInput): Promise<void>;
+  deleteSessionByTokenHash(tokenHash: string): Promise<void>;
+  findSessionByTokenHash(tokenHash: string): Promise<AuthSessionRecord | null>;
+  findUserByEmail(email: string): Promise<AuthUserRecord | null>;
+  resetPasswordWithToken(input: ResetPasswordWithTokenInput): Promise<boolean>;
+  verifyEmailWithToken(input: VerifyEmailWithTokenInput): Promise<boolean>;
 }

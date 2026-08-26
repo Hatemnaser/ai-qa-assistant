@@ -3,6 +3,7 @@ import { ref, watch } from "vue";
 
 import { useI18n } from "../../../i18n/useI18n";
 import Icon from "../../../ui/Icon.vue";
+import { useDialogAccessibility } from "../../../ui/useDialogAccessibility";
 import type { ProjectDocument } from "../types";
 import ProjectDocumentAddMenu from "./ProjectDocumentAddMenu.vue";
 import ProjectDocumentCard from "./ProjectDocumentCard.vue";
@@ -59,18 +60,29 @@ function resetDragState() {
   dragDepth.value = 0;
   isDraggingOver.value = false;
 }
+
+function requestCancel() {
+  emit("cancel");
+}
+
+const { dialogRef, onDialogKeydown } = useDialogAccessibility({
+  isOpen: () => props.isOpen,
+  onClose: requestCancel,
+});
 </script>
 
 <template>
   <Teleport to="body">
     <div
       v-if="isOpen"
+      ref="dialogRef"
       class="modal fade show d-block"
       tabindex="-1"
       role="dialog"
       aria-modal="true"
       aria-labelledby="project-documents-title"
-      @click.self="emit('cancel')"
+      @click.self="requestCancel"
+      @keydown="onDialogKeydown"
     >
       <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable project-documents-dialog">
         <div
@@ -98,7 +110,7 @@ function resetDragState() {
                 @add-text="emit('addText')"
                 @upload="emit('requestUpload')"
               />
-              <button class="btn-close" type="button" :aria-label="t('app.actions.close')" @click="emit('cancel')"></button>
+              <button class="btn-close" type="button" :aria-label="t('app.actions.close')" @click="requestCancel"></button>
             </div>
           </div>
 
@@ -126,7 +138,7 @@ function resetDragState() {
           </div>
 
           <div class="modal-footer">
-            <button class="btn btn-outline-secondary" type="button" @click="emit('cancel')">
+            <button class="btn btn-outline-secondary" type="button" @click="requestCancel">
               {{ t("app.actions.close") }}
             </button>
           </div>

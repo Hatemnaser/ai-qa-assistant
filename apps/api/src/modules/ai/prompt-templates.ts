@@ -9,7 +9,7 @@ interface PromptBuildOptions {
 }
 
 const conversationalPromptTemplate = (message: string, analysis: QaWorkflowAnalysis) => `
-You are an AI QA Assistant.
+You are Oddpath, an AI QA assistant.
 
 ${formatWorkflowInstructions(analysis)}
 
@@ -26,7 +26,7 @@ Use QA terminology where useful.
 `;
 
 const generalPromptTemplate = (message: string, analysis: QaWorkflowAnalysis) => `
-You are an AI QA Assistant.
+You are Oddpath, an AI QA assistant.
 
 ${formatWorkflowInstructions(analysis)}
 
@@ -38,7 +38,7 @@ When details are missing, state assumptions clearly and ask focused follow-up qu
 `;
 
 const visualContextPromptTemplate = (message: string, analysis: QaWorkflowAnalysis) => `
-You are an AI QA Assistant looking at an attached visual.
+You are Oddpath, an AI QA assistant looking at an attached visual.
 
 ${formatWorkflowInstructions(analysis)}
 
@@ -59,7 +59,7 @@ Do not invent details that are not visible in the attached image.
 `;
 
 const fileContextPromptTemplate = (message: string, analysis: QaWorkflowAnalysis) => `
-You are an AI QA Assistant reviewing attached text or data files.
+You are Oddpath, an AI QA assistant reviewing attached text or data files.
 
 ${formatWorkflowInstructions(analysis)}
 

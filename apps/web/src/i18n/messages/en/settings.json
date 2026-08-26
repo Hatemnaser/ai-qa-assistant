@@ -14,5 +14,14 @@
   "settings.save": "Save settings",
   "settings.saving": "Saving...",
   "settings.accountMemory": "Account memory",
-  "settings.noAccountMemory": "No account memory yet."
+  "settings.noAccountMemory": "No account memory yet.",
+  "settings.dangerZone": "Danger zone",
+  "settings.deleteAccountTitle": "Delete account",
+  "settings.deleteAccountDescription": "Permanently delete your Oddpath account and its chats, projects, memories, settings, and related data.",
+  "settings.deleteAccount": "Delete account...",
+  "settings.deleteAccountWarning": "This cannot be undone. Enter your current password to confirm permanent deletion.",
+  "settings.currentPassword": "Current password",
+  "settings.confirmDeleteAccount": "Permanently delete account",
+  "settings.deletingAccount": "Deleting account...",
+  "settings.deleteAccountError": "Could not delete the account."
 }

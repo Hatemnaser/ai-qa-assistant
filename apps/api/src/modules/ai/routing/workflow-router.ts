@@ -106,7 +106,7 @@ export function mergeRouterDecision(
 export function buildWorkflowRouterPrompt(input: WorkflowRouterInput) {
   const history = formatRouterHistory(input.history || []);
 
-  return `You are a workflow router for an AI QA Assistant.
+  return `You are a workflow router for Oddpath, an AI QA assistant.
 
 Classify the latest user message using conversation context, selected UI mode, and attachment flags.
 Return JSON only. Do not answer the user.

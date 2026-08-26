@@ -1,22 +1,5 @@
-import type { MemorySource } from "../../generated/prisma/enums.js";
 import { prisma } from "../../db/prisma.js";
-
-export interface ProjectMemoryRecord {
-  content: string;
-  createdAt: Date;
-  projectId: string;
-  source: MemorySource;
-  updatedAt: Date;
-}
-
-export interface ProjectMemoryRepository {
-  deleteProjectMemory(projectId: string): Promise<void>;
-  findProjectMemory(projectId: string): Promise<ProjectMemoryRecord | null>;
-  upsertProjectMemory(
-    projectId: string,
-    content: string
-  ): Promise<ProjectMemoryRecord>;
-}
+import type { ProjectMemoryRepository } from "./project-memory.types.js";
 
 export function createPrismaProjectMemoryRepository(): ProjectMemoryRepository {
   return {

@@ -1,60 +1,14 @@
 import { prisma } from "../../db/prisma.js";
-import type { AuthRequestContext, AuthSessionRecord, AuthUserRecord } from "./auth.types.js";
+import { Prisma } from "../../generated/prisma/client.js";
+import type { AuthRepository } from "./auth.types.js";
 
-export interface CreatePasswordUserInput {
-  email: string;
-  locale: string;
-  name?: string;
-  passwordHash: string;
-}
-
-export interface CreateSessionInput extends AuthRequestContext {
-  expiresAt: Date;
-  tokenHash: string;
-  userId: string;
-}
-
-export interface CreatePasswordResetTokenInput {
-  expiresAt: Date;
-  tokenHash: string;
-  userId: string;
-}
-
-export interface CreateEmailVerificationTokenInput {
-  expiresAt: Date;
-  now: Date;
-  tokenHash: string;
-  userId: string;
-}
-
-export interface ResetPasswordWithTokenInput {
-  newPasswordHash: string;
-  now: Date;
-  tokenHash: string;
-}
-
-export interface VerifyEmailWithTokenInput {
-  now: Date;
-  tokenHash: string;
-}
-
-export interface AuthRepository {
-  createPasswordUser(input: CreatePasswordUserInput): Promise<AuthUserRecord>;
-  createEmailVerificationToken(input: CreateEmailVerificationTokenInput): Promise<void>;
-  createPasswordResetToken(input: CreatePasswordResetTokenInput): Promise<void>;
-  createSession(input: CreateSessionInput): Promise<void>;
-  deleteSessionByTokenHash(tokenHash: string): Promise<void>;
-  findSessionByTokenHash(tokenHash: string): Promise<AuthSessionRecord | null>;
-  findUserByEmail(email: string): Promise<AuthUserRecord | null>;
-  resetPasswordWithToken(input: ResetPasswordWithTokenInput): Promise<boolean>;
-  verifyEmailWithToken(input: VerifyEmailWithTokenInput): Promise<boolean>;
-}
-
-export function createPrismaAuthRepository(): AuthRepository {
+export function createPrismaAuthRepository(database: typeof prisma = prisma): AuthRepository {
   return {
     async createPasswordUser(input) {
-      return prisma.user.create({
+      return database.user.create({
         data: {
+          acceptedTermsAt: input.acceptedTermsAt,
+          acceptedTermsVersion: input.acceptedTermsVersion,
           email: input.email,
           locale: input.locale,
           name: input.name || null,
@@ -69,7 +23,9 @@ export function createPrismaAuthRepository(): AuthRepository {
     },
 
     async createEmailVerificationToken(input) {
-      await prisma.$transaction(async (tx) => {
+      await database.$transaction(async (tx) => {
+        await lockAuthTokenState(tx, input.userId);
+
         await tx.emailVerificationToken.updateMany({
           data: {
             usedAt: input.now,
@@ -80,28 +36,98 @@ export function createPrismaAuthRepository(): AuthRepository {
           },
         });
 
-        await tx.emailVerificationToken.create({
+        await tx.authEmailJob.updateMany({
+          data: {
+            encryptedPayload: null,
+            lockedAt: null,
+            status: "CANCELLED",
+          },
+          where: {
+            kind: "EMAIL_VERIFICATION",
+            status: {
+              in: ["PENDING", "PROCESSING"],
+            },
+            userId: input.userId,
+          },
+        });
+
+        const token = await tx.emailVerificationToken.create({
           data: {
             expiresAt: input.expiresAt,
             tokenHash: input.tokenHash,
             userId: input.userId,
           },
         });
+
+        if (input.emailJob) {
+          await tx.authEmailJob.create({
+            data: {
+              emailVerificationTokenId: token.id,
+              encryptedPayload: input.emailJob.encryptedPayload,
+              expiresAt: input.expiresAt,
+              id: input.emailJob.id,
+              kind: "EMAIL_VERIFICATION",
+              userId: input.userId,
+            },
+          });
+        }
       });
     },
 
     async createPasswordResetToken(input) {
-      await prisma.passwordResetToken.create({
-        data: {
-          expiresAt: input.expiresAt,
-          tokenHash: input.tokenHash,
-          userId: input.userId,
-        },
+      await database.$transaction(async (tx) => {
+        await lockAuthTokenState(tx, input.userId);
+
+        await tx.passwordResetToken.updateMany({
+          data: {
+            usedAt: input.now,
+          },
+          where: {
+            userId: input.userId,
+            usedAt: null,
+          },
+        });
+
+        await tx.authEmailJob.updateMany({
+          data: {
+            encryptedPayload: null,
+            lockedAt: null,
+            status: "CANCELLED",
+          },
+          where: {
+            kind: "PASSWORD_RESET",
+            status: {
+              in: ["PENDING", "PROCESSING"],
+            },
+            userId: input.userId,
+          },
+        });
+
+        const token = await tx.passwordResetToken.create({
+          data: {
+            expiresAt: input.expiresAt,
+            tokenHash: input.tokenHash,
+            userId: input.userId,
+          },
+        });
+
+        if (input.emailJob) {
+          await tx.authEmailJob.create({
+            data: {
+              encryptedPayload: input.emailJob.encryptedPayload,
+              expiresAt: input.expiresAt,
+              id: input.emailJob.id,
+              kind: "PASSWORD_RESET",
+              passwordResetTokenId: token.id,
+              userId: input.userId,
+            },
+          });
+        }
       });
     },
 
     async createSession(input) {
-      await prisma.session.create({
+      await database.session.create({
         data: {
           expiresAt: input.expiresAt,
           ipAddress: input.ipAddress,
@@ -113,7 +139,7 @@ export function createPrismaAuthRepository(): AuthRepository {
     },
 
     async deleteSessionByTokenHash(tokenHash) {
-      await prisma.session.deleteMany({
+      await database.session.deleteMany({
         where: {
           tokenHash,
         },
@@ -121,7 +147,7 @@ export function createPrismaAuthRepository(): AuthRepository {
     },
 
     async findSessionByTokenHash(tokenHash) {
-      return prisma.session.findUnique({
+      return database.session.findUnique({
         include: {
           user: true,
         },
@@ -132,7 +158,7 @@ export function createPrismaAuthRepository(): AuthRepository {
     },
 
     async findUserByEmail(email) {
-      return prisma.user.findUnique({
+      return database.user.findUnique({
         where: {
           email,
         },
@@ -140,7 +166,7 @@ export function createPrismaAuthRepository(): AuthRepository {
     },
 
     async resetPasswordWithToken(input) {
-      return prisma.$transaction(async (tx) => {
+      return database.$transaction(async (tx) => {
         const resetToken = await tx.passwordResetToken.findUnique({
           select: {
             expiresAt: true,
@@ -156,6 +182,8 @@ export function createPrismaAuthRepository(): AuthRepository {
         if (!resetToken || resetToken.usedAt || resetToken.expiresAt <= input.now) {
           return false;
         }
+
+        await lockAuthTokenState(tx, resetToken.userId);
 
         const consumed = await tx.passwordResetToken.updateMany({
           data: {
@@ -183,6 +211,33 @@ export function createPrismaAuthRepository(): AuthRepository {
           },
         });
 
+        // A successful password change invalidates every other reset link,
+        // including any link created by a formerly concurrent request.
+        await tx.passwordResetToken.updateMany({
+          data: {
+            usedAt: input.now,
+          },
+          where: {
+            userId: resetToken.userId,
+            usedAt: null,
+          },
+        });
+
+        await tx.authEmailJob.updateMany({
+          data: {
+            encryptedPayload: null,
+            lockedAt: null,
+            status: "CANCELLED",
+          },
+          where: {
+            kind: "PASSWORD_RESET",
+            status: {
+              in: ["PENDING", "PROCESSING"],
+            },
+            userId: resetToken.userId,
+          },
+        });
+
         await tx.session.deleteMany({
           where: {
             userId: resetToken.userId,
@@ -194,7 +249,7 @@ export function createPrismaAuthRepository(): AuthRepository {
     },
 
     async verifyEmailWithToken(input) {
-      return prisma.$transaction(async (tx) => {
+      return database.$transaction(async (tx) => {
         const verificationToken = await tx.emailVerificationToken.findUnique({
           select: {
             expiresAt: true,
@@ -215,6 +270,8 @@ export function createPrismaAuthRepository(): AuthRepository {
         if (!verificationToken || verificationToken.usedAt || verificationToken.expiresAt <= input.now) {
           return false;
         }
+
+        await lockAuthTokenState(tx, verificationToken.userId);
 
         const consumed = await tx.emailVerificationToken.updateMany({
           data: {
@@ -257,6 +314,21 @@ export function createPrismaAuthRepository(): AuthRepository {
           },
         });
 
+        await tx.authEmailJob.updateMany({
+          data: {
+            encryptedPayload: null,
+            lockedAt: null,
+            status: "CANCELLED",
+          },
+          where: {
+            kind: "EMAIL_VERIFICATION",
+            status: {
+              in: ["PENDING", "PROCESSING"],
+            },
+            userId: verificationToken.userId,
+          },
+        });
+
         return true;
       });
     },
@@ -264,3 +336,11 @@ export function createPrismaAuthRepository(): AuthRepository {
 }
 
 export const authRepository = createPrismaAuthRepository();
+
+async function lockAuthTokenState(tx: Prisma.TransactionClient, userId: string) {
+  await tx.$executeRaw`
+    SELECT pg_advisory_xact_lock(
+      hashtextextended(${`oddpath:auth-token-state:${userId}`}, 0)
+    )
+  `;
+}

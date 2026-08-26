@@ -3,17 +3,22 @@ import { describe, it } from "node:test";
 
 import { ChatRole } from "../src/generated/prisma/enums.ts";
 import { AppError } from "../src/lib/errors.ts";
-import type { StoredMessageRecord } from "../src/modules/chat-history/chat-history.repository.ts";
+import {
+  setOperationalEventLoggerForTests,
+  type OperationalEventRecord,
+} from "../src/lib/operational-events.ts";
+import type { StoredMessageRecord } from "../src/modules/chat-history/chat-history.types.ts";
 import type {
   ConversationSummaryGenerationState,
   ConversationSummaryRecord,
   ConversationSummaryRepository,
   SaveGeneratedConversationSummaryInput,
   UpsertConversationSummaryInput,
-} from "../src/modules/conversation-summary/conversation-summary.repository.ts";
+} from "../src/modules/conversation-summary/conversation-summary.types.ts";
 import {
   createConversationSummaryRefreshService,
   createConversationSummaryRefreshPlan,
+  type ConversationSummaryRefreshResult,
 } from "../src/modules/conversation-summary/conversation-summary-refresh.service.ts";
 import { createConversationSummaryService } from "../src/modules/conversation-summary/conversation-summary.service.ts";
 import type {
@@ -122,16 +127,76 @@ describe("conversation summary refresh service", () => {
 
   it("does not reject when summary generation fails", async () => {
     const context = setupRefreshService({
-      generateError: new Error("provider unavailable"),
+      generateError: new Error(
+        "provider unavailable; prompt=private-text; token=super-secret"
+      ),
       messages: createCompleteTurns(6),
       ownerId: "user-1",
     });
+    const events: OperationalEventRecord[] = [];
+    const restore = setOperationalEventLoggerForTests((_level, event) => {
+      events.push(event);
+    });
 
-    const result = await context.refresh.requestRefresh("user-1", "chat-1");
+    let result: ConversationSummaryRefreshResult | undefined;
+
+    try {
+      result = await context.refresh.requestRefresh("user-1", "chat-1");
+    } finally {
+      restore();
+    }
 
     assert.equal(result, "failed");
     assert.equal(context.repository.summaries.size, 0);
     assert.equal(context.usage.failed, 1);
+    assert.equal(events[0]?.event, "conversation_summary_refresh");
+    assert.equal(
+      events[0]?.event === "conversation_summary_refresh"
+        ? events[0].stage
+        : undefined,
+      "generation"
+    );
+    assert.doesNotMatch(
+      JSON.stringify(events),
+      /user-1|chat-1|private-text|super-secret|prompt=|token=/i
+    );
+  });
+
+  it("reports orchestration failures without conversation identifiers or raw errors", async () => {
+    const context = setupRefreshService({
+      messages: createCompleteTurns(6),
+      ownerId: "user-1",
+    });
+    context.repository.findGenerationStateByChatIdAndUserId = async () => {
+      throw new Error(
+        "database unavailable for user-1/chat-1; token=super-secret"
+      );
+    };
+    const events: OperationalEventRecord[] = [];
+    const restore = setOperationalEventLoggerForTests((_level, event) => {
+      events.push(event);
+    });
+
+    let result: ConversationSummaryRefreshResult | undefined;
+
+    try {
+      result = await context.refresh.requestRefresh("user-1", "chat-1");
+    } finally {
+      restore();
+    }
+
+    assert.equal(result, "failed");
+    assert.equal(events[0]?.event, "conversation_summary_refresh");
+    assert.equal(
+      events[0]?.event === "conversation_summary_refresh"
+        ? events[0].stage
+        : undefined,
+      "orchestration"
+    );
+    assert.doesNotMatch(
+      JSON.stringify(events),
+      /user-1|chat-1|database unavailable|super-secret|token=/i
+    );
   });
 
   it("skips summary generation when the global AI operation guard rejects it", async () => {
@@ -242,6 +307,7 @@ interface FakeSummarizer extends ConversationSummarizer {
 interface FakeUsageTracker extends ConversationSummaryUsageTracker {
   completed: number;
   failed: number;
+  recorded: number;
   started: number;
 }
 
@@ -284,6 +350,7 @@ function setupRefreshService(options: {
   const usage: FakeUsageTracker = {
     completed: 0,
     failed: 0,
+    recorded: 0,
     started: 0,
 
     async complete() {
@@ -292,6 +359,10 @@ function setupRefreshService(options: {
 
     async fail() {
       usage.failed += 1;
+    },
+
+    async recordAttempt() {
+      usage.recorded += 1;
     },
 
     async start() {

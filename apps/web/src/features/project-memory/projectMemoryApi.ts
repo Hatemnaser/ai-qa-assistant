@@ -1,9 +1,8 @@
 import { createBackendApiError } from "../../api/backendErrors";
 import { csrfFetch } from "../../api/csrf";
+import { API_BASE_URL } from "../../config/api";
 import { t } from "../../i18n/useI18n";
 import type { ProjectMemory } from "./types";
-
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 
 export async function fetchProjectMemory(projectId: string): Promise<ProjectMemory | null> {
   const body = await requestJson<{ memory?: ProjectMemory | null }>(

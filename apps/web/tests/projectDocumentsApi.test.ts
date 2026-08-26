@@ -114,6 +114,24 @@ describe("project documents api", () => {
     assert.equal(documents[0]?.source, "IMPORTED");
   });
 
+  it("imports private project sources by opaque asset reference", async () => {
+    mockFetch(async (_input, init) => {
+      assert.deepEqual(JSON.parse(String(init?.body)), {
+        files: [{ sourceAssetId: "asset-source-1" }],
+      });
+
+      return jsonResponse({
+        documents: [createProjectDocumentRecord({ sourceAssetId: "asset-source-1" })],
+      });
+    });
+
+    const [document] = await importProjectDocuments("project-1", [
+      { sourceAssetId: "asset-source-1" },
+    ]);
+
+    assert.equal(document?.sourceAssetId, "asset-source-1");
+  });
+
   it("uses backend project document errors when requests fail", async () => {
     mockFetch(async () => jsonResponse({ code: "PROJECT_NOT_FOUND", error: "Project was not found." }, 404));
 

@@ -8,6 +8,7 @@ export interface MenuPosition {
 }
 
 export interface ChatAttachment {
+  assetId?: string;
   type: "image" | "file";
   name: string;
   mimeType: string;
@@ -116,9 +117,16 @@ export interface RequestFileAttachment {
   content: string;
 }
 
-export type RequestAttachment = RequestImageAttachment | RequestFileAttachment;
+export interface RequestStoredAssetAttachment {
+  assetId: string;
+}
 
-export type SelectedAttachment = RequestAttachment & {
+export type RequestAttachment = RequestImageAttachment | RequestFileAttachment | RequestStoredAssetAttachment;
+
+export interface SelectedAttachment {
+  file: File;
   name: string;
+  mimeType: string;
   previewUrl?: string;
-};
+  type: "image" | "file";
+}

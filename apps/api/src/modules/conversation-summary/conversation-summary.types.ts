@@ -1,3 +1,5 @@
+import type { StoredMessageRecord } from "../chat-history/chat-history.types.js";
+
 export interface ConversationSummaryDto {
   chatId: string;
   createdAt: string;
@@ -45,4 +47,50 @@ export interface ConversationSummarizer {
   ): Promise<ConversationSummaryGenerationResult>;
   model: string;
   provider: string;
+}
+
+export interface ConversationSummaryRecord {
+  chatId: string;
+  createdAt: Date;
+  id: string;
+  openQuestions: string[];
+  summary: string;
+  throughMessageId: string | null;
+  updatedAt: Date;
+  userId: string;
+}
+
+export interface UpsertConversationSummaryInput {
+  chatId: string;
+  openQuestions: string[];
+  summary: string;
+  throughMessageId: string | null;
+  userId: string;
+}
+
+export interface ConversationSummaryGenerationState {
+  messages: StoredMessageRecord[];
+  summary: ConversationSummaryRecord | null;
+}
+
+export interface SaveGeneratedConversationSummaryInput
+  extends UpsertConversationSummaryInput {
+  expectedThroughMessageId: string | null;
+}
+
+export interface ConversationSummaryRepository {
+  findByChatIdAndUserId(
+    chatId: string,
+    userId: string
+  ): Promise<ConversationSummaryRecord | null>;
+  findGenerationStateByChatIdAndUserId(
+    chatId: string,
+    userId: string
+  ): Promise<ConversationSummaryGenerationState | null>;
+  saveGeneratedIfCursorMatches(
+    input: SaveGeneratedConversationSummaryInput
+  ): Promise<ConversationSummaryRecord | null>;
+  upsertByChatIdAndUserId(
+    input: UpsertConversationSummaryInput
+  ): Promise<ConversationSummaryRecord | null>;
 }

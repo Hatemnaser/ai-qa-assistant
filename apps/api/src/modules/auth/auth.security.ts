@@ -10,6 +10,12 @@ const scrypt = promisify(scryptCallback) as (
 const PASSWORD_HASH_VERSION = "scrypt-v1";
 const PASSWORD_KEY_LENGTH = 64;
 
+// A valid, fixed scrypt hash used only to make a missing-user login perform the
+// same expensive password derivation as a login for an existing password user.
+// It is not an account credential and must never be used to authenticate.
+export const LOGIN_DUMMY_PASSWORD_HASH =
+  "scrypt-v1$oddpath-login-timing-salt-v1$3pp1blj4VVrFu36nnoPJVXqXMbNwzaFWTJND_7wDSU4k8XPfD84MxaXdTelRm9boHeYyPMMp0qZxVtgx8Kb6hg";
+
 export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("base64url");
   const key = await scrypt(password, salt, PASSWORD_KEY_LENGTH);

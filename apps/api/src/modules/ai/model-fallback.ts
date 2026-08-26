@@ -8,6 +8,7 @@ type ChatAiProvider = AiProviderAdapter["chat"];
 export interface AiFallbackInput {
   chatWithAi: ChatAiProvider;
   input: AiChatInput;
+  onProviderAttempt?: (input: AiChatInput) => Promise<void> | void;
   requiredCapabilities: {
     hasImages: boolean;
     hasTextAttachments: boolean;
@@ -18,10 +19,12 @@ export interface AiFallbackInput {
 export async function chatWithAiFallback({
   chatWithAi,
   input,
+  onProviderAttempt,
   requiredCapabilities,
   routing,
 }: AiFallbackInput): Promise<AiChatResponse> {
   try {
+    await onProviderAttempt?.(input);
     return await chatWithAi(input);
   } catch (error) {
     if (!shouldFallbackToAnotherModel(error)) throw error;
@@ -30,6 +33,7 @@ export async function chatWithAiFallback({
       chatWithAi,
       firstError: error,
       input,
+      onProviderAttempt,
       requiredCapabilities,
       routing,
     });
@@ -55,6 +59,11 @@ async function sendWithFallbackCandidates(input: AiFallbackInput & { firstError:
     }
 
     try {
+      await input.onProviderAttempt?.({
+        ...input.input,
+        model: resolved.model,
+        provider: resolved.provider,
+      });
       const response = await input.chatWithAi({
         ...input.input,
         model: resolved.model,

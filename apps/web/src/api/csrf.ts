@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
+import { API_BASE_URL } from "../config/api";
 
 const CSRF_HEADER_NAME = "X-CSRF-Token";
 const CSRF_TOKEN_ENDPOINT = "/api/auth/csrf";
@@ -15,13 +15,16 @@ export async function csrfFetch(input: RequestInfo | URL, init: RequestInit = {}
   }
 
   const token = await getCsrfToken();
-  const headers = new Headers(init.headers);
-  headers.set(CSRF_HEADER_NAME, token);
+  const response = await fetchWithCsrfToken(input, init, token);
 
-  return fetch(input, {
-    ...init,
-    headers,
-  });
+  if (!(await isInvalidCsrfResponse(response))) {
+    return response;
+  }
+
+  invalidateCachedToken(token);
+  const refreshedToken = await getCsrfToken();
+
+  return fetchWithCsrfToken(input, init, refreshedToken);
 }
 
 export async function getCsrfToken() {
@@ -57,4 +60,33 @@ export async function getCsrfToken() {
 export function resetCsrfTokenForTests() {
   csrfToken = null;
   csrfTokenPromise = null;
+}
+
+function fetchWithCsrfToken(input: RequestInfo | URL, init: RequestInit, token: string) {
+  const headers = new Headers(init.headers);
+  headers.set(CSRF_HEADER_NAME, token);
+
+  return fetch(input, {
+    ...init,
+    headers,
+  });
+}
+
+async function isInvalidCsrfResponse(response: Response) {
+  if (response.status !== 403) {
+    return false;
+  }
+
+  try {
+    const payload = (await response.clone().json()) as { code?: string };
+    return payload.code === "CSRF_TOKEN_INVALID";
+  } catch {
+    return false;
+  }
+}
+
+function invalidateCachedToken(rejectedToken: string) {
+  if (csrfToken === rejectedToken) {
+    csrfToken = null;
+  }
 }

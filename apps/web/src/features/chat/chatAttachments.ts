@@ -1,4 +1,9 @@
-import type { ChatAttachment, RequestAttachment, SelectedAttachment } from "./types";
+import type {
+  ChatAttachment,
+  RequestAttachment,
+  RequestImageAttachment,
+  SelectedAttachment,
+} from "./types";
 
 export const CHAT_ATTACHMENT_POLICY = {
   maxAttachments: 4,
@@ -9,6 +14,11 @@ export const CHAT_ATTACHMENT_POLICY = {
 } as const;
 
 export const MAX_SELECTED_ATTACHMENTS = CHAT_ATTACHMENT_POLICY.maxAttachments;
+export type AttachmentFileError =
+  | { code: "IMAGE_TOO_LARGE"; maxBytes: number }
+  | { code: "TEXT_FILE_TOO_LARGE"; maxBytes: number }
+  | { code: "FUTURE_FILE_TYPE" }
+  | { code: "UNSUPPORTED_FILE_TYPE" };
 const SUPPORTED_IMAGE_TYPES: ReadonlySet<string> = new Set(CHAT_ATTACHMENT_POLICY.supportedImageMimeTypes);
 const SUPPORTED_TEXT_EXTENSION_SET: ReadonlySet<string> = new Set(CHAT_ATTACHMENT_POLICY.supportedTextExtensions);
 export const ATTACHMENT_INPUT_ACCEPT = [
@@ -29,87 +39,76 @@ const TEXT_MIME_TYPES_BY_EXTENSION: Record<string, string> = {
   txt: "text/plain",
 };
 
-export function getAttachmentFileError(file: File | undefined) {
-  if (!file) return "";
+export function getAttachmentFileError(file: File | undefined): AttachmentFileError | null {
+  if (!file) return null;
 
   if (isSupportedImage(file)) {
     if (file.size > CHAT_ATTACHMENT_POLICY.maxImageBytes) {
-      return `Image is too large. Please upload an image smaller than ${formatBytes(
-        CHAT_ATTACHMENT_POLICY.maxImageBytes
-      )}.`;
+      return {
+        code: "IMAGE_TOO_LARGE",
+        maxBytes: CHAT_ATTACHMENT_POLICY.maxImageBytes,
+      };
     }
 
-    return "";
+    return null;
   }
 
   if (isSupportedTextAttachment(file)) {
     if (file.size > CHAT_ATTACHMENT_POLICY.maxTextAttachmentBytes) {
-      return `File is too large. Please upload a text or data file smaller than ${formatBytes(
-        CHAT_ATTACHMENT_POLICY.maxTextAttachmentBytes
-      )}.`;
+      return {
+        code: "TEXT_FILE_TOO_LARGE",
+        maxBytes: CHAT_ATTACHMENT_POLICY.maxTextAttachmentBytes,
+      };
     }
 
-    return "";
+    return null;
   }
 
   if (file.type.startsWith("video/") || getFileExtension(file.name) === "pdf") {
-    return "Video/PDF support will be added in the next version using Gemini Files API.";
+    return { code: "FUTURE_FILE_TYPE" };
   }
 
-  return "Please upload an image, text, markdown, log, CSV, or JSON file.";
+  return { code: "UNSUPPORTED_FILE_TYPE" };
+}
+
+export function formatAttachmentByteLimit(bytes: number) {
+  const megaBytes = bytes / (1024 * 1024);
+
+  return `${Number.isInteger(megaBytes) ? megaBytes : megaBytes.toFixed(1)} MB`;
 }
 
 export async function fileToSelectedAttachment(file: File): Promise<SelectedAttachment> {
-  if (!isSupportedImage(file)) {
-    return {
-      type: "file",
-      name: file.name,
-      mimeType: getAttachmentMimeType(file),
-      content: await file.text(),
-    };
-  }
+  const type = isSupportedImage(file) ? "image" : "file";
 
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      const result = String(reader.result || "");
-      const base64Data = result.split(",")[1] || "";
-
-      resolve({
-        type: "image",
-        name: file.name,
-        mimeType: getAttachmentMimeType(file),
-        data: base64Data,
-        previewUrl: result,
-      });
-    };
-
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-export function createAttachment(attachment: SelectedAttachment): ChatAttachment {
   return {
-    type: attachment.type,
-    name: attachment.name,
-    mimeType: attachment.mimeType,
-    ...(attachment.previewUrl ? { previewUrl: attachment.previewUrl } : {}),
+    file,
+    type,
+    name: file.name,
+    mimeType: getAttachmentMimeType(file),
+    ...(type === "image" ? { previewUrl: createLocalObjectUrl(file) } : {}),
   };
 }
 
-export function createAttachments(attachments: SelectedAttachment[]): ChatAttachment[] {
-  return attachments.map(createAttachment);
+export function createAttachment(
+  attachment: SelectedAttachment,
+  options: { assetId?: string; previewUrl?: string } = {}
+): ChatAttachment {
+  return {
+    ...(options.assetId ? { assetId: options.assetId } : {}),
+    type: attachment.type,
+    name: attachment.name,
+    mimeType: attachment.mimeType,
+    ...(options.previewUrl ? { previewUrl: options.previewUrl } : {}),
+  };
 }
 
-export function createRequestAttachment(attachment: SelectedAttachment): RequestAttachment {
+export async function createLegacyRequestAttachment(attachment: SelectedAttachment): Promise<RequestAttachment> {
   if (attachment.type === "image") {
     return {
       type: "image",
       name: attachment.name,
       mimeType: attachment.mimeType,
-      data: attachment.data,
+      data: await blobToBase64(attachment.file),
     };
   }
 
@@ -117,12 +116,32 @@ export function createRequestAttachment(attachment: SelectedAttachment): Request
     type: "file",
     name: attachment.name,
     mimeType: attachment.mimeType,
-    content: attachment.content,
+    content: await attachment.file.text(),
   };
 }
 
-export function createRequestAttachments(attachments: SelectedAttachment[]): RequestAttachment[] {
-  return attachments.map(createRequestAttachment);
+export async function createLegacyRequestAttachments(attachments: SelectedAttachment[]): Promise<RequestAttachment[]> {
+  return Promise.all(attachments.map(createLegacyRequestAttachment));
+}
+
+export function createLegacyDisplayAttachments(
+  attachments: SelectedAttachment[],
+  requests: RequestAttachment[]
+): ChatAttachment[] {
+  return attachments.map((attachment, index) => {
+    const request = requests[index];
+    const previewUrl = isInlineImageRequest(request)
+      ? `data:${request.mimeType};base64,${request.data}`
+      : undefined;
+
+    return createAttachment(attachment, { previewUrl });
+  });
+}
+
+export function releaseSelectedAttachment(attachment: SelectedAttachment | undefined) {
+  if (attachment?.previewUrl?.startsWith("blob:")) {
+    URL.revokeObjectURL(attachment.previewUrl);
+  }
 }
 
 function isSupportedImage(file: File) {
@@ -133,20 +152,36 @@ function isSupportedTextAttachment(file: File) {
   return SUPPORTED_TEXT_EXTENSION_SET.has(getFileExtension(file.name));
 }
 
-function getAttachmentMimeType(file: File) {
+export function getAttachmentMimeType(file: File) {
   const extension = getFileExtension(file.name);
 
-  return file.type || IMAGE_MIME_TYPES_BY_EXTENSION[extension] || TEXT_MIME_TYPES_BY_EXTENSION[extension] || "text/plain";
+  return IMAGE_MIME_TYPES_BY_EXTENSION[extension]
+    || TEXT_MIME_TYPES_BY_EXTENSION[extension]
+    || file.type
+    || "text/plain";
+}
+
+async function blobToBase64(blob: Blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+
+  for (let offset = 0; offset < bytes.length; offset += 32_768) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 32_768));
+  }
+
+  return globalThis.btoa(binary);
+}
+
+function createLocalObjectUrl(file: File) {
+  return typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : "";
+}
+
+function isInlineImageRequest(request: RequestAttachment | undefined): request is RequestImageAttachment {
+  return Boolean(request && "type" in request && request.type === "image");
 }
 
 function getFileExtension(fileName: string) {
   const parts = fileName.toLowerCase().split(".");
 
   return parts.length > 1 ? parts.at(-1) || "" : "";
-}
-
-function formatBytes(bytes: number) {
-  const megaBytes = bytes / (1024 * 1024);
-
-  return `${Number.isInteger(megaBytes) ? megaBytes : megaBytes.toFixed(1)}MB`;
 }

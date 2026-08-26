@@ -130,6 +130,28 @@ describe("chat api", () => {
     });
   });
 
+  it("sends authenticated attachments as opaque asset references", async () => {
+    mockFetch(async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+
+      assert.deepEqual(body.attachments, [{ assetId: "asset-1" }]);
+
+      return jsonResponse({
+        reply: "ok",
+        mode: "general",
+        model: "gemini-2.5-flash",
+      });
+    });
+
+    await sendMessageToAI({
+      attachments: [{ assetId: "asset-1" }],
+      history: [],
+      message: "review the attachment",
+      mode: "general",
+      model: "gemini-2.5-flash",
+    });
+  });
+
   it("sends project id through the chat request contract", async () => {
     mockFetch(async (_input, init) => {
       const body = JSON.parse(String(init?.body));
