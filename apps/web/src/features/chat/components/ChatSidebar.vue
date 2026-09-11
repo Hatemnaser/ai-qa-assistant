@@ -17,6 +17,7 @@ const props = defineProps<{
   currentUser?: AuthUser | null;
   isChatRoute: boolean;
   isProjectsRoute: boolean;
+  isWorkspaceRoute: boolean;
   projects: Project[];
   renamingChatId: string | null;
   themeToggleLabel: string;
@@ -33,6 +34,7 @@ const emit = defineEmits<{
   "open-projects": [];
   "open-settings": [];
   "open-usage": [];
+  "open-workspace": [];
   "select-chat": [chatId: string];
   "sign-in": [];
   "open-chat-menu": [event: MouseEvent, chatId: string];
@@ -112,7 +114,7 @@ function isProjectExpanded(projectId: string) {
 }
 
 function isProjectActive(projectId: string) {
-  return activeChatProjectId.value === projectId && !isProjectExpanded(projectId);
+  return props.isChatRoute && activeChatProjectId.value === projectId && !isProjectExpanded(projectId);
 }
 
 function toggleProject(projectId: string) {
@@ -146,18 +148,22 @@ function expandProject(projectId: string) {
 
     <nav class="sidebar-nav" :aria-label="t('sidebar.nav.workspace')">
       <SidebarNavItem
-        icon="plus"
-        :label="t('sidebar.nav.newChat')"
-        :active="isChatRoute && activeChatId === null"
-        @click="emit('new-chat')"
+        icon="file-text"
+        :label="t('sidebar.nav.workspace')"
+        :active="isWorkspaceRoute"
+        @click="emit('open-workspace')"
       />
-      <SidebarNavItem icon="search" :label="t('sidebar.nav.search')" />
       <SidebarNavItem
-        v-if="projects.length === 0"
         icon="folder"
         :label="t('sidebar.nav.projects')"
         :active="isProjectsRoute"
         @click="emit('open-projects')"
+      />
+      <SidebarNavItem
+        icon="edit"
+        :label="t('sidebar.nav.qaChat')"
+        :active="isChatRoute && activeChatId === null"
+        @click="emit('new-chat')"
       />
     </nav>
 

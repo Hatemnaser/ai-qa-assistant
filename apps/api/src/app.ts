@@ -18,6 +18,10 @@ import { chatRouter } from "./modules/chat/chat.routes.js";
 import { dataPortabilityRouter } from "./modules/data-portability/data-portability.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { memoryRouter } from "./modules/memory/memory.routes.js";
+import { requireProjectConnection } from "./modules/project-connections/project-connections.middleware.js";
+import { projectConnectionPreBodyRateLimit } from "./modules/project-connections/project-connections.rateLimit.js";
+import { qaAgentRouter } from "./modules/qa-requests/qa-agent.routes.js";
+import { qaMcpRouter } from "./modules/qa-requests/qa-mcp.routes.js";
 import { projectsRouter } from "./modules/projects/projects.routes.js";
 import { settingsRouter } from "./modules/settings/settings.routes.js";
 import { usageRouter } from "./modules/usage/usage.routes.js";
@@ -60,6 +64,20 @@ export function createApp(options: CreateAppOptions = {}) {
   });
 
   app.use(cors(buildCorsOptions()));
+  app.use(
+    "/api/integrations/v1",
+    projectConnectionPreBodyRateLimit,
+    requireProjectConnection,
+    express.json({ limit: "1mb" }),
+    qaAgentRouter
+  );
+  app.use(
+    "/api/mcp",
+    projectConnectionPreBodyRateLimit,
+    requireProjectConnection,
+    express.json({ limit: "1mb" }),
+    qaMcpRouter
+  );
   app.use(csrfProtection);
   app.use("/api/portability", dataPortabilityRouter);
   app.use(

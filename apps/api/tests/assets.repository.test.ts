@@ -298,6 +298,7 @@ describe("assets repository", () => {
               id: "asset-1",
               objectKey: "chat-attachments/2026/08/12/random",
               messageAttachment: null,
+              qaEvidenceAsset: null,
               sourceDocument: null,
               status: "DELETE_PENDING",
             },

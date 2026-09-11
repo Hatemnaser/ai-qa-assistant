@@ -2,7 +2,11 @@ import type { AiHistoryMessage } from "./ai-message.types.js";
 import type { QaWorkflowAnalysis } from "./qa-workflow.types.js";
 
 export type { AiHistoryMessage, AiRole } from "./ai-message.types.js";
-export type AiProviderId = "gemini";
+/**
+ * Provider ids are runtime registry keys, not a closed product-level union.
+ * This keeps domain services independent from whichever adapters are installed.
+ */
+export type AiProviderId = string;
 
 export interface AiImage {
   mimeType: string;
@@ -82,6 +86,26 @@ export interface AiChatResponse {
   workflow?: QaWorkflowAnalysis;
 }
 
+export interface AiTextGenerationInput {
+  prompt: string;
+  systemInstruction?: string;
+  model?: string;
+  provider?: string;
+  maxOutputTokens?: number;
+  temperature?: number;
+  responseMimeType?: "application/json" | "text/plain";
+  /** Provider-neutral JSON Schema for structured output; requires JSON MIME. */
+  responseJsonSchema?: Record<string, unknown>;
+  signal?: AbortSignal;
+}
+
+export interface AiTextGenerationResponse {
+  text: string;
+  model: string;
+  provider: string;
+  usage?: AiTokenUsage;
+}
+
 export interface AiTokenUsage {
   inputTokens?: number;
   outputTokens?: number;
@@ -126,6 +150,7 @@ export interface AiResolvedModel {
 
 export interface AiProviderAdapter {
   chat(input: AiChatInput): Promise<AiChatResponse>;
+  generateText(input: AiTextGenerationInput): Promise<AiTextGenerationResponse>;
   defaultModel: string;
   id: AiProviderId;
   label: string;

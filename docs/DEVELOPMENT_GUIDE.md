@@ -60,6 +60,18 @@ This project is currently in foundation and migration mode. Do not add new produ
 8. If it touches display language, keep `apps/api/src/config/locales.ts` and
    `apps/web/src/i18n/locales.ts` aligned until a shared package exists. Settings
    updates should keep `UserSettings.language` and `User.locale` in sync.
+9. If it touches QA Requests, external connections, REST, MCP, evidence, or
+   Human Review, read `docs/QA_CONTROL_PLANE.md` first.
+   - Keep web, REST, and MCP as adapters over the same QA services and
+     transactional repository. Do not duplicate lifecycle rules per transport.
+   - Artifact selection and Human Review remain owner-only. Agent credentials
+     must never gain those operations indirectly.
+   - Preserve project scope, capability checks, optimistic versions, current-run
+     guards, and external-mutation idempotency.
+   - Reuse `ProjectDocumentRetriever` for locked QA context instead of building
+     another retrieval path.
+   - Route every QA provider call through the provider registry, `AI_ENABLED`,
+     and the shared usage reservation/reconciliation boundary.
 
 ## Frontend Pattern
 
@@ -110,6 +122,11 @@ apps/api/src/modules/<feature>/
 
 Keep routes thin. Put validation in schemas, orchestration in services, and provider-specific code behind provider files.
 
+For the QA control plane, `qa-requests` owns lifecycle state and
+`project-connections` owns external credentials, scopes, rate limiting, and
+idempotency. A transport adapter may validate and map a request, but it must not
+invent a second state machine.
+
 ## Verification
 
 Start PostgreSQL before auth, persistence, or Prisma checks:
@@ -136,6 +153,11 @@ Run this before considering a cleanup done:
 ```bash
 npm run verify
 ```
+
+Changes to migrations, QA locking, lifecycle transitions, evidence ownership,
+or idempotency also require the guarded disposable-PostgreSQL suite. Never aim
+that suite at the normal development database. Follow the exact target guards
+and commands in the root `README.md`.
 
 The API check type-checks both `src` and the TypeScript test suite. Keep test
 fixtures and fakes aligned with the same application contracts instead of
@@ -177,10 +199,14 @@ If Prisma or auth reports `DATABASE_UNAVAILABLE`, check Docker Desktop and confi
 
 ## Current Priorities
 
-1. Keep the migrated chat app stable.
+1. Keep the QA Workspace and its owner/agent trust boundary stable.
 2. Keep TypeScript readable for a Bootstrap-first workflow.
-3. Preserve migrated chat behavior with tests and manual checks.
+3. Preserve the existing chat, memory, RAG, and portability foundations while
+   the QA control plane grows on top of them.
 4. Reduce file weight when a file becomes hard to scan.
 5. Keep the auth UI aligned with cookie-backed sessions and avoid browser-stored auth tokens.
 6. Keep portfolio/demo access available while respecting usage limits.
 7. Keep account-owned chats persisted in PostgreSQL and protected by `userId`.
+8. Keep the product stronger as agent models improve: agents execute through
+   vendor-neutral REST/MCP adapters while Oddpath owns evidence, status,
+   history, and Human Review.

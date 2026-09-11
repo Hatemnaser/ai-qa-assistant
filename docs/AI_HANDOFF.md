@@ -1,13 +1,17 @@
 # AI Handoff
 
-Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`. Memory Intelligence decisions and retained review requirements live in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
+Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for QA lifecycle and integration contracts, read `docs/QA_CONTROL_PLANE.md`; for the RecipeV1/local Runner boundary, read `docs/QA_EXECUTION_HARNESS.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`. Memory Intelligence decisions and retained review requirements live in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 
-Last updated: 2026-08-25
+Last updated: 2026-09-11
 
 ## Core Documentation Map
 
 - `AI_HANDOFF.md`: short current-state entry point for a new AI session.
 - `ARCHITECTURE.md`: system-wide architecture and active module boundaries.
+- `QA_CONTROL_PLANE.md`: QA Request lifecycle, owner/agent capabilities,
+  evidence, REST/MCP, scopes, concurrency, idempotency, and current gaps.
+- `QA_EXECUTION_HARNESS.md`: immutable RecipeV1, exact owner approval, local
+  Runner protocol, production double confirmation, and execution limits.
 - `NEXT_STEPS.md`: completed work, active release tasks, and execution order.
 - `MEMORY_INTELLIGENCE_ARCHITECTURE.md`: accepted Account/Project Memory,
   Conversation Summary, Recent Turns, and extraction decisions.
@@ -18,13 +22,131 @@ Last updated: 2026-08-25
 
 ## Current Repo State
 
+- The 2026-09-11 pre-commit review fixes are saved: generic owner/REST/MCP
+  mutations cannot bypass the Runner lease; claim/reclaim/acceptance bind to
+  the immutable approved profile; Recipe identity includes the profile hash;
+  and Workspace late responses cannot override newer navigation/account
+  context. Follow-up review also fixed initial loading when projects already
+  exist and the A -> pending B -> A selection race. A new additive migration,
+  `20260911000100_bind_recipe_identity_to_profile`, changes only the Recipe
+  unique index; do not rewrite the earlier migrations or approved smoke.
+- Post-interruption verification on Node 24.19.0 passed `npm run verify`
+  (863 API, 271 web, 18 Runner, 4 shared-contract tests; 1156 total). The
+  guarded PostgreSQL suite passed 23/23, including real profile-change
+  claim/accept/reclaim failure persistence, concurrent profile-bound
+  deduplication, and owner/REST/MCP generic-mutation rejection without side
+  effects. All 21 migrations deployed with zero drift on the newly created
+  `oddpath_review_test_0911_01`; it was removed after its 44 application tables
+  were confirmed empty. Normal application data and the approved smoke were
+  untouched. API, Runner, and web production builds passed, as did Git
+  connectivity and whitespace checks. The web build used the placeholder
+  origin described below. The exact Node runtime was temporary (npm cache),
+  not a global upgrade or dependency change. No authenticated browser visual
+  rerun or live provider call was made during this review.
+- Security dependency remediation is saved (2026-09-11): Nodemailer 9.1.1,
+  fast-uri 3.1.7, qs 6.16.0, and a `prisma@7.9.1`-scoped mysql2 3.23.1
+  override. Both production and full dependency audits return zero advisories;
+  the earlier restricted audit's no-fix result was superseded by complete
+  registry metadata and verified upstream patches. Six bounded offline
+  dependency regressions passed, and `npm ci --dry-run --ignore-scripts`
+  validated the lockfile. No Prisma major change or audit bypass was used;
+  rationale and upstream references are in `PRODUCTION_READINESS.md`.
+- Final post-security verification also passed on Node 24.19.0: full `verify`
+  (including the six added dependency regressions), API/Runner/web production
+  builds, and guarded PostgreSQL 23/23. All 21 migrations applied with zero
+  drift in `oddpath_security_test_0911_02`; after testing its 44 application
+  tables had zero rows and that disposable database was removed. Both audits
+  were rerun and again reported zero advisories. No live provider/browser run,
+  application-database mutation, or credential change was performed.
+- Push destination still needs confirmation because
+  `main` is configured for Render checks-pass deployment and automatic
+  migrations. Do not infer deployment approval from an interrupted turn.
+- Local TEXT-evidence smoke is complete as of 2026-09-09, based on the user's
+  screenshots/manual validation, not an independently rerun agent test.
+  `Login page — browser smoke test` kept Revision 1, its review passed, the
+  owner brought the Runner online and approved the exact execution, and real
+  Playwright execution completed with four PASS results and one intentional
+  FAIL for the absent `Oddpath smoke marker` heading. The TEXT evidence gate
+  is COMPLETE and the owner approved the QA record: APPROVED 1, Running 0,
+  Evidence needed 0, Ready 0. Record approval does not change the FAIL outcome
+  or approve a product release. Retain this record and its earlier failures;
+  do not retry review, regenerate, recreate credentials, or rerun it merely
+  to close the phase or recover conversation context.
+- Bounded closeout completed on 2026-09-10 after the conversation interruption:
+  the modal explains local Runner startup/offline state and derives queue
+  eligibility and its accessible explanation from the same approval gates.
+  Current processing is separated from collapsible earlier attempts without
+  hiding active work, discarding failure codes, or inferring cross-Recipe
+  recovery. New copy is localized in English, Arabic, and German.
+  `npm run verify` returned exit 0, including 261 web tests and the expanded
+  Runner suite. The focused web/i18n set passed 46/46; three new fake-client
+  Runner recovery cases passed (execution tests 6/6). `build:web` and
+  `git diff --check` passed. No live provider call, normal-database mutation,
+  migration, credential change, or repeat of the approved request was needed.
+  At that checkpoint changes were local/uncommitted; unrelated work was preserved.
+  Separate manual interruption/recovery and Request changes/re-run drills,
+  real SCREENSHOT/private-upload proof, and staging/production gates remain
+  outside the completed local TEXT smoke. See `QA_EXECUTION_HARNESS.md`.
+- Latest repair on 2026-09-09: the user's `Retry review` reached Gemini but
+  failed with `AI_PROVIDER_REQUEST_REJECTED`. Three explicitly authorized
+  synthetic probes (256 output tokens maximum each, one request each) isolated
+  native `suggestions.maxItems: 80`: the original schema returned HTTP 400;
+  removing only that keyword succeeded and passed local assessment validation
+  (35 reported input tokens, 18 output tokens). The provider schema now omits
+  that keyword; local Zod max(80), required arrays, string bounds, status
+  invariants, usage accounting, and execution gates are unchanged. Regression
+  tests cover 80 accepted/81 rejected and one-call accounting for invalid output.
+  The probes established schema compatibility only; the later user-validated
+  live review and browser outcome are recorded separately above.
+- Verification after that fix completed successfully: `npm run verify`
+  returned exit 0 (824 API, 247 web, 4 shared-contract, 15 Runner tests;
+  1090 total), and `build:api` and `git diff --check` passed. An initial run
+  overlapped API build/Prisma generation and reported two file-level project
+  test failures; their 11 tests passed independently and the complete verify
+  rerun passed without source changes. Avoid overlapping Prisma generation
+  with API tests. No further Gemini probe or real QA retry is needed merely
+  to recover from a conversation interruption.
+- The interrupted Recipe-generation and review repair is complete in the
+  working tree (2026-09-08): full RecipeV1 prompt examples, classified output
+  errors, sanitized worker diagnostics, native review JSON Schema with strict
+  local validation, and owner-only `Retry review` on the existing immutable
+  Recipe. Duplicate retry clicks share one operation; old failures remain;
+  FAILED/PENDING reviews cannot authorize execution. Web retry handles stale
+  selections, read failures, and synchronous duplicate clicks.
+- Final verification on 2026-09-08: `npm run verify` passes (API 822 tests,
+  web 247, shared contract 4, Runner 15); i18n 7/7; API/web/Runner production
+  builds pass. The guarded PostgreSQL suite passes 16/16 with real retry
+  concurrency, rollback, old-lease rejection, and failed/pending approval gates.
+  All 20 migrations deployed with zero drift on `oddpath_review_test_0908`;
+  this newly-created test database was removed after confirming its 44
+  application tables had zero rows. The original application database was
+  not migrated, reset, or modified by this repair.
+- The web verification build uses `https://api.oddpath.invalid` as an
+  ephemeral placeholder API origin, not deployment configuration. Earlier
+  checks ran on installed Node 24.15.0; the 2026-09-11 review uses a temporary
+  Node 24.19.0 runtime. Keep >=24.19.0 <25 for future release checks.
+- Before the user's successful live retry, read-only inspection had found
+  Revision 1, two failed assessments (invalid suggestions, then provider
+  rejection), and zero Runs. That was a historical pre-smoke checkpoint,
+  superseded by the user-validated APPROVED state above. The synthetic probes
+  did not requeue or mutate the real request.
 - Workspace: `C:\Users\hatem\ai-qa-assistant`
 - Current working branch: `main`.
+- The QA phase adds the Oddpath QA Control Plane and execution harness. Use
+  `git status`/`git log` for current commit and push state. Preserve all existing
+  user-owned preview/design files; these exploratory assets are excluded from
+  the reviewed implementation commit.
+- `#/` is the QA Workspace product home and `#/chat` is the explicit QA Chat
+  route. The primary objects are QA Requests, immutable artifacts, status,
+  runs/results, evidence, history, and Human Review.
+- Project-scoped bearer connections expose one shared agent domain through REST
+  and stateless Remote Streamable HTTP MCP. Codex, Claude, and other compatible
+  clients are transports, not hardcoded workflow owners.
 - Slice 2 chat identity/complete Recent Turns, Slice 3 Conversation Summary
   foundation, Slice 4 controlled Summary Generation, and Slice 5 manual
   Project Memory are committed on `main`. The former Project Memory AI
   suggestion/review flow was removed from the MVP.
-- The repository contains 17 ordered Prisma migrations. `prisma validate`
+- The repository contains 21 ordered Prisma migrations. `prisma validate`
   passes; GitHub CI applies the complete migration set to a fresh PostgreSQL 16
   database before verification. Do not infer that an unstarted local Docker
   database has received the latest migrations.
@@ -32,24 +154,25 @@ Last updated: 2026-08-25
   migrations were healthy, but there were zero users, projects, chats,
   messages, or sessions. Treat prior local data as unavailable unless it can
   still be recovered from browser-local chat storage or an external backup.
-- Final verification was recorded on 2026-08-25: API checks passed, including
-  the architecture gate over 224 source files and 118 test files; the API suite
-  passed 711/711 tests in 122 suites; web checks and the production build
-  passed; and the web suite passed 209/209 tests in 53 suites. The API
-  production build, Prisma validation/generation, the production dependency
-  audit (0 vulnerabilities), and `git diff --check` also passed. Eluthira's
-  repository boundary/Astro checks, 15-page static build, and 17/17 tests
-  passed as well.
+- Earlier baseline verification was recorded on 2026-08-31: the architecture gate
+  covered 267 source files and 134 test files; the API suite passed 769/769
+  tests in 140 suites; the web suite passed 226/226 tests in 56 suites; the
+  shared Recipe/Runner contract passed 4/4 tests; the local Runner passed 15/15
+  tests; and the guarded PostgreSQL suite passed 16/16 against the disposable
+  `oddpath_harness_test_0830` database. API, Runner, and web production builds
+  passed, Prisma validation passed, all 20 migrations deployed cleanly from an
+  empty disposable database with no schema drift, and `git diff --check`
+  passed. The web build used a safe placeholder HTTPS `VITE_API_BASE_URL`, as
+  required by its fail-closed build configuration.
 - `check:api` now includes a TypeScript-AST architecture gate for repository
   contracts and runtime cycles. A fail-closed deployment smoke harness provides
   GET-only and explicitly confirmed authenticated project-lifecycle modes.
 - The guarded real-PostgreSQL suite verifies migration parity, PostgreSQL 16+,
   ownership/rollback behavior, concurrent usage/project/chat/document/asset
-  quotas, binary-import finalization/rollback, and exact cleanup lease fencing
-  across concurrent instances. It was not run locally as of 2026-08-25 because
-  the Docker daemon was unavailable; CI runs it
-  against the explicitly named disposable `oddpath_ci` database after
-  migrations.
+  quotas, binary-import finalization/rollback, exact cleanup lease fencing, and
+  the QA lifecycle/current-run guards across concurrent instances. It passed
+  locally on 2026-08-31 against the explicitly named disposable database; CI
+  continues to run it against `oddpath_ci` after migrations.
 - Start the API with `npm run dev:api` when needed; do not assume a server is
   already running.
 - `main` matched `origin/main` before the current production-safety script work
@@ -141,7 +264,17 @@ npm run build:api
 
 - Frontend uses Vue components, composables, feature folders, and shared UI classes.
 - Backend uses thin routes/controllers and service modules.
-- Prisma/PostgreSQL stores users, sessions, chats, usage, settings, projects, and manual memory.
+- Prisma/PostgreSQL stores users, sessions, projects, QA Requests and their
+  immutable lifecycle records, project connections/idempotency, chats, usage,
+  settings, and manual memory.
+- `qa-requests` owns one lifecycle used by cookie-authenticated owner routes,
+  bearer REST, and stateless MCP. Agents can plan/execute/attach evidence;
+  artifact selection and Human Review are owner-only.
+- QA context snapshots reuse `ProjectDocumentRetriever`, so future RAG quality
+  improvements strengthen chat and QA without a duplicate retrieval path.
+- QA text generation/review resolves through `AiProviderAdapter`, obeys
+  `AI_ENABLED`, and reserves/reconciles shared owner/global usage. Gemini is the
+  only registered runtime provider today.
 - Auth foundation exists with password auth, httpOnly cookies, sessions, guest mode, and chat adoption on login/register.
 - Auth is an owned foundation, not a final production security sign-off. Before
   real-user production, choose custom hardening or a maintained auth library
@@ -202,6 +335,16 @@ npm run build:api
 
 Complete enough:
 
+- QA Workspace as the product home, with QA Chat on an explicit route.
+- Owner QA Request lifecycle: generated/agent checklist revisions, selection,
+  versioned runs/results, evidence gates, history, and Human Review.
+- Project-scoped REST and 12 MCP tools for external agents, with hashed
+  bearer tokens, scopes, expiry/revocation, pre-body IP/token rate limits, and
+  required, conservatively fenced external-mutation idempotency.
+- Asynchronous checklist/Recipe generation and review plus the local
+  `apps/runner` Playwright harness. Owner approval binds the current request
+  version, immutable Recipe hash, and Runner profile-manifest hash; production
+  also requires web confirmation and `--allow-production` locally.
 - Migrated chat workspace.
 - Auth foundation.
 - Guest mode and usage credit protection.
@@ -285,6 +428,9 @@ Complete enough:
 
 Still unfinished:
 
+- QA records/evidence are not portable in Project or Account ZIPs, ambiguous
+  idempotency receipts have no automatic reconciliation, and the local Runner
+  has not passed the real staging/production operational gates.
 - Google OAuth.
 - Live SMTP/domain-deliverability and HTTPS cookie/CSRF smoke testing remain;
   reset and verification delivery are implemented behind the email adapter.
@@ -309,8 +455,14 @@ Still unfinished:
 
 Pick one track before coding:
 
-1. Product value: Projects
-   - Run a focused Projects demo/UX pass and keep only the workflow polish that still feels necessary.
+1. Product value: QA pilot
+   - The owner-approved local Playwright/TEXT smoke and bounded setup/status
+     clarity polish are complete. Do not reopen the approved QA record.
+   - Run a first-user onboarding test: can someone understand within 20 seconds
+     why Oddpath adds value beyond asking an agent to “test checkout”?
+   - A separate external-agent pilot against another small real feature is
+     future validation; the local Runner smoke does not prove every client,
+     recovery path, or private-upload integration.
 
 2. Portfolio polish:
    - README screenshots/GIFs.

@@ -56,6 +56,7 @@ enum ProjectDocumentEmbeddingStatus {
 enum StoredAssetPurpose {
   CHAT_ATTACHMENT
   PROJECT_DOCUMENT_SOURCE
+  QA_EVIDENCE
 }
 
 enum StoredAssetStatus {
@@ -77,6 +78,110 @@ enum AuthEmailJobStatus {
   SENT
   FAILED
   CANCELLED
+}
+
+enum QaRequestPhase {
+  DRAFT
+  GENERATING
+  CHECKLIST_REVIEW
+  READY_TO_RUN
+  RUNNING
+  EVIDENCE_NEEDED
+  READY_FOR_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  PROCESSING_FAILED
+  CANCELLED
+}
+
+enum QaArtifactOrigin {
+  ODDPATH_GENERATED
+  AGENT_PROVIDED
+}
+
+enum QaChecklistAssessmentStatus {
+  PENDING
+  PASSED
+  SUGGESTIONS
+  FAILED
+}
+
+enum QaRunStatus {
+  CREATED
+  ACTIVE
+  RESULTS_SUBMITTED
+  CANCELLED
+}
+
+enum QaRunOutcome {
+  NOT_RUN
+  PASS
+  FAIL
+  BLOCKED
+  INCOMPLETE
+}
+
+enum QaCheckResultStatus {
+  PASS
+  FAIL
+  BLOCKED
+  SKIPPED
+}
+
+enum QaEvidenceKind {
+  TEXT
+  SCREENSHOT
+  LOG
+  TRACE
+  FILE
+  REFERENCE
+}
+
+enum QaReviewDecision {
+  APPROVED
+  CHANGES_REQUESTED
+}
+
+enum QaActorKind {
+  USER
+  INTEGRATION
+  SYSTEM
+}
+
+enum QaTransport {
+  WEB
+  REST
+  MCP
+  SYSTEM
+}
+
+enum QaGenerationKind {
+  CHECKLIST_GENERATION
+  CHECKLIST_REVIEW
+  EXECUTION_RECIPE_GENERATION
+  EXECUTION_RECIPE_REVIEW
+}
+
+enum QaGenerationStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+enum QaExecutionJobStatus {
+  QUEUED
+  CLAIMED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum ExternalIdempotencyState {
+  PENDING
+  COMPLETED
+  LEGACY_AMBIGUOUS
 }
 
 model User {
@@ -105,6 +210,13 @@ model User {
   authEmailJobs              AuthEmailJob[]
   storedAssets               StoredAsset[]
   binaryAssetRestoreSessions BinaryAssetRestoreSession[]
+  createdQaRequests          QaRequest[]                 @relation("QaRequestCreator")
+  qaEvidence                 QaEvidence[]                @relation("QaEvidenceActor")
+  qaHumanReviews             QaHumanReview[]             @relation("QaHumanReviewer")
+  qaWorkflowEvents           QaWorkflowEvent[]           @relation("QaWorkflowEventActor")
+  projectConnectionTokens    ProjectConnectionToken[]    @relation("ProjectConnectionTokenOwner")
+  authoredQaExecutionRecipes QaExecutionRecipe[]         @relation("QaExecutionRecipeAuthor")
+  qaExecutionAuthorizations  QaExecutionAuthorization[]  @relation("QaExecutionApprover")
 
   @@index([emailVerifiedAt, createdAt, id])
 }
@@ -206,14 +318,18 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  owner         User                @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members       ProjectMember[]
-  chats         Chat[]
-  memories      Memory[]
-  documents     ProjectDocument[]
-  instruction   ProjectInstruction?
-  projectMemory ProjectMemory?
-  storedAssets  StoredAsset[]
+  owner                 User                     @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members               ProjectMember[]
+  chats                 Chat[]
+  memories              Memory[]
+  documents             ProjectDocument[]
+  instruction           ProjectInstruction?
+  projectMemory         ProjectMemory?
+  storedAssets          StoredAsset[]
+  qaRequests            QaRequest[]
+  connectionTokens      ProjectConnectionToken[]
+  qaRunnerRegistrations QaRunnerRegistration[]
+  qaExecutionJobs       QaExecutionJob[]
 
   @@index([ownerId])
 }
@@ -361,6 +477,8 @@ model StoredAsset {
   project           Project?                   @relation(fields: [projectId], references: [id], onDelete: SetNull)
   messageAttachment MessageAttachment?
   sourceDocument    ProjectDocument?
+  qaEvidenceAsset   QaEvidenceAsset?
+  qaExecutionUpload QaExecutionEvidenceUpload?
   restoreSession    BinaryAssetRestoreSession? @relation(fields: [restoreSessionId, restoreAttempt], references: [id, attempt], onDelete: SetNull, map: "StoredAsset_restoreSessionId_fkey")
 
   @@index([ownerId, status])
@@ -516,4 +634,545 @@ model UsageEvent {
   @@index([model, createdAt])
   @@index([action, createdAt])
   @@index([createdAt, id])
+}
+
+model QaRequest {
+  id                 String         @id @default(cuid())
+  projectId          String
+  createdByUserId    String?
+  title              String
+  objective          String
+  target             String?
+  environment        String?
+  acceptanceNotes    String?
+  phase              QaRequestPhase @default(DRAFT)
+  version            Int            @default(1)
+  selectedArtifactId String?        @unique
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  project          Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy        User?                   @relation("QaRequestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  selectedArtifact QaArtifact?             @relation("SelectedQaArtifact", fields: [selectedArtifactId], references: [id], onDelete: SetNull)
+  contextSnapshots QaContextSnapshot[]
+  artifacts        QaArtifact[]            @relation("QaRequestArtifacts")
+  runs             QaRun[]
+  reviews          QaHumanReview[]
+  events           QaWorkflowEvent[]
+  executions       QaGenerationExecution[]
+  executionRecipes QaExecutionRecipe[]
+  executionJobs    QaExecutionJob[]
+
+  @@index([projectId, phase, updatedAt, id])
+  @@index([createdByUserId, createdAt])
+}
+
+model QaContextSnapshot {
+  id             String   @id @default(cuid())
+  requestId      String
+  version        Int
+  schemaVersion  Int      @default(1)
+  payload        Json
+  sourceManifest Json
+  payloadHash    String
+  retrievalMode  String
+  degraded       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  request   QaRequest    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  artifacts QaArtifact[]
+
+  @@unique([requestId, version])
+  @@index([requestId, createdAt])
+}
+
+model QaArtifact {
+  id               String           @id @default(cuid())
+  requestId        String
+  snapshotId       String
+  revision         Int
+  origin           QaArtifactOrigin
+  schemaVersion    Int              @default(1)
+  title            String
+  canonicalJson    Json
+  renderedMarkdown String?
+  createdAt        DateTime         @default(now())
+  lockedAt         DateTime?
+
+  request                 QaRequest                  @relation("QaRequestArtifacts", fields: [requestId], references: [id], onDelete: Cascade)
+  snapshot                QaContextSnapshot          @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
+  items                   QaChecklistItem[]
+  assessments             QaChecklistAssessment[]
+  runs                    QaRun[]
+  reviews                 QaHumanReview[]
+  selectedByRequest       QaRequest?                 @relation("SelectedQaArtifact")
+  executionRecipes        QaExecutionRecipe[]
+  executionAuthorizations QaExecutionAuthorization[]
+  executionJobs           QaExecutionJob[]
+  generationExecutions    QaGenerationExecution[]
+
+  @@unique([requestId, revision])
+  @@index([requestId, createdAt])
+}
+
+model QaChecklistItem {
+  id             String   @id @default(cuid())
+  artifactId     String
+  ordinal        Int
+  clientRef      String?
+  title          String
+  category       String?
+  priority       String?
+  preconditions  String[] @default([])
+  steps          String[] @default([])
+  expectedResult String
+  createdAt      DateTime @default(now())
+
+  artifact             QaArtifact                  @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  evidenceRequirements QaEvidenceRequirement[]
+  results              QaCheckResult[]
+  evidence             QaEvidence[]
+  executionRecipeItems QaExecutionRecipeItem[]
+  executionUploads     QaExecutionEvidenceUpload[]
+
+  @@unique([artifactId, ordinal])
+  @@unique([artifactId, clientRef])
+  @@index([artifactId])
+}
+
+model QaChecklistAssessment {
+  id          String                      @id @default(cuid())
+  artifactId  String
+  status      QaChecklistAssessmentStatus @default(PENDING)
+  summary     String?
+  suggestions Json
+  provider    String?
+  model       String?
+  errorCode   String?
+  createdAt   DateTime                    @default(now())
+  completedAt DateTime?
+
+  artifact QaArtifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+
+  @@index([artifactId, createdAt])
+}
+
+model QaEvidenceRequirement {
+  id              String         @id @default(cuid())
+  checklistItemId String
+  ordinal         Int
+  kind            QaEvidenceKind
+  description     String
+  required        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+
+  checklistItem    QaChecklistItem             @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  evidence         QaEvidence[]
+  executionUploads QaExecutionEvidenceUpload[]
+
+  @@unique([checklistItemId, ordinal])
+  @@index([checklistItemId])
+}
+
+model QaRun {
+  id                String       @id @default(cuid())
+  requestId         String
+  artifactId        String
+  executionRecipeId String?
+  status            QaRunStatus  @default(CREATED)
+  outcome           QaRunOutcome @default(NOT_RUN)
+  version           Int          @default(1)
+  sourceLabel       String?
+  externalRunRef    String?
+  commitSha         String?
+  startedAt         DateTime?
+  submittedAt       DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  request                QaRequest                 @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  artifact               QaArtifact                @relation(fields: [artifactId], references: [id], onDelete: Restrict)
+  executionRecipe        QaExecutionRecipe?        @relation(fields: [executionRecipeId], references: [id], onDelete: SetNull)
+  results                QaCheckResult[]
+  evidence               QaEvidence[]
+  reviews                QaHumanReview[]
+  executionAuthorization QaExecutionAuthorization?
+  executionJob           QaExecutionJob?
+
+  @@unique([requestId, externalRunRef])
+  @@index([requestId, createdAt, id])
+  @@index([requestId, status])
+  @@index([executionRecipeId])
+}
+
+model QaCheckResult {
+  id              String              @id @default(cuid())
+  runId           String
+  checklistItemId String
+  status          QaCheckResultStatus
+  observedResult  String?
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  run           QaRun           @relation(fields: [runId], references: [id], onDelete: Cascade)
+  checklistItem QaChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, checklistItemId])
+  @@index([runId])
+}
+
+model QaEvidence {
+  id                String         @id @default(cuid())
+  runId             String
+  checklistItemId   String?
+  requirementId     String?
+  createdByUserId   String?
+  connectionTokenId String?
+  actorKind         QaActorKind
+  transport         QaTransport
+  kind              QaEvidenceKind
+  textContent       String?
+  externalReference String?
+  metadata          Json?
+  createdAt         DateTime       @default(now())
+
+  run             QaRun                   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  checklistItem   QaChecklistItem?        @relation(fields: [checklistItemId], references: [id], onDelete: SetNull)
+  requirement     QaEvidenceRequirement?  @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  createdBy       User?                   @relation("QaEvidenceActor", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  connectionToken ProjectConnectionToken? @relation(fields: [connectionTokenId], references: [id], onDelete: SetNull)
+  assets          QaEvidenceAsset[]
+
+  @@index([runId, createdAt])
+  @@index([requirementId, createdAt])
+}
+
+model QaEvidenceAsset {
+  id         String @id @default(cuid())
+  evidenceId String
+  assetId    String @unique
+  ordinal    Int
+
+  evidence QaEvidence  @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  asset    StoredAsset @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([evidenceId, ordinal])
+  @@index([evidenceId])
+}
+
+model QaHumanReview {
+  id             String           @id @default(cuid())
+  requestId      String
+  runId          String
+  artifactId     String
+  reviewerUserId String?
+  decision       QaReviewDecision
+  comment        String?
+  runVersion     Int
+  createdAt      DateTime         @default(now())
+
+  request  QaRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  run      QaRun      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  artifact QaArtifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  reviewer User?      @relation("QaHumanReviewer", fields: [reviewerUserId], references: [id], onDelete: SetNull)
+
+  @@index([requestId, createdAt])
+  @@index([runId, createdAt])
+}
+
+model QaWorkflowEvent {
+  id                String      @id @default(cuid())
+  requestId         String
+  sequence          Int
+  type              String
+  actorKind         QaActorKind
+  actorUserId       String?
+  connectionTokenId String?
+  transport         QaTransport
+  metadata          Json?
+  createdAt         DateTime    @default(now())
+
+  request         QaRequest               @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actor           User?                   @relation("QaWorkflowEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  connectionToken ProjectConnectionToken? @relation(fields: [connectionTokenId], references: [id], onDelete: SetNull)
+
+  @@unique([requestId, sequence])
+  @@index([requestId, createdAt])
+}
+
+model QaGenerationExecution {
+  id                  String             @id @default(cuid())
+  requestId           String
+  artifactId          String?
+  recipeId            String?
+  kind                QaGenerationKind
+  status              QaGenerationStatus @default(PENDING)
+  idempotencyKeyHash  String?
+  provider            String?
+  model               String?
+  profileManifest     Json?
+  profileManifestHash String?
+  attempts            Int                @default(0)
+  availableAt         DateTime           @default(now())
+  leaseToken          String?
+  leaseExpiresAt      DateTime?
+  errorCode           String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  completedAt         DateTime?
+
+  request  QaRequest          @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  artifact QaArtifact?        @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+  recipe   QaExecutionRecipe? @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+
+  @@unique([requestId, kind, idempotencyKeyHash])
+  @@index([status, availableAt, leaseExpiresAt])
+  @@index([requestId, createdAt])
+  @@index([artifactId])
+  @@index([recipeId])
+}
+
+model QaExecutionRecipe {
+  id                  String           @id @default(cuid())
+  requestId           String
+  artifactId          String
+  revision            Int
+  origin              QaArtifactOrigin
+  schemaVersion       Int              @default(1)
+  executorKey         String
+  title               String
+  canonicalJson       Json
+  recipeHash          String
+  profileManifest     Json?
+  profileManifestHash String?
+  supersedesRecipeId  String?
+  createdByUserId     String?
+  connectionTokenId   String?
+  transport           QaTransport
+  provider            String?
+  model               String?
+  lockedAt            DateTime?
+  createdAt           DateTime         @default(now())
+
+  request         QaRequest                     @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  artifact        QaArtifact                    @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  createdBy       User?                         @relation("QaExecutionRecipeAuthor", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  connectionToken ProjectConnectionToken?       @relation(fields: [connectionTokenId], references: [id], onDelete: SetNull)
+  supersedes      QaExecutionRecipe?            @relation("QaExecutionRecipeSupersession", fields: [supersedesRecipeId], references: [id], onDelete: SetNull)
+  supersededBy    QaExecutionRecipe[]           @relation("QaExecutionRecipeSupersession")
+  items           QaExecutionRecipeItem[]
+  assessments     QaExecutionRecipeAssessment[]
+  runs            QaRun[]
+  authorizations  QaExecutionAuthorization[]
+  jobs            QaExecutionJob[]
+  executions      QaGenerationExecution[]
+
+  @@unique([artifactId, revision])
+  @@unique([artifactId, recipeHash, profileManifestHash], map: "QaExecutionRecipe_artifact_recipe_profile_key")
+  @@index([requestId, createdAt])
+  @@index([artifactId, createdAt])
+  @@index([createdByUserId])
+  @@index([connectionTokenId])
+  @@index([supersedesRecipeId])
+}
+
+model QaExecutionRecipeItem {
+  id              String @id @default(cuid())
+  recipeId        String
+  checklistItemId String
+  ordinal         Int
+  steps           Json
+  recipeHash      String
+
+  recipe        QaExecutionRecipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  checklistItem QaChecklistItem   @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, ordinal])
+  @@unique([recipeId, checklistItemId])
+  @@index([checklistItemId])
+}
+
+model QaExecutionRecipeAssessment {
+  id          String                      @id @default(cuid())
+  recipeId    String
+  status      QaChecklistAssessmentStatus @default(PENDING)
+  summary     String?
+  suggestions Json
+  provider    String?
+  model       String?
+  errorCode   String?
+  createdAt   DateTime                    @default(now())
+  completedAt DateTime?
+
+  recipe QaExecutionRecipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId, createdAt])
+}
+
+model QaRunnerRegistration {
+  id                String   @id @default(cuid())
+  projectId         String
+  connectionTokenId String
+  instanceId        String
+  displayName       String
+  runnerVersion     String
+  protocolVersions  Int[]    @default([])
+  executorKeys      String[] @default([])
+  publicProfiles    Json
+  lastSeenAt        DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  project         Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  connectionToken ProjectConnectionToken     @relation(fields: [connectionTokenId], references: [id], onDelete: Cascade)
+  authorizations  QaExecutionAuthorization[]
+  jobs            QaExecutionJob[]
+
+  @@unique([connectionTokenId, instanceId])
+  @@index([projectId, lastSeenAt])
+  @@index([connectionTokenId, lastSeenAt])
+}
+
+model QaExecutionAuthorization {
+  id                   String   @id @default(cuid())
+  runId                String   @unique
+  recipeId             String
+  artifactId           String
+  approvedByUserId     String?
+  runnerRegistrationId String?
+  recipeHash           String
+  profileKey           String
+  profileManifestHash  String
+  productionConfirmed  Boolean  @default(false)
+  approvedAt           DateTime @default(now())
+
+  run                QaRun                 @relation(fields: [runId], references: [id], onDelete: Cascade)
+  recipe             QaExecutionRecipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  artifact           QaArtifact            @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  approvedBy         User?                 @relation("QaExecutionApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  runnerRegistration QaRunnerRegistration? @relation(fields: [runnerRegistrationId], references: [id], onDelete: SetNull)
+  job                QaExecutionJob?
+
+  @@index([recipeId, approvedAt])
+  @@index([runnerRegistrationId, approvedAt])
+  @@index([artifactId])
+  @@index([approvedByUserId])
+}
+
+model QaExecutionJob {
+  id                   String               @id @default(cuid())
+  projectId            String
+  requestId            String
+  runId                String               @unique
+  artifactId           String
+  recipeId             String
+  authorizationId      String               @unique
+  runnerRegistrationId String
+  protocolVersion      Int                  @default(1)
+  executorKey          String
+  profileKey           String
+  profileManifestHash  String
+  recipeHash           String
+  status               QaExecutionJobStatus @default(QUEUED)
+  attempts             Int                  @default(0)
+  availableAt          DateTime             @default(now())
+  deadlineAt           DateTime
+  claimId              String?
+  runnerInstanceId     String?
+  leaseTokenHash       String?
+  leaseExpiresAt       DateTime?
+  lastHeartbeatAt      DateTime?
+  acceptedAt           DateTime?
+  errorCode            String?
+  errorMessage         String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  completedAt          DateTime?
+
+  project            Project                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  request            QaRequest                   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  run                QaRun                       @relation(fields: [runId], references: [id], onDelete: Cascade)
+  artifact           QaArtifact                  @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  recipe             QaExecutionRecipe           @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  authorization      QaExecutionAuthorization    @relation(fields: [authorizationId], references: [id], onDelete: Cascade)
+  runnerRegistration QaRunnerRegistration        @relation(fields: [runnerRegistrationId], references: [id], onDelete: Cascade)
+  uploads            QaExecutionEvidenceUpload[]
+
+  @@index([status, availableAt, leaseExpiresAt])
+  @@index([runnerRegistrationId, status, availableAt])
+  @@index([requestId, createdAt])
+  @@index([projectId])
+  @@index([artifactId])
+  @@index([recipeId])
+}
+
+model QaExecutionEvidenceUpload {
+  id              String    @id @default(cuid())
+  executionJobId  String
+  checklistItemId String
+  requirementId   String
+  assetId         String    @unique
+  createdAt       DateTime  @default(now())
+  consumedAt      DateTime?
+
+  executionJob  QaExecutionJob        @relation(fields: [executionJobId], references: [id], onDelete: Cascade)
+  checklistItem QaChecklistItem       @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  requirement   QaEvidenceRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  asset         StoredAsset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([executionJobId, consumedAt])
+  @@index([requirementId])
+  @@index([checklistItemId])
+}
+
+model ProjectConnectionToken {
+  id          String    @id @default(cuid())
+  projectId   String
+  ownerId     String
+  name        String
+  tokenPrefix String
+  tokenHash   String    @unique
+  scopes      String[]  @default([])
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project             Project                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner               User                        @relation("ProjectConnectionTokenOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  evidence            QaEvidence[]
+  events              QaWorkflowEvent[]
+  idempotencyRecords  ExternalIdempotencyRecord[]
+  executionRecipes    QaExecutionRecipe[]
+  runnerRegistrations QaRunnerRegistration[]
+
+  @@index([projectId, revokedAt])
+  @@index([ownerId, createdAt])
+  @@index([tokenPrefix])
+}
+
+model ExternalIdempotencyRecord {
+  id              String                   @id @default(cuid())
+  credentialId    String
+  operation       String
+  keyHash         String
+  requestHash     String
+  responseStatus  Int?
+  responseBody    Json?
+  resourceId      String?
+  resourceType    String?
+  state           ExternalIdempotencyState @default(PENDING)
+  protocolVersion Int                      @default(2)
+  completedAt     DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  credential ProjectConnectionToken @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@unique([credentialId, operation, keyHash])
+  @@index([credentialId, createdAt])
+  @@index([state, expiresAt])
 }

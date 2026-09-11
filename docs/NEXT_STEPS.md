@@ -2,20 +2,108 @@
 
 This file is the working roadmap for what is done, what is still foundation work, and what should come next. Use it as the reference when asking "what is next?" or "what still needs cleanup?"
 
-Last reviewed: 2026-08-25
+Last reviewed: 2026-09-11
 
 For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
 Before future work on Project Memory, conversation summaries, AI-extracted memory,
 or memory embeddings, follow `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 For deployment, data safety, migrations, backups, rollback, and production
 smoke tests, follow `docs/PRODUCTION_READINESS.md`.
+For QA Requests, external-agent REST/MCP access, evidence, lifecycle rules, and
+Human Review, follow `docs/QA_CONTROL_PLANE.md`.
+For immutable RecipeV1 approval and local Playwright Runner execution, follow
+`docs/QA_EXECUTION_HARNESS.md`.
 
 ## Current Health
 
+- [x] Save the pre-commit review fixes: require the assigned Runner protocol
+  for execution-bound mutations, revalidate exact immutable profile approval
+  at claim/reclaim/acceptance, include profile hashes in Recipe deduplication,
+  and fence stale Workspace responses. Also cover initial signed-in loading
+  and returning to the displayed request while another detail is pending.
+- [x] Verify the saved review fixes after interruption on Node 24.19.0:
+  `npm run verify` passed all 1156 tests (863 API, 271 web, 18 Runner, 4 shared),
+  guarded PostgreSQL integration passed 23/23, all 21 migrations applied on an
+  empty disposable database with zero drift, and API/Runner/web production
+  builds and Git connectivity/whitespace checks passed. The test database was
+  removed after confirming zero rows across its 44 application tables; the
+  user database was not changed. No live provider or authenticated browser
+  rerun was needed.
+- [x] Clear the 2026-09-11 dependency alerts with compatible patches:
+  Nodemailer 9.1.1, fast-uri 3.1.7, qs 6.16.0, and a scoped Prisma 7.9.1
+  override for mysql2 3.23.1. Full and production audits report zero advisories;
+  no CI exception or major dependency change. Six bounded offline security
+  regressions pass. Keep the override rationale in `PRODUCTION_READINESS.md`
+  and rerun the audit at release time; zero today is not a permanent guarantee.
+- [x] Re-run full `verify`, API/Runner/web production builds, and PostgreSQL
+  23/23 after the security patches on Node 24.19.0. All passed. The fresh
+  `oddpath_security_test_0911_02` received all 21 migrations with zero drift
+  and was removed after confirming its 44 application tables were empty.
+- [ ] Confirm the push destination after review. `main` is connected to Render
+  checks-pass deployment and migration application; review-branch publishing
+  and production deployment are different decisions.
+- [x] Repair the first local Recipe-generation failure: document every nested
+  RecipeV1 shape in the provider-neutral prompt, classify malformed generation
+  and review output, retain only bounded sanitized diagnostics, and explain
+  recovery in the UI. Verification on 2026-09-08: full `npm run verify`, 38
+  targeted Recipe/worker tests, i18n checks, and API/web production builds.
+- [x] The user's live retry generated Revision 1 for the login-page smoke.
+  Its review then failed with `invalid_type` at `$.suggestions`; identical
+  Recipe regeneration deduplicated without recovering the assessment.
+- [x] Repair review output with native JSON Schema plus strict local
+  validation, and add an owner-only `Retry review` for the same immutable
+  Recipe. Verification on 2026-09-08: full `verify` (822 API, 247 web, 4 shared,
+  15 Runner tests), i18n 7/7, API/web/Runner builds, PostgreSQL integration
+  16/16 including retry concurrency and approval gates, and zero migration
+  drift. The disposable test database was cleaned up; user records unchanged.
+- [x] Resolve the subsequent Gemini request rejection for this review schema:
+  a user-authorized synthetic comparison succeeded when only native
+  `suggestions.maxItems: 80` was omitted. Keep the local 80-finding limit and
+  all review gates. Verification on 2026-09-09: 1090 tests in full `verify`,
+  API production build, and whitespace checks pass. No real QA review or Run
+  was performed by this compatibility probe.
+- [x] Complete the same-Recipe local Playwright/TEXT smoke. User-provided
+  screenshots/manual validation on 2026-09-09 show Revision 1 review PASSED,
+  an online Runner, owner-approved execution, four PASS results plus the
+  intentional missing-marker FAIL, complete required TEXT evidence, and final
+  Human Review APPROVED (1 approved, 0 running, 0 evidence needed, 0 ready).
+  This is separate from the synthetic schema probes and was not independently
+  rerun by the agent. Preserve the approved record and earlier failed reviews;
+  no new AI request, token, migration, or repeated Run is needed for closeout.
+- [x] Finish bounded closeout UI polish on 2026-09-10: clearer local Runner
+  startup/offline help, one accessible reason behind disabled approval, and
+  current versus earlier processing attempts with original statuses retained.
+  New copy is localized for en/ar/de. Full `verify` returned exit 0 (including
+  261 web tests), the focused web/i18n set passed 46/46, `build:web` and
+  whitespace checks passed. Three added fake-client Runner recovery tests
+  cover later screenshot-capture failure, lease expiry after a submitted item,
+  and heartbeat lease loss during the next TEXT item (execution tests 6/6).
+  These are automated checks, not a new logged-in browser validation, real
+  process-kill drill, private-upload test, or proof of database persistence.
+  No normal database, live provider, or approved-request mutation was made.
+- [ ] Keep follow-up manual interruption/recovery and Request changes/re-run
+  drills separate from this successful smoke; existing automated lifecycle
+  coverage is not evidence that those manual drills have occurred. Real
+  SCREENSHOT/private-upload proof and staging/production gates also remain.
+- [x] Run the 2026-09-11 verification with the declared Node 24.19.0 runtime
+  (temporary npm-cache installation). The system Node remains 24.15.0; use the
+  pinned supported runtime for subsequent checks rather than the older default.
 - [x] Monorepo structure is in place: `apps/web` and `apps/api`.
 - [x] Legacy vanilla app was migrated to Vue + TypeScript.
 - [x] Backend is modular Express + TypeScript + Prisma.
-- [x] PostgreSQL schema is established for users, sessions, chats, projects, memory, usage events, and settings.
+- [x] PostgreSQL schema is established for users, sessions, chats, projects,
+  memory, usage, QA Requests, immutable artifacts, runs, evidence, reviews,
+  project connections, and external idempotency.
+- [x] The product home is the QA Workspace; QA Chat remains an explicit,
+  separate route.
+- [x] Owner web routes, project-token REST, and stateless Remote MCP all adapt
+  into one transactional QA lifecycle.
+- [x] Current QA-control-plane and execution-harness verification passed on
+  2026-08-31: API 769/769 tests in 140 suites, web 226/226 tests in 56 suites,
+  shared contract 4/4, local Runner 15/15, PostgreSQL integration 16/16,
+  API/Runner/web type checks and production builds, architecture boundaries,
+  Prisma validation, and zero migration drift from all 20 migrations in an
+  empty disposable database.
 - [x] Record the final repository-wide API/web verification after restore
   fencing, cleanup CAS, and the R2 harness: API 711/711 tests in 122 suites,
   web 209/209 tests in 53 suites, API/web production builds, Prisma
@@ -35,6 +123,26 @@ smoke tests, follow `docs/PRODUCTION_READINESS.md`.
 
 ## What Is Complete Enough For The Current Foundation
 
+- [x] QA Workspace home with request queue, operational phases, selected
+  artifact, results/evidence detail, history, connection management, and Human
+  Review.
+- [x] Locked project context snapshots reuse the shared bounded
+  `ProjectDocumentRetriever`; later memory/document edits do not mutate an
+  existing QA Request.
+- [x] Versioned immutable checklist artifacts, current-run guards, evidence
+  requirements, and owner-only artifact selection/approval.
+- [x] Project-scoped agent credentials with hashed secrets, capability scopes,
+  expiry/revocation, pre-body IP/token rate limits, and external mutation
+  idempotency.
+- [x] Twelve stateless MCP tools and matching REST operations support Codex,
+  Claude, and other compatible agents without making one vendor the domain
+  boundary.
+- [x] QA checklist/Recipe generation and review are asynchronous and go through
+  the provider registry, AI kill switch, bounded worker retry, and shared
+  owner/global usage accounting.
+- [x] Immutable RecipeV1 execution through the local `apps/runner` CLI requires
+  exact request-version, Recipe-hash, and Runner profile-manifest approval;
+  production requires independent owner and local Runner confirmations.
 - [x] Chat workspace with sidebar, composer, messages, export/import, copy, and delete flow.
 - [x] Password auth foundation: register, login, logout, current session.
 - [x] Optional guest mode for portfolio/demo use.
@@ -83,6 +191,21 @@ smoke tests, follow `docs/PRODUCTION_READINESS.md`.
 
 ## Not Complete Yet
 
+- [ ] Async QA processing still has no user-facing cancellation or general
+  generation/checklist-review retry endpoint. Failed Recipe reviews now have
+  a dedicated owner-only retry flow on the existing immutable Recipe.
+- [ ] QA records/evidence are not included in Project or Account portable ZIPs.
+- [ ] Standard `AGENT` connections cannot initiate private evidence uploads.
+  External screenshot/file references must use credential-free HTTPS but
+  remain outside Oddpath's durability boundary; Runner screenshot uploads use
+  the separate execution-bound protocol.
+- [ ] Gemini is the only registered runtime text provider; production
+  environment validation and several non-QA AI workflows remain
+  Gemini-specific.
+- [ ] QA request detail, web request pagination, and ambiguous idempotency
+  reconciliation need a later scale/operations pass.
+- [ ] The first QA Workspace product copy is English-only and still needs a
+  dedicated i18n catalog.
 - [ ] Google OAuth is not wired. The UI button is intentionally disabled.
 - [x] Forgot/reset password uses expiring single-use tokens, SMTP delivery,
   session invalidation, and a working reset page.

@@ -35,6 +35,12 @@ describe("account repository", () => {
           return { count: 2 };
         },
       },
+      qaEvidenceAsset: {
+        async deleteMany() {
+          operations.push("qaEvidenceAsset:user-1");
+          return { count: 1 };
+        },
+      },
       projectDocument: {
         async updateMany() {
           operations.push("projectDocument:user-1");
@@ -71,6 +77,7 @@ describe("account repository", () => {
       "storedAsset:user-1",
       "objectDeletionJob:assets/2026/08/12/asset-1,assets/2026/08/12/asset-2",
       "messageAttachment:user-1",
+      "qaEvidenceAsset:user-1",
       "projectDocument:user-1",
       "storedAsset:delete:user-1",
       "aiUsageLog:user-1",

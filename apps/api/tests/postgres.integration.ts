@@ -6,9 +6,15 @@ import { after, before, describe, it } from "node:test";
 
 import { Pool } from "pg";
 
+import type { ExecutionTaskV1, RunnerRegistrationV1 } from "@oddpath/qa-execution-contract";
+import type { SubmitQaExecutionRecipeCommand } from "../src/modules/qa-requests/qa-execution-recipes.types.ts";
 import { assertPostgresIntegrationTarget } from "./helpers/postgresIntegrationTarget.ts";
 
 process.env.NODE_ENV = "test";
+// Prisma writes timestamp-without-time-zone values in UTC. Keep node-postgres
+// fixture inserts and reads on the same clock so these invariants are
+// independent of the machine running the suite (for example Berlin vs UTC).
+process.env.TZ = "UTC";
 
 const target = assertPostgresIntegrationTarget(process.env);
 const pool = new Pool({
@@ -556,11 +562,12 @@ describe("real PostgreSQL invariants", { concurrency: false }, () => {
     trackedObjectKeys.push(objectKey);
 
     const packageData = createBinaryProjectImportPackage();
+    const restoreStartedAt = new Date();
     const restore = createBinaryAssetRestoreService({
       config: { assetUserQuotaBytes: 50 * 1024 * 1024, privateAssetsEnabled: true },
       createAssetId: () => assetId,
       createObjectKey: () => objectKey,
-      now: () => new Date("2026-08-23T12:00:00.000Z"),
+      now: () => new Date(restoreStartedAt.getTime()),
       repository: createPrismaBinaryAssetRestoreRepository(),
       storage: inMemoryRestoreStorage(),
     });
@@ -622,11 +629,12 @@ describe("real PostgreSQL invariants", { concurrency: false }, () => {
     trackedObjectKeys.push(objectKey);
 
     const packageData = createBinaryProjectImportPackage();
+    const restoreStartedAt = new Date();
     const restore = createBinaryAssetRestoreService({
       config: { assetUserQuotaBytes: 50 * 1024 * 1024, privateAssetsEnabled: true },
       createAssetId: () => assetId,
       createObjectKey: () => objectKey,
-      now: () => new Date("2026-08-23T12:00:00.000Z"),
+      now: () => new Date(restoreStartedAt.getTime()),
       repository: createPrismaBinaryAssetRestoreRepository(),
       storage: inMemoryRestoreStorage(deletedKeys),
     });
@@ -739,9 +747,11 @@ describe("real PostgreSQL invariants", { concurrency: false }, () => {
       10
     );
 
+    assert.equal(batch.lockAcquired, true, JSON.stringify(batch));
     assert.deepEqual(
       new Set(batch.jobs.map((job) => job.id)),
-      new Set([deletableJobId, detachedJobId])
+      new Set([deletableJobId, detachedJobId]),
+      JSON.stringify(batch)
     );
     const schedules = await pool.query<{ id: string; nextAttemptAt: Date }>(
       `SELECT "id", "nextAttemptAt" FROM "ObjectDeletionJob"
@@ -803,8 +813,9 @@ describe("real PostgreSQL invariants", { concurrency: false }, () => {
       firstRepository.claimCleanupBatch(now, leaseA, 10),
       secondRepository.claimCleanupBatch(now, leaseB, 10),
     ]);
+    assert.equal(batches.filter((batch) => batch.lockAcquired).length, 1, JSON.stringify(batches));
     const claims = batches.flatMap((batch) => batch.jobs).filter((job) => job.id === jobId);
-    assert.equal(claims.length, 1);
+    assert.equal(claims.length, 1, JSON.stringify(batches));
     const claimedLease = claims[0]?.leaseUntil;
     assert.ok(claimedLease);
     assert.ok(
@@ -912,7 +923,778 @@ describe("real PostgreSQL invariants", { concurrency: false }, () => {
     );
     assert.equal(persisted.rows[0]?.count, "0");
   });
+
+  it("persists the complete QA control-plane lifecycle with evidence and human review", async () => {
+    const userId = uniqueId("qa-owner");
+    const projectId = uniqueId("qa-project");
+    await insertUser({ id: userId, track: true });
+    trackedProjectIds.push(projectId);
+    await pool.query(
+      `INSERT INTO "Project" ("id", "ownerId", "name", "updatedAt")
+       VALUES ($1, $2, 'Checkout QA', CURRENT_TIMESTAMP)`,
+      [projectId, userId]
+    );
+
+    applicationDatabaseWasLoaded = true;
+    const { createPrismaQaRequestRepository } = await import(
+      "../src/modules/qa-requests/qa-requests.repository.ts"
+    );
+    const { prisma } = await import("../src/db/prisma.ts");
+    const repository = createPrismaQaRequestRepository(prisma);
+    const actor = { kind: "USER" as const, transport: "WEB" as const, userId };
+    const requestId = await repository.createRequest({
+      actor,
+      checklistMode: "AGENT_PROVIDED",
+      objective: "Prove that checkout creates one order and keeps reviewable evidence.",
+      projectId,
+      snapshot: {
+        degraded: false,
+        payload: { project: { memory: "Checkout uses idempotency keys." } },
+        payloadHash: createHash("sha256").update("qa-context").digest("hex"),
+        retrievalMode: "LEXICAL_INDEXED",
+        sourceManifest: { documents: [] },
+      },
+      title: "Checkout idempotency",
+    });
+    const artifactId = await repository.submitChecklist({
+      actor,
+      checklist: {
+        items: [{
+          clientRef: "checkout-double-submit",
+          evidenceRequirements: [{
+            description: "Observed order count and response",
+            kind: "TEXT",
+          }],
+          expectedResult: "Exactly one order is created.",
+          preconditions: ["An empty test cart exists"],
+          steps: ["Submit checkout twice with the same idempotency key"],
+          title: "Double submit",
+        }],
+        title: "Checkout checklist",
+      },
+      origin: "AGENT_PROVIDED",
+      projectId,
+      requestId,
+    });
+    await repository.completeChecklistAssessment({
+      actor: { kind: "SYSTEM", transport: "SYSTEM" },
+      artifactId,
+      projectId,
+      requestId,
+      status: "PASSED",
+      suggestions: [],
+    });
+    const lateArtifactId = await repository.submitChecklist({
+      actor,
+      checklist: {
+        items: [{
+          clientRef: "checkout-double-submit-revision",
+          evidenceRequirements: [{
+            description: "Observed order count and response",
+            kind: "TEXT",
+          }],
+          expectedResult: "Exactly one order is created.",
+          preconditions: ["An empty test cart exists"],
+          steps: ["Submit checkout twice with the same idempotency key"],
+          title: "Double submit revision",
+        }],
+        title: "Checkout checklist revision",
+      },
+      origin: "AGENT_PROVIDED",
+      projectId,
+      requestId,
+      supersedesArtifactId: artifactId,
+    });
+
+    let detail = await repository.getRequest(projectId, requestId) as QaLifecycleDetail;
+    await repository.selectArtifact({
+      actor,
+      artifactId,
+      expectedRequestVersion: detail.version,
+      projectId,
+      requestId,
+    });
+    const runId = await repository.startRun({
+      actor,
+      externalRunRef: "integration-run-001",
+      projectId,
+      requestId,
+      sourceLabel: "PostgreSQL integration",
+    });
+    assert.equal(await repository.startRun({
+      actor,
+      externalRunRef: "integration-run-001",
+      projectId,
+      requestId,
+      sourceLabel: "PostgreSQL integration",
+    }), runId);
+
+    await repository.completeChecklistAssessment({
+      actor: { kind: "SYSTEM", transport: "SYSTEM" },
+      artifactId: lateArtifactId,
+      projectId,
+      requestId,
+      status: "PASSED",
+      suggestions: [],
+    });
+
+    detail = await repository.getRequest(projectId, requestId) as QaLifecycleDetail;
+    assert.equal(detail.phase, "RUNNING");
+    const item = detail.artifacts.find((artifact) => artifact.id === artifactId)?.items[0];
+    const requirement = item?.evidenceRequirements[0];
+    const activeRun = detail.runs.find((run) => run.id === runId);
+    assert.ok(item && requirement && activeRun);
+    await repository.recordCheckResult({
+      actor,
+      checklistItemId: item.id,
+      expectedVersion: activeRun.version,
+      observedResult: "One order was persisted.",
+      projectId,
+      requestId,
+      runId,
+      status: "PASS",
+    });
+    detail = await repository.getRequest(projectId, requestId) as QaLifecycleDetail;
+    await repository.finishRun({
+      actor,
+      expectedVersion: detail.runs.find((run) => run.id === runId)!.version,
+      projectId,
+      requestId,
+      runId,
+    });
+    detail = await repository.getRequest(projectId, requestId) as QaLifecycleDetail;
+    assert.equal(detail.phase, "EVIDENCE_NEEDED");
+    await repository.addEvidence({
+      actor,
+      assetIds: [],
+      checklistItemId: item.id,
+      kind: "TEXT",
+      projectId,
+      requestId,
+      requirementId: requirement.id,
+      runId,
+      textContent: "orders=1; response=200",
+    });
+    detail = await repository.getRequest(projectId, requestId) as QaLifecycleDetail;
+    const reviewableRun = detail.runs.find((run) => run.id === runId)!;
+    assert.equal(detail.phase, "READY_FOR_REVIEW");
+    await repository.reviewRun({
+      actor,
+      decision: "CHANGES_REQUESTED",
+      expectedRunVersion: reviewableRun.version,
+      projectId,
+      requestId,
+      runId,
+    });
+
+    detail = await repository.getRequest(projectId, requestId) as QaLifecycleDetail;
+    assert.equal(detail.phase, "CHANGES_REQUESTED");
+    const secondRunId = await repository.startRun({
+      actor,
+      externalRunRef: "integration-run-002",
+      projectId,
+      requestId,
+      sourceLabel: "PostgreSQL integration rerun",
+    });
+    detail = await repository.getRequest(projectId, requestId) as QaLifecycleDetail;
+    await repository.recordCheckResult({
+      actor,
+      checklistItemId: item.id,
+      expectedVersion: detail.runs.find((run) => run.id === secondRunId)!.version,
+      observedResult: "One order was persisted on the rerun.",
+      projectId,
+      requestId,
+      runId: secondRunId,
+      status: "PASS",
+    });
+    detail = await repository.getRequest(projectId, requestId) as QaLifecycleDetail;
+    await repository.finishRun({
+      actor,
+      expectedVersion: detail.runs.find((run) => run.id === secondRunId)!.version,
+      projectId,
+      requestId,
+      runId: secondRunId,
+    });
+    await assert.rejects(
+      () => repository.addEvidence({
+        actor,
+        assetIds: [],
+        checklistItemId: item.id,
+        kind: "TEXT",
+        projectId,
+        requestId,
+        requirementId: requirement.id,
+        runId,
+        textContent: "stale evidence",
+      }),
+      (error: unknown) => getErrorCode(error) === "QA_RUN_SUPERSEDED"
+    );
+    await repository.addEvidence({
+      actor,
+      assetIds: [],
+      checklistItemId: item.id,
+      kind: "TEXT",
+      projectId,
+      requestId,
+      requirementId: requirement.id,
+      runId: secondRunId,
+      textContent: "orders=1; response=200; rerun=true",
+    });
+    detail = await repository.getRequest(projectId, requestId) as QaLifecycleDetail;
+    assert.equal(detail.phase, "READY_FOR_REVIEW");
+    await assert.rejects(
+      () => repository.reviewRun({
+        actor,
+        decision: "APPROVED",
+        expectedRunVersion: detail.runs.find((run) => run.id === runId)!.version,
+        projectId,
+        requestId,
+        runId,
+      }),
+      (error: unknown) => getErrorCode(error) === "QA_RUN_SUPERSEDED"
+    );
+    await repository.reviewRun({
+      actor,
+      decision: "APPROVED",
+      expectedRunVersion: detail.runs.find((run) => run.id === secondRunId)!.version,
+      projectId,
+      requestId,
+      runId: secondRunId,
+    });
+
+    detail = await repository.getRequest(projectId, requestId) as QaLifecycleDetail;
+    assert.equal(detail.phase, "APPROVED");
+    assert.equal(detail.runs[0]?.outcome, "PASS");
+    assert.equal(detail.reviews[0]?.decision, "APPROVED");
+    assert.equal(detail.reviews[1]?.decision, "CHANGES_REQUESTED");
+    assert.deepEqual(
+      detail.events.map((event) => event.sequence),
+      detail.events.map((_event, index) => index + 1)
+    );
+  });
+
+  it("retries a failed Recipe review, enforces approval boundaries, executes a claimed job, and deletes its project graph", async (t) => {
+    const userId = uniqueId("harness-owner");
+    const projectId = uniqueId("harness-project");
+    await insertUser({ id: userId, track: true });
+    trackedProjectIds.push(projectId);
+    await pool.query(
+      `INSERT INTO "Project" ("id", "ownerId", "name", "updatedAt")
+       VALUES ($1, $2, 'Harness project', CURRENT_TIMESTAMP)`,
+      [projectId, userId]
+    );
+
+    applicationDatabaseWasLoaded = true;
+    const { prisma } = await import("../src/db/prisma.ts");
+    const { createPrismaQaRequestRepository } = await import(
+      "../src/modules/qa-requests/qa-requests.repository.ts"
+    );
+    const {
+      createQaExecutionRecipeRepository,
+      resolveProfileManifest,
+    } = await import("../src/modules/qa-requests/qa-execution-recipes.repository.ts");
+    const { createQaRunnerRepository } = await import(
+      "../src/modules/qa-requests/qa-runner.repository.ts"
+    );
+    const { createQaExecutionRepository } = await import(
+      "../src/modules/qa-requests/qa-execution.repository.ts"
+    );
+    const { createPrismaProjectsRepository } = await import(
+      "../src/modules/projects/projects.repository.ts"
+    );
+
+    const requestRepository = createPrismaQaRequestRepository(prisma);
+    const actor = { kind: "USER" as const, transport: "WEB" as const, userId };
+    const requestId = await requestRepository.createRequest({
+      actor,
+      checklistMode: "AGENT_PROVIDED",
+      objective: "Exercise the immutable recipe and runner lease lifecycle.",
+      projectId,
+      snapshot: {
+        degraded: false,
+        payload: { project: { name: "Harness project" } },
+        payloadHash: createHash("sha256").update("harness-context").digest("hex"),
+        retrievalMode: "LEXICAL_INDEXED",
+        sourceManifest: { documents: [] },
+      },
+      title: "Execution harness",
+    });
+    const artifactId = await requestRepository.submitChecklist({
+      actor,
+      checklist: {
+        items: [{
+          clientRef: "checkout-visible",
+          evidenceRequirements: [{
+            description: "Record the visible checkout heading.",
+            kind: "TEXT",
+            required: true,
+          }],
+          expectedResult: "The checkout heading is visible.",
+          preconditions: [],
+          steps: ["Open checkout and observe its heading."],
+          title: "Checkout is visible",
+        }],
+        title: "Harness checklist",
+      },
+      origin: "AGENT_PROVIDED",
+      projectId,
+      requestId,
+    });
+    await requestRepository.completeChecklistAssessment({
+      actor: { kind: "SYSTEM", transport: "SYSTEM" },
+      artifactId,
+      projectId,
+      requestId,
+      status: "PASSED",
+      suggestions: [],
+    });
+    let detail = await requestRepository.getRequest(projectId, requestId) as QaLifecycleDetail;
+    await requestRepository.selectArtifact({
+      actor,
+      artifactId,
+      expectedRequestVersion: detail.version,
+      projectId,
+      requestId,
+    });
+    detail = await requestRepository.getRequest(projectId, requestId) as QaLifecycleDetail;
+    const checklistItem = detail.artifacts.find(({ id }) => id === artifactId)!.items[0]!;
+    const requirement = checklistItem.evidenceRequirements[0]!;
+
+    const connection = await prisma.projectConnectionToken.create({
+      data: {
+        name: "Integration runner",
+        ownerId: userId,
+        projectId,
+        scopes: ["evidence:write", "execution:claim", "execution:write", "qa:read"],
+        tokenHash: createHash("sha256").update(uniqueId("runner-token")).digest("hex"),
+        tokenPrefix: "odp_live_integration",
+      },
+    });
+    const profile = resolveProfileManifest({
+      environmentKind: "TEST",
+      evidenceKinds: ["TEXT"],
+      executorKey: "playwright",
+      label: "Disposable PostgreSQL",
+      profileKey: "postgres.test",
+      recipeSchemaVersions: [1],
+      schemaVersion: 1,
+      valueReferences: [],
+    });
+    const runnerRepository = createQaRunnerRepository(prisma);
+    const registration: RunnerRegistrationV1 = {
+      displayName: "PostgreSQL runner",
+      executorKeys: ["playwright"],
+      instanceId: "postgres-runner-1",
+      profiles: [profile],
+      protocolVersions: [1],
+      runnerVersion: "0.1.0-test",
+      schemaVersion: 1,
+    };
+    const runner = await runnerRepository.upsertRegistration({
+      connectionTokenId: connection.id,
+      projectId,
+      registration,
+    });
+    const submitRecipeInput: SubmitQaExecutionRecipeCommand = {
+      actor: {
+        connectionTokenId: connection.id,
+        kind: "INTEGRATION",
+        transport: "REST",
+        userId,
+      },
+      artifactId,
+      bundle: {
+        engine: "playwright",
+        items: [{
+          checklistItemId: checklistItem.id,
+          steps: [
+            {
+              action: "navigate",
+              path: "/checkout",
+              ref: "open-checkout",
+              waitUntil: "domcontentloaded",
+            },
+            {
+              action: "expect",
+              expectation: {
+                kind: "visible",
+                locator: { by: "role", name: "Checkout", role: "heading" },
+              },
+              ref: "see-checkout",
+            },
+          ],
+        }],
+        schemaVersion: 1,
+      },
+      origin: "AGENT_PROVIDED",
+      profileManifest: profile,
+      projectId,
+      requestId,
+      title: "Checkout recipe",
+    };
+    const recipeRepository = createQaExecutionRecipeRepository(prisma);
+    const recipeId = await recipeRepository.submitRecipe(submitRecipeInput);
+    const originalReview = await prisma.qaGenerationExecution.findFirstOrThrow({
+      where: { recipeId, kind: "EXECUTION_RECIPE_REVIEW" },
+    });
+    const oldProcessing = { executionId: originalReview.id, leaseToken: "original-review-lease" };
+    await prisma.qaGenerationExecution.update({
+      data: {
+        attempts: 3, leaseExpiresAt: new Date(Date.now() + 60_000),
+        leaseToken: oldProcessing.leaseToken, status: "PROCESSING",
+      },
+      where: { id: originalReview.id },
+    });
+    await recipeRepository.failAssessment({
+      actor, errorCode: "QA_RECIPE_REVIEW_INVALID", processing: oldProcessing,
+      projectId, recipeId, requestId,
+    });
+    const failedAssessment = await prisma.qaExecutionRecipeAssessment.findFirstOrThrow({ where: { recipeId } });
+    const failedOperation = await prisma.qaGenerationExecution.findUniqueOrThrow({ where: { id: originalReview.id } });
+    const immutableRecipe = await prisma.qaExecutionRecipe.findUniqueOrThrow({
+      include: { items: true }, where: { id: recipeId },
+    });
+    const executionRepository = createQaExecutionRepository(prisma);
+    const startInput = {
+      actor,
+      confirmProduction: false,
+      expectedRequestVersion: detail.version,
+      profileKey: profile.profileKey,
+      projectId,
+      recipeHash: immutableRecipe.recipeHash,
+      recipeId,
+      requestId,
+      runnerRegistrationId: runner.id,
+    };
+    await assert.rejects(executionRepository.start(startInput),
+      (error: unknown) => getErrorCode(error) === "QA_RECIPE_ASSESSMENT_FAILED");
+    const retryInput = { actor, assessmentId: failedAssessment.id, projectId, recipeId, requestId };
+    await assert.rejects(recipeRepository.queueReviewRetry({
+      ...retryInput, actor: { ...actor, userId: "another-owner" },
+    }), (error: unknown) => getErrorCode(error) === "QA_REQUEST_NOT_FOUND");
+    await assert.rejects(recipeRepository.queueReviewRetry({
+      ...retryInput, actor: { ...actor, kind: "INTEGRATION", transport: "REST" },
+    }), (error: unknown) => getErrorCode(error) === "QA_RECIPE_REVIEW_OWNER_REQUIRED");
+    await assert.rejects(recipeRepository.queueReviewRetry({ ...retryInput, assessmentId: "stale-assessment" }),
+      (error: unknown) => getErrorCode(error) === "QA_RECIPE_REVIEW_RETRY_INVALID");
+
+    // Exercise a real transaction rollback after both retry records have been inserted.
+    const rollbackRepository = createQaExecutionRecipeRepository({
+      $transaction: (action: (tx: unknown) => Promise<unknown>) => prisma.$transaction(async (tx) => action(
+        new Proxy(tx, {
+          get(target, key) {
+            if (key !== "qaWorkflowEvent") return Reflect.get(target, key);
+            return new Proxy(tx.qaWorkflowEvent, {
+              get(events, method) {
+                if (method === "create") return async () => { throw new Error("synthetic retry audit failure"); };
+                return Reflect.get(events, method);
+              },
+            });
+          },
+        })
+      )),
+    } as unknown as typeof prisma);
+    await assert.rejects(rollbackRepository.queueReviewRetry(retryInput), /synthetic retry audit failure/);
+    assert.equal(await prisma.qaExecutionRecipeAssessment.count({ where: { recipeId } }), 1);
+    assert.equal(await prisma.qaGenerationExecution.count({ where: { recipeId } }), 1);
+
+    const retryIds = await Promise.all(Array.from({ length: 5 }, () => recipeRepository.queueReviewRetry(retryInput)));
+    assert.equal(new Set(retryIds).size, 1);
+    const retryId = retryIds[0]!;
+    const retryOperation = await prisma.qaGenerationExecution.findUniqueOrThrow({ where: { id: retryId } });
+    assert.equal(retryOperation.recipeId, immutableRecipe.id);
+    assert.equal(retryOperation.artifactId, immutableRecipe.artifactId);
+    assert.equal(retryOperation.attempts, 0);
+    assert.match(retryOperation.idempotencyKeyHash!, /^[a-f0-9]{64}$/);
+    assert.deepEqual(retryOperation.profileManifest, immutableRecipe.profileManifest);
+    assert.equal(retryOperation.profileManifestHash, immutableRecipe.profileManifestHash);
+    assert.equal(await prisma.qaExecutionRecipeAssessment.count({ where: { recipeId } }), 2);
+    assert.equal(await prisma.qaGenerationExecution.count({ where: { recipeId } }), 2);
+    assert.equal(await prisma.qaWorkflowEvent.count({ where: { requestId, type: "EXECUTION_RECIPE_REVIEW_RETRIED" } }), 1);
+    assert.equal(await prisma.qaExecutionAuthorization.count({ where: { recipeId } }), 0);
+    assert.equal(await prisma.qaRun.count({ where: { requestId } }), 0);
+    assert.deepEqual(await prisma.qaExecutionRecipe.findUniqueOrThrow({ include: { items: true }, where: { id: recipeId } }), immutableRecipe);
+    const pending = await prisma.qaExecutionRecipeAssessment.findFirstOrThrow({
+      orderBy: { createdAt: "desc" }, where: { recipeId },
+    });
+    assert.notEqual(pending.id, failedAssessment.id);
+    assert.equal(pending.status, "PENDING");
+    await assert.rejects(executionRepository.start(startInput),
+      (error: unknown) => getErrorCode(error) === "QA_RECIPE_ASSESSMENT_PENDING");
+    assert.equal(await prisma.qaExecutionAuthorization.count({ where: { recipeId } }), 0);
+    assert.equal(await prisma.qaRun.count({ where: { requestId } }), 0);
+    const retryProcessing = { executionId: retryId, leaseToken: "new-review-lease" };
+    await prisma.qaGenerationExecution.update({
+      data: {
+        attempts: 1, leaseExpiresAt: new Date(Date.now() + 60_000),
+        leaseToken: retryProcessing.leaseToken, status: "PROCESSING",
+      },
+      where: { id: retryId },
+    });
+    await assert.rejects(recipeRepository.completeAssessment({
+      actor, processing: oldProcessing, projectId, recipeId, requestId, status: "PASSED", suggestions: [],
+    }), (error: unknown) => getErrorCode(error) === "QA_PROCESSING_LEASE_LOST");
+    await assert.rejects(recipeRepository.failAssessment({
+      actor, errorCode: "STALE_FAILURE", processing: oldProcessing, projectId, recipeId, requestId,
+    }), (error: unknown) => getErrorCode(error) === "QA_PROCESSING_LEASE_LOST");
+    await recipeRepository.completeAssessment({
+      actor, processing: retryProcessing, projectId, recipeId, requestId, status: "PASSED", suggestions: [],
+    });
+    assert.equal(await recipeRepository.queueReviewRetry(retryInput), retryId);
+    assert.equal(await prisma.qaGenerationExecution.count({ where: { recipeId } }), 2);
+    assert.deepEqual(await prisma.qaExecutionRecipeAssessment.findUniqueOrThrow({ where: { id: failedAssessment.id } }), failedAssessment);
+    assert.deepEqual(await prisma.qaGenerationExecution.findUniqueOrThrow({ where: { id: originalReview.id } }), failedOperation);
+    assert.equal((await prisma.qaExecutionRecipeAssessment.findUniqueOrThrow({ where: { id: pending.id } })).status, "PASSED");
+    await t.test("deduplicates concurrent submissions by both Recipe and immutable profile", async () => {
+      const repeatedIds = await Promise.all(Array.from({ length: 4 }, () =>
+        recipeRepository.submitRecipe(submitRecipeInput)));
+      assert.deepEqual(repeatedIds, Array(4).fill(recipeId));
+      const stagingProfile = resolveProfileManifest({
+        ...profile, environmentKind: "STAGING", manifestHash: undefined,
+      });
+      const stagingIds = await Promise.all(Array.from({ length: 4 }, () =>
+        recipeRepository.submitRecipe({ ...submitRecipeInput, profileManifest: stagingProfile })));
+      assert.equal(new Set(stagingIds).size, 1);
+      assert.notEqual(stagingIds[0], recipeId);
+      const stagingRecipe = await prisma.qaExecutionRecipe.findUniqueOrThrow({
+        include: { assessments: true }, where: { id: stagingIds[0]! },
+      });
+      assert.equal(stagingRecipe.revision, immutableRecipe.revision + 1);
+      assert.equal(stagingRecipe.recipeHash, immutableRecipe.recipeHash);
+      assert.equal(stagingRecipe.profileManifestHash, stagingProfile.manifestHash);
+      assert.notEqual(stagingRecipe.profileManifestHash, immutableRecipe.profileManifestHash);
+      assert.equal(stagingRecipe.assessments.length, 1);
+      assert.equal(stagingRecipe.assessments[0]?.status, "PENDING");
+      assert.equal(await prisma.qaGenerationExecution.count({ where: { recipeId: stagingRecipe.id } }), 1);
+      assert.equal(await prisma.qaExecutionRecipe.count({ where: { artifactId } }), 2);
+      assert.equal(await prisma.qaExecutionRecipeAssessment.count({ where: { recipeId } }), 2);
+      assert.equal((await prisma.qaExecutionRecipeAssessment.findUniqueOrThrow({ where: { id: pending.id } })).status, "PASSED");
+      assert.deepEqual(await prisma.qaExecutionRecipe.findUniqueOrThrow({
+        include: { items: true }, where: { id: recipeId },
+      }), immutableRecipe);
+    });
+
+    const integrationActor = {
+      connectionTokenId: connection.id,
+      kind: "INTEGRATION" as const,
+      transport: "REST" as const,
+      userId,
+    };
+    const productionProfile = resolveProfileManifest({
+      ...profile, environmentKind: "PRODUCTION", manifestHash: undefined,
+    });
+    const setRunnerProfile = (changed: boolean) => runnerRepository.upsertRegistration({
+      connectionTokenId: connection.id,
+      projectId,
+      registration: { ...registration, profiles: [changed ? productionProfile : profile] },
+    });
+    const startReviewedRun = async () => {
+      const request = await prisma.qaRequest.findUniqueOrThrow({ where: { id: requestId } });
+      const started = await executionRepository.start({
+        ...startInput, expectedRequestVersion: request.version,
+      });
+      return { ...started, requestVersion: request.version };
+    };
+    const claimRun = (leaseToken: string) => executionRepository.claim({
+      actor: integrationActor,
+      connectionTokenId: connection.id,
+      leaseExpiresAt: new Date(Date.now() + 60_000),
+      leaseToken,
+      request: { instanceId: registration.instanceId, registrationId: runner.id },
+    });
+    const assertApprovalFailurePersisted = async (started: {
+      executionId: string; runId: string; requestVersion: number;
+    }) => {
+      const job = await prisma.qaExecutionJob.findUniqueOrThrow({
+        include: { authorization: true, run: true }, where: { id: started.executionId },
+      });
+      assert.equal(job.status, "FAILED");
+      assert.equal(job.errorCode, "QA_PROFILE_MANIFEST_CHANGED");
+      assert.equal(job.leaseExpiresAt, null);
+      assert.equal(job.leaseTokenHash, null);
+      assert.ok(job.completedAt);
+      assert.equal(job.run.status, "CANCELLED");
+      assert.equal(job.run.version, 2);
+      assert.equal(job.authorization.productionConfirmed, false);
+      assert.equal(job.authorization.profileManifestHash, profile.manifestHash);
+      assert.equal(job.profileManifestHash, profile.manifestHash);
+      const request = await prisma.qaRequest.findUniqueOrThrow({ where: { id: requestId } });
+      assert.equal(request.phase, "READY_TO_RUN");
+      assert.equal(request.version, started.requestVersion + 2);
+      assert.equal(await prisma.qaCheckResult.count({ where: { runId: started.runId } }), 0);
+      assert.equal(await prisma.qaEvidence.count({ where: { runId: started.runId } }), 0);
+      const failureEvents = await prisma.qaWorkflowEvent.findMany({
+        where: { requestId, type: "EXECUTION_FAILED" },
+      });
+      assert.equal(failureEvents.filter((event) =>
+        (event.metadata as { executionId?: string } | null)?.executionId === started.executionId).length, 1);
+    };
+
+    await t.test("cannot claim a TEST approval as PRODUCTION after re-registration", async () => {
+      const started = await startReviewedRun();
+      await setRunnerProfile(true);
+      assert.equal(await claimRun("changed-profile-before-claim-token"), null);
+      await assertApprovalFailurePersisted(started);
+      await setRunnerProfile(false);
+    });
+
+    await t.test("commits terminal failure before rejecting acceptance after a profile change", async () => {
+      const started = await startReviewedRun();
+      const leaseToken = "changed-profile-after-claim-token";
+      const claimed = await claimRun(leaseToken) as QaExecutionClaimResult;
+      assert.equal(claimed.claim.executionId, started.executionId);
+      assert.deepEqual(claimed.task.profile, profile);
+      await setRunnerProfile(true);
+      await assert.rejects(executionRepository.accept({
+        actor: integrationActor, connectionTokenId: connection.id, executionId: started.executionId,
+        lease: { claimId: claimed.claim.claimId, leaseToken },
+      }), (error: unknown) => getErrorCode(error) === "QA_PROFILE_MANIFEST_CHANGED");
+      await assertApprovalFailurePersisted(started);
+      await setRunnerProfile(false);
+    });
+
+    await t.test("revalidates the immutable profile before reclaiming an expired running lease", async () => {
+      const started = await startReviewedRun();
+      const leaseToken = "expired-running-lease-profile-token";
+      const claimed = await claimRun(leaseToken) as QaExecutionClaimResult;
+      assert.equal(claimed.claim.executionId, started.executionId);
+      await executionRepository.accept({
+        actor: integrationActor, connectionTokenId: connection.id, executionId: started.executionId,
+        lease: { claimId: claimed.claim.claimId, leaseToken },
+      });
+      // Only this test-owned job is expired; no clock wait or user record is needed.
+      await prisma.qaExecutionJob.update({
+        data: { leaseExpiresAt: new Date(Date.now() - 1_000) }, where: { id: started.executionId },
+      });
+      await setRunnerProfile(true);
+      assert.equal(await claimRun("replacement-lease-must-not-get-a-task"), null);
+      await assertApprovalFailurePersisted(started);
+      assert.equal((await prisma.qaExecutionJob.findUniqueOrThrow({ where: { id: started.executionId } })).attempts, 2);
+      await setRunnerProfile(false);
+    });
+
+    const started = await startReviewedRun();
+    const agentConnection = await prisma.projectConnectionToken.create({
+      data: {
+        name: "Unassigned QA agent", ownerId: userId, projectId,
+        scopes: ["qa:read", "qa:write", "evidence:write"],
+        tokenHash: createHash("sha256").update(uniqueId("agent-token")).digest("hex"),
+        tokenPrefix: "odp_live_test_agent",
+      },
+    });
+    const genericActors = [
+      actor,
+      { ...integrationActor, connectionTokenId: agentConnection.id },
+      { ...integrationActor, connectionTokenId: agentConnection.id, transport: "MCP" as const },
+    ];
+    const mutationSnapshot = async () => ({
+      request: await prisma.qaRequest.findUniqueOrThrow({ where: { id: requestId } }),
+      run: await prisma.qaRun.findUniqueOrThrow({ where: { id: started.runId } }),
+      job: await prisma.qaExecutionJob.findUniqueOrThrow({ where: { id: started.executionId } }),
+      results: await prisma.qaCheckResult.findMany({ where: { runId: started.runId } }),
+      evidence: await prisma.qaEvidence.findMany({ where: { runId: started.runId } }),
+      eventCount: await prisma.qaWorkflowEvent.count({ where: { requestId } }),
+    });
+    const assertGenericMutationsRejected = async () => {
+      const before = await mutationSnapshot();
+      for (const genericActor of genericActors) {
+        const runInput = { actor: genericActor, projectId, requestId, runId: started.runId };
+        await assert.rejects(requestRepository.recordCheckResult({
+          ...runInput, checklistItemId: checklistItem.id, expectedVersion: before.run.version, status: "PASS",
+        }), (error: unknown) => getErrorCode(error) === "QA_EXECUTION_PROTOCOL_REQUIRED");
+        await assert.rejects(requestRepository.addEvidence({
+          ...runInput, assetIds: [], checklistItemId: checklistItem.id, kind: "TEXT",
+          requirementId: requirement.id, textContent: "Generic writes must not alter an approved execution.",
+        }), (error: unknown) => getErrorCode(error) === "QA_EXECUTION_PROTOCOL_REQUIRED");
+        await assert.rejects(requestRepository.finishRun({
+          ...runInput, expectedVersion: before.run.version,
+        }), (error: unknown) => getErrorCode(error) === "QA_EXECUTION_PROTOCOL_REQUIRED");
+      }
+      assert.deepEqual(await mutationSnapshot(), before);
+    };
+    for (const status of ["CREATED", "ACTIVE"] as const) {
+      await t.test(`rejects owner and generic REST/MCP writes without side effects for ${status} runs`, async () => {
+        // Start creates ACTIVE runs; also cover the supported CREATED enum with test-owned fixture state.
+        await prisma.qaRun.update({ data: { status }, where: { id: started.runId } });
+        await assertGenericMutationsRejected();
+      });
+    }
+
+    const leaseToken = "integration-lease-token-that-is-long-enough";
+    const claimed = await executionRepository.claim({
+      actor: integrationActor,
+      connectionTokenId: connection.id,
+      leaseExpiresAt: new Date(Date.now() + 60_000),
+      leaseToken,
+      request: { instanceId: "postgres-runner-1", registrationId: runner.id },
+    }) as QaExecutionClaimResult;
+    assert.equal(claimed.claim.executionId, started.executionId);
+    assert.deepEqual(claimed.task.profile, profile);
+    const lease = { claimId: claimed.claim.claimId, leaseToken };
+    await executionRepository.accept({
+      actor: integrationActor,
+      connectionTokenId: connection.id,
+      executionId: started.executionId,
+      lease,
+    });
+    const itemReceipt = await executionRepository.recordItem({
+      actor: integrationActor,
+      checklistItemId: checklistItem.id,
+      connectionTokenId: connection.id,
+      executionId: started.executionId,
+      lease,
+      submission: {
+        evidence: [{
+          kind: "TEXT",
+          requirementId: requirement.id,
+          textContent: "Checkout heading was visible in the disposable test.",
+        }],
+        expectedRunVersion: claimed.task.runVersion,
+        observedResult: "Checkout heading is visible.",
+        status: "PASS",
+      },
+    }) as { runVersion: number };
+    await t.test("keeps generic mutations fenced even when Runner results and required proof are complete", async () => {
+      await assertGenericMutationsRejected();
+    });
+    await executionRepository.finish({
+      actor: integrationActor,
+      connectionTokenId: connection.id,
+      executionId: started.executionId,
+      finish: { expectedRunVersion: itemReceipt.runVersion },
+      lease,
+    });
+    const finishedJob = await prisma.qaExecutionJob.findUniqueOrThrow({
+      where: { id: started.executionId },
+    });
+    assert.equal(finishedJob.status, "SUCCEEDED");
+
+    const deleted = await createPrismaProjectsRepository(prisma).deleteOwnedProject(userId, projectId);
+    assert.equal(deleted, 1);
+    assert.equal(await prisma.qaExecutionJob.count({ where: { projectId } }), 0);
+    assert.equal(await prisma.qaRequest.count({ where: { projectId } }), 0);
+  });
 });
+
+interface QaLifecycleDetail {
+  phase: string;
+  version: number;
+  artifacts: Array<{
+    id: string;
+    items: Array<{
+      id: string;
+      evidenceRequirements: Array<{ id: string }>;
+    }>;
+  }>;
+  runs: Array<{ id: string; outcome: string; version: number }>;
+  reviews: Array<{ decision: string }>;
+  events: Array<{ sequence: number }>;
+}
+
+interface QaExecutionClaimResult {
+  claim: { claimId: string; executionId: string };
+  task: ExecutionTaskV1;
+}
 
 after(async () => {
   if (trackedGuestIds.length > 0) {
@@ -926,6 +1708,9 @@ after(async () => {
     ]);
   }
   if (trackedAssetIds.length > 0) {
+    await pool.query(`DELETE FROM "MessageAttachment" WHERE "assetId" = ANY($1::text[])`, [
+      trackedAssetIds,
+    ]);
     await pool.query(`DELETE FROM "StoredAsset" WHERE "id" = ANY($1::text[])`, [
       trackedAssetIds,
     ]);

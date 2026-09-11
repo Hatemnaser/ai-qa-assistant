@@ -1,9 +1,20 @@
 # Oddpath
 
-Oddpath is a QA-focused AI workspace for test cases, bug reports, edge cases, checklist generation, visual review, and chat export/import.
+Oddpath is a project-scoped QA control plane. Agents execute checks; Oddpath
+keeps the reviewable request, locked context, immutable checklist, results,
+evidence, status, history, and Human Review decision. QA Chat remains available
+as a separate collaboration surface.
 
 ## What It Does
 
+- Makes QA Requests, operational status, evidence, immutable artifacts, and
+  Human Review the primary product workflow.
+- Lets project owners generate or select executable checklists and review the
+  resulting evidence before approval.
+- Connects Codex, Claude, and other agent clients through project-scoped REST
+  and Remote MCP credentials without coupling the workflow to one agent vendor.
+- Queues checklist/Recipe generation and review asynchronously, and can execute
+  an owner-approved immutable RecipeV1 through the local `apps/runner` CLI.
 - Generates practical QA artifacts: test cases, bug reports, edge cases, QA checklists, and visual reviews.
 - Supports guest demo usage with backend credit limits before AI calls.
 - Supports password accounts with httpOnly session cookies.
@@ -33,22 +44,35 @@ Vue app
   -> /api/chat       chat orchestration, usage guard, workflow routing
   -> /api/chats      signed-in user chat persistence and project links
   -> /api/projects   projects, instructions, and project documents
+  -> /api/projects/:projectId/qa
+                     owner QA workflow and Human Review
+  -> /api/integrations/v1
+                     project-token REST adapters for agents and local Runners
+  -> /api/mcp        stateless Streamable HTTP MCP adapter for agents
   -> /api/memories   signed-in account memory
   -> /api/ai/models  active provider model catalog
   -> /api/settings   signed-in user preferences
   -> /api/usage      current identity usage summary
 
 Express API
-  -> Prisma/PostgreSQL for users, sessions, chats, projects, knowledge, and usage
+  -> Prisma/PostgreSQL for users, sessions, projects, QA records, evidence,
+     chats, knowledge, and usage
   -> shared project access boundary for project-owned resources
+  -> one transactional QA domain behind the web, REST, and MCP adapters
   -> AI provider registry for Gemini today and future providers later
   -> model router + fallback for general, visual, and fallback model choices
   -> workflow router for multilingual and ambiguous QA intent detection
+
+Local Playwright Runner
+  -> apps/runner CLI with local base URLs and value/secret resolution
+  -> immutable RecipeV1 tasks, leased execution, results, and evidence
 ```
 
 Key architecture docs:
 
 - [Architecture](docs/ARCHITECTURE.md)
+- [QA Control Plane](docs/QA_CONTROL_PLANE.md)
+- [QA Execution Harness](docs/QA_EXECUTION_HARNESS.md)
 - [Development Guide](docs/DEVELOPMENT_GUIDE.md)
 - [Oddpath Real-User Launch Plan](docs/ODDPATH_LAUNCH_PLAN.md)
 - [Cloudflare + Render Deployment Runbook](docs/DEPLOYMENT_CLOUDFLARE_RENDER.md)
@@ -60,9 +84,13 @@ Key architecture docs:
 ```text
 apps/
   api/        TypeScript Express API
+  runner/     Local Playwright execution CLI
   web/        Vue 3 web app
     src/
       styles/ App SCSS partials imported by Vite
+
+packages/
+  qa-execution-contract/ Shared RecipeV1 and Runner protocol contracts
 
 docs/         Architecture, migration, cleanup, readiness, and development notes
 docker-compose.yml
@@ -103,6 +131,21 @@ The API runs on:
 ```text
 http://127.0.0.1:5000
 ```
+
+To exercise an owner-approved Playwright Recipe locally, copy
+`apps/runner/oddpath.runner.example.json` to the ignored
+`apps/runner/oddpath.runner.json`, configure its profile, install the selected
+browser once, and start the Runner in a third terminal:
+
+```powershell
+$env:ODDPATH_RUNNER_TOKEN = "odp_live_replace_me"
+npx playwright install chromium
+npm run dev:runner
+```
+
+The complete trust boundary, profile/value setup, production double gate, and
+known retry limitations are documented in
+[QA Execution Harness](docs/QA_EXECUTION_HARNESS.md).
 
 ## Environment
 
@@ -161,6 +204,7 @@ environment-specific values.
 ```bash
 npm run verify
 npm run build:api
+npm run build:runner
 npm run build:web
 ```
 
@@ -170,19 +214,20 @@ The scheduled operations commands run compiled API artifacts. Run
 `npm run cleanup:retention:dev` and `npm run assets:cleanup:dev` variants;
 production schedulers must not use `tsx` or a `*:dev` command.
 
-`npm run verify` starts with API source, API test, and web type checks so
-generated Prisma client code exists even on a clean CI checkout and test mocks
-cannot silently drift from application contracts. It then runs both test
-suites. The API check also enforces repository contract boundaries and rejects
-runtime dependency cycles through `npm run check:architecture`. GitHub CI
+`npm run verify` checks the shared execution contract, API source/tests, local
+Runner source/tests, and web source/tests so generated Prisma client code exists
+even on a clean CI checkout and mocks cannot silently drift from application
+contracts. The API check also enforces repository contract boundaries and
+rejects runtime dependency cycles through `npm run check:architecture`. GitHub CI
 also applies every committed migration to a fresh PostgreSQL 16 service before
 the verification and build gates. It then fails closed if migration history or
 the deployed database shape differs from `schema.prisma`, and runs a focused
 real-PostgreSQL suite for terms, private assets, the auth-email outbox, and
 concurrent usage, project-count, chat-count, document-count, and asset-byte
 reservations. The suite also matches Prisma's applied migration rows to every
-committed migration, exercises owner-scoped project mutations, and verifies
-that invalid source-asset links roll back atomically.
+committed migration, exercises owner-scoped project mutations and the
+`claim -> accept -> result -> finish -> project deletion` QA lifecycle, and
+verifies that invalid source-asset links roll back atomically.
 
 To run those database-only gates locally, point at a disposable migrated test
 database whose name contains a distinct `test` or `ci` segment. The integration
@@ -213,6 +258,17 @@ Current verification status and exact test counts are tracked in
 ## Current Gaps
 
 - Google OAuth is not wired yet; the UI button is disabled intentionally.
+- Project and Account portable ZIPs do not yet include QA records or QA
+  evidence.
+- Standard project-token agents cannot initiate private evidence uploads yet.
+  They can reference credential-free HTTPS evidence, or use an owner-preuploaded
+  `QA_EVIDENCE` asset; the separate local Runner protocol supports
+  execution-bound screenshot uploads.
+- QA checklist and Recipe generation/review are asynchronous with bounded
+  worker retries, but there is no user-facing cancellation or manual retry flow
+  for failed generation operations.
+- The AI boundary is swappable, but Gemini is still the only registered runtime
+  provider and production environment validation is Gemini-specific.
 - Project member authorization, smart memory import/export, and broader
   attachment support are future work.
 - Admin usage, plans/billing, PDF/video, and provider file uploads are roadmap items.
@@ -221,6 +277,9 @@ Current verification status and exact test counts are tracked in
   reviewed retention policy plus scheduled/monitored retention and external
   object-deletion jobs. Relational account deletion and bounded retention
   cleanup are already implemented.
+- The local execution harness does not remove those production gates; use
+  disposable/idempotent target data because retries cannot make browser-side
+  effects atomic.
 
 ## Styling
 

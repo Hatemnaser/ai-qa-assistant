@@ -26,6 +26,7 @@ import { useAppRoute, type AuthView } from "./router/useAppRoute";
 const ForgotPasswordPage = defineAsyncComponent(() => import("./features/auth/pages/ForgotPasswordPage.vue"));
 const LoginPage = defineAsyncComponent(() => import("./features/auth/pages/LoginPage.vue"));
 const ProjectsPage = defineAsyncComponent(() => import("./features/projects/ProjectsPage.vue"));
+const QaWorkspacePage = defineAsyncComponent(() => import("./features/qa/QaWorkspacePage.vue"));
 const RegisterPage = defineAsyncComponent(() => import("./features/auth/pages/RegisterPage.vue"));
 const ResetPasswordPage = defineAsyncComponent(() => import("./features/auth/pages/ResetPasswordPage.vue"));
 const SettingsPage = defineAsyncComponent(() => import("./features/settings/SettingsPage.vue"));
@@ -39,6 +40,7 @@ const {
   navigateToProjects,
   navigateToSettings,
   navigateToUsage,
+  navigateToWorkspace,
 } = useAppRoute();
 const { clearCurrentUser, currentUser, loadCurrentUser, logoutCurrentUser, setAuthenticatedUser } = useAuthSession();
 const isGuestLimitModalOpen = ref(false);
@@ -66,7 +68,7 @@ function handleAuthenticated(user: AuthUser) {
   setChatStorageOwner(user.id, { adoptGuestChats: true });
   clearGuestLimitReached();
   isGuestLimitModalOpen.value = false;
-  navigateToChat();
+  navigateToWorkspace();
   void applyAccountSettings();
   void syncAccountChats();
 }
@@ -85,6 +87,11 @@ function handleOpenProjects() {
   chatPendingProjectCreate.value = null;
   projectToOpenId.value = null;
   navigateToProjects();
+}
+
+function handleOpenWorkspace() {
+  chatPendingProjectCreate.value = null;
+  navigateToWorkspace();
 }
 
 function handleNewProject() {
@@ -136,7 +143,7 @@ function handleAccountDeleted(userId: string) {
   closeGlobalProjectCreateModal();
   projectLoadError.value = "";
   clearGuestLimitReached();
-  navigateToChat();
+  navigateToWorkspace();
 }
 
 const {
@@ -225,7 +232,7 @@ watch(
 );
 
 watch(currentRoute, (route) => {
-  if (route === "chat") {
+  if (route === "chat" || route === "workspace") {
     void loadAccountProjects();
   }
 });
@@ -509,6 +516,7 @@ async function persistThemeSetting() {
       :current-user="currentUser"
       :is-chat-route="currentRoute === 'chat'"
       :is-projects-route="currentRoute === 'projects'"
+      :is-workspace-route="currentRoute === 'workspace'"
       :projects="accountProjects"
       :renaming-chat-id="renamingChatId"
       :theme-toggle-label="themeToggleLabel"
@@ -522,6 +530,7 @@ async function persistThemeSetting() {
       @open-projects="handleOpenProjects"
       @open-settings="navigateToSettings"
       @open-usage="navigateToUsage"
+      @open-workspace="handleOpenWorkspace"
       @select-chat="handleSidebarChatSelected"
       @sign-in="navigateToAuth('login')"
       @open-chat-menu="openChatMenuForChat"
@@ -529,7 +538,20 @@ async function persistThemeSetting() {
       @toggle-theme="handleToggleTheme"
     />
 
-    <main v-if="currentRoute === 'usage'" class="chat-layout">
+    <main v-if="currentRoute === 'workspace'" class="chat-layout">
+      <QaWorkspacePage
+        :current-user="currentUser"
+        :is-loading-projects="isLoadingProjects"
+        :project-load-error="projectLoadError"
+        :project-to-open-id="projectToOpenId"
+        :projects="accountProjects"
+        @new-project="handleNewProject"
+        @open-chat="handleNewChat"
+        @sign-in="navigateToAuth('login')"
+      />
+    </main>
+
+    <main v-else-if="currentRoute === 'usage'" class="chat-layout">
       <UsagePage
         :identity-key="currentUser ? `user:${currentUser.id}` : 'guest'"
         @back-to-chat="navigateToChat"

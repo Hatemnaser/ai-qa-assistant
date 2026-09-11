@@ -83,6 +83,11 @@ jobs:
           NODE_ENV: production
         run: npm run build:api
 
+      - name: Build local Runner
+        env:
+          NODE_ENV: production
+        run: npm run build:runner
+
       - name: Build web app
         env:
           NODE_ENV: production

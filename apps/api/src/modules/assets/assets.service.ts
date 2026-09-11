@@ -53,8 +53,11 @@ export function createAssetsService({
       sizeBytes: input.expectedSizeBytes,
     });
 
-    if (input.purpose === "PROJECT_DOCUMENT_SOURCE" && !input.projectId) {
-      throw new AppError("Project document assets require a project.", 400, "ASSET_PROJECT_REQUIRED");
+    if (
+      (input.purpose === "PROJECT_DOCUMENT_SOURCE" || input.purpose === "QA_EVIDENCE") &&
+      !input.projectId
+    ) {
+      throw new AppError("Project-scoped assets require a project.", 400, "ASSET_PROJECT_REQUIRED");
     }
 
     if (input.projectId) {
@@ -249,7 +252,12 @@ function isMissingStoredObject(error: unknown) {
 }
 
 function defaultObjectKey(purpose: AssetPurpose, createdAt: Date) {
-  const prefix = purpose === "CHAT_ATTACHMENT" ? "chat-attachments" : "project-documents";
+  const prefix =
+    purpose === "CHAT_ATTACHMENT"
+      ? "chat-attachments"
+      : purpose === "PROJECT_DOCUMENT_SOURCE"
+        ? "project-documents"
+        : "qa-evidence";
   const date = createdAt.toISOString().slice(0, 10).replaceAll("-", "/");
   return `${prefix}/${date}/${randomBytes(24).toString("hex")}`;
 }

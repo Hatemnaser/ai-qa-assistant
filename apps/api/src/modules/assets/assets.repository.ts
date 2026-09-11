@@ -125,6 +125,7 @@ export function createPrismaAssetsRepository(database: typeof prisma = prisma): 
               {
                 status: "READY",
                 messageAttachment: null,
+                qaEvidenceAsset: null,
                 sourceDocument: null,
                 readyAt: { lte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
               },
@@ -140,6 +141,7 @@ export function createPrismaAssetsRepository(database: typeof prisma = prisma): 
             where: {
               id: candidate.id,
               messageAttachment: null,
+              qaEvidenceAsset: null,
               sourceDocument: null,
               status: candidate.status,
             },
@@ -179,6 +181,11 @@ export function createPrismaAssetsRepository(database: typeof prisma = prisma): 
                   SELECT 1
                   FROM "ProjectDocument" AS document
                   WHERE document."sourceAssetId" = asset."id"
+                )
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM "QaEvidenceAsset" AS evidence_asset
+                  WHERE evidence_asset."assetId" = asset."id"
                 )
               )
             )
@@ -271,6 +278,7 @@ export function createPrismaAssetsRepository(database: typeof prisma = prisma): 
               id: asset.id,
               messageAttachment: null,
               objectKey,
+              qaEvidenceAsset: null,
               sourceDocument: null,
               status: "DELETE_PENDING",
             },
@@ -331,7 +339,9 @@ async function enqueueAssetDeletionForStatuses(
         id: assetId,
         ownerId,
         status: { in: statuses },
-        ...(statuses.includes("READY") ? { messageAttachment: null, sourceDocument: null } : {}),
+        ...(statuses.includes("READY")
+          ? { messageAttachment: null, qaEvidenceAsset: null, sourceDocument: null }
+          : {}),
       },
     });
 

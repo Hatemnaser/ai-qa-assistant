@@ -14,7 +14,7 @@ export const initiateAssetSchema = z.object({
     "File name contains unsupported characters."
   ),
   projectId: z.string().trim().min(1).max(120).nullish().transform((value) => value || null),
-  purpose: z.enum(["CHAT_ATTACHMENT", "PROJECT_DOCUMENT_SOURCE"]),
+  purpose: z.enum(["CHAT_ATTACHMENT", "PROJECT_DOCUMENT_SOURCE", "QA_EVIDENCE"]),
 }).strict();
 
 export const completeAssetSchema = z.object({

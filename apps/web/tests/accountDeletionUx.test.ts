@@ -14,7 +14,7 @@ describe("account deletion UX contract", () => {
     assert.doesNotMatch(source, /window\.confirm/);
   });
 
-  it("clears the deleted user's local chats and in-memory session before returning to guest chat", async () => {
+  it("clears the deleted user's local chats and in-memory session before returning to the guest workspace", async () => {
     const source = await readSource("src/App.vue");
     const handler = source.match(/function handleAccountDeleted[\s\S]*?\n}/)?.[0] || "";
 
@@ -22,7 +22,7 @@ describe("account deletion UX contract", () => {
     assert.match(handler, /clearChats\(getUserChatStorageScope\(userId\)\)/);
     assert.match(handler, /clearCurrentUser\(\)/);
     assert.match(handler, /setChatStorageOwner\(null\)/);
-    assert.match(handler, /navigateToChat\(\)/);
+    assert.match(handler, /navigateToWorkspace\(\)/);
     assert.match(source, /@account-deleted="handleAccountDeleted"/);
   });
 });
