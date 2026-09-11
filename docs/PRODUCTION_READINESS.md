@@ -22,6 +22,8 @@ The application architecture can be deployed as:
 - `apps/api`: long-running Node/Express service.
 - PostgreSQL: managed durable database.
 - Gemini: server-side provider integration.
+- QA integrations: project-scoped bearer REST and stateless Remote MCP over
+  the same owner-reviewed QA lifecycle.
 - R2: the fail-closed private EU storage foundation and browser/API product
   integration are implemented; provider provisioning, scheduler monitoring,
   and staging validation remain launch workstreams.
@@ -44,6 +46,39 @@ The CI workflow includes a separate fail-closed production dependency audit.
 Any high or critical advisory in the deployable dependency tree blocks Render's
 checks-pass deployment until the dependency is upgraded or a reviewed,
 documented reachability decision is made.
+
+Security dependency review (2026-09-11): the initial restricted audit reported
+15 affected package entries and no available fixes. Repeating it with complete
+registry metadata identified 5 affected entries (3 high, 2 moderate) and
+compatible upstream patches. Counts include parent dependencies, not just
+distinct advisories. The installed root advisory package versions matched the
+`eca4406` baseline, although the current MCP dependency graph adds dependents.
+
+The repaired lockfile resolves the following versions; the production audit
+now returns exit 0 with zero reported vulnerabilities. No severity downgrade,
+advisory exception, or CI bypass was used.
+
+| Package | Previous | Resolved | Remediation |
+| --- | --- | --- | --- |
+| `fast-uri` | 3.1.5 | 3.1.7 | Existing Ajv-compatible 3.x range; includes the [additional authority/host security fixes](https://github.com/fastify/fast-uri/releases/tag/v3.1.7). |
+| `qs` | 6.15.3 | 6.16.0 | Existing Express/body-parser-compatible 6.x ranges; [parser/stringifier fixes](https://github.com/ljharb/qs/releases/tag/v6.16.0). |
+| `nodemailer` | 9.0.1 | 9.1.1 | Direct dependency minimum raised to `^9.1.1`; [resolver sandbox fix](https://github.com/nodemailer/nodemailer/releases/tag/v9.1.1) plus 9.1.0 recipient/parser fixes. |
+| `mysql2` | 3.15.3 | 3.23.1 | Override scoped to `prisma@7.9.1`; [bounded decompression fix](https://github.com/sidorares/node-mysql2/releases/tag/v3.23.1) and plaintext-auth opt-in. |
+
+Prisma 7.9.1 pins mysql2 3.15.3 exactly, so a lockfile refresh alone cannot fix
+that chain. Keep the scoped override until upgrading Prisma to a version whose
+driver dependency is patched, then rerun audit, generation, migrations,
+PostgreSQL integration, and build checks. Do not take the audit tool's suggested
+Prisma major downgrade or switch to a prerelease merely to remove an alert.
+
+Reachability review found no current MySQL connection path: the app uses
+`PrismaPg` and a PostgreSQL schema. The CLI dependency is still installed by the
+deployment build, so it is patched rather than dismissed as absent. Express
+uses its default simple query parser and JSON bodies; no application qs
+parse/stringify path was found. MCP tool arguments use Zod and no remote Ajv
+schema loader is configured. Auth mail uses single validated recipients and
+fixed string content, with no mail plugins/resolver calls. These observations
+do not replace upgrading or authorize ignoring future advisories.
 
 `deepmerge-ts` is pinned directly at `8.0.1` and overridden at the workspace
 root because Prisma `7.9.1` still declares vulnerable `7.1.5` through its CLI
@@ -70,6 +105,9 @@ audit, Prisma validation/generation, and the full build/test gates green.
 - [x] Add a fail-closed automated target smoke runner with a GET-only default
   and a separately confirmed authenticated project lifecycle check.
 - [ ] Add host/proxy-level rate limiting for public API traffic.
+- [ ] Put `/api/integrations/v1` and `/api/mcp` behind trusted edge limits and
+  shared cross-replica abuse controls. The implemented IP/token limiters are
+  bounded and pre-body, but process-local.
 - [ ] Configure and smoke-test a production SMTP provider for auth email,
   including sender domain DNS, SPF, DKIM, and DMARC.
 - [x] Keep and harden the owned auth boundary for the initial private beta;
@@ -108,6 +146,9 @@ audit, Prisma validation/generation, and the full build/test gates green.
 - [x] Wire bounded private files into Account/Project archive v2 while retaining
   v1 import compatibility; add exact owner-scoped relation completeness,
   staged assets/deletion jobs, and atomic canonical relation finalization.
+- [ ] Extend Account and Project portability to QA Requests, artifacts, runs,
+  evidence, reviews, and their asset bindings before treating the export as a
+  complete real-user QA data export.
 - [x] Keep `PRIVATE_ASSETS_ENABLED=false` in production; startup rejects an
   attempted production enablement.
 - [ ] Complete the activation proof: guarded real-PostgreSQL restore/cleanup
@@ -389,6 +430,16 @@ AI_GLOBAL_MONTHLY_CREDIT_LIMIT=25000
 MAX_MESSAGE_CHARS=3000
 MAX_HISTORY_MESSAGES=10
 REQUEST_BODY_LIMIT=25mb
+
+QA_INTEGRATION_IP_RATE_LIMIT_MAX=120
+QA_INTEGRATION_TOKEN_RATE_LIMIT_MAX=60
+QA_INTEGRATION_RATE_LIMIT_WINDOW_MS=60000
+QA_PROCESSING_WORKER_ENABLED=true
+QA_PROCESSING_CONCURRENCY=2
+QA_PROCESSING_POLL_INTERVAL_MS=1000
+QA_PROCESSING_LEASE_MS=90000
+QA_PROCESSING_TIMEOUT_MS=55000
+QA_PROCESSING_MAX_ATTEMPTS=3
 ```
 
 Review provider quota and billing before increasing limits. Application
@@ -397,6 +448,16 @@ They are deliberately approximate and are not a euro-denominated hard cap;
 configure provider billing alerts and an external budget as well.
 Review request and message limits against the selected host's proxy limits
 before enabling larger uploads.
+
+QA integration limits apply before JSON parsing and independently count the
+request IP and a SHA-256 token fingerprint. They reset on process restart and
+do not coordinate across API replicas, so they complement rather than replace
+the required edge/shared limiter.
+
+The QA processing worker handles durable checklist and Recipe generation/review
+operations. Keep its lease longer than its provider timeout, monitor terminal
+failures and stale queue depth, and run the worker on only the intended API
+replicas for the selected concurrency budget.
 
 ### Private Object Storage Activation Gate
 

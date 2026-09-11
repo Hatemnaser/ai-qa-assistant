@@ -16,6 +16,8 @@ import {
   getProjectMemory,
   saveProjectMemory,
 } from "../project-memory/project-memory.controller.js";
+import { qaRequestsRouter } from "../qa-requests/qa-requests.routes.js";
+import { projectConnectionsRouter } from "../project-connections/project-connections.routes.js";
 import { createProject, deleteProject, listProjects, updateProject } from "./projects.controller.js";
 
 export const projectsRouter = Router();
@@ -23,6 +25,8 @@ export const projectsRouter = Router();
 projectsRouter.use(requireAuth);
 projectsRouter.get("/", listProjects);
 projectsRouter.post("/", createProject);
+projectsRouter.use("/:projectId/qa", qaRequestsRouter);
+projectsRouter.use("/:projectId/connections", projectConnectionsRouter);
 projectsRouter.get("/:projectId/instructions", getProjectInstruction);
 projectsRouter.put("/:projectId/instructions", saveProjectInstruction);
 projectsRouter.get("/:projectId/memory", getProjectMemory);

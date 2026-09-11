@@ -1,8 +1,14 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, type GenerateContentConfig } from "@google/genai";
 
 import { env } from "../../config/env.js";
 import { AppError } from "../../lib/errors.js";
-import type { AiChatInput, AiChatResponse, AiProviderAdapter } from "./ai.types.js";
+import type {
+  AiChatInput,
+  AiChatResponse,
+  AiProviderAdapter,
+  AiTextGenerationInput,
+  AiTextGenerationResponse,
+} from "./ai.types.js";
 import { normalizeGeminiError } from "./gemini.errors.js";
 import {
   GEMINI_DEFAULT_MODEL,
@@ -77,8 +83,63 @@ export async function chatWithGemini(input: AiChatInput): Promise<AiChatResponse
   }
 }
 
+export async function generateTextWithGemini(
+  input: AiTextGenerationInput
+): Promise<AiTextGenerationResponse> {
+  if (!env.geminiApiKey) {
+    throw new AppError(
+      "GEMINI_API_KEY is not configured. Configure a Gemini API key before sending requests.",
+      500,
+      "MISSING_API_KEY"
+    );
+  }
+
+  const selectedModel = normalizeGeminiModel(input.model || env.geminiModel || GEMINI_DEFAULT_MODEL);
+  const ai = new GoogleGenAI({ apiKey: env.geminiApiKey });
+
+  try {
+    const response = await withTimeout(
+      ai.models.generateContent({
+        model: selectedModel,
+        contents: input.prompt,
+        config: buildGeminiTextGenerationConfig(input),
+      }),
+      env.aiTimeoutMs
+    );
+
+    return {
+      text: response.text || "",
+      model: selectedModel,
+      provider: GEMINI_PROVIDER_ID,
+      usage: {
+        inputTokens: response.usageMetadata?.promptTokenCount,
+        outputTokens: response.usageMetadata?.candidatesTokenCount,
+        totalTokens: response.usageMetadata?.totalTokenCount,
+      },
+    };
+  } catch (error) {
+    throw normalizeGeminiError(error, selectedModel, {
+      operation: "structured_text_generation",
+      provider: GEMINI_PROVIDER_ID,
+    });
+  }
+}
+
+export function buildGeminiTextGenerationConfig(input: AiTextGenerationInput): GenerateContentConfig {
+  return {
+    abortSignal: input.signal,
+    maxOutputTokens: input.maxOutputTokens || env.aiMaxOutputTokens,
+    temperature: input.temperature ?? 0.2,
+    responseMimeType: input.responseMimeType,
+    responseJsonSchema: input.responseJsonSchema,
+    systemInstruction: input.systemInstruction,
+    thinkingConfig: { thinkingBudget: 0 },
+  };
+}
+
 export const geminiProvider = {
   chat: chatWithGemini,
+  generateText: generateTextWithGemini,
   defaultModel: GEMINI_DEFAULT_MODEL,
   id: GEMINI_PROVIDER_ID,
   label: "Gemini",

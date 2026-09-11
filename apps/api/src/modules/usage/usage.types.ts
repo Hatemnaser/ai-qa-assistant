@@ -2,11 +2,19 @@ export const CHAT_MESSAGE_ACTION = "chat_message";
 export const CONVERSATION_SUMMARY_ACTION = "conversation_summary";
 export const DOCUMENT_EMBEDDING_ACTION = "document_embedding";
 export const RAG_QUERY_EMBEDDING_ACTION = "rag_query_embedding";
+export const QA_CHECKLIST_GENERATION_ACTION = "qa_checklist_generation";
+export const QA_CHECKLIST_REVIEW_ACTION = "qa_checklist_review";
+export const QA_EXECUTION_RECIPE_GENERATION_ACTION = "qa_execution_recipe_generation";
+export const QA_EXECUTION_RECIPE_REVIEW_ACTION = "qa_execution_recipe_review";
 export const AI_USAGE_ACTIONS = [
   CHAT_MESSAGE_ACTION,
   CONVERSATION_SUMMARY_ACTION,
   DOCUMENT_EMBEDDING_ACTION,
   RAG_QUERY_EMBEDDING_ACTION,
+  QA_CHECKLIST_GENERATION_ACTION,
+  QA_CHECKLIST_REVIEW_ACTION,
+  QA_EXECUTION_RECIPE_GENERATION_ACTION,
+  QA_EXECUTION_RECIPE_REVIEW_ACTION,
 ] as const;
 
 export interface UsageIdentity {

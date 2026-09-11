@@ -47,7 +47,7 @@ export function createPrismaProjectsRepository(database: typeof prisma = prisma)
           select: {
             storedAssets: {
               select: { objectKey: true, uploadExpiresAt: true },
-              where: { purpose: "PROJECT_DOCUMENT_SOURCE" },
+              where: { purpose: { in: ["PROJECT_DOCUMENT_SOURCE", "QA_EVIDENCE"] } },
             },
           },
           where: {

@@ -18,6 +18,11 @@ Target stack:
 - Keep features modular by domain, not by technical layer only.
 - Keep API contracts explicit with request schemas and response types.
 - Keep provider integrations behind adapters so Gemini, Stripe, and future platforms do not leak across the app.
+- Keep QA Requests, immutable artifacts, evidence, status, history, and Human
+  Review as the primary control-plane objects. Chat remains a separate,
+  optional collaboration surface.
+- Keep WEB, REST, and MCP as adapters over one QA domain service and
+  transactional repository. Do not fork lifecycle rules by transport.
 - Keep user, project, chat, and memory data in PostgreSQL instead of browser storage.
 - Keep billing, integrations, and AI usage auditable through event tables.
 - Keep frontend styling in `apps/web/src/styles`. Do not add ad hoc CSS files for new Vue work. Prefer Bootstrap utilities for generic layout and keep SCSS for product-specific UI.
@@ -91,6 +96,14 @@ contract file. This keeps orchestration testable without coupling it to Prisma.
 - `project-memory`: one optional manually edited, 6,000-character bounded
   distilled-memory record per owned project.
 - `project-documents`: signed-in manual project document CRUD and text/data/code file import with owner-only project checks. It persists deterministic chunk indexes and ranks project context through a replaceable retrieval contract.
+- `qa-requests`: project-scoped QA Requests, locked context snapshots,
+  immutable checklist revisions and assessments, versioned runs/results,
+  evidence requirements, Human Review, and ordered workflow events. The QA
+  context builder reuses the shared Project Document retriever rather than
+  maintaining a second RAG implementation.
+- `project-connections`: one-project bearer credentials for REST and MCP,
+  hashed-at-rest secrets, capability scopes, expiry/revocation, pre-body
+  IP/token rate limits, and conservative external-mutation idempotency.
 - `data-portability`: Project portability plus unified Account Export/Import.
   Full Account Data Export is owner-scoped and excludes secrets, usage, and
   derived retrieval state. Account Import auto-detects native account archives
@@ -107,11 +120,22 @@ contract file. This keeps orchestration testable without coupling it to Prisma.
   lazy-loaded local-file Account Import Preview/Commit modal with automatic
   archive detection. Account Memory CRUD remains focused on editing memory and
   has no standalone portability UI.
-- `usage`: portfolio/demo credit limits, credit reservations before AI provider calls, completed token usage updates, and personal usage summaries.
+- `usage`: portfolio/demo credit limits, credit reservations before AI provider
+  calls, completed token usage updates, and personal usage summaries. QA
+  checklist generation and review reserve and reconcile distinct usage actions
+  through the same owner/global guard before provider work.
 
 ## Active Frontend Routes
 
-- `#/`: chat workspace. Project-linked chats show a breadcrumb in the topbar; ordinary chats do not show a project state. Before the first project exists, the sidebar keeps `Projects` in the top workspace navigation. After projects exist, the sidebar shows a collapsible Projects section inside the scroll area above collapsible Recent Chats. The Projects section starts with New Project and All Projects rows before the project folders. Project chats are nested under their project instead of being mixed into Recent Chats.
+- `#/`: QA Workspace. It presents project QA Requests, operational phases,
+  the selected immutable record, evidence, history, Human Review, and external
+  agent connection state before chat.
+- `#/chat`: QA Chat. Project-linked chats show a breadcrumb in the topbar;
+  ordinary chats do not show a project state. Before the first project exists,
+  the sidebar keeps `Projects` in the top workspace navigation. After projects
+  exist, the sidebar shows a collapsible Projects section inside the scroll
+  area above collapsible Recent Chats. Project chats are nested under their
+  project instead of being mixed into Recent Chats.
 - `#/login`: sign-in page wired to cookie-backed auth.
 - `#/register`: account creation page wired to cookie-backed auth.
 - `#/forgot-password`: password reset request page.
@@ -161,9 +185,11 @@ becomes active product scope.
 
 ### Application Rate-Limit Storage
 
-Auth, chat, account deletion, asset initiation, and data-portability fixed-window
-guards share one process-local storage primitive. Each limiter tracks at most
-10,000 identities, fails closed for an unseen identity when full, and uses an
+Auth, chat, account deletion, asset initiation, data portability, and external
+QA connections use the same bounded process-local fixed-window primitive.
+External REST/MCP traffic is limited before JSON parsing by both request IP and
+a SHA-256 hash of the bearer token. Each limiter tracks at most 10,000
+identities, fails closed for an unseen identity when full, and uses an
 expiration min-heap so requests do not scan the full key set. Counters still
 reset on process restart and are not shared across replicas; a multi-instance
 deployment therefore still requires trusted proxy/host limits and eventually a
@@ -282,7 +308,24 @@ limit.
 - `POST /api/projects/:projectId/documents/import`: import up to four supported text/data files into an owned project.
 - `PUT /api/projects/:projectId/documents/:documentId`: update a manual document for an owned project.
 - `DELETE /api/projects/:projectId/documents/:documentId`: delete a manual or imported document for an owned project.
+- `/api/projects/:projectId/qa/...`: cookie-authenticated owner routes for QA
+  Request creation/read, checklist submission and selection, runs/results,
+  evidence, and Human Review.
+- `/api/projects/:projectId/connections`: cookie-authenticated owner routes to
+  list, create, and revoke one-project agent credentials.
+- `/api/integrations/v1/projects/:projectId/qa/...`: bearer-authenticated REST
+  adapter for agents. It intentionally omits artifact selection and Human
+  Review.
+- `POST /api/mcp`: stateless Streamable HTTP MCP tools over the same agent
+  service. The credential fixes the project; tools cannot select an artifact
+  or approve a run.
 - `GET /api/usage/summary`: return current identity usage only. Guests see their guest/IP-hash scoped usage; signed-in users see their own `userId` scoped usage.
+
+The detailed owner/agent capability table, REST route table, MCP tool list, and
+idempotency contract are maintained in `docs/QA_CONTROL_PLANE.md`.
+The immutable RecipeV1 approval boundary, local Runner protocol, production
+double confirmation, and execution limits are maintained in
+`docs/QA_EXECUTION_HARNESS.md`.
 
 `POST /api/chat` allows anonymous portfolio usage. Guests receive an httpOnly `qa_guest_id` cookie and are limited separately from signed-in users. The API also hashes the request IP as a fallback abuse guard. Usage credits are reserved before calling Gemini so the API key is protected from unbounded demo traffic. Successful chat responses update the reserved usage with provider token metadata when available and include a public `usage` summary with `used`, `remaining`, and `limit`.
 
@@ -313,7 +356,9 @@ weakening the current application contract.
 Signed-in users load language from `UserSettings.language`; settings updates
 keep `UserSettings.language` and `User.locale` aligned. The current catalog
 covers the core auth/chat/settings/account memory/usage shell plus Projects,
-Project Knowledge, Project Documents, and Account Data portability.
+Project Knowledge, Project Documents, and Account Data portability. The first
+QA Workspace slice currently carries English product-contract copy; moving it
+into a dedicated `qa` catalog is follow-up work.
 
 Signed-in Account Memory is stored in `Memory` with `scope: USER`, `source: USER_PROVIDED`, and the current `userId`. Project Instructions are stored separately in the one-to-one `ProjectInstruction` model keyed by `projectId`. Project Memory is stored in the dedicated `ProjectMemory` model keyed by `projectId`, starts with `USER_PROVIDED` provenance, is manually editable through the owner-scoped API, and is bounded to 6,000 characters. Empty content clears the record. Manual Project Documents are stored in `ProjectDocument` with `source: USER_PROVIDED`; imported text/data files use `source: IMPORTED` plus file metadata after the shared project access check. Imported records are read-only and must be deleted and re-imported to replace their source content.
 

@@ -23,7 +23,7 @@ export function assertSupportedAsset(input: {
   maxTextBytes: number;
   mimeType: string;
   originalName: string;
-  purpose: "CHAT_ATTACHMENT" | "PROJECT_DOCUMENT_SOURCE";
+  purpose: "CHAT_ATTACHMENT" | "PROJECT_DOCUMENT_SOURCE" | "QA_EVIDENCE";
   sizeBytes: number;
 }) {
   if (!SUPPORTED_ASSET_MIME_TYPES.has(input.mimeType)) {

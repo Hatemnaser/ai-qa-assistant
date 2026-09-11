@@ -10,6 +10,8 @@ import type {
   AiProviderAdapter,
   AiProviderId,
   AiResolvedModel,
+  AiTextGenerationInput,
+  AiTextGenerationResponse,
 } from "./ai.types.js";
 import { geminiProvider } from "./gemini.provider.js";
 import { routeWorkflowWithGemini } from "./routing/gemini-workflow-router.js";
@@ -84,6 +86,29 @@ export async function chatWithAi(input: AiChatInput): Promise<AiChatResponse> {
   });
 }
 
+export async function generateTextWithAi(
+  input: AiTextGenerationInput
+): Promise<AiTextGenerationResponse> {
+  if (!env.aiEnabled) {
+    throw new AppError(
+      "AI requests are temporarily disabled.",
+      503,
+      "AI_DISABLED"
+    );
+  }
+  const resolved = resolveAiModel({
+    model: input.model,
+    provider: input.provider,
+  });
+  const provider = getAiProvider(resolved.provider);
+
+  return provider.generateText({
+    ...input,
+    model: resolved.model,
+    provider: resolved.provider,
+  });
+}
+
 export async function routeWorkflowWithAi(input: WorkflowRouterInput) {
   if (!env.aiWorkflowRouterEnabled) return undefined;
   if (!env.geminiApiKey) return undefined;
@@ -96,7 +121,17 @@ export async function routeWorkflowWithAi(input: WorkflowRouterInput) {
 }
 
 export function getAiProvider(providerId: AiProviderId) {
-  return providersById.get(providerId) || geminiProvider;
+  const provider = providersById.get(providerId);
+
+  if (!provider) {
+    throw new AppError(
+      `Unsupported AI provider: ${providerId}. Allowed providers: ${getAllowedProviderIds().join(", ")}.`,
+      400,
+      "UNSUPPORTED_AI_PROVIDER"
+    );
+  }
+
+  return provider;
 }
 
 export function getAllowedModelValues() {

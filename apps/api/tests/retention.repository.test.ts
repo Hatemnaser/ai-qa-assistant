@@ -50,6 +50,7 @@ describe("retention repository", () => {
         },
       },
       messageAttachment: createDeleteModel("messageAttachment", operations),
+      qaEvidenceAsset: createDeleteModel("qaEvidenceAsset", operations),
       projectDocument: {
         async updateMany() {
           operations.push("projectDocument:update");
@@ -266,6 +267,7 @@ function createRaceTransaction() {
     },
     objectDeletionJob: { async createMany() { return { count: 0 }; } },
     messageAttachment: { async deleteMany() { return { count: 0 }; } },
+    qaEvidenceAsset: { async deleteMany() { return { count: 0 }; } },
     projectDocument: { async updateMany() { return { count: 0 }; } },
     aiUsageLog: {
       async findMany() { return []; },

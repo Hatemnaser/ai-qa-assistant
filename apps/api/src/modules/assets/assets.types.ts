@@ -1,4 +1,4 @@
-export type AssetPurpose = "CHAT_ATTACHMENT" | "PROJECT_DOCUMENT_SOURCE";
+export type AssetPurpose = "CHAT_ATTACHMENT" | "PROJECT_DOCUMENT_SOURCE" | "QA_EVIDENCE";
 export type AssetStatus = "DELETE_PENDING" | "FAILED" | "PENDING" | "READY" | "VALIDATING";
 
 export interface AssetRecord {

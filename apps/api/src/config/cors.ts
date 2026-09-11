@@ -6,7 +6,7 @@ import { env } from "./env.js";
 export function buildCorsOptions(): CorsOptions {
   return {
     credentials: true,
-    exposedHeaders: ["X-Request-ID"],
+    exposedHeaders: ["X-Request-ID", "Idempotent-Replayed"],
     origin(origin, callback) {
       if (!origin || isCorsOriginAllowed(origin)) {
         callback(null, true);

@@ -1,0 +1,31 @@
+{
+  "browser": {
+    "engine": "chromium",
+    "headless": true
+  },
+  "displayName": "Local Playwright Runner",
+  "instanceId": "my-runner",
+  "pollIntervalMs": 2000,
+  "profiles": [
+    {
+      "baseUrl": "http://127.0.0.1:3000",
+      "environmentKind": "LOCAL",
+      "evidenceKinds": [
+        "TEXT",
+        "SCREENSHOT"
+      ],
+      "key": "local",
+      "label": "Local",
+      "values": {
+        "customer.email": {
+          "name": "ODDPATH_TEST_CUSTOMER_EMAIL",
+          "secret": true,
+          "source": "env"
+        }
+      }
+    }
+  ],
+  "schemaVersion": 1,
+  "serverUrl": "http://127.0.0.1:5000",
+  "tokenEnv": "ODDPATH_RUNNER_TOKEN"
+}

@@ -9,18 +9,24 @@
   "scripts": {
     "dev": "npm run dev:web",
     "dev:api": "npm --prefix apps/api run dev",
+    "dev:runner": "npm --prefix apps/runner run dev --",
     "dev:web": "npm --prefix apps/web run dev",
     "build:api": "npm --prefix apps/api run build",
+    "build:runner": "npm --prefix apps/runner run build",
     "build:web": "npm --prefix apps/web run build",
     "check:api": "npm --prefix apps/api run check",
+    "check:execution-contract": "npm --prefix packages/qa-execution-contract run check",
+    "check:runner": "npm --prefix apps/runner run check",
     "check:architecture": "npm --prefix apps/api run check:architecture",
     "check:web": "npm --prefix apps/web run check",
     "test:api": "npm --prefix apps/api run test",
+    "test:execution-contract": "npm --prefix packages/qa-execution-contract run test",
+    "test:runner": "npm --prefix apps/runner run test",
     "test:integration:db": "npm --prefix apps/api run test:integration:db",
     "test:web": "npm --prefix apps/web run test",
     "test:i18n": "npm --prefix apps/web run test:i18n",
     "audit:production": "npm audit --omit=dev --audit-level=high",
-    "verify": "npm run check:api && npm run check:web && npm run test:api && npm run test:web",
+    "verify": "npm run check:execution-contract && npm run check:api && npm run check:runner && npm run check:web && npm run test:execution-contract && npm run test:api && npm run test:runner && npm run test:web",
     "eval:retrieval": "npm --prefix apps/api run eval:retrieval",
     "cleanup:retention": "npm --prefix apps/api run cleanup:retention",
     "cleanup:retention:dev": "npm --prefix apps/api run cleanup:retention:dev",
@@ -47,7 +53,10 @@
     "packages/*"
   ],
   "overrides": {
-    "deepmerge-ts": "$deepmerge-ts"
+    "deepmerge-ts": "$deepmerge-ts",
+    "prisma@7.9.1": {
+      "mysql2": "3.23.1"
+    }
   },
   "repository": {
     "type": "git",

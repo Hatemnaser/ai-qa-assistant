@@ -42,6 +42,11 @@ export const accountDataDeletionCoordinator: AccountDataDeletionCoordinator = {
         asset: { ownerId: userId },
       },
     });
+    await tx.qaEvidenceAsset.deleteMany({
+      where: {
+        asset: { ownerId: userId },
+      },
+    });
     await tx.projectDocument.updateMany({
       data: { sourceAssetId: null },
       where: {

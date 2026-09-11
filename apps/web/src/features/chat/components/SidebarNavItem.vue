@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Icon from "../../../ui/Icon.vue";
 
-type SidebarNavIcon = "folder" | "plus" | "search";
+type SidebarNavIcon = "edit" | "file-text" | "folder" | "plus" | "search";
 
 defineProps<{
   active?: boolean;

@@ -1,6 +1,7 @@
 {
   "sidebar.nav.workspace": "Workspace",
   "sidebar.nav.newChat": "New Chat",
+  "sidebar.nav.qaChat": "QA Chat",
   "sidebar.nav.search": "Search",
   "sidebar.nav.projects": "Projects",
   "sidebar.nav.newProject": "New Project",

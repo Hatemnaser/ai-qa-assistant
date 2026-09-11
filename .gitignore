@@ -18,4 +18,9 @@ apps/*/.env.*
 !apps/*/.env.*.example
 apps/*/dist
 apps/*/src/generated
+packages/*/dist
 *.tsbuildinfo
+
+# Local Runner profiles may reference literal test credentials.
+oddpath.runner.json
+apps/runner/oddpath.runner.json

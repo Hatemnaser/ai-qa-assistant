@@ -6,5 +6,12 @@ export const DATA_LIMITS = Object.freeze({
   documentsPerProject: 10,
   messagesPerChat: 160,
   projectDocumentSourceBytes: 250_000,
+  projectConnectionsPerProject: 20,
   projectsPerUser: 8,
+  qaArtifactsPerRequest: 20,
+  qaChecklistItemsPerArtifact: 80,
+  qaEvidencePerRun: 240,
+  qaRunsPerRequest: 100,
+  qaRequestsPerProject: 500,
+  qaRequestTextChars: 20_000,
 });
