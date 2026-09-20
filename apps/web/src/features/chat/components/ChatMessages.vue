@@ -2,7 +2,6 @@
 import { ref } from "vue";
 
 import PrivateAssetImage from "../../assets/PrivateAssetImage.vue";
-import { QUICK_ACTIONS } from "../constants";
 import { getMessageAttachments } from "../chatMessages";
 import { renderMarkdown } from "../../../ui/content/renderMarkdown";
 import { useI18n } from "../../../i18n/useI18n";
@@ -22,7 +21,6 @@ const emit = defineEmits<{
 }>();
 
 const copyFeedbackByMessageId = ref<Record<string, string>>({});
-const welcomeActions = QUICK_ACTIONS.filter((action) => action.mode !== "screenshot_review");
 const { t } = useI18n();
 
 async function copyMessage(message: ChatMessage) {
@@ -51,20 +49,9 @@ function copyLabel(message: ChatMessage) {
     <div v-if="messages.length === 0" class="welcome-message text-center">
       <h3 class="welcome-title">{{ t("chat.messages.welcomeTitle") }}</h3>
       <p>{{ t("chat.messages.welcomeBody") }}</p>
-      <div class="welcome-actions">
-        <button
-          v-for="action in welcomeActions"
-          :key="action.label"
-          class="welcome-action"
-          type="button"
-          @click="emit('quick-action', action)"
-        >
-          {{ action.mode === "checklist" ? t("chat.mode.checklistShort") : t(action.labelKey) }}
-        </button>
-      </div>
     </div>
 
-    <div v-for="message in messages" :key="message.id">
+    <div v-for="message in messages" :key="message.id" class="chat-message-turn">
       <div v-if="message.role === 'assistant'" class="answer">
         <div class="message-content" v-html="renderMarkdown(message.content)" />
         <div class="message-actions d-flex justify-content-end gap-2">

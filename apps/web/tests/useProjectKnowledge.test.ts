@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { nextTick, ref } from "vue";
+import { effectScope, nextTick, ref } from "vue";
 
 import {
   useProjectKnowledge,
@@ -10,6 +10,40 @@ import type { ProjectDocument } from "../src/features/project-documents/types";
 import type { ProjectInstruction } from "../src/features/project-instructions/types";
 
 describe("useProjectKnowledge", () => {
+  it("does not finish a prepared upload after its owner scope is disposed", async () => {
+    const scope = effectScope();
+    const upload = createDeferred<Array<{ sourceAssetId: string }>>();
+    const cancelled: string[] = [];
+    let imports = 0;
+    const knowledge = scope.run(() => useProjectKnowledge(ref<string | null>("project-1"), createDependencies({
+      prepareFiles: () => upload.promise,
+      async importDocuments() { imports += 1; return []; },
+      async cancelPreparedFiles(files) { cancelled.push(...files.flatMap((file) => "sourceAssetId" in file ? [file.sourceAssetId] : [])); },
+    })))!;
+    const pending = knowledge.importProjectFiles([{} as File]);
+    scope.stop();
+    upload.resolve([{ sourceAssetId: "prepared-old-account" }]);
+    await pending;
+    assert.equal(imports, 0);
+    assert.deepEqual(cancelled, ["prepared-old-account"]);
+    assert.deepEqual(knowledge.projectDocuments.value, []);
+  });
+
+  it("rejects a prior project response even when switching away and back synchronously", async () => {
+    const first = createDeferred<ProjectInstruction | null>();
+    const projectId = ref<string | null>("project-1");
+    let requests = 0;
+    const knowledge = useProjectKnowledge(projectId, createDependencies({
+      fetchInstruction: async (id) => ++requests === 1 ? first.promise : createInstruction(id, "Current context"),
+    }));
+    projectId.value = "project-2";
+    projectId.value = "project-1";
+    await flushPromises();
+    first.resolve(createInstruction("project-1", "Stale context"));
+    await flushPromises();
+    assert.equal(knowledge.projectInstruction.value?.content, "Current context");
+  });
+
   it("ignores stale responses after the active project changes", async () => {
     const projectOneInstruction = createDeferred<ProjectInstruction | null>();
     const projectTwoInstruction = createDeferred<ProjectInstruction | null>();

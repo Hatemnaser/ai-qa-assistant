@@ -1,4 +1,4 @@
-import { computed, ref, watch } from "vue";
+import { computed, getCurrentScope, onScopeDispose, ref, watch } from "vue";
 import type { Ref } from "vue";
 
 import { t } from "../../i18n/useI18n";
@@ -26,6 +26,8 @@ export function useProjectMemory(
   const isLoadingMemory = ref(false);
   const isSavingMemory = ref(false);
   let projectGeneration = 0;
+  let disposed = false;
+  if (getCurrentScope()) onScopeDispose(() => { disposed = true; projectGeneration += 1; });
 
   const hasUnsavedMemoryChanges = computed(
     () => memoryDraft.value.trim() !== (memory.value?.content || "").trim()
@@ -42,7 +44,7 @@ export function useProjectMemory(
         void loadMemory(projectId, generation);
       }
     },
-    { immediate: true }
+    { immediate: true, flush: "sync" }
   );
 
   async function loadMemory(projectId: string, generation: number) {
@@ -147,7 +149,7 @@ export function useProjectMemory(
   }
 
   function isCurrentProject(projectId: string, generation: number) {
-    return activeProjectId.value === projectId && projectGeneration === generation;
+    return !disposed && activeProjectId.value === projectId && projectGeneration === generation;
   }
 
   return {

@@ -1,7 +1,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 export type AuthView = "login" | "register" | "forgot-password" | "reset-password" | "verify-email";
-export type AppRoute = "workspace" | "chat" | "projects" | "settings" | "usage" | AuthView;
+export type AppRoute = "home" | "workspace" | "chat" | "projects" | "settings" | "usage" | AuthView;
 
 const authRoutes = new Set<AuthView>([
   "login",
@@ -24,6 +24,10 @@ export function useAppRoute() {
 
   function navigateToChat() {
     window.location.hash = "/chat";
+  }
+
+  function navigateToHome() {
+    window.location.hash = "/home";
   }
 
   function navigateToWorkspace() {
@@ -54,6 +58,7 @@ export function useAppRoute() {
     currentRoute,
     navigateToAuth,
     navigateToChat,
+    navigateToHome,
     navigateToProjects,
     navigateToSettings,
     navigateToUsage,
@@ -73,6 +78,7 @@ export function parseAppRoute(input: { hash: string; pathname: string }): AppRou
   const pathRoute = input.pathname.replace(/^\/?/, "").split("?")[0];
   const route = hashRoute || pathRoute;
 
+  if (route === "home") return "home";
   if (route === "projects") return "projects";
   if (route === "chat") return "chat";
   if (route === "usage") return "usage";

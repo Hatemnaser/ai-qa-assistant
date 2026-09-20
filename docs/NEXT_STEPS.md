@@ -2,9 +2,14 @@
 
 This file is the working roadmap for what is done, what is still foundation work, and what should come next. Use it as the reference when asking "what is next?" or "what still needs cleanup?"
 
-Last reviewed: 2026-09-11
+Last reviewed: 2026-09-20
 
 For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
+For the owner's launch UX priority and the next product workstream, read
+`docs/PRODUCT_UX_DIRECTION.md`. The first-test experience felt too complicated;
+one clear, low-friction journey takes priority over adding more QA concepts or
+features. The first shell slice is implemented locally (below); live-browser
+scope and unified chat/test sessions are still separate decisions.
 Before future work on Project Memory, conversation summaries, AI-extracted memory,
 or memory embeddings, follow `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 For deployment, data safety, migrations, backups, rollback, and production
@@ -15,6 +20,42 @@ For immutable RecipeV1 approval and local Playwright Runner execution, follow
 `docs/QA_EXECUTION_HARNESS.md`.
 
 ## Current Health
+
+- [x] Implement the approved phase-one focused shell without backend/data
+  migrations: post-login `#/home`, bottom chat/project composers, six modes,
+  non-destructive starters, preserved sidebar actions/import/export, visible
+  project context and distinct tool/Runner integration discovery.
+- [x] Guard owner/context-scoped in-memory drafts, delayed upload/reply/import
+  work, Home startup, account model defaults and same-route project navigation.
+  Full `verify` passed with 321 web tests. Isolated Chromium UI smoke passed
+  16 scenarios across en/ar/de, RTL, light/dark and responsive breakpoints;
+  no page errors, real provider requests or application-record mutations.
+- [x] Complete the owner-approved core visual refresh before expanding QA UX:
+  scoped neutral light/charcoal surfaces, system typography, 248px navigation,
+  288px visible project context, 740px reading/composer lanes, lighter project
+  rows and unboxed assistant replies. Starter actions sit above the composer;
+  its lower toolbar retains attachment/task/model/send and the AI disclosure.
+  Teleported core menus/dialogs opt in directly; shared QA connection management
+  has a presentation-only opt-in. QA/auth/settings content remains unchanged.
+  On 2026-09-19 full `verify` passed with 327 web tests; production web build
+  and i18n 7/7 passed. Isolated Chromium smoke passed 19 scenarios at
+  320/390/991/992/1024/1440px, with reviewed actual-render screenshots in both
+  themes. The owner subsequently authorized review, commit and branch push;
+  check Git for that checkpoint. Merge and deployment remain separate.
+- [ ] Owner usability review of this real local shell: confirm project details
+  remain discoverable and New Chat/Tests/project context feel coherent. This
+  is not yet the simplified first real test workflow. Use
+  `UX_FEATURE_PRESERVATION.md` as the feature-regression map.
+- [x] Repair short-phone composer clipping found during pre-commit review:
+  preserve scroll access to project files/context and the composer even with
+  a multiline attachment draft. Add 390x667 and 320x568 browser regressions;
+  retain existing desktop layout and chat message autoscroll.
+- [ ] In a separate approved slice, design persisted chat-to-QA linkage before
+  bringing preparation, exact-run approval and results into the conversation.
+  Preserve the existing review/evidence gates; don't add fake live controls.
+- [ ] Decide Runner onboarding and visible-browser delivery/login interaction
+  separately. No streaming, pause/takeover, arbitrary retry-from-step, mobile
+  execution, extra MCP implementation, deploy or commit occurred in phase one.
 
 - [x] Save the pre-commit review fixes: require the assigned Runner protocol
   for execution-bound mutations, revalidate exact immutable profile approval
@@ -39,9 +80,10 @@ For immutable RecipeV1 approval and local Playwright Runner execution, follow
   23/23 after the security patches on Node 24.19.0. All passed. The fresh
   `oddpath_security_test_0911_02` received all 21 migrations with zero drift
   and was removed after confirming its 44 application tables were empty.
-- [ ] Confirm the push destination after review. `main` is connected to Render
-  checks-pass deployment and migration application; review-branch publishing
-  and production deployment are different decisions.
+- [x] Publish implementation commit `65dfbf0` on `codex/qa-execution-harness`.
+  The owner merged PR #14 as `303b063`; post-merge CI passed on 2026-09-12.
+  Render deployment and deployed smoke results have not been verified here.
+  Keep `main` checks-pass deployment/migrations separate from CI success.
 - [x] Repair the first local Recipe-generation failure: document every nested
   RecipeV1 shape in the provider-neutral prompt, classify malformed generation
   and review output, retain only bounded sanitized diagnostics, and explain
@@ -94,8 +136,8 @@ For immutable RecipeV1 approval and local Playwright Runner execution, follow
 - [x] PostgreSQL schema is established for users, sessions, chats, projects,
   memory, usage, QA Requests, immutable artifacts, runs, evidence, reviews,
   project connections, and external idempotency.
-- [x] The product home is the QA Workspace; QA Chat remains an explicit,
-  separate route.
+- [x] QA Workspace remains the Tests destination at legacy `#/`; the focused
+  shell now opens `#/home` after normal sign-in. QA Chat remains a separate route.
 - [x] Owner web routes, project-token REST, and stateless Remote MCP all adapt
   into one transactional QA lifecycle.
 - [x] Current QA-control-plane and execution-harness verification passed on
@@ -120,6 +162,43 @@ For immutable RecipeV1 approval and local Playwright Runner execution, follow
   exact owner-scoped relational bindings, staged/outbox restore, atomic
   canonical finalization, and backward-compatible v1 import. Keep the
   production private-assets guard closed pending real-provider proof.
+
+## Next Product Priority — Simple First-Test UX
+
+Source of direction: `docs/PRODUCT_UX_DIRECTION.md`. These are new UX tasks,
+not unfinished requirements of the already completed local TEXT smoke.
+
+- [x] Record the owner's feedback, session-oriented direction, safety
+  boundaries, and open choices for the next conversation. Documentation only;
+  no interface redesign or live-browser capability was implemented by this step.
+- [x] Record the reported first-test friction and draft an interactive session
+  concept for the public login smoke: offline setup, plan/review recovery,
+  execution, illustrative evidence, and Human Review in one surface. English/
+  Arabic, narrow layouts, and local interactions were checked. This is not
+  owner design approval, an unassisted usability trial, or a real test run.
+  Direct login/takeover remains a follow-up design decision; see the prototype
+  checkpoint in `PRODUCT_UX_DIRECTION.md`.
+- [x] Record the owner's first prototype feedback (better, still extra steps)
+  and audit the actual home/auth/sidebar/project/chat navigation. The proposed
+  whole-product map and compatibility boundaries are in
+  `PRODUCT_INFORMATION_ARCHITECTURE.md`. Documentation only; no app redesign.
+- [x] Draft the connected public home, demo sign-in, signed-in home, project,
+  chat, and test-session concept. Audit quick actions and retain all five modes
+  with fewer repeated entry points. Local sandbox checks cover the main paths,
+  draft isolation, approval gates and Arabic/English narrow layouts. See the
+  whole-product checkpoint in `PRODUCT_INFORMATION_ARCHITECTURE.md`.
+- [ ] Collect owner feedback on that connected concept; validate first-use
+  empty-account onboarding and an unassisted journey before accepting the design.
+- [ ] Review a bounded prototype and decide launch audience/executor delivery
+  and visual scope before committing to embedded streaming or takeover.
+- [ ] Choose and implement one approved slice; keep project isolation, exact
+  approval, evidence/history, and existing product behavior intact.
+- [ ] Validate an unassisted first test, actionable evidence, next-action
+  clarity, recovery, accessibility, and en/ar/de behavior against the old flow.
+
+Do not expand this into per-PR infrastructure, test intelligence, billing,
+native mobile testing, or a broad integration catalog without a new decision.
+Production Safety Gate requirements still apply before real-user launch.
 
 ## What Is Complete Enough For The Current Foundation
 
@@ -739,7 +818,9 @@ When asking "what is next?", choose the first unfinished item that matches the c
    - Before any live deployment, complete the Production Safety Gate in
      `docs/PRODUCTION_READINESS.md`.
 2. If the goal is user product value:
-   - Continue Projects only with focused demo/UX polish; do not add collaboration authorization until members become real product scope.
+   - Follow `PRODUCT_UX_DIRECTION.md`: simplify the first-test journey and
+     validate a session-centered prototype before selecting an implementation
+     slice. Do not add collaboration or broad infrastructure to this UX phase.
 3. If the goal is portfolio/demo polish:
    - Add README screenshots/GIFs and run a portfolio demo pass.
 4. If the goal is SaaS direction:

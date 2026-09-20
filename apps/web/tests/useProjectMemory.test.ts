@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { nextTick, ref } from "vue";
+import { effectScope, nextTick, ref } from "vue";
 
 import {
   useProjectMemory,
@@ -9,6 +9,30 @@ import {
 import type { ProjectMemory } from "../src/features/project-memory/types.ts";
 
 describe("useProjectMemory", () => {
+  it("does not accept a late response after its account/project scope is disposed", async () => {
+    const scope = effectScope();
+    const request = createDeferred<ProjectMemory | null>();
+    const state = scope.run(() => useProjectMemory(ref<string | null>("project-1"), createDependencies({ fetchMemory: () => request.promise })))!;
+    scope.stop();
+    request.resolve(createMemory({ content: "Old account memory" }));
+    await flushPromises();
+    assert.equal(state.projectMemory.value, null);
+    assert.equal(state.projectMemoryDraft.value, "");
+  });
+
+  it("isolates synchronous project switches and ignores the previous generation", async () => {
+    const request = createDeferred<ProjectMemory | null>();
+    const id = ref<string | null>("project-1");
+    let count = 0;
+    const state = useProjectMemory(id, createDependencies({ fetchMemory: async (projectId) => ++count === 1 ? request.promise : createMemory({ projectId, content: "Current" }) }));
+    id.value = "project-2";
+    id.value = "project-1";
+    await flushPromises();
+    request.resolve(createMemory({ content: "Old" }));
+    await flushPromises();
+    assert.equal(state.projectMemoryDraft.value, "Current");
+  });
+
   it("tracks loading and exposes the current saved memory", async () => {
     const request = createDeferred<ProjectMemory | null>();
     const activeProjectId = ref<string | null>("project-1");

@@ -11,7 +11,7 @@ import { useChatSubmit } from "./useChatSubmit";
 import { useStoredChats } from "./useStoredChats";
 import { useChatMenus } from "./useChatMenus";
 import type { QuickAction } from "../constants";
-import type { Chat, AiModelOption } from "../types";
+import type { Chat, AiModelOption, SelectedAttachment } from "../types";
 
 export function useChatController(currentUser: Ref<AuthUser | null>) {
   const messageInput = ref("");
@@ -22,16 +22,10 @@ export function useChatController(currentUser: Ref<AuthUser | null>) {
   const renamingChatId = ref<string | null>(null);
   const quickActionMode = ref<string | null>(null);
   const modelOptions = ref<AiModelOption[]>([...AI_MODELS]);
+  const selectedAttachments = ref<SelectedAttachment[]>([]);
+  let identityRevision = 0;
+  const getIdentity = () => `${identityRevision}:${currentUser.value?.id || "guest"}`;
   const { t } = useI18n();
-  const {
-    clearSelectedAttachments,
-    getAttachmentOnlyMessage,
-    handleAttachmentsSelected,
-    openAttachment,
-    openSelectedAttachment,
-    removeSelectedAttachment,
-    selectedAttachments,
-  } = useChatAttachments();
 
   const {
     activeChat,
@@ -41,9 +35,12 @@ export function useChatController(currentUser: Ref<AuthUser | null>) {
     assignActiveChatProject,
     assignChatProject: assignStoredChatProject,
     chats,
+    captureSubmission,
     deleteChat: deleteStoredChat,
+    drafts,
     ensureActiveChat,
     prepareNewChatForProject,
+    prepareNewChat,
     renameChat: renameStoredChat,
     replaceChats,
     selectChat: selectStoredChat,
@@ -51,12 +48,21 @@ export function useChatController(currentUser: Ref<AuthUser | null>) {
     startNewChat: startStoredNewChat,
     updateChat,
   } = useStoredChats({
-    clearSelectedAttachments,
     messageInput,
+    quickActionMode,
+    selectedAttachments,
     selectedMode,
     selectedModel,
     selectedProjectId,
   });
+
+  const {
+    getAttachmentOnlyMessage,
+    handleAttachmentsSelected,
+    openAttachment,
+    openSelectedAttachment,
+    removeSelectedAttachment,
+  } = useChatAttachments({ drafts, selectedAttachments, getIdentity });
 
   const {
     closeChatMenus,
@@ -80,17 +86,20 @@ export function useChatController(currentUser: Ref<AuthUser | null>) {
     activeChat,
     addChatAndSelect,
     closeChatMenus,
+    getIdentity,
   });
   const {
     clearGuestLimitReached,
     guestLimitReached,
     handleSubmit,
     isSending,
+    sendingChatId,
     usageSummary,
   } = useChatSubmit({
-    clearSelectedAttachments,
+    captureSubmission,
     ensureActiveChat,
     getAttachmentOnlyMessage,
+    getIdentity,
     isAuthenticated: () => Boolean(currentUser.value),
     messageInput,
     modelOptions,
@@ -101,6 +110,14 @@ export function useChatController(currentUser: Ref<AuthUser | null>) {
     updateChat,
   });
 
+  watch(() => currentUser.value?.id || null, () => {
+    identityRevision += 1;
+    drafts.setDefaultModel(DEFAULT_MODEL);
+    sendingChatId.value = null;
+    usageSummary.value = null;
+    clearGuestLimitReached();
+  }, { flush: "sync" });
+
   function syncModelForSelectedMode() {
     const nextModel = getModelForMode(selectedMode.value, selectedModel.value, modelOptions.value);
 
@@ -109,8 +126,8 @@ export function useChatController(currentUser: Ref<AuthUser | null>) {
     }
   }
 
-  watch(selectedMode, syncModelForSelectedMode);
-  watch(selectedModel, syncModelForSelectedMode);
+  watch(selectedMode, syncModelForSelectedMode, { flush: "sync" });
+  watch(selectedModel, syncModelForSelectedMode, { flush: "sync" });
 
   async function loadAiModelCatalog() {
     try {
@@ -119,6 +136,12 @@ export function useChatController(currentUser: Ref<AuthUser | null>) {
     } catch {
       modelOptions.value = [...AI_MODELS];
     }
+  }
+
+  function setDefaultModel(model: string) {
+    // Changing account preferences seeds future drafts only; existing drafts keep
+    // their own model selection and Visual Review still enforces compatibility.
+    drafts.setDefaultModel(getModelForMode(DEFAULT_MODE, model, modelOptions.value));
   }
 
   function selectChat(chatId: string) {
@@ -176,7 +199,7 @@ export function useChatController(currentUser: Ref<AuthUser | null>) {
 
   function applyQuickAction(action: QuickAction) {
     selectedMode.value = action.mode;
-    messageInput.value = t(action.promptKey) || action.prompt;
+    if (!messageInput.value.trim()) messageInput.value = t(action.promptKey) || action.prompt;
     quickActionMode.value = action.mode;
   }
 
@@ -204,6 +227,7 @@ export function useChatController(currentUser: Ref<AuthUser | null>) {
     handleSubmit,
     guestLimitReached,
     isSending,
+    sendingChatId,
     loadAiModelCatalog,
     messageInput,
     modelOptions,
@@ -219,6 +243,7 @@ export function useChatController(currentUser: Ref<AuthUser | null>) {
     openProjectSubmenu,
     openSelectedAttachment,
     prepareNewChatForProject,
+    prepareNewChat,
     renamingChatId,
     requestDeleteChat,
     replaceChats,
@@ -228,6 +253,7 @@ export function useChatController(currentUser: Ref<AuthUser | null>) {
     selectedMode,
     selectedModel,
     selectedProjectId,
+    setDefaultModel,
     setChatStorageOwner,
     usageSummary,
     submitRenameChat,

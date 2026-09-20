@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import type { AuthUser } from "../../auth/types";
 import type { Project } from "../../projects/types";
@@ -8,6 +8,7 @@ import SidebarAccountMenu from "./SidebarAccountMenu.vue";
 import SidebarChatItem from "./SidebarChatItem.vue";
 import SidebarNavItem from "./SidebarNavItem.vue";
 import { useI18n } from "../../../i18n/useI18n";
+import { useDialogAccessibility } from "../../../ui/useDialogAccessibility";
 import type { Chat, ExportFormat } from "../types";
 
 const props = defineProps<{
@@ -16,6 +17,7 @@ const props = defineProps<{
   chats: Chat[];
   currentUser?: AuthUser | null;
   isChatRoute: boolean;
+  isHomeRoute?: boolean;
   isProjectsRoute: boolean;
   isWorkspaceRoute: boolean;
   projects: Project[];
@@ -30,6 +32,7 @@ const emit = defineEmits<{
   logout: [];
   "new-chat": [];
   "new-project": [];
+  "open-home": [];
   "open-project": [projectId: string];
   "open-projects": [];
   "open-settings": [];
@@ -46,6 +49,33 @@ const areProjectsOpen = ref(true);
 const areRecentChatsOpen = ref(true);
 const expandedProjectIds = ref<Set<string>>(new Set());
 const { t } = useI18n();
+const isMobile = ref(typeof window !== "undefined" && window.innerWidth < 992);
+const isMobileOpen = ref(false);
+const { dialogRef, onDialogKeydown } = useDialogAccessibility({
+  isOpen: () => isMobile.value && isMobileOpen.value,
+  onClose: closeMobileSidebar,
+});
+
+function closeMobileSidebar() {
+  isMobileOpen.value = false;
+}
+
+function updateViewport() {
+  isMobile.value = window.innerWidth < 992;
+  if (!isMobile.value) closeMobileSidebar();
+}
+
+function navigate(action: () => void) {
+  closeMobileSidebar();
+  action();
+}
+
+onMounted(() => window.addEventListener("resize", updateViewport));
+onBeforeUnmount(() => window.removeEventListener("resize", updateViewport));
+watch(
+  () => [props.currentUser?.id, props.activeChatId, props.activeProjectId, props.isChatRoute, props.isHomeRoute, props.isProjectsRoute, props.isWorkspaceRoute],
+  closeMobileSidebar
+);
 const activeChatProjectId = computed(
   () => props.chats.find((chat) => chat.id === props.activeChatId)?.projectId || null
 );
@@ -66,9 +96,11 @@ const projectChatsByProjectId = computed(() => {
 
   return groups;
 });
-const recentChats = computed(() =>
-  props.projects.length > 0 ? props.chats.filter((chat) => !chat.projectId) : props.chats
-);
+const projectNames = computed(() => new Map(props.projects.map((project) => [project.id, project.name])));
+// A chat is either in an expanded project or Recent, never duplicated in both.
+const recentChats = computed(() => props.chats.filter((chat) =>
+  !chat.projectId || !areProjectsOpen.value || !projectNames.value.has(chat.projectId) || !isProjectExpanded(chat.projectId)
+));
 
 watch(
   () => props.projects.length,
@@ -114,7 +146,8 @@ function isProjectExpanded(projectId: string) {
 }
 
 function isProjectActive(projectId: string) {
-  return props.isChatRoute && activeChatProjectId.value === projectId && !isProjectExpanded(projectId);
+  return (props.isProjectsRoute && props.activeProjectId === projectId) ||
+    (props.isChatRoute && activeChatProjectId.value === projectId && !isProjectExpanded(projectId));
 }
 
 function toggleProject(projectId: string) {
@@ -140,53 +173,65 @@ function expandProject(projectId: string) {
 </script>
 
 <template>
-  <aside class="sidebar">
+  <div class="sidebar-mobile-bar workspace-surface">
+    <button
+      class="btn btn-secondary"
+      type="button"
+      aria-controls="app-sidebar"
+      :aria-expanded="isMobileOpen"
+      @click="isMobileOpen = true"
+    >
+      <Icon name="menu" /> <span>{{ t("sidebar.nav.openNavigation") }}</span>
+    </button>
+    <button class="sidebar-mobile-brand" type="button" @click="navigate(() => emit('open-home'))">
+      {{ t("app.brand.name") }}
+    </button>
+  </div>
+  <div v-if="isMobile && isMobileOpen" class="sidebar-mobile-backdrop" aria-hidden="true" @click="closeMobileSidebar" />
+  <aside
+    id="app-sidebar"
+    ref="dialogRef"
+    class="sidebar workspace-surface"
+    :class="{ 'sidebar--mobile-open': isMobile && isMobileOpen }"
+    :role="isMobile && isMobileOpen ? 'dialog' : undefined"
+    :aria-modal="isMobile && isMobileOpen ? true : undefined"
+    :aria-label="t('sidebar.nav.navigation')"
+    tabindex="-1"
+    @keydown="isMobile && isMobileOpen && onDialogKeydown($event)"
+  >
+    <button class="sidebar-mobile-close ui-icon-btn" type="button" :aria-label="t('sidebar.nav.closeNavigation')" @click="closeMobileSidebar"><Icon name="close" /></button>
     <div class="brand">
-      <h1>{{ t("app.brand.name") }}</h1>
-      <p>{{ t("app.brand.description") }}</p>
+      <button class="sidebar-brand-link" type="button" :aria-current="isHomeRoute ? 'page' : undefined" @click="navigate(() => emit('open-home'))">
+        {{ t("app.brand.name") }}
+      </button>
     </div>
 
-    <nav class="sidebar-nav" :aria-label="t('sidebar.nav.workspace')">
-      <SidebarNavItem
-        icon="file-text"
-        :label="t('sidebar.nav.workspace')"
-        :active="isWorkspaceRoute"
-        @click="emit('open-workspace')"
-      />
-      <SidebarNavItem
-        icon="folder"
-        :label="t('sidebar.nav.projects')"
-        :active="isProjectsRoute"
-        @click="emit('open-projects')"
-      />
+    <nav class="sidebar-nav" :aria-label="t('sidebar.nav.navigation')">
       <SidebarNavItem
         icon="edit"
-        :label="t('sidebar.nav.qaChat')"
+        :label="t('sidebar.nav.newChat')"
         :active="isChatRoute && activeChatId === null"
-        @click="emit('new-chat')"
+        @click="navigate(() => emit('new-chat'))"
+      />
+      <SidebarNavItem
+        icon="file-text"
+        :label="t('sidebar.nav.tests')"
+        :active="isWorkspaceRoute"
+        @click="navigate(() => emit('open-workspace'))"
       />
     </nav>
 
     <div class="sidebar-scroll">
-      <section v-if="projects.length > 0" class="sidebar-section">
-        <button
-          class="sidebar-section-toggle"
-          type="button"
-          :aria-expanded="areProjectsOpen"
-          @click="areProjectsOpen = !areProjectsOpen"
-        >
-          <span>{{ t("sidebar.nav.projects") }}</span>
-          <span class="sidebar-section-chevron" aria-hidden="true">&rsaquo;</span>
-        </button>
+      <section class="sidebar-section">
+        <div class="sidebar-section-heading">
+          <button class="sidebar-section-link" :class="{ active: isProjectsRoute && !activeProjectId }" type="button" @click="navigate(() => emit('open-projects'))">{{ t("sidebar.nav.projects") }}</button>
+          <button class="sidebar-section-toggle sidebar-section-toggle--icon" type="button" :aria-label="t('sidebar.nav.toggleProjects')" :aria-expanded="areProjectsOpen" aria-controls="sidebar-projects" @click="areProjectsOpen = !areProjectsOpen">
+            <span class="sidebar-section-chevron" aria-hidden="true">&rsaquo;</span>
+          </button>
+        </div>
 
-        <div v-if="areProjectsOpen" class="sidebar-section-body">
-          <SidebarNavItem icon="plus" :label="t('sidebar.nav.newProject')" @click="emit('new-project')" />
-          <SidebarNavItem
-            icon="folder"
-            :label="t('sidebar.nav.allProjects')"
-            :active="isProjectsRoute && !activeProjectId"
-            @click="emit('open-projects')"
-          />
+        <div v-if="areProjectsOpen" id="sidebar-projects" class="sidebar-section-body">
+          <SidebarNavItem icon="plus" :label="t('sidebar.nav.newProject')" @click="navigate(() => emit('new-project'))" />
 
           <div v-for="project in projects" :key="project.id" class="sidebar-project-group">
             <div
@@ -196,9 +241,8 @@ function expandProject(projectId: string) {
               <button
                 class="ui-row__button sidebar-project-toggle"
                 type="button"
-                :aria-expanded="isProjectExpanded(project.id)"
-                :aria-disabled="!hasProjectChats(project.id)"
-                @click="toggleProject(project.id)"
+                :aria-current="isProjectsRoute && activeProjectId === project.id ? 'page' : undefined"
+                @click="navigate(() => emit('open-project', project.id))"
               >
                 <span class="ui-row__icon" aria-hidden="true">
                   <Icon :name="isProjectExpanded(project.id) ? 'folder-open' : 'folder'" />
@@ -210,10 +254,12 @@ function expandProject(projectId: string) {
                 <button
                   class="ui-icon-btn ui-icon-btn--xs ui-icon-btn--ghost"
                   type="button"
-                  :aria-label="t('sidebar.project.openPage')"
-                  @click.stop="emit('open-project', project.id)"
+                  :aria-label="t('sidebar.project.toggleChats', { project: project.name })"
+                  :aria-expanded="isProjectExpanded(project.id)"
+                  :disabled="!hasProjectChats(project.id)"
+                  @click.stop="toggleProject(project.id)"
                 >
-                  &#8599;
+                  <span class="sidebar-section-chevron" :class="{ 'sidebar-section-chevron--closed': !isProjectExpanded(project.id) }" aria-hidden="true">&rsaquo;</span>
                 </button>
               </div>
             </div>
@@ -222,13 +268,13 @@ function expandProject(projectId: string) {
               <SidebarChatItem
                 v-for="chat in getProjectChats(project.id)"
                 :key="chat.id"
-                :active="chat.id === activeChatId"
+                :active="isChatRoute && chat.id === activeChatId"
                 :chat="chat"
                 :renaming="chat.id === renamingChatId"
                 @cancel-rename="emit('cancel-rename')"
                 @open-menu="(event, chatId) => emit('open-chat-menu', event, chatId)"
                 @rename="(chatId, title) => emit('rename-chat', chatId, title)"
-                @select="emit('select-chat', $event)"
+                @select="(chatId) => navigate(() => emit('select-chat', chatId))"
               />
             </div>
           </div>
@@ -251,13 +297,14 @@ function expandProject(projectId: string) {
             <SidebarChatItem
               v-for="chat in recentChats"
               :key="chat.id"
-              :active="chat.id === activeChatId"
+              :active="isChatRoute && chat.id === activeChatId"
               :chat="chat"
+              :project-name="chat.projectId ? projectNames.get(chat.projectId) : undefined"
               :renaming="chat.id === renamingChatId"
               @cancel-rename="emit('cancel-rename')"
               @open-menu="(event, chatId) => emit('open-chat-menu', event, chatId)"
               @rename="(chatId, title) => emit('rename-chat', chatId, title)"
-              @select="emit('select-chat', $event)"
+              @select="(chatId) => navigate(() => emit('select-chat', chatId))"
             />
           </div>
 
@@ -271,10 +318,10 @@ function expandProject(projectId: string) {
       :theme-toggle-label="themeToggleLabel"
       @export-active-chat="emit('export-active-chat', $event)"
       @import-chat="emit('import-chat', $event)"
-      @logout="emit('logout')"
-      @open-settings="emit('open-settings')"
-      @open-usage="emit('open-usage')"
-      @sign-in="emit('sign-in')"
+      @logout="navigate(() => emit('logout'))"
+      @open-settings="navigate(() => emit('open-settings'))"
+      @open-usage="navigate(() => emit('open-usage'))"
+      @sign-in="navigate(() => emit('sign-in'))"
       @toggle-theme="emit('toggle-theme')"
     />
   </aside>

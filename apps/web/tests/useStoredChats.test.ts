@@ -11,6 +11,7 @@ import {
 } from "../src/features/chat/chatStorage";
 import { DEFAULT_MODE, DEFAULT_MODEL } from "../src/features/chat/constants";
 import { useStoredChats } from "../src/features/chat/composables/useStoredChats";
+import type { SelectedAttachment } from "../src/features/chat/types";
 
 beforeEach(() => {
   installMemoryStorage();
@@ -65,7 +66,7 @@ describe("useStoredChats", () => {
     assert.equal(loadChats().find((item) => item.id === chat.id)?.projectId, null);
   });
 
-  it("prepares a new project chat without clearing the draft", () => {
+  it("isolates project drafts from existing chats and restores them without persisting a chat", () => {
     const { messageInput, selectedProjectId, storedChats } = createStoredChatsHarness();
     const existingChat = createChat({ id: "chat-active", projectId: null });
 
@@ -73,11 +74,85 @@ describe("useStoredChats", () => {
     messageInput.value = "Draft project prompt";
 
     storedChats.prepareNewChatForProject(" project-3 ");
+    assert.equal(messageInput.value, "");
+    assert.equal(storedChats.chats.value.length, 1);
+    messageInput.value = "A different project prompt";
+    storedChats.selectChat(existingChat.id);
+    assert.equal(messageInput.value, "Draft project prompt");
+    storedChats.prepareNewChatForProject("project-3");
     const projectChat = storedChats.ensureActiveChat();
 
     assert.equal(projectChat.projectId, "project-3");
     assert.equal(selectedProjectId.value, "project-3");
-    assert.equal(messageInput.value, "Draft project prompt");
+    assert.equal(messageInput.value, "A different project prompt");
+  });
+
+  it("restores text, task, model, quick action and attachments independently per draft", () => {
+    const h = createStoredChatsHarness();
+    const attachment = { file: new File(["notes"], "notes.txt"), name: "notes.txt", mimeType: "text/plain", type: "file" } satisfies SelectedAttachment;
+    h.messageInput.value = "Home draft";
+    h.selectedMode.value = "edge_cases";
+    h.selectedModel.value = "gemini-2.5-flash";
+    h.quickActionMode.value = "edge_cases";
+    h.selectedAttachments.value = [attachment];
+    h.storedChats.prepareNewChatForProject("project-1");
+    assert.equal(h.messageInput.value, "");
+    assert.equal(h.selectedAttachments.value.length, 0);
+    h.messageInput.value = "Project draft";
+    h.storedChats.prepareNewChat();
+    assert.equal(h.messageInput.value, "Home draft");
+    assert.equal(h.selectedMode.value, "edge_cases");
+    assert.equal(h.selectedModel.value, "gemini-2.5-flash");
+    assert.equal(h.quickActionMode.value, "edge_cases");
+    assert.equal(h.selectedAttachments.value[0]?.file, attachment.file);
+    h.storedChats.startNewChat();
+    assert.equal(h.messageInput.value, "Home draft");
+    h.storedChats.prepareNewChatForProject("project-1");
+    assert.equal(h.messageInput.value, "Project draft");
+    assert.equal(h.storedChats.chats.value.length, 0);
+  });
+
+  it("keeps an unsaved project draft and mode when server chat reconciliation arrives", () => {
+    const h = createStoredChatsHarness();
+    h.storedChats.prepareNewChatForProject("project-1");
+    h.messageInput.value = "Unsaved";
+    h.selectedMode.value = "bug_report";
+    h.storedChats.replaceChats([createChat({ id: "server-chat" })]);
+    assert.equal(h.storedChats.activeChatId.value, null);
+    assert.equal(h.selectedProjectId.value, "project-1");
+    assert.equal(h.selectedMode.value, "bug_report");
+    assert.equal(h.messageInput.value, "Unsaved");
+  });
+
+  it("uses the account default for a fresh home draft after the previous draft becomes a chat", () => {
+    const h = createStoredChatsHarness();
+    h.messageInput.value = "Existing draft";
+    h.storedChats.drafts.setDefaultModel("gemini-2.5-flash-lite");
+    const existing = h.storedChats.ensureActiveChat();
+    assert.equal(existing.model, DEFAULT_MODEL);
+    h.storedChats.prepareNewChat();
+    assert.equal(h.selectedModel.value, "gemini-2.5-flash-lite");
+    assert.equal(h.messageInput.value, "");
+    h.storedChats.selectChat(existing.id);
+    assert.equal(h.selectedModel.value, DEFAULT_MODEL);
+    assert.equal(h.messageInput.value, "Existing draft");
+  });
+
+  it("invalidates pending submissions and releases drafts on account changes, not same-owner refresh", () => {
+    const h = createStoredChatsHarness();
+    h.storedChats.setChatStorageOwner("user-1");
+    h.messageInput.value = "Private draft";
+    const chat = h.storedChats.ensureActiveChat();
+    const pending = h.storedChats.captureSubmission(chat.id);
+    h.storedChats.setChatStorageOwner("user-1");
+    assert.equal(h.messageInput.value, "Private draft");
+    assert.equal(pending.getChat()?.id, chat.id);
+    h.storedChats.setChatStorageOwner("user-2");
+    assert.equal(h.messageInput.value, "");
+    assert.equal(pending.getChat(), null);
+    h.storedChats.setChatStorageOwner("user-1");
+    assert.equal(h.messageInput.value, "");
+    assert.equal(pending.getChat(), null);
   });
 
   it("marks only explicit signed-in edits and deletes for server reconciliation", () => {
@@ -123,16 +198,25 @@ describe("useStoredChats", () => {
 function createStoredChatsHarness() {
   const messageInput = ref("");
   const selectedProjectId = ref<string | null>(null);
+  const selectedMode = ref(DEFAULT_MODE);
+  const selectedModel = ref(DEFAULT_MODEL);
+  const selectedAttachments = ref<SelectedAttachment[]>([]);
+  const quickActionMode = ref<string | null>(null);
   const storedChats = useStoredChats({
-    clearSelectedAttachments: () => {},
     messageInput,
-    selectedMode: ref(DEFAULT_MODE),
-    selectedModel: ref(DEFAULT_MODEL),
+    quickActionMode,
+    selectedAttachments,
+    selectedMode,
+    selectedModel,
     selectedProjectId,
   });
 
   return {
     messageInput,
+    quickActionMode,
+    selectedAttachments,
+    selectedMode,
+    selectedModel,
     selectedProjectId,
     storedChats,
   };
