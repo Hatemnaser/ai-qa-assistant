@@ -1,5 +1,18 @@
 <script setup lang="ts">
-type IconName = "edit" | "file-text" | "folder" | "folder-open" | "plus" | "search" | "upload";
+type IconName =
+  | "arrow-up"
+  | "chevron-down"
+  | "chevron-right"
+  | "close"
+  | "edit"
+  | "file-text"
+  | "folder"
+  | "folder-open"
+  | "menu"
+  | "paperclip"
+  | "plus"
+  | "search"
+  | "upload";
 
 defineProps<{
   name: IconName;
@@ -27,6 +40,31 @@ defineProps<{
       <path d="M12 16V4"></path>
       <path d="m7 9 5-5 5 5"></path>
       <path d="M5 20h14"></path>
+    </template>
+
+    <template v-else-if="name === 'arrow-up'">
+      <path d="M12 20V4"></path>
+      <path d="m6 10 6-6 6 6"></path>
+    </template>
+
+    <template v-else-if="name === 'paperclip'">
+      <path d="m20 11-8.5 8.5a5 5 0 0 1-7.1-7.1l9-9a3.5 3.5 0 0 1 5 5L9.8 17a2 2 0 0 1-2.8-2.8l8-8"></path>
+    </template>
+
+    <template v-else-if="name === 'menu'">
+      <path d="M4 6h16M4 12h16M4 18h16"></path>
+    </template>
+
+    <template v-else-if="name === 'close'">
+      <path d="m6 6 12 12M6 18 18 6"></path>
+    </template>
+
+    <template v-else-if="name === 'chevron-down'">
+      <path d="m6 9 6 6 6-6"></path>
+    </template>
+
+    <template v-else-if="name === 'chevron-right'">
+      <path d="m9 6 6 6-6 6"></path>
     </template>
 
     <template v-else-if="name === 'file-text'">

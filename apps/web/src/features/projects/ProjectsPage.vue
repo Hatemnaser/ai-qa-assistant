@@ -5,14 +5,12 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  nextTick,
+  useId,
   watch,
 } from "vue";
 
-import ProjectDocumentsPanel from "../project-documents/components/ProjectDocumentsPanel.vue";
-import ProjectInstructionsPanel from "../project-instructions/components/ProjectInstructionsPanel.vue";
-import ProjectMemoryPanel from "../project-memory/components/ProjectMemoryPanel.vue";
-import { useProjectMemory } from "../project-memory/useProjectMemory";
-import ChatComposer from "../chat/components/ChatComposer.vue";
+import ProjectContextAside from "./components/ProjectContextAside.vue";
 import type { QuickAction } from "../chat/constants";
 import type { Chat, SelectedAttachment } from "../chat/types";
 import ProjectAddChatsModal from "./components/ProjectAddChatsModal.vue";
@@ -22,7 +20,6 @@ import ProjectDeleteModal from "./components/ProjectDeleteModal.vue";
 import ProjectFormModal from "./components/ProjectFormModal.vue";
 import Icon from "../../ui/Icon.vue";
 import { useI18n } from "../../i18n/useI18n";
-import { useProjectKnowledge } from "./composables/useProjectKnowledge";
 import { downloadProjectExport } from "./projectPortabilityDownload";
 import {
   exportProjectZip,
@@ -98,43 +95,17 @@ const isExportingProject = ref(false);
 const isAddChatsModalOpen = ref(false);
 const isProjectImportModalOpen = ref(false);
 const isProjectModalOpen = ref(false);
-const hasOpenedEmptyCreateModal = ref(false);
 const activeProjectId = ref<string | null>(null);
 const openProjectMenu = ref<ProjectMenuPosition | null>(null);
+const projectMenuElement = ref<HTMLElement | null>(null);
+const projectMenuId = useId();
+let projectMenuOpener: HTMLElement | null = null;
 const projectToEdit = ref<Project | null>(null);
 const projectPendingExport = ref<Project | null>(null);
 const projectPendingDelete = ref<Project | null>(null);
 const projectExportErrorMessage = ref("");
 const portabilityWarnings = ref<string[]>([]);
 let identityRevision = 0;
-const {
-  addProjectDocument,
-  documentErrorMessage,
-  importProjectFiles,
-  instructionErrorMessage,
-  isImportingDocuments,
-  isLoadingDocuments,
-  isLoadingInstruction,
-  isSavingDocument,
-  isSavingInstruction,
-  projectDocuments,
-  projectInstruction,
-  removeProjectDocument,
-  saveProjectDocument,
-  saveProjectInstruction,
-} = useProjectKnowledge(activeProjectId);
-const {
-  clearProjectMemory,
-  isLoadingProjectMemory,
-  isSavingProjectMemory,
-  projectMemory,
-  projectMemoryDraft,
-  projectMemoryErrorMessage,
-  projectMemoryStatusMessage,
-  saveProjectMemory,
-  updateProjectMemoryDraft,
-} = useProjectMemory(activeProjectId);
-
 const selectedSortLabel = computed(() => {
   if (sortKey.value === "activity") return t("projects.sort.activityShort");
 
@@ -214,17 +185,8 @@ function syncProjectsFromOwner() {
   syncActiveProject();
   syncRequestedProject();
 
-  if (props.currentUser && !props.isLoadingProjects && !props.projectLoadError) {
-    openCreateModalForEmptyWorkspace();
-  }
 }
 
-function openCreateModalForEmptyWorkspace() {
-  if (projects.value.length > 0 || hasOpenedEmptyCreateModal.value) return;
-
-  hasOpenedEmptyCreateModal.value = true;
-  openCreateProjectModal();
-}
 
 function openProject(project: Project) {
   closeProjectMenu();
@@ -234,7 +196,20 @@ function openProject(project: Project) {
 }
 
 function syncRequestedProject() {
-  if (!props.projectToOpenId) return;
+  if (!props.projectToOpenId) {
+    if (!activeProjectId.value) return;
+
+    // The owner can return to the project index without changing the route.
+    // Close only detail-scoped UI; in-flight writes retain their captured target.
+    closeProjectMenu();
+    closeAddChatsModal();
+    if (projectToEdit.value) closeProjectModal();
+    projectPendingExport.value = null;
+    projectExportErrorMessage.value = "";
+    projectPendingDelete.value = null;
+    activeProjectId.value = null;
+    return;
+  }
 
   if (projects.value.some((project) => project.id === props.projectToOpenId)) {
     activeProjectId.value = props.projectToOpenId;
@@ -368,7 +343,7 @@ function requestRemoveProject(project: Project) {
   projectPendingDelete.value = project;
 }
 
-function openProjectActionsMenu(event: MouseEvent, projectId: string) {
+async function openProjectActionsMenu(event: MouseEvent, projectId: string) {
   const button = event.currentTarget as HTMLElement;
   const rect = button.getBoundingClientRect();
 
@@ -378,12 +353,19 @@ function openProjectActionsMenu(event: MouseEvent, projectId: string) {
   }
 
   const menuWidth = 200;
+  projectMenuOpener = button;
 
   openProjectMenu.value = {
     left: Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)),
     projectId,
-    top: rect.bottom + 8,
+    top: Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 156)),
   };
+  await nextTick();
+  const menu = projectMenuElement.value;
+  if (!menu || !openProjectMenu.value) return;
+  const menuRect = menu.getBoundingClientRect();
+  openProjectMenu.value.top = Math.max(8, Math.min(openProjectMenu.value.top, window.innerHeight - menuRect.height - 8));
+  menu.querySelector<HTMLButtonElement>("button")?.focus();
 }
 
 async function exportPendingProject(includeChats: boolean) {
@@ -460,6 +442,23 @@ function closeProjectMenu() {
   openProjectMenu.value = null;
 }
 
+function onProjectMenuKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape" && !event.isComposing) {
+    event.preventDefault();
+    event.stopPropagation();
+    closeProjectMenu();
+    projectMenuOpener?.focus();
+  } else if (event.key === "Tab") {
+    closeProjectMenu();
+  } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    const items = [...(projectMenuElement.value?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") || [])];
+    if (!items.length) return;
+    event.preventDefault();
+    const index = items.indexOf(document.activeElement as HTMLButtonElement);
+    items[(index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
+  }
+}
+
 function cancelRemoveProject() {
   projectPendingDelete.value = null;
 }
@@ -530,7 +529,6 @@ function resetAccountScopedState() {
   modalErrorMessage.value = "";
   projectExportErrorMessage.value = "";
   portabilityWarnings.value = [];
-  hasOpenedEmptyCreateModal.value = false;
   isSaving.value = false;
   isDeleting.value = false;
   isExportingProject.value = false;
@@ -648,6 +646,9 @@ function getSortDate(project: Project, key: SortKey) {
                 class="ui-icon-btn ui-icon-btn--xs ui-icon-btn--ghost"
                 type="button"
                 :aria-label="t('projects.optionsAria')"
+                aria-haspopup="menu"
+                :aria-expanded="openProjectMenu?.projectId === activeProject.id"
+                :aria-controls="projectMenuId"
                 @click.stop="openProjectActionsMenu($event, activeProject.id)"
               >
                 &hellip;
@@ -657,60 +658,19 @@ function getSortDate(project: Project, key: SortKey) {
 
           <div class="project-detail__workspace">
             <div class="project-detail__main">
-              <div class="project-detail__composer">
-                <ChatComposer
-                  :disabled="disabled"
-                  :disabled-message="disabledMessage"
-                  :is-sending="isSending"
-                  :message="message"
-                  :mode="mode"
-                  :selected-attachments="selectedAttachments"
-                  @attachments-selected="emit('attachments-selected', $event)"
-                  @disabled-click="emit('disabled-click')"
-                  @open-selected-attachment="emit('open-selected-attachment', $event)"
-                  @quick-action="emit('quick-action', $event)"
-                  @remove-selected-attachment="emit('remove-selected-attachment', $event)"
-                  @submit="emit('submit-project-message', activeProject.id)"
-                  @update:message="emit('update:message', $event)"
-                />
+              <div class="project-detail__content">
+                <ProjectChatList :chats="activeProjectChats" @open-chat="emit('open-chat', $event)" />
               </div>
-
-              <ProjectChatList :chats="activeProjectChats" @open-chat="emit('open-chat', $event)" />
+              <div class="project-detail__composer">
+                <slot name="composer" :project-id="activeProject.id" />
+              </div>
             </div>
-
-            <aside class="workspace-panel project-knowledge">
-              <ProjectInstructionsPanel
-                :error-message="instructionErrorMessage"
-                :instruction="projectInstruction"
-                :is-loading="isLoadingInstruction"
-                :is-saving="isSavingInstruction"
-                @save="saveProjectInstruction"
-              />
-
-              <ProjectMemoryPanel
-                :draft-content="projectMemoryDraft"
-                :error-message="projectMemoryErrorMessage"
-                :is-loading="isLoadingProjectMemory"
-                :is-saving="isSavingProjectMemory"
-                :memory="projectMemory"
-                :status-message="projectMemoryStatusMessage"
-                @clear="clearProjectMemory"
-                @save="saveProjectMemory"
-                @update:draft-content="updateProjectMemoryDraft"
-              />
-
-              <ProjectDocumentsPanel
-                :documents="projectDocuments"
-                :error-message="documentErrorMessage"
-                :is-importing="isImportingDocuments"
-                :is-loading="isLoadingDocuments"
-                :is-saving="isSavingDocument"
-                @create="addProjectDocument"
-                @delete="removeProjectDocument"
-                @import="importProjectFiles"
-                @update="saveProjectDocument"
-              />
-            </aside>
+            <ProjectContextAside
+              :key="`${currentUser.id}:${activeProject.id}`"
+              :current-user="currentUser"
+              :project-id="activeProject.id"
+              :project-name="activeProject.name"
+            />
           </div>
         </section>
       </template>
@@ -743,6 +703,7 @@ function getSortDate(project: Project, key: SortKey) {
             v-for="project in filteredProjects"
             :key="project.id"
             :is-menu-open="openProjectMenu?.projectId === project.id"
+            :menu-id="projectMenuId"
             :project="project"
             @open="openProject"
             @open-menu="openProjectActionsMenu"
@@ -754,23 +715,29 @@ function getSortDate(project: Project, key: SortKey) {
     <Teleport to="body">
       <ul
         v-if="openProjectMenu && openMenuProject"
-        class="chat-dropdown-menu show"
+        ref="projectMenuElement"
+        :id="projectMenuId"
+        role="menu"
+        :aria-label="t('projects.optionsAria')"
+        @keydown="onProjectMenuKeydown"
+        class="workspace-surface chat-dropdown-menu show"
         :style="{ left: `${openProjectMenu.left}px`, top: `${openProjectMenu.top}px` }"
         @click.stop
       >
-        <li>
-          <button class="dropdown-item" type="button" @click="openProjectExportModal(openMenuProject)">
+        <li role="none">
+          <button class="dropdown-item" role="menuitem" type="button" @click="openProjectExportModal(openMenuProject)">
             {{ t("projects.portability.export.action") }}
           </button>
         </li>
-        <li>
-          <button class="dropdown-item" type="button" @click="openEditProjectModal(openMenuProject)">
+        <li role="none">
+          <button class="dropdown-item" role="menuitem" type="button" @click="openEditProjectModal(openMenuProject)">
             {{ t("projects.menu.edit") }}
           </button>
         </li>
-        <li>
+        <li role="none">
           <button
             class="dropdown-item dropdown-item-danger"
+            role="menuitem"
             type="button"
             :disabled="isDeleting"
             @click="requestRemoveProject(openMenuProject)"

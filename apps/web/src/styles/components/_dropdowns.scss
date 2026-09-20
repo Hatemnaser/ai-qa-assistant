@@ -34,6 +34,10 @@
   min-width: 190px;
   border-radius: var(--radius-xl);
   z-index: 9999;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .answer .answer-export-menu {
@@ -58,7 +62,7 @@
 }
 
 .chat-project-submenu {
-  max-height: 240px;
+  max-height: min(240px, calc(100dvh - 16px));
   min-width: 180px;
   overflow-y: auto;
 }
@@ -74,8 +78,17 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-regular);
   line-height: var(--line-height-compact);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
+}
+
+.chat-dropdown-menu .dropdown-item {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+[dir="rtl"] .chat-dropdown-menu [aria-haspopup="menu"] > [aria-hidden="true"] {
+  transform: rotate(180deg);
 }
 
 .dropdown-menu .dropdown-divider,

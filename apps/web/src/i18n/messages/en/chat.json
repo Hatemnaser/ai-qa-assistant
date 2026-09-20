@@ -1,4 +1,11 @@
 {
+  "chat.composer.message": "Message",
+  "chat.composer.send": "Send message",
+  "chat.home.title": "What would you like to work on?",
+  "chat.home.description": "Start a conversation below, or continue earlier work. Testing stays available from the sidebar.",
+  "chat.home.noProject": "Without a project",
+  "chat.home.recent": "Recent conversations",
+  "chat.home.empty": "Your conversations will appear here. No project setup is needed to ask a question.",
   "chat.title.default": "New QA Chat",
   "chat.topbar.title": "QA Chat",
   "chat.topbar.subtitle": "Describe a feature, bug, or user story.",

@@ -25,7 +25,7 @@ const { dialogRef, onDialogKeydown } = useDialogAccessibility({
   <Teleport to="body">
     <div
       ref="dialogRef"
-      class="modal fade show d-block"
+      class="workspace-surface modal fade show d-block"
       tabindex="-1"
       role="dialog"
       aria-modal="true"

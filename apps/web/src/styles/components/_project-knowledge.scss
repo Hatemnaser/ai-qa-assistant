@@ -33,6 +33,64 @@
   min-width: 0;
 }
 
+.project-context {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.project-context__shortcuts,
+.project-context__close {
+  display: none;
+}
+
+.project-context__section + .project-context__section {
+  border-top: 1px solid var(--border);
+}
+
+.project-context__error { margin: 0 var(--space-4) var(--space-4); }
+.project-context__integrations { justify-self: start; }
+.project-context .project-memory-empty,
+.project-context .project-instructions-more { text-align: start; }
+.project-context .project-document-card strong { padding-inline: 0 30px; }
+.project-context .project-document-card__menu { inset-inline: auto 5px; }
+.project-context .project-document-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); }
+
+.project-integrations-dialog { max-width: 760px; }
+.project-integrations,
+.project-integrations__group { display: grid; gap: var(--space-4); min-width: 0; }
+.project-integrations__group h3 { margin: 0; font-size: var(--font-size-lg); }
+.project-integrations__group p { margin: 0; }
+.project-integrations__group > .btn { justify-self: start; }
+.project-integrations__heading { display: flex; align-items: start; gap: var(--space-3); }
+.project-integrations__heading > .btn { flex-shrink: 0; }
+.project-integrations__list { display: grid; gap: var(--space-2); padding-inline-start: var(--space-4); margin: 0; }
+.project-integrations__list li { overflow-wrap: anywhere; }
+.project-integrations__list .qa-status { margin-inline-start: var(--space-2); }
+
+@media (max-width: 991px) {
+  .project-context { overflow: visible; }
+  .project-context__shortcuts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .project-context__panels { border: 0; background: transparent; }
+  .project-context__section { display: none; }
+  .project-context__section.is-selected {
+    display: block;
+    max-height: min(320px, 42dvh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--surface-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .project-context__close { display: block; margin-inline-start: auto; }
+  .project-context__panels:has(.is-selected) { overflow: visible; }
+  .project-context .project-knowledge__section { padding: var(--space-3); }
+}
+
 .project-memory-summary {
   min-width: 0;
 }

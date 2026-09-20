@@ -7,6 +7,7 @@ import type { Chat } from "../types";
 const props = defineProps<{
   active: boolean;
   chat: Chat;
+  projectName?: string;
   renaming: boolean;
 }>();
 
@@ -59,7 +60,7 @@ function handleRenameBlur() {
 </script>
 
 <template>
-  <div class="ui-row ui-row--compact ui-row--interactive" :class="{ active }">
+  <div class="ui-row ui-row--compact ui-row--interactive sidebar-chat-row" :class="{ active }">
     <button
       v-if="!renaming"
       class="ui-row__button ui-row__button--with-action"
@@ -68,6 +69,7 @@ function handleRenameBlur() {
     >
       <span class="ui-row__copy">
         <span class="ui-row__title">{{ chat.title === "New QA Chat" ? t("chat.title.default") : chat.title }}</span>
+        <span v-if="projectName" class="sidebar-chat-project">{{ projectName }}</span>
       </span>
     </button>
 
@@ -77,6 +79,7 @@ function handleRenameBlur() {
       v-model="renameDraft"
       class="form-control form-control-sm ui-row__input"
       type="text"
+      :aria-label="t('chat.menu.rename')"
       @blur="handleRenameBlur"
       @keydown.enter.prevent="submitRename"
       @keydown.escape.prevent="cancelRename"
@@ -86,7 +89,8 @@ function handleRenameBlur() {
       <button
         class="ui-icon-btn ui-icon-btn--xs ui-icon-btn--ghost"
         type="button"
-        :aria-label="t('sidebar.account.menu')"
+        :aria-label="t('sidebar.chat.menu', { title: chat.title })"
+        aria-haspopup="menu"
         @click.stop="emit('open-menu', $event, chat.id)"
       >
         &hellip;

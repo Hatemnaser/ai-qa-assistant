@@ -4,6 +4,13 @@ import { describe, it } from "node:test";
 import { parseAppRoute } from "../src/router/useAppRoute.ts";
 
 describe("app route parsing", () => {
+  it("adds an explicit focused home without redirecting legacy QA and project routes", () => {
+    assert.equal(parseAppRoute({ hash: "#/home", pathname: "/" }), "home");
+    assert.equal(parseAppRoute({ hash: "", pathname: "/home" }), "home");
+    assert.equal(parseAppRoute({ hash: "#/", pathname: "/" }), "workspace");
+    assert.equal(parseAppRoute({ hash: "#/projects", pathname: "/" }), "projects");
+    assert.equal(parseAppRoute({ hash: "#/settings", pathname: "/" }), "settings");
+  });
   it("uses the QA Workspace as the product home and keeps chat explicit", () => {
     assert.equal(parseAppRoute({ hash: "", pathname: "/" }), "workspace");
     assert.equal(parseAppRoute({ hash: "#/chat", pathname: "/" }), "chat");

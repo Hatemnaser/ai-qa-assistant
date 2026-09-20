@@ -16,29 +16,23 @@ import {
   saveChats,
   setActiveChatId,
 } from "../chatStorage";
-import { DEFAULT_MODE, DEFAULT_MODEL } from "../constants";
 import type { Chat } from "../types";
+import { useChatDrafts, type ChatDraftRefs } from "./useChatDrafts";
 
-interface StoredChatOptions {
-  clearSelectedAttachments: () => void;
-  messageInput: Ref<string>;
-  selectedMode: Ref<string>;
-  selectedModel: Ref<string>;
+interface StoredChatOptions extends ChatDraftRefs {
   selectedProjectId: Ref<string | null>;
 }
 
-export function useStoredChats({
-  clearSelectedAttachments,
-  messageInput,
-  selectedMode,
-  selectedModel,
-  selectedProjectId,
-}: StoredChatOptions) {
+export function useStoredChats(options: StoredChatOptions) {
+  const { selectedMode, selectedModel, selectedProjectId } = options;
+  const drafts = useChatDrafts(options);
+  let ownerRevision = 0;
   const storageScope = ref(GUEST_CHAT_STORAGE_SCOPE);
   const chats = ref<Chat[]>(loadChats(storageScope.value));
   const activeChatId = ref(getActiveChatId(storageScope.value));
   const activeChat = computed(() => chats.value.find((chat) => chat.id === activeChatId.value) || null);
   const activeMessages = computed(() => activeChat.value?.messages || []);
+  if (activeChat.value) selectChat(activeChat.value.id);
 
   function persist(nextChats = chats.value) {
     chats.value = nextChats;
@@ -46,19 +40,14 @@ export function useStoredChats({
   }
 
   function startNewChat() {
-    activeChatId.value = null;
-    clearActiveChatId(storageScope.value);
-    messageInput.value = "";
-    clearSelectedAttachments();
-    selectedMode.value = DEFAULT_MODE;
-    selectedModel.value = DEFAULT_MODEL;
-    selectedProjectId.value = null;
+    prepareNewChatForProject(null);
   }
 
-  function prepareNewChatForProject(projectId: string) {
+  function prepareNewChatForProject(projectId: string | null) {
     activeChatId.value = null;
     clearActiveChatId(storageScope.value);
     selectedProjectId.value = normalizeSelectedProjectId(projectId);
+    drafts.select(`new:${selectedProjectId.value || ""}`);
   }
 
   function selectChat(chatId: string) {
@@ -68,9 +57,8 @@ export function useStoredChats({
 
     activeChatId.value = chat.id;
     setActiveChatId(chat.id, storageScope.value);
-    selectedMode.value = chat.mode;
-    selectedModel.value = chat.model;
     selectedProjectId.value = chat.projectId;
+    drafts.select(`chat:${chat.id}`, { mode: chat.mode, model: chat.model });
 
     return chat;
   }
@@ -79,6 +67,7 @@ export function useStoredChats({
     const nextChats = chats.value.filter((chat) => chat.id !== chatId);
     markChatPendingDelete(chatId, storageScope.value);
     persist(nextChats);
+    drafts.remove(`chat:${chatId}`);
 
     if (activeChatId.value !== chatId) return;
 
@@ -89,7 +78,7 @@ export function useStoredChats({
       setActiveChatId(nextActiveChat.id, storageScope.value);
       selectChat(nextActiveChat.id);
     } else {
-      clearActiveChatId(storageScope.value);
+      startNewChat();
     }
   }
 
@@ -115,6 +104,11 @@ export function useStoredChats({
     options: { updateSelectedProject?: boolean } = {}
   ) {
     const nextProjectId = normalizeSelectedProjectId(projectId);
+
+    if (!chatId && options.updateSelectedProject) {
+      prepareNewChatForProject(nextProjectId);
+      return;
+    }
 
     if (options.updateSelectedProject || activeChatId.value === chatId) {
       selectedProjectId.value = nextProjectId;
@@ -147,12 +141,14 @@ export function useStoredChats({
       projectId: selectedProjectId.value,
     });
 
+    drafts.transferTo(`chat:${chat.id}`);
     addChatAndSelect(chat);
 
     return chat;
   }
 
   function updateChat(updatedChat: Chat) {
+    if (!chats.value.some((chat) => chat.id === updatedChat.id)) return;
     markChatPendingUpsert(updatedChat.id, storageScope.value);
     persist(
       chats.value.map((chat) =>
@@ -168,21 +164,17 @@ export function useStoredChats({
 
   function replaceChats(nextChats: Chat[]) {
     persist(nextChats);
+    drafts.retainChats(new Set(nextChats.map((chat) => chat.id)));
 
     const currentActiveChatId = activeChatId.value;
+    if (!currentActiveChatId) return;
     const nextActiveChat = chats.value.find((chat) => chat.id === currentActiveChatId) || chats.value[0] || null;
 
-    activeChatId.value = nextActiveChat?.id || null;
-
     if (nextActiveChat) {
-      setActiveChatId(nextActiveChat.id, storageScope.value);
+      selectChat(nextActiveChat.id);
     } else {
-      clearActiveChatId(storageScope.value);
+      startNewChat();
     }
-
-    selectedMode.value = nextActiveChat?.mode || DEFAULT_MODE;
-    selectedModel.value = nextActiveChat?.model || DEFAULT_MODEL;
-    selectedProjectId.value = nextActiveChat?.projectId || null;
   }
 
   function setChatStorageOwner(userId: string | null, options: { adoptGuestChats?: boolean } = {}) {
@@ -191,25 +183,40 @@ export function useStoredChats({
     }
 
     const nextScope = userId ? getUserChatStorageScope(userId) : GUEST_CHAT_STORAGE_SCOPE;
+    if (storageScope.value === nextScope) return;
 
     if (storageScope.value !== nextScope) {
       discardVolatileChatCreates(storageScope.value);
     }
 
     storageScope.value = nextScope;
+    ownerRevision += 1;
+    drafts.reset();
     chats.value = loadChats(storageScope.value);
     activeChatId.value = getActiveChatId(storageScope.value);
-    messageInput.value = "";
-    clearSelectedAttachments();
 
     if (!activeChat.value) {
       activeChatId.value = null;
       clearActiveChatId(storageScope.value);
     }
 
-    selectedMode.value = activeChat.value?.mode || DEFAULT_MODE;
-    selectedModel.value = activeChat.value?.model || DEFAULT_MODEL;
-    selectedProjectId.value = activeChat.value?.projectId || null;
+    if (activeChat.value) selectChat(activeChat.value.id);
+    else startNewChat();
+  }
+
+  function captureSubmission(chatId: string) {
+    const revision = ownerRevision;
+    const ticket = drafts.capture();
+    const getChat = () => revision === ownerRevision && ticket.entry.valid
+      ? chats.value.find((chat) => chat.id === chatId) || null
+      : null;
+    return {
+      getChat,
+      isActive: () => Boolean(getChat()) && activeChatId.value === chatId,
+      consumeDraft: (resetQuickAction: boolean) => {
+        if (getChat()) drafts.consume(ticket, resetQuickAction);
+      },
+    };
   }
 
   return {
@@ -220,6 +227,8 @@ export function useStoredChats({
     assignActiveChatProject,
     assignChatProject,
     chats,
+    captureSubmission,
+    drafts,
     deleteChat,
     ensureActiveChat,
     renameChat,
@@ -227,6 +236,7 @@ export function useStoredChats({
     selectChat,
     setChatStorageOwner,
     prepareNewChatForProject,
+    prepareNewChat: startNewChat,
     startNewChat,
     updateChat,
   };

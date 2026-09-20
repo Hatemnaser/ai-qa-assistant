@@ -5,6 +5,7 @@ import { useI18n } from "../../../i18n/useI18n";
 
 defineProps<{
   isMenuOpen?: boolean;
+  menuId?: string;
   project: Project;
 }>();
 
@@ -29,6 +30,9 @@ const { t } = useI18n();
         class="ui-icon-btn ui-icon-btn--xs ui-icon-btn--ghost"
         type="button"
         :aria-label="t('projects.optionsAria')"
+        aria-haspopup="menu"
+        :aria-expanded="Boolean(isMenuOpen)"
+        :aria-controls="menuId"
         @click.stop="emit('open-menu', $event, project.id)"
       >
         &hellip;

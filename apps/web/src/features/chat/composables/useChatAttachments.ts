@@ -1,4 +1,5 @@
-import { onBeforeUnmount, ref } from "vue";
+import { getCurrentScope, onScopeDispose, ref } from "vue";
+import type { Ref } from "vue";
 
 import { getAssetDownloadUrl } from "../../assets/assetsApi";
 import { useI18n } from "../../../i18n/useI18n";
@@ -11,9 +12,23 @@ import {
 } from "../chatAttachments";
 import type { AttachmentFileError } from "../chatAttachments";
 import type { ChatAttachment, SelectedAttachment } from "../types";
+import type { useChatDrafts } from "./useChatDrafts";
 
-export function useChatAttachments() {
-  const selectedAttachments = ref<SelectedAttachment[]>([]);
+interface ChatAttachmentOptions {
+  selectedAttachments?: Ref<SelectedAttachment[]>;
+  drafts?: Pick<ReturnType<typeof useChatDrafts>, "capture" | "appendAttachments">;
+  getIdentity?: () => string | null;
+}
+
+export interface ChatAttachmentDependencies {
+  prepare: typeof fileToSelectedAttachment;
+}
+
+export function useChatAttachments(
+  options: ChatAttachmentOptions = {},
+  dependencies: ChatAttachmentDependencies = { prepare: fileToSelectedAttachment }
+) {
+  const selectedAttachments = options.selectedAttachments || ref<SelectedAttachment[]>([]);
   const { t } = useI18n();
 
   function clearSelectedAttachments() {
@@ -38,9 +53,27 @@ export function useChatAttachments() {
       return;
     }
 
-    const nextAttachments = await Promise.all(selectedFiles.map(fileToSelectedAttachment));
+    const ticket = options.drafts?.capture();
+    const identity = options.getIdentity?.();
+    const prepared = await Promise.allSettled(selectedFiles.map(dependencies.prepare));
+    const nextAttachments = prepared.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
 
-    selectedAttachments.value = [...selectedAttachments.value, ...nextAttachments];
+    if (identity !== options.getIdentity?.() || prepared.some((result) => result.status === "rejected")) {
+      nextAttachments.forEach(releaseSelectedAttachment);
+      return;
+    }
+
+    const result = ticket && options.drafts
+      ? options.drafts.appendAttachments(ticket, nextAttachments)
+      : selectedAttachments.value.length + nextAttachments.length > MAX_SELECTED_ATTACHMENTS ? "full" : "added";
+
+    if (result !== "added") {
+      nextAttachments.forEach(releaseSelectedAttachment);
+      if (result === "full") alert(t("chat.attachments.limit", { count: MAX_SELECTED_ATTACHMENTS }));
+      return;
+    }
+
+    if (!ticket) selectedAttachments.value = [...selectedAttachments.value, ...nextAttachments];
   }
 
   async function openAttachment(attachment: ChatAttachment) {
@@ -72,7 +105,7 @@ export function useChatAttachments() {
     selectedAttachments.value = selectedAttachments.value.filter((_, itemIndex) => itemIndex !== index);
   }
 
-  onBeforeUnmount(clearSelectedAttachments);
+  if (!options.drafts && getCurrentScope()) onScopeDispose(clearSelectedAttachments);
 
   function getAttachmentOnlyMessage(attachments: SelectedAttachment[]) {
     if (attachments.length === 0) return "";

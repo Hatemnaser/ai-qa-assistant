@@ -1,9 +1,8 @@
-/* Main layout */
-
+/* Keep legacy pages scrollable; only conversation surfaces own the viewport. */
 .app {
   display: flex;
   align-items: flex-start;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .chat-layout {
@@ -14,7 +13,7 @@
   max-width: var(--layout-chat-width);
   min-width: 0;
   margin: 0 auto;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .chat-area {
@@ -23,53 +22,61 @@
   padding: 24px;
 }
 
-/* Mobile */
+.focused-layout {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.focused-layout:has(.project-context),
+.focused-layout:has(.projects-page--detail) {
+  max-width: 1440px;
+}
+
+.focused-layout .chat-area {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.chat-workspace {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+.chat-workspace__main {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.chat-workspace > .project-context {
+  flex: 0 0 clamp(280px, 28%, 360px);
+  margin: var(--space-4);
+  margin-inline-start: 0;
+}
+
+.focused-layout .welcome-message {
+  margin-block-start: clamp(32px, 12vh, 120px);
+}
 
 @media (max-width: 991px) {
-  .app {
-    display: block;
+  .app { display: block; }
+  .sidebar:not(.sidebar--mobile-open) { display: none; }
+  .sidebar-mobile-bar { height: 52px; }
+  .focused-layout { height: calc(100dvh - 52px); }
+  .chat-layout:not(.focused-layout) { min-height: calc(100dvh - 52px); }
+  .chat-area { padding-inline: 16px; }
+  .chat-workspace { flex-direction: column; }
+  .chat-workspace > .project-context {
+    order: -1;
+    flex: 0 1 auto;
+    margin: var(--space-3) var(--space-4);
+    max-height: 45%;
+    overflow: auto;
   }
-
-  .sidebar {
-    display: none;
-  }
-
-  .chat-area,
-  .chat-layout.empty-chat .chat-form {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-}
-
-/* Empty chat center composer */
-.chat-layout.empty-chat {
-  min-height: 100vh;
-  justify-content: flex-start;
-}
-
-.chat-layout.empty-chat .chat-area {
-  flex: 0 0 auto;
-  padding-top: clamp(160px, 26vh, 260px);
-  padding-bottom: 28px;
-}
-
-.chat-layout.empty-chat .welcome-message {
-  margin-top: 0;
-  margin-bottom: 28px;
-  text-align: center;
-}
-
-.chat-layout.empty-chat .chat-form {
-  padding-top: 0;
-  position: static;
-  width: 100%;
-  max-width: var(--layout-composer-width);
-  margin: 0 auto;
-  padding: 0 28px 20px;
-  border-top: 0;
-  background: transparent;
-}
-
-.chat-layout.empty-chat .quick-actions {
-  display: none;
 }

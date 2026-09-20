@@ -11,6 +11,7 @@ import type { Project, ProjectInput } from "./features/projects/types";
 import { fetchUserSettings, updateUserSettings } from "./features/settings/settingsApi";
 import type { UserSettings } from "./features/settings/types";
 import ChatComposer from "./features/chat/components/ChatComposer.vue";
+import ChatHome from "./features/chat/components/ChatHome.vue";
 import ChatContextMenus from "./features/chat/components/ChatContextMenus.vue";
 import ChatDeleteModal from "./features/chat/components/ChatDeleteModal.vue";
 import GuestLimitModal from "./features/chat/components/GuestLimitModal.vue";
@@ -26,6 +27,7 @@ import { useAppRoute, type AuthView } from "./router/useAppRoute";
 const ForgotPasswordPage = defineAsyncComponent(() => import("./features/auth/pages/ForgotPasswordPage.vue"));
 const LoginPage = defineAsyncComponent(() => import("./features/auth/pages/LoginPage.vue"));
 const ProjectsPage = defineAsyncComponent(() => import("./features/projects/ProjectsPage.vue"));
+const ProjectContextAside = defineAsyncComponent(() => import("./features/projects/components/ProjectContextAside.vue"));
 const QaWorkspacePage = defineAsyncComponent(() => import("./features/qa/QaWorkspacePage.vue"));
 const RegisterPage = defineAsyncComponent(() => import("./features/auth/pages/RegisterPage.vue"));
 const ResetPasswordPage = defineAsyncComponent(() => import("./features/auth/pages/ResetPasswordPage.vue"));
@@ -37,6 +39,7 @@ const {
   currentRoute,
   navigateToAuth: navigateToAuthRoute,
   navigateToChat,
+  navigateToHome,
   navigateToProjects,
   navigateToSettings,
   navigateToUsage,
@@ -56,6 +59,7 @@ const projectCreateModalError = ref("");
 let accountSettingsLoadRevision = 0;
 let projectLoadRevision = 0;
 let themeSaveRevision = 0;
+let composerRevision = 0;
 
 function navigateToAuth(view: AuthView) {
   isGuestLimitModalOpen.value = false;
@@ -66,16 +70,34 @@ function handleAuthenticated(user: AuthUser) {
   clearAssetDownloadUrlCache();
   setAuthenticatedUser(user);
   setChatStorageOwner(user.id, { adoptGuestChats: true });
+  prepareNewChat();
   clearGuestLimitReached();
   isGuestLimitModalOpen.value = false;
-  navigateToWorkspace();
+  navigateToHome();
   void applyAccountSettings();
   void syncAccountChats();
 }
 
 function handleNewChat() {
+  chatToResumeId.value = null;
   startNewChat();
   navigateToChat();
+}
+
+function handleOpenHome() {
+  if (currentRoute.value === "chat") chatToResumeId.value = activeChatId.value;
+  navigateToHome();
+}
+
+function handleHomeSubmit() {
+  if (isSending.value || (!messageInput.value.trim() && !selectedAttachments.value.length)) return;
+  void handleSubmit();
+  navigateToChat();
+}
+
+async function handleImportedChat(event: Event) {
+  const imported = await handleImportChat(event);
+  if (imported) navigateToChat();
 }
 
 function handleSidebarChatSelected(chatId: string) {
@@ -185,6 +207,7 @@ const {
   openProjectSubmenu,
   openSelectedAttachment,
   prepareNewChatForProject,
+  prepareNewChat,
   renamingChatId,
   requestDeleteChat,
   replaceChats,
@@ -194,7 +217,9 @@ const {
   selectedMode,
   selectedModel,
   selectedProjectId,
+  sendingChatId,
   setChatStorageOwner,
+  setDefaultModel,
   submitRenameChat,
   startNewChat,
   usageSummary,
@@ -210,6 +235,21 @@ const { setTheme, theme, themeToggleLabel, toggleTheme } = useTheme();
 const { locale, setLocale, t } = useI18n();
 const isGuestLimitBlocked = computed(() => !currentUser.value && guestLimitReached.value);
 const sidebarActiveProjectId = computed(() => (currentRoute.value === "projects" ? projectToOpenId.value : null));
+const chatToResumeId = ref(activeChatId.value);
+const activeProject = computed(() => accountProjects.value.find((project) => project.id === selectedProjectId.value) || null);
+
+function syncComposerSurface() {
+  if (currentRoute.value === "home") prepareNewChat();
+  else if (currentRoute.value === "projects" && projectToOpenId.value) prepareNewChatForProject(projectToOpenId.value);
+  else if (currentRoute.value === "chat") {
+    if (activeChatId.value) chatToResumeId.value = activeChatId.value;
+    else if (chatToResumeId.value) selectChat(chatToResumeId.value);
+  }
+}
+
+watch([currentRoute, projectToOpenId], syncComposerSurface, { flush: "sync", immediate: true });
+watch(activeChatId, (id) => { if (currentRoute.value === "chat") chatToResumeId.value = id; }, { flush: "sync" });
+watch([currentRoute, activeChatId, selectedProjectId, messageInput, selectedMode, selectedModel, selectedAttachments], () => { composerRevision += 1; }, { deep: true, flush: "sync" });
 
 onMounted(() => {
   void loadAiModelCatalog();
@@ -232,7 +272,7 @@ watch(
 );
 
 watch(currentRoute, (route) => {
-  if (route === "chat" || route === "workspace") {
+  if (route === "chat" || route === "workspace" || route === "home") {
     void loadAccountProjects();
   }
 });
@@ -241,11 +281,13 @@ async function initializeSession() {
   const user = await loadCurrentUser();
 
   setChatStorageOwner(user?.id || null);
+  syncComposerSurface();
 
   if (user) {
     await syncAccountChats();
     await applyAccountSettings();
   }
+  syncComposerSurface();
 }
 
 function confirmDeleteChatAndSync() {
@@ -259,13 +301,14 @@ function confirmDeleteChatAndSync() {
 async function applyAccountSettings() {
   const userId = currentUser.value?.id;
   const requestRevision = ++accountSettingsLoadRevision;
+  const draftRevision = composerRevision;
   if (!userId) return;
 
   try {
     const settings = await fetchUserSettings();
 
     if (currentUser.value?.id === userId && accountSettingsLoadRevision === requestRevision) {
-      applySavedSettings(settings);
+      applySavedSettings(settings, composerRevision === draftRevision);
     }
   } catch {
     // Settings should not block chat startup.
@@ -405,6 +448,7 @@ async function loadAccountProjects(): Promise<Project[]> {
 }
 
 function resetAccountScopedState() {
+  chatToResumeId.value = null;
   accountSettingsLoadRevision += 1;
   projectLoadRevision += 1;
   themeSaveRevision += 1;
@@ -433,9 +477,10 @@ function clearUnavailableProjectAssignments(projects: Project[]) {
   }
 }
 
-function applySavedSettings(settings: UserSettings) {
+function applySavedSettings(settings: UserSettings, applyComposerDefault = true) {
   accountSettings.value = settings;
-  selectedModel.value = settings.defaultModel;
+  setDefaultModel(settings.defaultModel);
+  if (applyComposerDefault) selectedModel.value = settings.defaultModel;
   setLocale(settings.language);
   setTheme(settings.theme);
 }
@@ -515,6 +560,7 @@ async function persistThemeSetting() {
       :chats="chats"
       :current-user="currentUser"
       :is-chat-route="currentRoute === 'chat'"
+      :is-home-route="currentRoute === 'home'"
       :is-projects-route="currentRoute === 'projects'"
       :is-workspace-route="currentRoute === 'workspace'"
       :projects="accountProjects"
@@ -522,9 +568,10 @@ async function persistThemeSetting() {
       :theme-toggle-label="themeToggleLabel"
       @cancel-rename="cancelRenameChat"
       @export-active-chat="exportActiveChat"
-      @import-chat="handleImportChat"
+      @import-chat="handleImportedChat"
       @logout="handleLogout"
       @new-chat="handleNewChat"
+      @open-home="handleOpenHome"
       @new-project="handleNewProject"
       @open-project="handleOpenProject"
       @open-projects="handleOpenProjects"
@@ -538,7 +585,20 @@ async function persistThemeSetting() {
       @toggle-theme="handleToggleTheme"
     />
 
-    <main v-if="currentRoute === 'workspace'" class="chat-layout">
+    <main v-if="currentRoute === 'home'" class="chat-layout focused-layout workspace-surface">
+      <ChatHome :chats="chats" :projects="accountProjects" @select-chat="handleSidebarChatSelected" />
+      <ChatComposer
+        v-model:message="messageInput" v-model:mode="selectedMode" v-model:model="selectedModel"
+        :model-options="modelOptions" :show-starters="true"
+        :disabled="isGuestLimitBlocked" :disabled-message="t('errors.guestLimit')"
+        :is-sending="isSending" :selected-attachments="selectedAttachments"
+        @attachments-selected="handleAttachmentsSelected" @disabled-click="isGuestLimitModalOpen = true"
+        @open-selected-attachment="openSelectedAttachment" @remove-selected-attachment="removeSelectedAttachment"
+        @quick-action="applyQuickAction" @submit="handleHomeSubmit"
+      />
+    </main>
+
+    <main v-else-if="currentRoute === 'workspace'" class="chat-layout">
       <QaWorkspacePage
         :current-user="currentUser"
         :is-loading-projects="isLoadingProjects"
@@ -558,7 +618,7 @@ async function persistThemeSetting() {
       />
     </main>
 
-    <main v-else-if="currentRoute === 'projects'" class="chat-layout">
+    <main v-else-if="currentRoute === 'projects'" class="chat-layout workspace-surface" :class="{ 'focused-layout': currentUser && projectToOpenId }">
       <ProjectsPage
         v-model:message="messageInput"
         :chats="chats"
@@ -585,7 +645,19 @@ async function persistThemeSetting() {
         @remove-selected-attachment="removeSelectedAttachment"
         @sign-in="navigateToAuth('login')"
         @submit-project-message="handleProjectMessageSubmit"
-      />
+      >
+        <template #composer="{ projectId }">
+          <ChatComposer
+            v-model:message="messageInput" v-model:mode="selectedMode" v-model:model="selectedModel"
+            :model-options="modelOptions" :show-starters="true"
+            :disabled="isGuestLimitBlocked" :disabled-message="t('errors.guestLimit')"
+            :is-sending="isSending" :selected-attachments="selectedAttachments"
+            @attachments-selected="handleAttachmentsSelected" @disabled-click="isGuestLimitModalOpen = true"
+            @open-selected-attachment="openSelectedAttachment" @remove-selected-attachment="removeSelectedAttachment"
+            @quick-action="applyQuickAction" @submit="handleProjectMessageSubmit(projectId)"
+          />
+        </template>
+      </ProjectsPage>
     </main>
 
     <main v-else-if="currentRoute === 'settings'" class="chat-layout">
@@ -600,11 +672,9 @@ async function persistThemeSetting() {
       />
     </main>
 
-    <main v-else class="chat-layout" :class="{ 'empty-chat': activeMessages.length === 0 }">
+    <main v-else class="chat-layout focused-layout workspace-surface">
       <ChatTopbar
         :chat-title="activeChat?.title"
-        v-model:mode="selectedMode"
-        v-model:model="selectedModel"
         :is-loading-projects="isLoadingProjects"
         :model-options="modelOptions"
         :project-error="projectLoadError"
@@ -612,12 +682,15 @@ async function persistThemeSetting() {
         :projects="accountProjects"
         :usage-summary="usageSummary"
         @open-projects="handleOpenProjects"
+        @open-project="handleOpenProject"
         @update:project-id="assignActiveChatProject"
       />
 
+      <div class="chat-workspace" :class="{ 'chat-workspace--project': currentUser && activeProject }">
+      <div class="chat-workspace__main">
       <ChatMessages
         :copy-answer="copyAnswer"
-        :is-sending="isSending"
+        :is-sending="isSending && sendingChatId === activeChatId"
         :messages="activeMessages"
         @export-answer="exportAnswer"
         @open-attachment="openAttachment"
@@ -626,10 +699,13 @@ async function persistThemeSetting() {
 
       <ChatComposer
         v-model:message="messageInput"
+        v-model:mode="selectedMode"
+        v-model:model="selectedModel"
+        :model-options="modelOptions"
+        :show-starters="activeMessages.length === 0"
         :disabled="isGuestLimitBlocked"
         :disabled-message="t('errors.guestLimit')"
         :is-sending="isSending"
-        :mode="selectedMode"
         :selected-attachments="selectedAttachments"
         @attachments-selected="handleAttachmentsSelected"
         @disabled-click="isGuestLimitModalOpen = true"
@@ -638,6 +714,13 @@ async function persistThemeSetting() {
         @remove-selected-attachment="removeSelectedAttachment"
         @submit="handleSubmit"
       />
+      </div>
+      <ProjectContextAside
+        v-if="currentUser && activeProject"
+        :key="`${currentUser.id}:${activeProject.id}`"
+        :current-user="currentUser" :project-id="activeProject.id" :project-name="activeProject.name"
+      />
+      </div>
     </main>
 
     <ChatContextMenus

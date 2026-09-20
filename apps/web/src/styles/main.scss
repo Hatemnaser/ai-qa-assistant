@@ -18,6 +18,7 @@
 @use "components/dropdowns";
 @use "components/composer";
 @use "components/messages";
+@use "components/chat-home";
 @use "components/modals";
 @use "components/attachments";
 @use "components/markdown";
@@ -27,3 +28,6 @@
 @use "components/qa-workspace";
 
 @use "themes/dark";
+
+// Opt-in presentation for conversation/project surfaces, including Teleports.
+@use "components/focused-workspace";

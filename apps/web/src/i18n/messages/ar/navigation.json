@@ -14,5 +14,12 @@
   "sidebar.account.exportChat": "تصدير المحادثة",
   "sidebar.account.importChat": "استيراد محادثة",
   "sidebar.account.usage": "استخدامي",
-  "sidebar.account.settings": "الإعدادات"
+  "sidebar.account.settings": "الإعدادات",
+  "sidebar.nav.tests": "الاختبارات",
+  "sidebar.nav.navigation": "التنقّل",
+  "sidebar.nav.openNavigation": "فتح التنقّل",
+  "sidebar.nav.closeNavigation": "إغلاق التنقّل",
+  "sidebar.nav.toggleProjects": "توسيع أو طي المشاريع",
+  "sidebar.project.toggleChats": "توسيع أو طي محادثات {project}",
+  "sidebar.chat.menu": "إجراءات المحادثة {title}"
 }

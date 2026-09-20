@@ -2,7 +2,87 @@
 
 Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for QA lifecycle and integration contracts, read `docs/QA_CONTROL_PLANE.md`; for the RecipeV1/local Runner boundary, read `docs/QA_EXECUTION_HARNESS.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`. Memory Intelligence decisions and retained review requirements live in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 
-Last updated: 2026-09-11
+Last updated: 2026-09-20
+
+## Current Owner Priority — Easy First-Test UX
+
+Read `docs/PRODUCT_UX_DIRECTION.md` before planning the next product work.
+The owner found the actual first-test flow too complicated: too many concepts,
+scattered actions, scrolling, dialogs, and setup instructions. Smooth launch
+UX is a priority, not optional polish. The preferred direction is one coherent
+test-session experience with understandable progress and useful evidence;
+Codex/Claude Code are simplicity references, not approved screen templates.
+Keep the strong QA contracts underneath. Live embedded browser control, login
+handoff, and retry-from-step are not already implemented or fully decided.
+The owner subsequently approved and requested implementation of the gradual
+phase-one shell. It is implemented in this focused-workspace change set;
+check Git for its commit/push state. It has not been deployed by this task.
+The owner then chose core visual refinement BEFORE redesigning the QA flow.
+That refresh is implemented locally too: Home/chat/projects and shared navigation
+now use a scoped neutral light/charcoal theme and system typography. Desktop
+navigation is 248px, project context 288px, and reading/composer lanes at most
+740px. Project context remains visible, overriding the prototype's hidden Details
+panel. Assistant output is unboxed; starters sit above a bottom composer whose
+toolbar retains attachment, all six tasks, native model selection and send.
+No new workflow or persisted chat/QA association is implied by this styling.
+`workspace-surface` scopes tokens, including directly on body-Teleported menus
+and dialogs. Shared QA connection management opts in only from Project
+Integrations; QA/auth/settings retain their existing presentation and contracts.
+Read the 2026-09-14 checkpoint in `PRODUCT_INFORMATION_ARCHITECTURE.md` and
+`UX_FEATURE_PRESERVATION.md` before continuing. Earlier HTML prototypes remain
+simulated design references, not evidence of live browser execution.
+
+Phase one adds `#/home` after normal sign-in/brand click, bottom composer with
+all six task modes/model controls, three non-destructive starters, clearer
+sidebar projects/recents and accessible row menus/mobile navigation. Project
+instructions, memory and files stay visible beside both project and project
+chat on desktop; narrow screens have explicitly named controls. JSON chat and
+project/account ZIP paths remain. Project Integrations distinguishes named
+MCP/REST credentials from actual Runner connectivity. Existing `#/` still
+opens Tests/QA Workspace; existing QA contracts and approval gates are intact.
+
+Unsent drafts are scoped in memory by owner and chat/new-project context.
+Navigation preserves text/model/mode/files; account change discards drafts.
+Delayed attachments/AI replies/imports cannot cross owners, overwrite later
+drafts, undo rename/move, or restore deleted chats. Startup Home selection and
+late account-model defaults are guarded. This is not durable draft persistence
+across refreshes. New draft defaults use the account model without overwriting
+existing draft choices.
+
+Verified again on 2026-09-19 with Node 24.19.0: full `npm run verify` passed
+(327 web tests); isolated Chromium smoke passed 19 scenarios with no page errors,
+including 320/390/991/992/1024/1440px, en/ar/de, RTL, light/dark, menu focus, uploads,
+import/export entry points, model/draft races and login/legacy navigation.
+Smoke also checks the 248/288px columns, visible/unobscured composer controls,
+explicit Teleport styling and untouched QA/auth/settings tokens in both themes.
+Rendered screenshots were visually inspected against the focus prototype.
+The frontend production build and i18n 7/7 also passed, using placeholder
+`VITE_API_BASE_URL=https://api.example.test`; no release config was changed.
+Browser tests intercept **all** APIs: no real account/provider/QA mutation.
+Re-run: start Vite on 5182, then
+`node apps/web/scripts/ux-navigation-smoke.mjs`; screenshots go to
+`work/ux-validation`. This is UI regression evidence, not real backend upload,
+database integration, production smoke or an unfamiliar user's usability test.
+
+MR-style review on 2026-09-19/20 found and repaired short-phone composer
+clipping when project Files, a multiline draft and an attachment coexist.
+Mobile project details now use a scrollable surface with a sticky composer;
+chat reserves a nonzero context row and permits overflow on constrained heights,
+while keeping the existing message autoscroll target. At extreme heights users
+can scroll between project context and the composer; neither is discarded.
+The browser regression adds 390x667 and 320x568 cases, including file previews
+and returning to the composer. Chat/account/project ownership reviews found no
+remaining blocking issue. The latest full dependency audit returned zero
+advisories; no dependencies or backend files were changed. The reviewed commit
+excludes local Runner configuration, Eluthira, prototypes and generated images.
+
+Still separate work: unified chat-to-QA session linkage and inline approvals,
+visible/live browser delivery and login takeover, simpler Runner onboarding,
+public landing design and mobile-device execution. No blanket approvals or
+new MCP backend was added. Sites remains cancelled.
+An accidental Sites publication request was cancelled before registration or
+deployment. Do not resume it without a new request; only isolated local static
+preparation exists outside this application repository.
 
 ## Core Documentation Map
 
@@ -13,6 +93,11 @@ Last updated: 2026-09-11
 - `QA_EXECUTION_HARNESS.md`: immutable RecipeV1, exact owner approval, local
   Runner protocol, production double confirmation, and execution limits.
 - `NEXT_STEPS.md`: completed work, active release tasks, and execution order.
+- `PRODUCT_UX_DIRECTION.md`: owner UX priorities, first-test/session direction,
+  current capability limits, open design decisions, and usability checks.
+- `PRODUCT_INFORMATION_ARCHITECTURE.md`: implemented phase-one shell and
+  broader proposed public/session architecture, compatibility boundaries,
+  owner decisions and staged implementation order.
 - `MEMORY_INTELLIGENCE_ARCHITECTURE.md`: accepted Account/Project Memory,
   Conversation Summary, Recent Turns, and extraction decisions.
 - `RAG_RETRIEVAL_EVALS.md`: Project Document retrieval quality contract and
@@ -22,6 +107,18 @@ Last updated: 2026-09-11
 
 ## Current Repo State
 
+- Closure verified on 2026-09-12: implementation commit `65dfbf0` was pushed
+  to `codex/qa-execution-harness`; the owner merged PR #14 into `main` as
+  `303b063`. Post-merge GitHub CI completed successfully:
+  https://github.com/Hatemnaser/ai-qa-assistant/actions/runs/34656847592.
+  This verifies merge/CI, not a successful Render deployment or production
+  smoke. Render's `main` checks-pass deployment includes automatic migrations;
+  verify its live status separately rather than assuming it deployed.
+- The focused-workspace frontend and UX documentation follow that merged
+  implementation. The owner authorized MR-style review, commit and push on
+  `codex/qa-execution-harness`, not a merge or deployment. Check Git for the
+  published checkpoint. Local prototype/design files and generated screenshots
+  are not part of the application commit; preserve them without staging them.
 - The 2026-09-11 pre-commit review fixes are saved: generic owner/REST/MCP
   mutations cannot bypass the Runner lease; claim/reclaim/acceptance bind to
   the immutable approved profile; Recipe identity includes the profile hash;
@@ -58,9 +155,8 @@ Last updated: 2026-09-11
   tables had zero rows and that disposable database was removed. Both audits
   were rerun and again reported zero advisories. No live provider/browser run,
   application-database mutation, or credential change was performed.
-- Push destination still needs confirmation because
-  `main` is configured for Render checks-pass deployment and automatic
-  migrations. Do not infer deployment approval from an interrupted turn.
+- The push/merge decision is complete as recorded above. Do not infer new
+  deployment, database, branch-deletion, or rerun authorization from it.
 - Local TEXT-evidence smoke is complete as of 2026-09-09, based on the user's
   screenshots/manual validation, not an independently rerun agent test.
   `Login page — browser smoke test` kept Revision 1, its review passed, the
@@ -131,7 +227,9 @@ Last updated: 2026-09-11
   superseded by the user-validated APPROVED state above. The synthetic probes
   did not requeue or mutate the real request.
 - Workspace: `C:\Users\hatem\ai-qa-assistant`
-- Current working branch: `main`.
+- At the 2026-09-12 handoff, the local checkout remained on
+  `codex/qa-execution-harness`; the remote merge did not update local `main`.
+  Verify the current branch before starting new work.
 - The QA phase adds the Oddpath QA Control Plane and execution harness. Use
   `git status`/`git log` for current commit and push state. Preserve all existing
   user-owned preview/design files; these exploratory assets are excluded from
@@ -187,19 +285,21 @@ Last updated: 2026-09-11
 
 ## Before Any Work
 
-Run:
+Inspect first; these commands do not change the checkout:
 
 ```bash
 git status --short --branch
-git fetch origin
-git pull --ff-only origin main
+git log -3 --oneline
 ```
 
-If starting implementation:
+Before implementation, fetch/check the intended base when appropriate and
+preserve local documentation and exploratory files. Do not blindly pull `main`
+into whichever branch is currently checked out. Create a new implementation
+branch from the verified intended base using the `codex/` prefix; do not delete
+the old review branch without an explicit request.
 
-```bash
-git switch -c feature/<short-name>
-```
+Read `PRODUCT_UX_DIRECTION.md` for product/UX work. The current request to record
+that direction does not itself authorize a UI rewrite, commit, or push.
 
 Rules:
 
@@ -453,9 +553,19 @@ Still unfinished:
 
 ## Likely Next Work
 
-Pick one track before coding:
+The owner's next product priority is the first-test UX in
+`PRODUCT_UX_DIRECTION.md`. Agree one bounded slice before coding; operational
+release gates remain separate and are not waived by UX work.
 
-1. Product value: QA pilot
+1. Product value: simple first-test session and QA pilot
+   - Review `PRODUCT_INFORMATION_ARCHITECTURE.md` and prototype the connected
+     home/project/session shell, including the first-test journey. The owner
+     requested fewer steps and a coherent whole product after trying the first
+     isolated session concept. Do not clone a reference tool or rewrite backend
+     concepts to match its appearance.
+   - Validate setup/offline/login/failure recovery as well as the happy path.
+     Embedded browser streaming/control is a separate capability, not assumed
+     to exist because the local Playwright Runner works.
    - The owner-approved local Playwright/TEXT smoke and bounded setup/status
      clarity polish are complete. Do not reopen the approved QA record.
    - Run a first-user onboarding test: can someone understand within 20 seconds

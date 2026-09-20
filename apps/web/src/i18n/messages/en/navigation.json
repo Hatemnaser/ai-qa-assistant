@@ -14,5 +14,12 @@
   "sidebar.account.exportChat": "Export Chat",
   "sidebar.account.importChat": "Import Chat",
   "sidebar.account.usage": "My Usage",
-  "sidebar.account.settings": "Settings"
+  "sidebar.account.settings": "Settings",
+  "sidebar.nav.tests": "Tests",
+  "sidebar.nav.navigation": "Navigation",
+  "sidebar.nav.openNavigation": "Open navigation",
+  "sidebar.nav.closeNavigation": "Close navigation",
+  "sidebar.nav.toggleProjects": "Expand or collapse projects",
+  "sidebar.project.toggleChats": "Expand or collapse chats in {project}",
+  "sidebar.chat.menu": "Actions for {title}"
 }

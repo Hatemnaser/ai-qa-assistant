@@ -1,4 +1,11 @@
 {
+  "chat.composer.message": "الرسالة",
+  "chat.composer.send": "إرسال الرسالة",
+  "chat.home.title": "على ماذا تريد أن نعمل؟",
+  "chat.home.description": "ابدأ محادثة من الأسفل أو أكمل عملًا سابقًا. الاختبارات متاحة من القائمة الجانبية.",
+  "chat.home.noProject": "بدون مشروع",
+  "chat.home.recent": "آخر المحادثات",
+  "chat.home.empty": "ستظهر محادثاتك هنا. يمكنك طرح سؤال دون إعداد مشروع.",
   "chat.title.default": "محادثة QA جديدة",
   "chat.topbar.title": "محادثة QA",
   "chat.topbar.subtitle": "صف ميزة أو خطأ أو قصة مستخدم.",

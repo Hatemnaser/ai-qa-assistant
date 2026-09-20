@@ -4,14 +4,19 @@ import type { Ref } from "vue";
 import { ChatApiError, sendMessageToAI } from "../chatApi";
 import { prepareChatAttachmentsForSubmit } from "../chatAttachmentSubmission";
 import { buildRequestHistory, createChatMessage } from "../chatMessages";
-import { DEFAULT_MODE, getModelForMode } from "../constants";
+import { getModelForMode } from "../constants";
 import { useI18n } from "../../../i18n/useI18n";
 import type { AiModelOption, Chat, ChatUsageSummary, SelectedAttachment } from "../types";
 
 interface ChatSubmitOptions {
-  clearSelectedAttachments: () => void;
   ensureActiveChat: () => Chat;
+  captureSubmission: (chatId: string) => {
+    getChat: () => Chat | null;
+    isActive: () => boolean;
+    consumeDraft: (resetQuickAction: boolean) => void;
+  };
   getAttachmentOnlyMessage: (attachments: SelectedAttachment[]) => string;
+  getIdentity: () => string | null;
   isAuthenticated: () => boolean;
   messageInput: Ref<string>;
   modelOptions: Ref<AiModelOption[]>;
@@ -22,10 +27,21 @@ interface ChatSubmitOptions {
   updateChat: (chat: Chat) => void;
 }
 
+export interface ChatSubmitDependencies {
+  prepareAttachments: typeof prepareChatAttachmentsForSubmit;
+  sendMessage: typeof sendMessageToAI;
+}
+
+const defaultDependencies: ChatSubmitDependencies = {
+  prepareAttachments: prepareChatAttachmentsForSubmit,
+  sendMessage: sendMessageToAI,
+};
+
 export function useChatSubmit({
-  clearSelectedAttachments,
+  captureSubmission,
   ensureActiveChat,
   getAttachmentOnlyMessage,
+  getIdentity,
   isAuthenticated,
   messageInput,
   modelOptions,
@@ -34,10 +50,11 @@ export function useChatSubmit({
   selectedMode,
   selectedModel,
   updateChat,
-}: ChatSubmitOptions) {
+}: ChatSubmitOptions, dependencies: ChatSubmitDependencies = defaultDependencies) {
   const usageSummary = ref<ChatUsageSummary | null>(null);
   const guestLimitReached = ref(false);
   const isSending = ref(false);
+  const sendingChatId = ref<string | null>(null);
   const { t } = useI18n();
 
   async function handleSubmit() {
@@ -47,19 +64,24 @@ export function useChatSubmit({
     if (!message || isSending.value) return;
 
     const chat = ensureActiveChat();
+    const origin = captureSubmission(chat.id);
+    const identity = getIdentity();
+    const getCurrentChat = () => getIdentity() === identity ? origin.getChat() : null;
     const mode = selectedMode.value;
     const model = getModelForMode(mode, selectedModel.value, modelOptions.value);
     const shouldResetQuickActionMode = quickActionMode.value === mode && selectedAttachments.value.length === 0;
     const history = buildRequestHistory(chat);
     const attachments = [...selectedAttachments.value];
-    let nextChat: Chat | null = null;
     isSending.value = true;
+    sendingChatId.value = chat.id;
 
     try {
-      const preparedAttachments = await prepareChatAttachmentsForSubmit(attachments, {
+      const preparedAttachments = await dependencies.prepareAttachments(attachments, {
         isAuthenticated: isAuthenticated(),
         projectId: chat.projectId,
       });
+      const currentChat = getCurrentChat();
+      if (!currentChat) return;
       const userMessage = createChatMessage({
         role: "user",
         content: message,
@@ -67,20 +89,19 @@ export function useChatSubmit({
         model,
         attachments: preparedAttachments.displayAttachments,
       });
-      nextChat = {
-        ...chat,
-        title: chat.title === "New QA Chat" ? message.slice(0, 35) : chat.title,
+      updateChat({
+        ...currentChat,
+        title: currentChat.title === "New QA Chat" ? message.slice(0, 35) : currentChat.title,
         mode,
         model,
-        messages: [...chat.messages, userMessage],
-      };
+        messages: [...currentChat.messages, userMessage],
+      });
 
-      updateChat(nextChat);
-      messageInput.value = "";
-      clearSelectedAttachments();
-      await scrollChatToBottom();
+      origin.consumeDraft(shouldResetQuickActionMode);
+      if (origin.isActive()) await scrollChatToBottom(() => Boolean(getCurrentChat()) && origin.isActive());
+      if (!getCurrentChat()) return;
 
-      const response = await sendMessageToAI({
+      const response = await dependencies.sendMessage({
         attachments: preparedAttachments.requestAttachments,
         chatId: chat.id,
         history,
@@ -89,11 +110,13 @@ export function useChatSubmit({
         model,
         projectId: chat.projectId,
       });
+      const responseChat = getCurrentChat();
+      if (!responseChat) return;
 
       updateChat({
-        ...nextChat,
+        ...responseChat,
         messages: [
-          ...nextChat.messages,
+          ...responseChat.messages,
           createChatMessage({
             role: "assistant",
             content: response.reply,
@@ -106,6 +129,8 @@ export function useChatSubmit({
       usageSummary.value = response.usage || usageSummary.value;
       guestLimitReached.value = false;
     } catch (error) {
+      const errorChat = getCurrentChat();
+      if (!errorChat) return;
       const fallback =
         error instanceof Error
           ? error.message
@@ -115,8 +140,6 @@ export function useChatSubmit({
         guestLimitReached.value = true;
       }
 
-      const errorChat = nextChat || chat;
-
       updateChat({
         ...errorChat,
         messages: [
@@ -124,20 +147,16 @@ export function useChatSubmit({
           createChatMessage({
             role: "assistant",
             content: fallback,
-            mode: selectedMode.value,
+            mode,
             model,
             isError: true,
           }),
         ],
       });
     } finally {
-      if (nextChat && shouldResetQuickActionMode) {
-        selectedMode.value = DEFAULT_MODE;
-      }
-
-      quickActionMode.value = null;
       isSending.value = false;
-      await scrollChatToBottom();
+      sendingChatId.value = null;
+      if (getCurrentChat() && origin.isActive()) await scrollChatToBottom(() => Boolean(getCurrentChat()) && origin.isActive());
     }
   }
 
@@ -150,13 +169,15 @@ export function useChatSubmit({
     guestLimitReached,
     handleSubmit,
     isSending,
+    sendingChatId,
     usageSummary,
   };
 }
 
-async function scrollChatToBottom() {
+async function scrollChatToBottom(isCurrent: () => boolean) {
   await nextTick();
-  const chatArea = document.querySelector(".chat-area");
+  if (!isCurrent()) return;
+  const chatArea = globalThis.document?.querySelector(".chat-area");
 
   if (chatArea) {
     chatArea.scrollTop = chatArea.scrollHeight;

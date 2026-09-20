@@ -12,12 +12,14 @@ interface ChatExportImportOptions {
   activeChat: Ref<Chat | null>;
   addChatAndSelect: (chat: Chat) => void;
   closeChatMenus: () => void;
+  getIdentity?: () => string | null;
 }
 
 export function useChatExportImport({
   activeChat,
   addChatAndSelect,
   closeChatMenus,
+  getIdentity = () => null,
 }: ChatExportImportOptions) {
   const { t } = useI18n();
 
@@ -36,26 +38,31 @@ export function useChatExportImport({
   }
 
   async function handleImportChat(event: Event) {
+    const identity = getIdentity();
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
 
     input.value = "";
 
-    if (!file) return;
+    if (!file) return null;
 
     if (!file.name.toLowerCase().endsWith(".json")) {
       alert(t("chat.import.jsonOnly"));
-      return;
+      return null;
     }
 
     try {
-      const importedChat = parseImportedChatJson(await file.text(), {
+      const text = await file.text();
+      if (getIdentity() !== identity) return null;
+      const importedChat = parseImportedChatJson(text, {
         defaultAttachmentName: t("chat.import.defaultAttachmentName"),
         defaultTitle: t("chat.import.defaultTitle"),
       });
       addChatAndSelect(importedChat);
+      return importedChat;
     } catch {
-      alert(t("chat.import.failed"));
+      if (getIdentity() === identity) alert(t("chat.import.failed"));
+      return null;
     }
   }
 

@@ -1,4 +1,4 @@
-import { ref, watch } from "vue";
+import { getCurrentScope, onScopeDispose, ref, watch } from "vue";
 import type { Ref } from "vue";
 
 import { t } from "../../../i18n/useI18n";
@@ -62,6 +62,8 @@ export function useProjectKnowledge(
   const projectInstruction = ref<ProjectInstruction | null>(null);
   const projectDocuments = ref<ProjectDocument[]>([]);
   let projectGeneration = 0;
+  let disposed = false;
+  if (getCurrentScope()) onScopeDispose(() => { disposed = true; projectGeneration += 1; });
 
   watch(
     activeProjectId,
@@ -75,7 +77,7 @@ export function useProjectKnowledge(
       void loadProjectInstruction(projectId, generation);
       void loadProjectDocuments(projectId, generation);
     },
-    { immediate: true }
+    { immediate: true, flush: "sync" }
   );
 
   async function loadProjectInstruction(projectId: string, generation: number) {
@@ -166,6 +168,10 @@ export function useProjectKnowledge(
 
     try {
       preparedFiles = await dependencies.prepareFiles(projectId, files);
+      if (!isCurrentProject(projectId, generation)) {
+        await dependencies.cancelPreparedFiles(preparedFiles);
+        return;
+      }
       const documents = await dependencies.importDocuments(projectId, preparedFiles);
 
       if (isCurrentProject(projectId, generation)) {
@@ -254,7 +260,7 @@ export function useProjectKnowledge(
   }
 
   function isCurrentProject(projectId: string, generation: number) {
-    return activeProjectId.value === projectId && projectGeneration === generation;
+    return !disposed && activeProjectId.value === projectId && projectGeneration === generation;
   }
 
   return {
