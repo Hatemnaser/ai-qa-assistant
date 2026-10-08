@@ -1,0 +1,174 @@
+// Inline exact-run approval only. The owning session places this above its composer.
+.workspace-surface .qa-run-approval {
+  min-width: 0;
+  width: 100%;
+  max-width: var(--layout-composer-width, 740px);
+  margin-inline: auto;
+  color: var(--text-main);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+
+  :is(p, ul, ol, dl) { margin-block: 8px; }
+  :is(ul, ol) { padding-inline-start: 22px; }
+  :is(select, input, button, summary):focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+  }
+  :is(button, select) {
+    min-width: 0;
+    max-width: 100%;
+    min-height: 44px;
+    font-size: 13px;
+  }
+  button { white-space: normal; overflow-wrap: anywhere; }
+  select { width: 100%; }
+  summary {
+    min-height: 44px;
+    padding-block: 12px;
+    cursor: pointer;
+    color: var(--text-main);
+    font-weight: 500;
+  }
+  small { color: var(--text-muted); font-size: 12px; }
+  strong { font-weight: 600; }
+
+  &__details {
+    padding-inline: 14px;
+    background: var(--surface-panel);
+    border: 1px solid var(--border);
+    border-radius: 12px 12px 0 0;
+    border-block-end: 0;
+  }
+  &__details-body {
+    max-height: min(38dvh, 350px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding-block-end: 12px;
+    padding-inline-end: 6px;
+  }
+  &__section + &__section {
+    margin-block-start: 12px;
+    border-block-start: 1px solid var(--border-subtle);
+    padding-block-start: 12px;
+  }
+  &__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 12px;
+    > * { min-width: 0; }
+  }
+  &__field {
+    display: grid;
+    gap: 6px;
+    margin-block: 8px;
+  }
+  &__recipe { margin-block: 10px; }
+  &__review {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 7px;
+    font-size: 12px;
+    &[data-status="FAILED"] { color: var(--text-danger, #b42318); }
+  }
+  &__error { color: var(--text-danger, #b42318); }
+  &__steps > li + li { margin-block-start: 10px; }
+  &__integrity {
+    display: grid;
+    gap: 8px;
+    dt { color: var(--text-muted); font-weight: 500; }
+    dd { margin: 2px 0 0; }
+    code { font-size: 11px; word-break: break-all; }
+  }
+  pre {
+    max-width: 100%;
+    padding: 12px;
+    background: var(--surface-code);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+  }
+  &__card {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 0 0 12px 12px;
+    background: var(--surface-panel);
+  }
+  &__summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 12px;
+    > * { min-width: 0; }
+  }
+  &__recovery {
+    display: grid;
+    justify-items: start;
+    gap: 6px;
+    margin-block-start: 10px;
+    padding: 10px;
+    background: var(--surface-app);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    p { margin: 0; }
+    details { width: 100%; min-width: 0; }
+    summary { padding-block: 8px; }
+    pre { margin: 0; }
+  }
+  &__confirmation {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    min-height: 44px;
+    margin: 0;
+    padding-block: 11px;
+    cursor: pointer;
+    input {
+      flex: 0 0 17px;
+      width: 17px;
+      height: 17px;
+      margin-block-start: 1px;
+      accent-color: var(--workspace-accent);
+    }
+    &:has(input:disabled) { cursor: not-allowed; color: var(--text-muted); }
+    &--production { color: var(--text-danger, #b42318); }
+  }
+  &__action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 14px;
+    > small { flex: 1 1 260px; min-width: 0; }
+    > button { flex: 0 1 auto; }
+  }
+}
+
+@media (max-width: 575px) {
+  .workspace-surface .qa-run-approval {
+    &__details { padding-inline: 10px; }
+    &__card { padding: 8px 10px; }
+    &__action { flex-wrap: wrap; }
+    &__action > button { flex: 1 1 100%; }
+  }
+}
+
+@media (max-height: 700px) {
+  .workspace-surface .qa-run-approval__details-body { max-height: 27dvh; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-surface .qa-run-approval *,
+  .workspace-surface .qa-run-approval *::before,
+  .workspace-surface .qa-run-approval *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

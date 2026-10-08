@@ -138,10 +138,16 @@ To exercise an owner-approved Playwright Recipe locally, copy
 browser once, and start the Runner in a third terminal:
 
 ```powershell
-$env:ODDPATH_RUNNER_TOKEN = "odp_live_replace_me"
 npx playwright install chromium
+$runnerSecret = Read-Host "Runner token" -AsSecureString
+$env:ODDPATH_RUNNER_TOKEN = [System.Net.NetworkCredential]::new('', $runnerSecret).Password
+Remove-Variable runnerSecret
 npm run dev:runner
 ```
+
+The prompt hides the token from the command history. Use the token saved when
+the Runner connection was created; an offline Runner does not need a new token
+or a regenerated Recipe. Keep the terminal open while the Runner is needed.
 
 The complete trust boundary, profile/value setup, production double gate, and
 known retry limitations are documented in

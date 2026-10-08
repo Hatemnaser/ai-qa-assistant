@@ -3,6 +3,7 @@ import { computed, onScopeDispose, ref, watch } from "vue";
 import { useI18n } from "../../../i18n/useI18n";
 
 import { useDialogAccessibility } from "../../../ui/useDialogAccessibility";
+import { RUNNER_START_POWERSHELL } from "../runnerOnboarding";
 import {
   createProjectConnection,
   fetchProjectConnections,
@@ -16,7 +17,8 @@ const props = defineProps<{
   projectId: string;
   projectName: string;
   initialPreset?: "AGENT" | "RUNNER";
-  appearance?: "workspace";
+  knownRunnerProfile?: boolean;
+  appearance?: "workspace" | "tests";
 }>();
 
 const emit = defineEmits<{ close: []; changed: [count: number] }>();
@@ -32,10 +34,13 @@ const isSaving = ref(false);
 const newConnectionName = ref(props.initialPreset === "RUNNER" ? "Local Playwright Runner" : "Codex");
 const connectionPreset = ref<"AGENT" | "RUNNER">(props.initialPreset || "AGENT");
 const revealedToken = ref("");
-const copiedField = ref<"config" | "token" | "url" | null>(null);
+const copiedField = ref<"config" | "token" | "url" | "command" | null>(null);
 const mcpUrl = getOddpathMcpUrl();
 const apiUrl = getOddpathApiUrl();
 const activeConnections = computed(() => connections.value.filter((connection) => !connection.revokedAt));
+const existingRunnerConnections = computed(() => activeConnections.value.filter((connection) =>
+  connection.preset === "RUNNER" || connection.scopes.includes("execution:claim")
+));
 const mcpConfig = computed(() => JSON.stringify({
   mcpServers: {
     oddpath: {
@@ -60,7 +65,6 @@ const runnerConfig = computed(() => JSON.stringify({
   serverUrl: apiUrl,
   tokenEnv: "ODDPATH_RUNNER_TOKEN",
 }, null, 2));
-const runnerPowerShell = computed(() => `$env:ODDPATH_RUNNER_TOKEN = "${revealedToken.value}"`);
 
 watch(() => props.projectId, () => {
   generation += 1;
@@ -144,7 +148,7 @@ async function revoke(connection: ProjectConnection) {
   }
 }
 
-async function copy(value: string, field: "config" | "token" | "url") {
+async function copy(value: string, field: "config" | "token" | "url" | "command") {
   const id = props.projectId;
   const revision = generation;
   try {
@@ -176,7 +180,7 @@ const { dialogRef, onDialogKeydown } = useDialogAccessibility({
     <div
       ref="dialogRef"
       class="modal fade show d-block"
-      :class="{ 'workspace-surface': appearance === 'workspace' }"
+      :class="{ 'workspace-surface': appearance === 'workspace' || appearance === 'tests', 'qa-focused-workspace': appearance === 'tests' }"
       tabindex="-1"
       role="dialog"
       aria-modal="true"
@@ -195,7 +199,7 @@ const { dialogRef, onDialogKeydown } = useDialogAccessibility({
           </div>
 
           <div class="modal-body qa-connection-body">
-            <div class="qa-connection-value">
+            <div v-if="connectionPreset === 'AGENT'" class="qa-connection-value">
               <strong>{{ t("projects.connections.endpoint") }}</strong>
               <div class="qa-copy-field">
                 <code>{{ mcpUrl }}</code>
@@ -219,6 +223,24 @@ const { dialogRef, onDialogKeydown } = useDialogAccessibility({
                 </label>
               </div>
             </fieldset>
+
+            <section v-if="connectionPreset === 'RUNNER' && (existingRunnerConnections.length || knownRunnerProfile) && !revealedToken" class="qa-connection-recovery">
+              <strong>{{ t('projects.connections.runnerExistingTitle') }}</strong>
+              <p>{{ t('projects.connections.runnerExistingNote') }}</p>
+              <ol>
+                <li>{{ t('projects.qa.runSetup.config', { config: 'apps/runner/oddpath.runner.json' }) }}</li>
+                <li>{{ t('projects.connections.runnerExistingToken') }}</li>
+                <li>{{ t('projects.connections.runnerExistingStart') }}</li>
+              </ol>
+              <div class="qa-section-heading">
+                <span>{{ t('projects.connections.runnerSecurePrompt') }}</span>
+                <button class="btn btn-sm btn-outline-secondary" type="button" @click="copy(RUNNER_START_POWERSHELL, 'command')">
+                  {{ copiedField === 'command' ? t('projects.connections.copied') : t('projects.connections.runnerCopyStartup') }}
+                </button>
+              </div>
+              <pre><code dir="ltr">{{ RUNNER_START_POWERSHELL }}</code></pre>
+              <small>{{ t('projects.connections.runnerExistingLost') }}</small>
+            </section>
 
             <form class="qa-connection-create" @submit.prevent="createConnection">
               <label class="qa-form-field">
@@ -258,15 +280,15 @@ const { dialogRef, onDialogKeydown } = useDialogAccessibility({
                 </div>
                 <p>{{ t("projects.connections.runnerSave") }} <code>apps/runner/oddpath.runner.json</code>. {{ t("projects.connections.runnerConfigure") }}</p>
                 <pre><code>{{ runnerConfig }}</code></pre>
-                <div class="qa-copy-field">
-                  <code>{{ runnerPowerShell }}</code>
-                  <button class="btn btn-sm btn-outline-secondary" type="button" @click="copy(runnerPowerShell, 'token')">
-                    {{ copiedField === "token" ? t("projects.connections.copied") : t("projects.connections.copyPowerShell") }}
+                <p>{{ t('projects.connections.runnerSecurePrompt') }}</p>
+                <div class="qa-section-heading">
+                  <span>{{ t('projects.connections.runnerStart') }}</span>
+                  <button class="btn btn-sm btn-outline-secondary" type="button" @click="copy(RUNNER_START_POWERSHELL, 'command')">
+                    {{ copiedField === 'command' ? t('projects.connections.copied') : t('projects.connections.runnerCopyStartup') }}
                   </button>
                 </div>
-                <p class="mb-1">{{ t("projects.connections.runnerStart") }}</p>
-                <pre><code>npx playwright install chromium
-npm run dev:runner</code></pre>
+                <pre><code dir="ltr">npx playwright install chromium
+{{ RUNNER_START_POWERSHELL }}</code></pre>
                 <small>{{ t("projects.connections.runnerPrivacy") }}</small>
               </div>
             </div>

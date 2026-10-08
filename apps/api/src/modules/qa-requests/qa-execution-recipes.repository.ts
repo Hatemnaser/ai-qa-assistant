@@ -10,6 +10,8 @@ import {
 import { prisma } from "../../db/prisma.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { AppError } from "../../lib/errors.js";
+import { assertCurrentTestRequest, lockQaSessionScope } from "../test-sessions/test-sessions.guard.js";
+import { nextQaTimelinePosition } from "../chat-history/chat-timeline.js";
 import { validateExecutionEvidenceCompatibility } from "./qa-execution-evidence.js";
 import type { QaActor, QaProcessingLease } from "./qa-requests.types.js";
 import type {
@@ -28,10 +30,19 @@ export function createQaExecutionRecipeRepository(
       return database.$transaction(async (tx) => {
         await lockRequest(tx, input.requestId);
         const request = await tx.qaRequest.findFirst({
-          select: { id: true, phase: true, selectedArtifactId: true },
+          select: { id: true, phase: true, selectedArtifactId: true, testSessionId: true },
           where: { id: input.requestId, projectId: input.projectId },
         });
         if (!request) throw requestNotFound();
+        if (input.idempotencyKeyHash) {
+          const replay = await tx.qaGenerationExecution.findFirst({
+            select: { id: true },
+            where: { requestId: request.id, kind: "EXECUTION_RECIPE_GENERATION", idempotencyKeyHash: input.idempotencyKeyHash },
+          });
+          if (replay) return replay.id;
+        }
+        await assertPreparationIntent(tx, request.id, input.preparation);
+        await assertCurrentTestRequest(tx, request, { allowPreparation: Boolean(input.preparation) });
         assertRecipePhase(request.phase);
         const artifactId = input.artifactId || request.selectedArtifactId;
         if (!artifactId || artifactId !== request.selectedArtifactId) {
@@ -47,6 +58,7 @@ export function createQaExecutionRecipeRepository(
           data: {
             artifactId,
             kind: "EXECUTION_RECIPE_GENERATION",
+            idempotencyKeyHash: input.idempotencyKeyHash || null,
             profileManifest: toJson(profile),
             profileManifestHash: profile.manifestHash,
             requestId: request.id,
@@ -68,7 +80,7 @@ export function createQaExecutionRecipeRepository(
           throw new AppError("Only the project owner can retry a Recipe review.", 403, "QA_RECIPE_REVIEW_OWNER_REQUIRED");
         }
         const request = await tx.qaRequest.findFirst({
-          select: { id: true, phase: true, selectedArtifactId: true },
+          select: { id: true, phase: true, selectedArtifactId: true, testSessionId: true },
           where: {
             id: input.requestId,
             projectId: input.projectId,
@@ -93,6 +105,9 @@ export function createQaExecutionRecipeRepository(
           where: { idempotencyKeyHash, kind: "EXECUTION_RECIPE_REVIEW", requestId: request.id },
         });
         if (replay) return replay.id;
+
+        await assertPreparationIntent(tx, request.id, input.preparation);
+        await assertCurrentTestRequest(tx, request, { allowPreparation: Boolean(input.preparation) });
 
         assertRecipePhase(request.phase);
         if (recipe.artifactId !== request.selectedArtifactId) {
@@ -168,10 +183,11 @@ export function createQaExecutionRecipeRepository(
       return database.$transaction(async (tx) => {
         await lockRequest(tx, command.requestId);
         const request = await tx.qaRequest.findFirst({
-          select: { id: true, phase: true, selectedArtifactId: true },
+          select: { id: true, phase: true, selectedArtifactId: true, testSessionId: true },
           where: { id: command.requestId, projectId: command.projectId },
         });
         if (!request) throw requestNotFound();
+        await assertCurrentTestRequest(tx, request, { allowPreparation: Boolean(command.processing), processingExecutionId: command.processing?.executionId });
         assertRecipePhase(request.phase);
         if (request.selectedArtifactId !== command.artifactId) {
           throw new AppError(
@@ -685,6 +701,7 @@ async function appendEvent(
       metadata: metadata ? toJson(metadata) : undefined,
       requestId,
       sequence: (latest?.sequence || 0) + 1,
+      timelinePosition: await nextQaTimelinePosition(tx, requestId),
       transport: actor.transport,
       type,
     },
@@ -692,7 +709,16 @@ async function appendEvent(
 }
 
 async function lockRequest(tx: Prisma.TransactionClient, requestId: string) {
+  await lockQaSessionScope(tx, requestId);
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`oddpath:qa-request:${requestId}`}, 0))`;
+}
+
+async function assertPreparationIntent(tx: Prisma.TransactionClient, requestId: string, intent?: { id: string; attempt: number }) {
+  if (!intent) return;
+  const preparation = await tx.testSessionPreparation.findFirst({ where: {
+    id: intent.id, requestId, attempt: intent.attempt, status: "RECIPE",
+  }, select: { id: true } });
+  if (!preparation) throw new AppError("This preparation attempt is no longer current.", 409, "TEST_PREPARATION_STALE");
 }
 
 function assertRecipePhase(phase: string) {

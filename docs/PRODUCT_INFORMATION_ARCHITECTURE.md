@@ -1,13 +1,139 @@
 # Oddpath Product Information Architecture
 
-Last updated: 2026-09-20
+Last updated: 2026-10-06 (historical phase records retained)
 
-Status: the broader direction below began as a proposal. The owner approved a
+Current closeout: `SESSION_CLOSEOUT.md` records recovery and Integrations changes,
+actual verification and remaining limits. No additional migration or execution
+authority is introduced. The separately approved live-provider audit and its
+auth-bootstrap follow-up are recorded in `SESSION_LIVE_CLOSEOUT.md`; fixture
+coverage is not presented as a substitute for that bounded live acceptance.
+
+Preceding review follow-up: `SESSION_REVIEW_FIXES.md`. Project Add chats now reads
+the same unified session index and uses the existing guarded Sessions move path.
+Explicit earlier review is retained through identical DTO refreshes. Backend
+preparation progression uses a separate lane from bounded conversational turns;
+the stored queue, QA locks and human approval authority remain unchanged.
+
+## Current architecture — one session, project management and optional tools
+
+Read `SESSION_CLOSEOUT.md` first for the latest bounded changes and verification.
+`SESSION_TOOLS_CHECKPOINT.md` records the presentation foundation and
+`ONE_SESSION_CHECKPOINT.md` remains the persistence and
+single-session foundation; its timeline migration was separately activated locally.
+This presentation successor changes no API, schema, RAG or QA authority contract.
+
+- One authenticated session remains the place for writing, discussion and QA.
+  Its identity, project, Markdown, drafts and original QA timeline remain stable.
+  The existing scope confirmation, exact-run approval and record review stay
+  separate; no navigation action grants execution permission.
+- The global navigation rail is 48px beside a 224px session list. It exposes only
+  existing Sessions/Home, Projects and Account destinations, not separate Chat/QA
+  products or placeholder browser/agent capabilities. Mobile retains its drawer.
+- Project folders contain their sessions and a project-specific archive. Recent
+  contains only projectless active sessions, with a separate projectless archive.
+  Folding a folder never moves its rows into Recent. Stable IDs deduplicate rows;
+  project membership is not inferred from titles. Referenced-but-unavailable
+  projects have a recovery group, with loading/read-error states rather than
+  silent reassignment. Failed reads retain the current owner's last successful
+  list; owner changes clear private data.
+- Instructions, memory, project-document editing and Integrations live in project
+  details, not in each session's side panel. Moving their controls does not disable
+  the existing project instructions/memory/document retrieval or immutable QA
+  snapshots. The session's project link opens those shared project details.
+- Project details expose a named Integrations action in the header even when
+  the context panel is collapsed. The existing footer action opens the same
+  project-owned dialog. Changing project/account or leaving the page closes it;
+  Runner status and named MCP/REST credentials keep their existing contracts.
+- Session Sources, Activity and Results open on demand and are closed by default.
+  Sources are actual session attachments/references, not an invented RAG citation
+  report. Activity presents known preparation/execution/events and completed work,
+  not a new agent manager. Results retain original checks/evidence/history and
+  their structural-versus-semantic evidence distinction. Supported image/text
+  source previews reuse existing access contracts; other formats keep supported
+  download/external-opening fallbacks rather than fake previews.
+- The account menu owns the authoritative credit summary and the existing Usage
+  page entry. Routine quota chips do not occupy the transcript/header. Failed
+  refreshes retain the owner's last value and offer recovery; no fabricated reset
+  time, Codex-style weekly limit or estimated local debit is introduced.
+- The project detail composer is the same managed session composer teleported
+  into the project surface, not a second independent draft or submit controller.
+  Starting there retains project scope when the session becomes a canonical chat.
+- The canonical session destination is `#/chat?sessionId=...`, optionally scoped
+  to a project and a historical `requestId`. Explicit links/history take priority
+  over the stored last-work hint. Restoration reads the owned session and, when
+  selected, request details; absence from a capped sidebar index is not deletion.
+  Legacy Tests links retain the same detail-validated scope. Omitted project
+  scope may be inferred from the session, but conflicting explicit scope is
+  rejected. Project-only saved destinations use an existing project access read.
+  Confirmed missing/inaccessible destinations return to a clean start, while
+  transient errors preserve the destination with retry. Account-generation and
+  navigation guards reject late responses, including switching away and back to
+  the same account. Navigation alone creates no session, turn, preparation or run.
+
+Live browser tabs/streaming, takeover, mobile-device execution and new integrations
+remain separate future work. This slice has no migration, real QA-record mutation,
+commit/push or deployment. Historical navigation/panel descriptions below record
+earlier decisions, not the current presentation.
+
+Oddpath complements coding agents through scoped QA work, reviewable evidence
+and durable history; model choice or browser clicking alone is not the product
+thesis. `PRODUCT_VISION_AND_LAUNCH_PLAN.md` separates that value from future
+independent cross-provider review and operational launch gates.
+
+## Historical presentation — unified session workspace
+
+The owner-approved local successor to the Chat/QA split uses **one project
+tree and one session-oriented work area**. Chat and Test remain distinct
+persisted kinds and QA authority remains in its existing records, but there is
+no workspace mode dropdown. Starting a Test from an existing Chat is an
+explicit, guarded conversion of that same saved conversation. The project
+context/files panel is shared; saved QA results appear there for Tests. Read
+`UNIFIED_SESSION_CHECKPOINT.md` for behavior, safety, verification and limits.
+The 2026-09-27 split described below is retained only as history. Browser tabs,
+live execution viewing and mobile-device testing remain future work.
+
+## Historical navigation implementation — 2026-09-27
+
+Chat and QA have separate sidebar content and owner-scoped last destinations,
+not separate project databases. QA lists sessions with a project filter/archive;
+Chat retains its project/chat tree. Both expose Manage projects and the same
+context/RAG. Optional `view` and `projectId` project-page query parameters select
+the host workspace. A saved QA session's project is a details link, not a transfer
+dropdown. Filters never retarget open work. See `WORKSPACE_NAVIGATION_CHECKPOINT.md`
+for behavior, recovery, verification and the deferred tab/live-browser extension.
+Older shared-tree descriptions below are historical; no duplicate project,
+memory or file namespace was introduced.
+
+Historical status at that navigation checkpoint: the broader direction below began as a proposal. The owner approved a
 bounded phase-one shell, now implemented locally as recorded immediately below.
-Later session/live-browser ideas remain proposals, not shipped capabilities.
+The subsequently approved Conversational Test sessions are also implemented
+locally: Conversations / Tests switch above shared projects, persisted discussion
+and linked sequential requests, project context, and inline approval cards.
+The new local live journey through execution, evidence and owner record approval
+is verified. See `TEST_SESSIONS_CHECKPOINT.md` and `TEST_SESSIONS_LIVE_CHECKPOINT.md`.
+This supersedes the older no-session-linkage descriptions below for this bounded
+scope. Live browser streaming/takeover and broader agent orchestration remain
+proposals, not shipped capabilities. No deployment is implied.
 Read `PRODUCT_UX_DIRECTION.md` for the thesis, limits and safety constraints.
 
-## Phase-One Implementation Checkpoint — 2026-09-14
+## Historical owner direction checkpoint — 2026-09-20
+
+The owner likes one QA-focused interface coordinating agents, with a bottom
+composer, a focused work area, optional collapsible agent activity, and the
+existing visible project instructions/memory/files. Their specific delegation
+example is a coding model's change independently reviewed through a different
+chosen model/provider, not a requirement to run a multi-agent swarm.
+
+`PRODUCT_VISION_AND_LAUNCH_PLAN.md` records that direction, evidence-led outcomes,
+future MR/PR/design/issue-tracker adapters, and before/after-live sequencing.
+These 2026-09-20 ideas did not themselves authorize new panels, approval powers or
+persisted links. The later conversational plan explicitly authorized bounded
+TEST-session linkage as recorded above. The Tests next-action plan is implemented; see
+`TESTS_FOCUS_CHECKPOINT.md`. The merged Home/chat/project shell and existing
+access paths are preserved. Broader coordination beyond the implemented
+conversational scope needs its own explicit design and implementation approval.
+
+## Historical phase-one implementation checkpoint — 2026-09-14
 
 - `#/home` is explicit new-conversation home with recent chats and a bottom
   composer; normal sign-in and the brand go there. Legacy `#/` remains Tests.
@@ -46,7 +172,7 @@ Earlier prototypes and unrelated edits are retained locally, not bundled into
 the application commit. Paths under `work/` are optional local design/validation
 artifacts; regenerate validation screenshots with the smoke script above.
 
-## Owner Feedback And Current Friction
+## Historical owner feedback and pre-phase-one friction
 
 The first interactive session concept felt better, but still had too many
 steps. The owner wants the public home, post-login home, sidebar, existing chat,
@@ -86,14 +212,14 @@ records from similar titles or timestamps.
 | Surface | Primary purpose | Keep out of the first view |
 | --- | --- | --- |
 | Public home, signed out | Brief value statement, honestly labeled example, sign-in and existing invite-only beta access path | Operational queues, project setup, unimplemented live-control claims |
-| Home, signed in | One goal composer, optional target URL, visible project context, recent work and items needing attention | Another dashboard tour, automatic project-creation dialog, Runner jargon |
-| Project home | Same start composer scoped to the project, recent work, secondary Context and Settings | A separate chat product or duplicate project selector |
+| Home, signed in | One empty goal composer with optional task starters and explicit project scope | Repeated history lists, operational dashboards, automatic project creation, Runner jargon |
+| Project home | Same composer scoped to the project, project sessions/archive, instructions/memory/documents and Integrations | A separate chat product or duplicate project selector |
 | Session | Conversation plus structured plan/progress/results in one persistent surface, with one primary next action per state | Repeated modals and banners, raw hashes as primary content |
 | Account settings | Language/theme, usage, account data and account controls | A mandatory step before each test |
 | Project settings / Integrations | Scoped external-agent connections, executor setup and diagnostics | An implication that MCP is required for the built-in Runner path |
 
-This is a logical map, not new URL contracts. Preserve current deep links and
-ownership checks during a later migration; do not introduce redirects now.
+This is the current logical map, not authority to introduce new URL contracts.
+Preserve canonical session links, compatible legacy links and ownership checks.
 
 ### Public Home And Sign-In
 
@@ -102,11 +228,12 @@ Do not expose the full operational shell as the first explanation of Oddpath.
 Preserve invite-only launch policy and the existing guest/demo chat path. This
 proposal does not open signup, remove guest data, or add a waitlist service.
 
-After sign-in, prefer returning to intended authorized work; otherwise show
-Home. Restoring a draft must not submit it or start a run. Validate internal
-return targets and access. Do not transfer an old account's private draft into
-a new account. Preserve reset/verification, guest adoption, and stale-response
-protections. This return behavior is proposed, not implemented.
+After sign-in, explicit intended work has priority over the account's saved
+destination. Saved-session recovery uses owned detail reads as described above,
+not capped list membership. Missing work falls back to a clean start; transient
+failure offers retry. Restoring a destination or draft must not submit it or start
+a run. Preserve reset/verification, guest adoption and stale-response protections;
+never transfer an old account's private draft into a new account.
 
 ### Sidebar
 
@@ -115,13 +242,14 @@ protections. This return behavior is proposed, not implemented.
 - One **Projects** section: its heading opens the index; project names open
   their homes; a separate accessible chevron may expand their work. Creation
   belongs here, without a second All Projects navigation entry.
-- **Recent work** shows shortcuts across projects with context and type/status
-  labels, including projectless chats. It aggregates records, not duplicates or
-  reassigns them. Avoid presenting a linked chat and QA request as duplicate work.
+- **Recent** contains only projectless active sessions, with its own archive.
+  Project sessions and their archives remain in the relevant folder even when
+  folded. Missing project references appear in a recovery group, never as
+  projectless work. Deduplicate by identity, not a title or project-name label.
 - The account menu contains settings and usage. Project-scoped integrations
   remain accessible from the project and relevant inline setup state.
 
-No parallel top-level Workspace / QA Chat choice in the proposed main journey.
+There is no parallel top-level Workspace / QA Chat choice in the main journey.
 On small screens use a sidebar drawer; the active session keeps its own title,
 context, status, and next action without requiring that drawer to stay open.
 
@@ -137,10 +265,13 @@ propose a next step, never infer authority to execute. Clarify ambiguous intent
 before creating QA work. Preserve ordinary chat, attachments, usage, persistence,
 and import/export; do not force every conversation into the QA lifecycle.
 
-Project Context holds instructions, manual memory, and documents. Show what is
-included in the session; preserve the locked snapshot of an existing QA Request.
-Changing project knowledge must not rewrite approved instructions. This does
-not add multi-user membership or change current owner-only project access.
+Project details hold instructions, manual memory and documents. The session's
+project link opens that management surface; Sources lists its message/draft
+attachments rather than the project library or invented retrieval citations.
+Keep project context in the existing assistant/preparation services and preserve
+the locked snapshot of each QA Request. Changing current project knowledge must
+not rewrite past snapshots or approved instructions. This adds neither multi-user
+membership nor a change to current owner-only project access.
 
 For a first QA request, recommend inline project selection/creation after the
 goal is entered, keeping the draft. A suggested name can help, but creation
@@ -169,10 +300,11 @@ lifecycle operation. Combining them transactionally needs separate domain review
 
 ## Browser And Evidence Placement
 
-Conversation and structured work occupy the main session surface. A secondary
-browser/evidence panel appears when useful, beside it on wide screens or through
-an in-session switch on narrow screens. Avoid three permanent Overview/Live/Debug
-dashboards. Users should not have to watch a browser to finish a test.
+Conversation and structured work occupy the main session surface. Sources,
+Activity and Results open explicitly in the optional tools panel or narrow-screen
+drawer. A real browser view is a future extension, not an existing tool. Avoid
+three permanent Overview/Live/Debug dashboards; users should not have to watch a
+browser to finish a test.
 
 Distinguish progress, a real local browser window, embedded live view, recorded
 evidence, and an offline executor. Simulated movement is not a live run. Streaming,
@@ -214,7 +346,7 @@ Owner review remains necessary for these navigation choices and labels, the firs
 beta use case, and executor/visual scope. Mobile, billing, more integrations, and
 per-PR environments are not bundled into this decision.
 
-## Quick Actions And Existing Features — Prototype Decision
+## Historical quick actions and existing features — prototype decision
 
 The owner asked us to use judgment about the existing quick actions, not simply
 copy their current placement. The code audit found five generation modes exposed
@@ -246,8 +378,8 @@ Preservation requirements for future implementation:
 
 ## Whole-Product Concept Checkpoint — 2026-09-12
 
-The local conversation-only concept is
-`C:/Users/hatem/.codex/visualizations/2026/08/07/019fdd33-3d71-7d62-8cec-eb3f36e90c78/oddpath-product-journey.html`.
+The local conversation-only concept is `oddpath-product-journey.html`, retained
+in the originating conversation's visualization directory (not published).
 It connects the public home, credential-free demo sign-in, signed-in home,
 sidebar/projects/context/settings, ordinary chat, and example QA execution and
 review. It uses Arabic RTL by default with an English design alternative.

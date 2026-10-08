@@ -10,6 +10,8 @@ import { DATA_LIMITS } from "../../config/data-limits.js";
 import { prisma } from "../../db/prisma.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { AppError } from "../../lib/errors.js";
+import { assertCurrentTestRequest, lockQaSessionScope } from "../test-sessions/test-sessions.guard.js";
+import { nextQaTimelinePosition } from "../chat-history/chat-timeline.js";
 import { selectExecutableEvidenceRequirements } from "./qa-execution-evidence.js";
 import { resolveProfileManifest } from "./qa-execution-recipes.repository.js";
 import type {
@@ -36,6 +38,7 @@ export function createQaExecutionRepository(
           where: { id: input.requestId, projectId: input.projectId },
         });
         if (!request) throw requestNotFound();
+        await assertCurrentTestRequest(tx, request);
         if (request.version !== input.expectedRequestVersion) throw staleVersion();
         if (!request.selectedArtifactId) {
           throw new AppError(
@@ -1017,6 +1020,7 @@ async function appendEvent(
       metadata: metadata as Prisma.InputJsonValue | undefined,
       requestId,
       sequence: (latest?.sequence || 0) + 1,
+      timelinePosition: await nextQaTimelinePosition(tx, requestId),
       transport: actor.transport,
       type,
     },
@@ -1024,6 +1028,7 @@ async function appendEvent(
 }
 
 async function lockRequest(tx: Prisma.TransactionClient, requestId: string) {
+  await lockQaSessionScope(tx, requestId);
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`oddpath:qa-request:${requestId}`}, 0))`;
 }
 

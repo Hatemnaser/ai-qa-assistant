@@ -153,6 +153,7 @@ export function createPrismaDataPortabilityRepository(
                 model: chat.model,
                 projectId: project.id,
                 title: chat.title,
+                nextTimelinePosition: chat.messages.length + 1,
                 updatedAt: chat.updatedAt,
                 userId,
               },
@@ -160,7 +161,7 @@ export function createPrismaDataPortabilityRepository(
 
             if (chat.messages.length > 0) {
               await tx.message.createMany({
-                data: chat.messages.map((message) => {
+                data: chat.messages.map((message, index) => {
                   const messageId = randomUUID();
                   messagesBySourceId.set(message.sourceId, {
                     messageId,
@@ -172,6 +173,7 @@ export function createPrismaDataPortabilityRepository(
                         ? toPrismaJson(message.attachments)
                         : undefined,
                     chatId: createdChat.id,
+                    timelinePosition: index + 1,
                     content: message.content,
                     createdAt: message.createdAt,
                     id: messageId,
@@ -289,6 +291,7 @@ export function createPrismaDataPortabilityRepository(
             select: {
               id: true,
               title: true,
+              kind: true,
               mode: true,
               model: true,
               createdAt: true,
@@ -308,7 +311,7 @@ export function createPrismaDataPortabilityRepository(
 
       const messageRows = includeChats
         ? await tx.message.findMany({
-            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            orderBy: [{ timelinePosition: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }, { id: "asc" }],
             select: {
               id: true,
               chatId: true,

@@ -77,6 +77,7 @@ export function createPrismaExternalChatImportRepository(
                   mode: "general",
                   model: localModel,
                   title: sourceChat.title,
+                  nextTimelinePosition: messages.length + 1,
                   updatedAt,
                   userId,
                 },
@@ -93,8 +94,9 @@ export function createPrismaExternalChatImportRepository(
                 );
 
                 await tx.message.createMany({
-                  data: batch.map((message) => ({
+                  data: batch.map((message, index) => ({
                     chatId: chat.id,
+                    timelinePosition: offset + index + 1,
                     content: message.content,
                     createdAt: message.createdAt,
                     metadata: toPrismaJson({

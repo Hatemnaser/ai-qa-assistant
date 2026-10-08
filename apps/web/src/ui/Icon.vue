@@ -1,8 +1,13 @@
 <script setup lang="ts">
 type IconName =
+  | "home"
+  | "activity"
+  | "sources"
+  | "results"
   | "arrow-up"
   | "chevron-down"
   | "chevron-right"
+  | "check"
   | "close"
   | "edit"
   | "file-text"
@@ -21,7 +26,19 @@ defineProps<{
 
 <template>
   <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
-    <template v-if="name === 'plus'">
+    <template v-if="name === 'home'">
+      <path d="m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9"></path>
+    </template>
+    <template v-else-if="name === 'activity'">
+      <path d="M3 12h4l3-8 4 16 3-8h4"></path>
+    </template>
+    <template v-else-if="name === 'sources'">
+      <path d="M8 4h12v14H8zM4 8v13h12M11 8h6M11 12h6"></path>
+    </template>
+    <template v-else-if="name === 'results'">
+      <path d="M9 5h11M9 12h11M9 19h11m-17-7 2 2 3-4M3 5h3M3 19h3"></path>
+    </template>
+    <template v-else-if="name === 'plus'">
       <path d="M12 5v14"></path>
       <path d="M5 12h14"></path>
     </template>
@@ -57,6 +74,10 @@ defineProps<{
 
     <template v-else-if="name === 'close'">
       <path d="m6 6 12 12M6 18 18 6"></path>
+    </template>
+
+    <template v-else-if="name === 'check'">
+      <path d="m4 12 5 5L20 6"></path>
     </template>
 
     <template v-else-if="name === 'chevron-down'">

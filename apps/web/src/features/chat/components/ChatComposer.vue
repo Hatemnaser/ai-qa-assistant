@@ -18,6 +18,8 @@ const props = defineProps<{
   model?: string;
   modelOptions?: readonly AiModelOption[];
   showStarters?: boolean;
+  variant?: "chat" | "test";
+  placeholder?: string;
   selectedAttachments: SelectedAttachment[];
 }>();
 
@@ -49,7 +51,7 @@ const draftMessage = computed({
   },
 });
 const composerPlaceholder = computed(
-  () => t(COMPOSER_PLACEHOLDER_KEYS_BY_MODE[props.mode] || COMPOSER_PLACEHOLDER_KEYS_BY_MODE.general)
+  () => props.placeholder || t(COMPOSER_PLACEHOLDER_KEYS_BY_MODE[props.mode] || COMPOSER_PLACEHOLDER_KEYS_BY_MODE.general)
 );
 const isComposerDisabled = computed(() => Boolean(props.disabled));
 const modelOptions = computed(() => {
@@ -175,7 +177,7 @@ function handleComposerClick() {
         {{ t(action.labelKey) }}
       </button>
     </section>
-    <div v-if="hasImage && mode !== 'screenshot_review'" class="quick-actions">
+    <div v-if="variant !== 'test' && hasImage && mode !== 'screenshot_review'" class="quick-actions">
       <button class="btn btn-sm btn-outline-secondary" type="button" :disabled="isComposerDisabled" @click="emit('quick-action', visualAction)">{{ t('chat.mode.visualReview') }}</button>
     </div>
 

@@ -10,6 +10,7 @@ import type {
 
 const DOWNLOAD_CACHE_SAFETY_WINDOW_MS = 30_000;
 const downloadUrlCache = new Map<string, AssetDownloadResponse["download"]>();
+let downloadCacheRevision = 0;
 
 export async function initiateAsset(input: InitiateAssetInput): Promise<InitiateAssetResponse> {
   return requestJson<InitiateAssetResponse>("/api/assets/initiate", {
@@ -68,6 +69,7 @@ export async function getAssetDownloadUrl(
   assetId: string,
   options: { forceRefresh?: boolean } = {}
 ): Promise<string> {
+  const cacheRevision = downloadCacheRevision;
   const cached = downloadUrlCache.get(assetId);
 
   if (!options.forceRefresh && cached && isDownloadUrlFresh(cached.expiresAt)) {
@@ -79,6 +81,9 @@ export async function getAssetDownloadUrl(
     { method: "GET" },
     "Could not open this private attachment."
   );
+  if (cacheRevision !== downloadCacheRevision) {
+    throw new Error("The private attachment scope changed. Please open it again.");
+  }
   response.download.url = assertHttpUrl(response.download.url);
   downloadUrlCache.set(assetId, response.download);
 
@@ -102,6 +107,7 @@ function assertHttpUrl(value: string) {
 }
 
 export function clearAssetDownloadUrlCache() {
+  downloadCacheRevision += 1;
   downloadUrlCache.clear();
 }
 

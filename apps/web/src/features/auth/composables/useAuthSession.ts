@@ -15,20 +15,28 @@ const defaultDependencies: AuthSessionDependencies = {
 
 export function useAuthSession(dependencies: AuthSessionDependencies = defaultDependencies) {
   const currentUser = ref<AuthUser | null>(null);
+  const authLoading = ref(true);
+  const authReadError = ref(false);
   let sessionRevision = 0;
 
   function setAuthenticatedUser(user: AuthUser) {
     sessionRevision += 1;
     currentUser.value = user;
+    authLoading.value = false;
+    authReadError.value = false;
   }
 
   function clearCurrentUser() {
     sessionRevision += 1;
     currentUser.value = null;
+    authLoading.value = false;
+    authReadError.value = false;
   }
 
   async function loadCurrentUser() {
     const requestRevision = ++sessionRevision;
+    authLoading.value = true;
+    authReadError.value = false;
 
     try {
       const user = await dependencies.getCurrentUser();
@@ -39,7 +47,10 @@ export function useAuthSession(dependencies: AuthSessionDependencies = defaultDe
     } catch {
       if (sessionRevision === requestRevision) {
         currentUser.value = null;
+        authReadError.value = true;
       }
+    } finally {
+      if (sessionRevision === requestRevision) authLoading.value = false;
     }
 
     return currentUser.value;
@@ -53,10 +64,14 @@ export function useAuthSession(dependencies: AuthSessionDependencies = defaultDe
 
     if (sessionRevision === requestRevision) {
       currentUser.value = null;
+      authLoading.value = false;
+      authReadError.value = false;
     }
   }
 
   return {
+    authLoading,
+    authReadError,
     clearCurrentUser,
     currentUser,
     loadCurrentUser,

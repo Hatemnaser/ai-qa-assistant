@@ -65,6 +65,7 @@ export interface AiMemoryContext {
 }
 
 export interface AiChatInput {
+  sessionContext?: Record<string, unknown>;
   context: AiContextEnvelope;
   message: string;
   mode: string;

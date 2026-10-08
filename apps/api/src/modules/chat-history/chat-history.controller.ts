@@ -17,7 +17,7 @@ export async function listChats(req: Request, res: Response, next: NextFunction)
 
 export async function saveChat(req: Request, res: Response, next: NextFunction) {
   try {
-    const { chat } = saveStoredChatRequestSchema.parse(req.body);
+    const { chat, expectedUpdatedAt } = saveStoredChatRequestSchema.parse(req.body);
     const chatId = getChatIdParam(req);
 
     if (chatId !== chat.id) {
@@ -25,7 +25,7 @@ export async function saveChat(req: Request, res: Response, next: NextFunction) 
     }
 
     const userId = req.authUser!.id;
-    const savedChat = await chatHistoryService.saveUserChat(userId, chat);
+    const savedChat = await chatHistoryService.saveUserChat(userId, chat, expectedUpdatedAt);
 
     res.json({
       chat: savedChat,

@@ -9,7 +9,7 @@ describe("focused composer layout contracts", () => {
     const source = await readFile(composerUrl, "utf8");
     const template = source.slice(source.indexOf("<template>"));
     const writingSurface = template.indexOf('class="composer d-flex');
-    for (const suggestion of ['v-if="showStarters && !hasImage"', 'v-if="hasImage && mode !== \'screenshot_review\'"']) {
+    for (const suggestion of ['v-if="showStarters && !hasImage"', 'v-if="variant !== \'test\' && hasImage && mode !== \'screenshot_review\'"']) {
       const position = template.indexOf(suggestion);
       assert.ok(position >= 0 && position < writingSurface, `${suggestion} must precede the composer`);
     }

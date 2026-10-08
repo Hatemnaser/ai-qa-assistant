@@ -107,6 +107,7 @@ export function createPrismaAccountDataPortabilityRepository(
               id: true,
               projectId: true,
               title: true,
+              kind: true,
               mode: true,
               model: true,
               createdAt: true,
@@ -153,7 +154,7 @@ export function createPrismaAccountDataPortabilityRepository(
           },
         }),
         tx.message.findMany({
-          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          orderBy: [{ timelinePosition: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }, { id: "asc" }],
           select: {
             id: true,
             chatId: true,

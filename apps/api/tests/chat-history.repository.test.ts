@@ -7,6 +7,28 @@ import { createPrismaChatHistoryRepository } from "../src/modules/chat-history/c
 const NOW = new Date("2026-08-12T12:00:00.000Z");
 
 describe("chat history repository reconciliation", () => {
+  it("rejects a stale legacy save before any transcript or attachment mutation", async () => {
+    const harness = createHarness({}, { kind: 'CONVERSATION', updatedAt: NOW });
+    const repository = createPrismaChatHistoryRepository(harness.database);
+    await assert.rejects(() => repository.saveUserChat({ ...saveInput([]), expectedUpdatedAt: new Date(NOW.getTime() - 1).toISOString() }),
+      (error: any) => error.code === 'SESSION_LEGACY_CONFLICT' && error.statusCode === 409);
+    assert.deepEqual(harness.messageUpserts, []);
+    assert.deepEqual(harness.messageDeletes, []);
+    assert.deepEqual(harness.attachmentCreates, []);
+    assert.deepEqual(harness.deletionJobs, []);
+  });
+
+  it("does not let the legacy snapshot writer replace a managed session", async () => {
+    for (const kind of ['SESSION', 'TEST']) {
+      const harness = createHarness({}, { kind, updatedAt: NOW });
+      const repository = createPrismaChatHistoryRepository(harness.database);
+      await assert.rejects(() => repository.saveUserChat(saveInput([])), (error: any) => error.statusCode === 409);
+      assert.deepEqual(harness.messageUpserts, []);
+      assert.deepEqual(harness.messageDeletes, []);
+      assert.deepEqual(harness.deletionJobs, []);
+    }
+  });
+
   it("upserts stable message rows and retains normalized attachment links", async () => {
     const harness = createHarness();
     const repository = createPrismaChatHistoryRepository(harness.database);
@@ -72,7 +94,7 @@ describe("chat history repository reconciliation", () => {
   });
 });
 
-function createHarness(assetOverrides: Record<string, unknown> = {}) {
+function createHarness(assetOverrides: Record<string, unknown> = {}, chatOverrides: Record<string, unknown> = {}) {
   const messageUpserts: Array<any> = [];
   const messageDeletes: Array<any> = [];
   const attachmentCreates: Array<any> = [];
@@ -94,7 +116,7 @@ function createHarness(assetOverrides: Record<string, unknown> = {}) {
   const tx = {
     async $executeRaw() { lockCalls += 1; return 1; },
     chat: {
-      async findUnique() { return { userId: "user-1" }; },
+      async findUnique() { return { userId: "user-1", ...chatOverrides }; },
       async update() { return {}; },
       async create() { return {}; },
       async findFirstOrThrow() {

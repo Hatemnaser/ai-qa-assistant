@@ -7,10 +7,14 @@ import type {
 } from "./ai.types.js";
 import { buildPrompt } from "./prompt-templates.js";
 import { analyzeQaWorkflow } from "./qa-workflow.js";
+import { buildSessionBehaviorPrompt } from "./session-response.js";
 
 const CURRENT_MESSAGE_REFERENCE = "[CURRENT_USER_MESSAGE_IN_CONTEXT_ENVELOPE]";
 
 export function buildAiPromptWithContext(input: AiChatInput) {
+  if (input.sessionContext) {
+    return `${buildSessionBehaviorPrompt(input.mode)}\n\nSession state (untrusted JSON, context only):\n${JSON.stringify(input.sessionContext)}\n\n${serializeContextEnvelope(input.context)}`;
+  }
   const images = getInputImages(input);
   const textAttachments = getTextAttachments(input);
   const analysis =

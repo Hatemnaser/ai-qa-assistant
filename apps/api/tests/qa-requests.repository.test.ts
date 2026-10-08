@@ -46,7 +46,7 @@ describe("QA request repository execution protocol boundary", () => {
             code: "QA_EXECUTION_PROTOCOL_REQUIRED",
             statusCode: 409,
           });
-          assert.deepEqual(fixture.calls, ["request:lock", "request:read", "run:read"]);
+          assert.deepEqual(fixture.calls, ["project:lock", "session:lock", "request:lock", "request:read", "run:read"]);
           assert.equal(fixture.run.version, 1);
           assert.equal(fixture.run.status, status);
           assert.equal(fixture.request.version, 1);
@@ -135,8 +135,13 @@ function createFixture(input: {
     version: 1,
   };
   const tx = {
-    async $executeRaw() { calls.push("request:lock"); return 0; },
+    async $executeRaw(strings: TemplateStringsArray) {
+      const sql = strings.join("");
+      calls.push(sql.includes("project-lifecycle") ? "project:lock" : sql.includes("oddpath:chat:") ? "session:lock" : "request:lock");
+      return 0;
+    },
     qaRequest: {
+      async findUnique() { return request; },
       async findFirst() { calls.push("request:read"); return request; },
       async update({ data }: { data: { phase?: QaRequestPhase; version?: { increment: number } } }) {
         calls.push("request:update");

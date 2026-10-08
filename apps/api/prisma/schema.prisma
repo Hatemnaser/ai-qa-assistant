@@ -356,6 +356,8 @@ model Chat {
   title     String   @default("New QA Chat")
   mode      String   @default("general")
   model     String   @default("gemini-2.5-flash")
+  kind      String   @default("CONVERSATION")
+  nextTimelinePosition Int @default(1)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -365,9 +367,68 @@ model Chat {
   conversationSummary ConversationSummary?
   memories            Memory[]
   aiUsageLogs         AiUsageLog[]
+  testSession         TestSession?
 
   @@index([userId, updatedAt])
   @@index([projectId, updatedAt])
+}
+
+// Test conversation state is server-owned; generic chat snapshots cannot mutate it.
+model TestSession {
+  id               String    @id
+  version          Int       @default(1)
+  currentRequestId String?
+  pendingProposal  Json?
+  archivedAt       DateTime?
+  chat             Chat      @relation(fields: [id], references: [id], onDelete: Cascade)
+  requests         QaRequest[]
+  turns            TestSessionTurn[]
+  preparations     TestSessionPreparation[]
+}
+
+model TestSessionTurn {
+  id             String    @id @default(cuid())
+  sessionId      String
+  clientTurnId   String
+  inputHash      String
+  messageId      String
+  model          String?
+  status         String    @default("PENDING")
+  attempts       Int       @default(0)
+  availableAt    DateTime  @default(now())
+  leaseToken     String?
+  leaseExpiresAt DateTime?
+  providerStartedAt DateTime?
+  lastRetryKey   String?
+  errorCode      String?
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+  session        TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, clientTurnId])
+  @@index([status, availableAt, leaseExpiresAt])
+}
+
+model TestSessionPreparation {
+  id                   String   @id @default(cuid())
+  sessionId            String
+  requestId            String   @unique
+  proposalId           String
+  status               String   @default("CHECKLIST")
+  runnerRegistrationId String?
+  profileKey           String?
+  profileManifest      Json?
+  recipeId             String?
+  operationId          String?
+  errorCode            String?
+  attempt              Int      @default(1)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  session              TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  request              QaRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, proposalId])
+  @@index([status, updatedAt])
 }
 
 model Message {
@@ -379,6 +440,7 @@ model Message {
   model      String?
   attachment Json?
   metadata   Json?
+  timelinePosition Int?
   createdAt  DateTime @default(now())
 
   chat        Chat                @relation(fields: [chatId], references: [id], onDelete: Cascade)
@@ -386,6 +448,7 @@ model Message {
   attachments MessageAttachment[]
 
   @@index([chatId, createdAt])
+  @@index([chatId, timelinePosition])
 }
 
 model ConversationSummary {
@@ -648,6 +711,7 @@ model QaRequest {
   phase              QaRequestPhase @default(DRAFT)
   version            Int            @default(1)
   selectedArtifactId String?        @unique
+  testSessionId      String?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
@@ -662,9 +726,12 @@ model QaRequest {
   executions       QaGenerationExecution[]
   executionRecipes QaExecutionRecipe[]
   executionJobs    QaExecutionJob[]
+  testSession      TestSession?            @relation(fields: [testSessionId], references: [id], onDelete: Restrict)
+  preparation      TestSessionPreparation?
 
   @@index([projectId, phase, updatedAt, id])
   @@index([createdByUserId, createdAt])
+  @@index([testSessionId, createdAt])
 }
 
 model QaContextSnapshot {
@@ -885,6 +952,7 @@ model QaWorkflowEvent {
   id                String      @id @default(cuid())
   requestId         String
   sequence          Int
+  timelinePosition  Int?
   type              String
   actorKind         QaActorKind
   actorUserId       String?

@@ -6,7 +6,8 @@ import * as vue from "vue";
 import { compileScript, parse } from "vue/compiler-sfc";
 
 import * as harness from "../src/features/qa/harnessPresentation.ts";
-import type { QaOperationReceipt, QaRequestDetail, QaRequestSummary, QaRunnerProfile } from "../src/features/qa/types.ts";
+import * as presentation from "../src/features/qa/workspacePresentation.ts";
+import type { CreateQaRequestInput, QaOperationReceipt, QaRequestDetail, QaRequestSummary, QaRun, QaRunnerProfile } from "../src/features/qa/types.ts";
 import * as i18n from "../src/i18n/useI18n.ts";
 
 interface WorkspaceState {
@@ -14,17 +15,29 @@ interface WorkspaceState {
   selectedRequest: vue.Ref<QaRequestDetail | null>;
   isRetryingRecipeReview: vue.Ref<boolean>;
   errorMessage: vue.Ref<string>;
+  requestModalError: vue.Ref<string>;
   successMessage: vue.Ref<string>;
   operationGroups: vue.ComputedRef<ReturnType<typeof harness.qaOperationGroups>>;
+  currentOperations: vue.ComputedRef<QaOperationReceipt[]>;
+  completedOperations: vue.ComputedRef<QaOperationReceipt[]>;
+  nextAction: vue.ComputedRef<ReturnType<typeof presentation.qaWorkspaceNextAction>>;
   requests: vue.Ref<QaRequestSummary[]>;
   runnerProfiles: vue.Ref<QaRunnerProfile[]>;
   isLoading: vue.Ref<boolean>;
   isLoadingRequest: vue.Ref<boolean>;
   isLoadingProfiles: vue.Ref<boolean>;
   isMutating: vue.Ref<boolean>;
+  isRunModalOpen: vue.Ref<boolean>;
+  isRequestListOpen: vue.Ref<boolean>;
+  recordRef: vue.Ref<HTMLElement | null>;
   loadWorkspace(): Promise<void>;
   loadRunnerProfiles(): Promise<void>;
+  scheduleHarnessPoll(): void;
   openRequest(request: QaRequestSummary): Promise<void>;
+  refreshSelectedRequest(): Promise<void>;
+  openStoredEvidence(assetId: string): Promise<void>;
+  handleNextAction(): Promise<void>;
+  saveRequest(input: CreateQaRequestInput): Promise<void>;
   mutate(action: () => Promise<QaRequestDetail>, success: string): Promise<boolean>;
   retryRecipeReview(input: { recipeId: string; assessmentId: string }): Promise<void>;
 }
@@ -42,12 +55,25 @@ describe("QA Workspace review retry coordination", () => {
     const succeeded = { ...failed, operationId: "latest", status: "SUCCEEDED" as const, errorCode: null };
     state.selectedRequest.value!.operations = [succeeded, failed];
     assert.deepEqual(state.operationGroups.value, { current: [succeeded], earlier: [failed] });
+    assert.deepEqual(state.currentOperations.value, []);
+    assert.deepEqual(state.completedOperations.value, [succeeded]);
     const template = parse(source).descriptor.template!.content;
-    assert.match(template, /v-for="operation in operationGroups.current"/);
-    assert.match(template, /<details v-if="operationGroups.earlier.length" :key="selectedRequest\?\.id"/);
+    assert.match(template, /v-for="operation in currentOperations"/);
+    assert.match(template, /v-for="operation in completedOperations"/);
     assert.match(template, /v-for="operation in operationGroups.earlier"/);
     assert.match(template, /qaOperationPresentation\(operation, true\)/);
     assert.doesNotMatch(template, /visibleOperations/);
+  });
+
+  it("keeps unfinished operations and unrecovered errors visible rather than hiding them in history", () => {
+    const { state } = mountWorkspace({});
+    const pending = { ...operation(), operationId: "pending", status: "PENDING" as const };
+    const failed = { ...operation(), operationId: "latest-failure", recipeId: "other-recipe", status: "FAILED" as const };
+    const oldFailure = { ...failed, operationId: "previous-failure" };
+    state.selectedRequest.value!.operations = [pending, failed, oldFailure];
+    assert.deepEqual(state.currentOperations.value, [pending, failed]);
+    assert.deepEqual(state.completedOperations.value, []);
+    assert.deepEqual(state.operationGroups.value.earlier, [oldFailure]);
   });
 
   it("attaches the operation immediately and retains polling if assessment reload fails", async () => {
@@ -293,19 +319,264 @@ describe("QA Workspace response ownership", () => {
   });
 });
 
-function mountWorkspace(api: Record<string, unknown>, signedIn = false, liveWatchers = false) {
+describe("QA Workspace focused actions", () => {
+  it("opens preparation without generating a Recipe or starting an execution", async () => {
+    let discoveries = 0;
+    const { state } = mountWorkspace({
+      fetchQaRunnerProfiles: async () => { discoveries += 1; return []; },
+      generateQaExecutionRecipe: () => assert.fail("Opening preparation must not generate a Recipe."),
+      retryQaExecutionRecipeReview: () => assert.fail("Opening preparation must not retry a review."),
+      startQaRun: () => assert.fail("Opening preparation must not execute anything."),
+    }, true);
+    assert.equal(state.nextAction.value.action, "prepare");
+    await state.handleNextAction();
+    assert.equal(state.isRunModalOpen.value, true);
+    assert.equal(discoveries, 1);
+  });
+
+  it("does not dispatch a stale next action while loading another request or mutating", async () => {
+    const { state } = mountWorkspace({ fetchQaRunnerProfiles: () => assert.fail("Busy record must not open preparation.") }, true);
+    for (const flag of [state.isLoadingRequest, state.isMutating]) {
+      flag.value = true;
+      assert.equal(state.nextAction.value.action, null);
+      assert.equal(state.nextAction.value.disabled, true);
+      await state.handleNextAction();
+      assert.equal(state.isRunModalOpen.value, false);
+      flag.value = false;
+    }
+  });
+
+  it("refreshes the selected detail and summary together without changing request identity", async () => {
+    const fresh = { ...request(), title: "Updated results", version: 2 };
+    let detailCalls = 0;
+    let listCalls = 0;
+    const { state } = mountWorkspace({
+      fetchQaRequest: async (projectId: string, requestId: string) => {
+        detailCalls += 1;
+        assert.equal(projectId, "project-1");
+        assert.equal(requestId, fresh.id);
+        return fresh;
+      },
+      fetchQaRequests: async () => { listCalls += 1; return [fresh]; },
+    }, true);
+    await state.refreshSelectedRequest();
+    assert.equal(state.selectedRequest.value?.title, "Updated results");
+    assert.equal(state.requests.value[0]?.version, 2);
+    assert.equal(state.isLoadingRequest.value, false);
+    assert.equal(detailCalls, 1);
+    assert.equal(listCalls, 1);
+  });
+
+  it("rejects duplicate refresh clicks and leaves the existing record visible on read failure", async () => {
+    const delayed = deferred<QaRequestDetail>();
+    let detailCalls = 0;
+    const { state } = mountWorkspace({
+      fetchQaRequest: () => { detailCalls += 1; return delayed.promise; },
+      fetchQaRequests: async () => [],
+    }, true);
+    const refreshing = state.refreshSelectedRequest();
+    await state.refreshSelectedRequest();
+    assert.equal(detailCalls, 1);
+    assert.equal(state.isLoadingRequest.value, true);
+    delayed.reject(new Error("Read unavailable"));
+    await refreshing;
+    assert.equal(state.errorMessage.value, "Read unavailable");
+    assert.equal(state.selectedRequest.value?.title, "QA Request");
+    assert.equal(state.isLoadingRequest.value, false);
+  });
+
+  it("does not replace the next action with a read-error state for an unrelated action failure", () => {
+    const { state } = mountWorkspace({}, true);
+    state.errorMessage.value = "Evidence could not be opened";
+    assert.equal(state.nextAction.value.action, "prepare");
+    assert.equal(state.nextAction.value.titleKey, "projects.qa.focus.next.preparingTitle");
+  });
+
+  it("retries the requested detail after a selection read fails, not the older displayed record", async () => {
+    const requestedIds: string[] = [];
+    const other = request("other-request");
+    const { state } = mountWorkspace({
+      fetchQaRequest: async (_projectId: string, requestId: string) => {
+        requestedIds.push(requestId);
+        if (requestedIds.length === 1) throw new Error("Other request temporarily unavailable");
+        return request(requestId);
+      },
+      fetchQaRequests: async () => [request(), other],
+    }, true);
+    await state.openRequest(other);
+    assert.equal(state.selectedRequest.value?.id, "request-1");
+    assert.equal(state.nextAction.value.action, "refresh");
+    await state.refreshSelectedRequest();
+    assert.deepEqual(requestedIds, ["other-request", "other-request"]);
+    assert.equal(state.selectedRequest.value?.id, other.id);
+    assert.equal(state.errorMessage.value, "");
+  });
+
+  it("clears the old failed-selection recovery when a different request is successfully created", async () => {
+    const requestedIds: string[] = [];
+    const created = { ...request("created-request"), phase: "GENERATING" as const, artifacts: [], selectedArtifactId: null };
+    const { state } = mountWorkspace({
+      fetchQaRequest: async (_projectId: string, requestId: string) => {
+        requestedIds.push(requestId);
+        if (requestId === "failed-request") throw new Error("B read failed");
+        return created;
+      },
+      fetchQaRequests: async () => [created, request()],
+      createQaRequest: async () => ({ request: created, operation: null }),
+    }, true);
+    await state.openRequest(request("failed-request"));
+    assert.equal(state.nextAction.value.titleKey, "projects.qa.focus.next.loadFailedTitle");
+    await state.saveRequest({ title: "New test", objective: "Verify another flow", checklistMode: "ODDPATH_GENERATED" });
+    assert.equal(state.selectedRequest.value?.id, created.id);
+    assert.equal(state.errorMessage.value, "");
+    assert.equal(state.nextAction.value.titleKey, "projects.qa.focus.next.generatingTitle");
+    await state.refreshSelectedRequest();
+    assert.deepEqual(requestedIds, ["failed-request", "created-request"]);
+  });
+
+  it("preserves the failed-selection recovery if creating a different request fails", async () => {
+    const requestedIds: string[] = [];
+    const failedSelection = request("failed-request");
+    const { state } = mountWorkspace({
+      fetchQaRequest: async (_projectId: string, requestId: string) => {
+        requestedIds.push(requestId);
+        if (requestedIds.length === 1) throw new Error("B read failed");
+        return failedSelection;
+      },
+      fetchQaRequests: async () => [failedSelection, request()],
+      createQaRequest: async () => { throw new Error("C creation failed"); },
+    }, true);
+    await state.openRequest(failedSelection);
+    await state.saveRequest({ title: "New test", objective: "Verify another flow", checklistMode: "ODDPATH_GENERATED" });
+    assert.equal(state.selectedRequest.value?.id, "request-1");
+    assert.equal(state.errorMessage.value, "B read failed");
+    assert.equal(state.requestModalError.value, "C creation failed");
+    assert.equal(state.nextAction.value.titleKey, "projects.qa.focus.next.loadFailedTitle");
+    await state.refreshSelectedRequest();
+    assert.deepEqual(requestedIds, ["failed-request", "failed-request"]);
+    assert.equal(state.selectedRequest.value?.id, failedSelection.id);
+  });
+
+  it("restores focus to the sample record after closing the mobile test list", async () => {
+    let focusCalls = 0;
+    const { state } = mountWorkspace({ fetchQaRequest: () => assert.fail("Sample selection is read-only.") }, true);
+    const sample = { ...request("sample-request"), sample: true };
+    state.selectedRequest.value = sample;
+    state.isRequestListOpen.value = true;
+    state.recordRef.value = { focus: () => { focusCalls += 1; } } as unknown as HTMLElement;
+    await state.openRequest(sample);
+    assert.equal(state.isRequestListOpen.value, false);
+    assert.equal(focusCalls, 1);
+  });
+
+  it("keeps failed selection recovery scoped to B while polling updates displayed A", async () => {
+    const requestedIds: string[] = [];
+    let otherAttempts = 0;
+    const other = request("other-request");
+    const refreshedCurrent = { ...request(), title: "Refreshed A", operations: [{ ...operation(), status: "SUCCEEDED" as const }] };
+    const { state, scheduledPolls } = mountWorkspace({
+      fetchQaRequest: async (_projectId: string, requestId: string) => {
+        requestedIds.push(requestId);
+        if (requestId === other.id && otherAttempts++ === 0) throw new Error("B read failed");
+        return requestId === other.id ? other : refreshedCurrent;
+      },
+      fetchQaOperation: async () => ({ ...operation(), status: "SUCCEEDED" as const }),
+      fetchQaRequests: async () => [refreshedCurrent, other],
+    }, true);
+    state.selectedRequest.value!.operations = [operation()];
+    await state.openRequest(other);
+    state.scheduleHarnessPoll();
+    scheduledPolls.at(-1)!();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(state.selectedRequest.value?.title, "Refreshed A");
+    assert.equal(state.errorMessage.value, "B read failed");
+    assert.equal(state.nextAction.value.titleKey, "projects.qa.focus.next.loadFailedTitle");
+    await state.handleNextAction();
+    assert.deepEqual(requestedIds, ["other-request", "request-1", "other-request"]);
+    assert.equal(state.selectedRequest.value?.id, other.id);
+    assert.equal(state.errorMessage.value, "");
+  });
+
+  for (const boundary of ["request", "project", "account", "unmount"] as const) {
+    it(`rejects a delayed refresh across the ${boundary} boundary`, async () => {
+      const delayed = deferred<QaRequestDetail>();
+      const { state, props, dispose } = mountWorkspace({
+        fetchQaRequest: () => delayed.promise,
+        fetchQaRequests: async () => [{ ...request(), title: "Old summary" }],
+      }, true);
+      const refreshing = state.refreshSelectedRequest();
+      if (boundary === "request") state.selectedRequest.value = request("new-request");
+      if (boundary === "project") state.selectedProjectId.value = "project-2";
+      if (boundary === "account") props.currentUser = { id: "other-owner" };
+      if (boundary === "unmount") dispose();
+      delayed.resolve({ ...request(), title: "Stale refreshed detail" });
+      await refreshing;
+      assert.notEqual(state.selectedRequest.value?.title, "Stale refreshed detail");
+      assert.deepEqual(state.requests.value, []);
+      assert.equal(state.errorMessage.value, "");
+    });
+  }
+
+  it("opens stored evidence only after its authorized URL resolves for the current record", async () => {
+    const url = deferred<string>();
+    const { state, openedWindows } = mountWorkspace({}, true, false, {
+      getAssetDownloadUrl: (assetId: string) => { assert.equal(assetId, "asset-1"); return url.promise; },
+    });
+    state.selectedRequest.value!.runs = [run()];
+    const opening = state.openStoredEvidence("asset-1");
+    assert.deepEqual(openedWindows, []);
+    url.resolve("https://files.example.test/signed-read");
+    await opening;
+    assert.deepEqual(openedWindows, [["https://files.example.test/signed-read", "_blank", "noopener,noreferrer"]]);
+  });
+
+  for (const boundary of ["request", "project", "account", "run", "unmount"] as const) {
+    it(`does not open a delayed evidence URL across the ${boundary} boundary`, async () => {
+      const url = deferred<string>();
+      const { state, props, openedWindows, dispose } = mountWorkspace({}, true, false, { getAssetDownloadUrl: () => url.promise });
+      state.selectedRequest.value!.runs = [run()];
+      const opening = state.openStoredEvidence("asset-1");
+      if (boundary === "request") state.selectedRequest.value = request("new-request");
+      if (boundary === "project") state.selectedProjectId.value = "project-2";
+      if (boundary === "account") props.currentUser = { id: "other-owner" };
+      if (boundary === "run") state.selectedRequest.value!.runs = [run("new-run")];
+      if (boundary === "unmount") dispose();
+      url.resolve("https://files.example.test/old-signed-read");
+      await opening;
+      assert.deepEqual(openedWindows, []);
+      assert.equal(state.errorMessage.value, "");
+    });
+  }
+
+  it("does not show an old evidence lookup error after the current run changed", async () => {
+    const url = deferred<string>();
+    const { state, openedWindows } = mountWorkspace({}, true, false, { getAssetDownloadUrl: () => url.promise });
+    state.selectedRequest.value!.runs = [run()];
+    const opening = state.openStoredEvidence("asset-1");
+    state.selectedRequest.value!.runs = [run("new-run")];
+    url.reject(new Error("Old run evidence unavailable"));
+    await opening;
+    assert.deepEqual(openedWindows, []);
+    assert.equal(state.errorMessage.value, "");
+  });
+});
+
+function mountWorkspace(api: Record<string, unknown>, signedIn = false, liveWatchers = false, assetsApi: Record<string, unknown> = {}) {
   const scheduledPolls: Array<() => void> = [];
+  const openedWindows: unknown[][] = [];
   let dispose = () => {};
   const modules: Record<string, unknown> = {
     // Most tests isolate async handlers. Mount/load tests opt into real Vue
     // watchers so initial selection and scheduling are covered too.
     vue: { ...vue, watch: liveWatchers ? vue.watch : () => () => {}, onBeforeUnmount: (callback: () => void) => { dispose = callback; } },
     "../../i18n/useI18n": i18n,
-    "../assets/assetsApi": {},
+    "../assets/assetsApi": assetsApi,
     "./components/QaConnectionModal.vue": {},
     "./components/QaPlaywrightRunModal.vue": {},
     "./components/QaRequestFormModal.vue": {},
+    "./components/QaEvidenceCard.vue": {},
     "./harnessPresentation": harness,
+    "./workspacePresentation": presentation,
     "./qaApi": api,
   };
   const module = { exports: {} as { default?: { setup: (props: unknown, context: unknown) => WorkspaceState } } };
@@ -315,6 +586,7 @@ function mountWorkspace(api: Record<string, unknown>, signedIn = false, liveWatc
   }, module.exports, {
     setTimeout: (callback: () => void) => scheduledPolls.push(callback),
     clearTimeout: () => {},
+    open: (...args: unknown[]) => { openedWindows.push(args); return {}; },
   });
   const props = vue.reactive<{ currentUser: { id: string } | null; projects: unknown[] }>({
     currentUser: signedIn ? { id: "owner-1" } : null,
@@ -326,7 +598,7 @@ function mountWorkspace(api: Record<string, unknown>, signedIn = false, liveWatc
     state.selectedProjectId.value = "project-1";
     state.selectedRequest.value = request();
   }
-  return { state, scheduledPolls, props, dispose: () => { dispose(); scope.stop(); } };
+  return { state, scheduledPolls, openedWindows, props, dispose: () => { dispose(); scope.stop(); } };
 }
 
 function deferred<T>() {
@@ -338,6 +610,14 @@ function deferred<T>() {
 
 function operation(): QaOperationReceipt {
   return { operationId: "review-operation-1", requestId: "request-1", recipeId: "recipe-1", kind: "EXECUTION_RECIPE_REVIEW", status: "PENDING" };
+}
+
+function run(id = "run-1"): QaRun {
+  return {
+    id, requestId: "request-1", artifactId: "artifact-1", status: "RESULTS_SUBMITTED", outcome: "PASS", version: 1,
+    sourceLabel: "Runner", externalRunRef: null, commitSha: null, startedAt: "2026-09-08T00:00:00Z", submittedAt: "2026-09-08T00:00:00Z",
+    createdAt: "2026-09-08T00:00:00Z", updatedAt: "2026-09-08T00:00:00Z", results: [], evidence: [],
+  };
 }
 
 function request(id = "request-1"): QaRequestDetail {

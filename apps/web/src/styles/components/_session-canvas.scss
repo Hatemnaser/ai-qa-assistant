@@ -1,0 +1,126 @@
+// Opt-in layout: never changes auth, settings, or legacy QA pages.
+.session-canvas {
+  position: relative;
+  display: flex !important;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  .session-canvas__scroll {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: calc(var(--session-dock-height, 200px) + 24px) !important;
+    scroll-padding-bottom: calc(var(--session-dock-height, 200px) + 24px);
+    overscroll-behavior: contain;
+  }
+}
+.session-composer-dock {
+  position: absolute;
+  z-index: 4;
+  // The dock and its fade stop at the transcript's native scrollbar gutter.
+  // Physical sides are measured by the dock, including RTL and overlay rails.
+  left: var(--session-scrollbar-left, 0px);
+  right: var(--session-scrollbar-right, 0px);
+  bottom: 0;
+  padding: 8px max(16px, calc((100% - var(--session-scrollbar-left, 0px) - var(--session-scrollbar-right, 0px) - 740px) / 2)) max(8px, env(safe-area-inset-bottom));
+  background: var(--surface-app, #191918);
+  border: 0;
+  &::before { content: ""; position: absolute; inset-inline: 0; bottom: 100%; height: 28px; background: linear-gradient(transparent, var(--surface-app, #191918)); pointer-events: none; }
+  .chat-form { padding: 0 !important; background: transparent; border: 0; }
+  .composer { box-shadow: 0 5px 22px #00000012; min-height: 100px; }
+  .composer-textarea { max-height: 112px; overflow-y: auto; }
+  .attachment-preview { display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; max-height: none; padding-bottom: 4px; }
+  .attachment-preview > * { flex: 0 0 auto; max-width: 200px; }
+}
+.session-composer-dock__latest { display: block; position: relative; width: fit-content; margin: 0 auto 8px; min-height: 44px; white-space: nowrap; box-shadow: 0 2px 12px #0002; }
+.session-composer-dock__summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border: 1px solid var(--border-color, #7774); border-radius: 14px; margin-bottom: 8px; }
+.session-composer-dock__summary strong { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+.session-composer-dock__summary > div { min-width: 0; }
+.session-composer-dock__summary small { display: block; font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-composer-dock__summary .btn { flex-shrink: 0; min-height: 44px; }
+.session-composer-dock__decision:empty { display: none; }
+.session-composer-dock__decision--expanded { margin: 16px 0; }
+.session-canvas--flow {
+  overflow-y: auto;
+  > .session-canvas__scroll { flex: none; overflow: visible; padding-bottom: 20px !important; }
+  > .session-composer-dock { position: relative; left: auto; right: auto; flex: none; margin-top: auto; }
+}
+.test-session__main .session-composer-dock .test-session__action { margin-bottom: 8px; }
+.test-session__saved-status { border-inline-start: 2px solid var(--border-color, #7774); padding: 12px 16px; margin: 16px 0; }
+.test-session__saved-status > small, .test-session__saved-status > strong { display: block; }
+.test-session__pending-review { display: block; text-align: start; }
+.session-panel-toggle { min-height: 44px; }
+.session-tools-buttons { display: flex; gap: 4px; }
+.session-tools-buttons .ui-icon-btn { width: 44px; min-height: 44px; border-color: transparent; background: transparent; color: var(--text-muted); }
+.session-tools-buttons .ui-icon-btn:hover,
+.session-tools-buttons .ui-icon-btn[aria-expanded='true'] { background: var(--surface-row-active); color: var(--text-main); }
+.session-tools-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0; }
+.session-tools-workspace .test-record { margin-top: 0; padding-top: 0; border-top: 0; }
+.session-tools-shell {
+  // Drawers teleport outside .test-session; retain the same honest QA badges.
+  .qa-status-pill { display: inline-block; padding: 3px 8px; border-radius: 20px; background: var(--surface-raised); font-size: .72rem; line-height: 1.4; white-space: nowrap; unicode-bidi: isolate; }
+  .test-record__check summary .qa-status-pill { margin-inline: 8px; }
+  .qa-status-pill:is([data-status="PASS"], [data-status="APPROVED"]) { color: var(--status-success-text); background: var(--status-success-bg); }
+  .qa-status-pill:is([data-status="FAIL"], [data-status="BLOCKED"], [data-status="PROCESSING_FAILED"]) { color: var(--status-danger-text); background: var(--status-danger-bg); }
+  :is(summary, button, a):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+}
+.session-tools-workspace .chat-topbar { gap: 8px; }
+.session-tools-workspace .test-session__saved-status { padding-block: 8px; font-size: .84rem; }
+.session-tools-workspace [data-message-id] { min-width: 0; }
+.project-session-archive { margin-top: 12px; }
+.project-session-archive summary { min-height: 44px; cursor: pointer; }
+.workspace-work-panel { overflow: hidden !important; }
+.workspace-work-panel__content { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.workspace-work-panel__body { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+.workspace-work-panel__footer { flex: none; padding: 12px; }
+.workspace-work-panel__footer .project-context__integrations { width: 100%; }
+.workspace-work-panel .project-context { overflow: visible; }
+.project-context--filtered {
+  .project-context__shortcuts, .project-context__close { display: none !important; }
+  .project-context__panels { display: block !important; }
+  .project-context__section:not([style*="display: none"]) { display: block !important; }
+}
+@media (min-width: 992px) {
+  .workspace-work-panel--collapsed { display: none !important; }
+  .project-detail__workspace:has(.workspace-work-panel--collapsed) { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 991px) {
+  .project-context--filtered .project-context__shortcuts:not([style*="display: none"]) { display: flex !important; }
+  .session-composer-dock { padding-inline: 12px; }
+  .chat-workspace { display: flex !important; flex-direction: column; min-height: 0; }
+  .workspace-surface .chat-workspace > .workspace-work-panel { order: -1; flex: none; }
+  .workspace-work-panel__content { display: none; }
+  .workspace-surface .workspace-work-panel--open .workspace-work-panel__content { display: flex; height: 38dvh; overflow: hidden; }
+  .project-detail__workspace { display: flex !important; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+  .project-detail__workspace > .workspace-work-panel { order: -1; flex: none; }
+  .project-detail__main.session-canvas { display: flex !important; }
+  .workspace-surface.chat-layout {
+    .projects-page--detail { overflow: hidden !important; height: 100%; min-height: 0; padding: 12px; }
+    .project-detail { height: 100%; min-height: 0; overflow: hidden; }
+    .project-detail__workspace { order: 2; }
+    .project-detail__workspace > .workspace-work-panel { order: -1; width: 100%; }
+    .project-detail__workspace { gap: 8px; }
+    .project-detail__content { order: 0; }
+    .project-detail__header, .project-detail__back { flex: none; }
+    .project-detail__main > .session-composer-dock { order: 1; }
+    .project-detail__header h1 { font-size: 18px; }
+    .project-detail__header p { margin: 0; }
+  }
+  .session-panel-toggle { display: none; }
+}
+@media (max-height: 740px) {
+  .session-composer-dock .quick-actions { flex-wrap: nowrap !important; overflow-x: auto; justify-content: flex-start !important; }
+  .session-composer-dock .quick-actions .btn { flex: 0 0 auto; white-space: nowrap; }
+}
+@media (max-width: 991px) and (max-height: 700px) {
+  // At this height an open library and the writer cannot both be fixed rows.
+  // The central workspace becomes their single shared scroller.
+  .workspace-surface.chat-layout .project-detail__workspace:has(.workspace-work-panel--open) {
+    overflow-y: auto;
+    > .project-detail__main { flex: none; overflow: visible; }
+    .session-canvas__scroll { flex: none; overflow: visible; padding-bottom: 16px !important; }
+    .session-composer-dock { position: relative; left: auto; right: auto; flex: none; }
+  }
+}

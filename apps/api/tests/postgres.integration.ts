@@ -17,6 +17,7 @@ process.env.NODE_ENV = "test";
 process.env.TZ = "UTC";
 
 const target = assertPostgresIntegrationTarget(process.env);
+await import("./test-sessions.postgres.integration.ts");
 const pool = new Pool({
   connectionString: target.connectionString,
   max: 6,
@@ -1669,6 +1670,26 @@ describe("real PostgreSQL invariants", { concurrency: false }, () => {
     });
     assert.equal(finishedJob.status, "SUCCEEDED");
 
+    // The alternative-profile subtest deliberately queued a review without a
+    // provider. Active durable work must now fence project deletion.
+    await assert.rejects(
+      createPrismaProjectsRepository(prisma).deleteOwnedProject(userId, projectId),
+      (error: unknown) => getErrorCode(error) === "PROJECT_TEST_WORK_ACTIVE"
+    );
+    const pendingReviews = await prisma.qaGenerationExecution.findMany({
+      where: { requestId, kind: "EXECUTION_RECIPE_REVIEW", status: "PENDING" },
+    });
+    assert.equal(pendingReviews.length, 1);
+    for (const operation of pendingReviews) {
+      // Terminalize only this fixture's unexecuted alternate-profile review.
+      await prisma.qaExecutionRecipeAssessment.updateMany({
+        where: { recipeId: operation.recipeId!, status: "PENDING" },
+        data: { status: "FAILED", errorCode: "DB_TEST_PROVIDER_NOT_RUN", completedAt: new Date() },
+      });
+      await prisma.qaGenerationExecution.update({
+        where: { id: operation.id }, data: { status: "FAILED", errorCode: "DB_TEST_PROVIDER_NOT_RUN", completedAt: new Date() },
+      });
+    }
     const deleted = await createPrismaProjectsRepository(prisma).deleteOwnedProject(userId, projectId);
     assert.equal(deleted, 1);
     assert.equal(await prisma.qaExecutionJob.count({ where: { projectId } }), 0);

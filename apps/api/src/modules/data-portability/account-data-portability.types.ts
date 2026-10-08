@@ -82,6 +82,7 @@ export interface AccountExportMessageRecord {
 
 export interface AccountExportChatRecord {
   id: string;
+  kind?: string;
   projectId: string | null;
   title: string;
   mode: string;

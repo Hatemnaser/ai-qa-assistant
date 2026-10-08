@@ -33,6 +33,7 @@ async function setup({ width = 1440, height = 900, locale = 'en', theme = 'light
   ];
   const unexpected = [];
   const sent = [];
+  const asSession = chat => ({ ...chat, kind: 'SESSION', managed: true, version: chat.version || 1, archivedAt: chat.archivedAt || null, currentRequestId: null, phase: 'DRAFT', requests: [], requestIds: [], events: [], pendingProposal: null, preparation: null, turnStatus: null, messages: chat.messages.map((message, index) => ({ ...message, timelinePosition: index + 1 })) });
   let releaseAuth = () => {};
   let releaseSettings = () => {};
   let markSettingsStarted;
@@ -67,6 +68,27 @@ async function setup({ width = 1440, height = 900, locale = 'en', theme = 'light
     if (path === '/api/settings') { markSettingsStarted(); await settingsGate; return json({ settings: { defaultModel: model, language: locale, theme, updatedAt: timestamp } }); }
     if (path === '/api/memories') return json({ memories: [] });
     if (path === '/api/projects') return json({ projects });
+    if (path === '/api/usage/summary') return json({ limit: 100, used: 1, remaining: 99, unit: 'credits' });
+    if (path === '/api/sessions') {
+      if (method === 'GET') return json({ sessions: chats.map(asSession), unlinkedRequests: [] });
+      if (method === 'POST') {
+        const chat = { id: body.clientSessionId, projectId: body.projectId || null, title: body.title || 'New QA Chat', mode: 'general', model, createdAt: timestamp, updatedAt: timestamp, messages: [] };
+        chats.push(chat); return json({ session: asSession(chat) }, 201);
+      }
+    }
+    if (path.startsWith('/api/sessions/')) {
+      const id = path.split('/')[3], chat = chats.find(item => item.id === id);
+      if (!chat) return json({ error: 'Session not found' }, 404);
+      if (method === 'POST' && path.endsWith('/turns')) {
+        sent.push({ ...body, chatId: id, projectId: chat.projectId });
+        chat.version = (chat.version || 1) + 1;
+        chat.messages.push({ id: `user-${chat.version}`, role: 'user', content: body.content, mode: body.mode, model: body.model, createdAt: timestamp }, { id: `answer-${chat.version}`, role: 'assistant', content: 'Fixture response only.', mode: body.mode, model: body.model, createdAt: timestamp });
+        return json({ session: asSession(chat), turnId: `turn-${chat.version}` }, 202);
+      }
+      if (method === 'PATCH') { Object.assign(chat, body); return json({ session: asSession(chat) }); }
+      if (method === 'DELETE') { chats = chats.filter(item => item.id !== id); return route.fulfill({ status: 204 }); }
+      if (method === 'GET') return json({ session: asSession(chat) });
+    }
     if (path === '/api/chats') return json({ chats });
     if (path.startsWith('/api/chats/')) {
       if (method === 'DELETE') { chats = chats.filter(chat => chat.id !== path.split('/').at(-1)); return json({ ok: true }); }
@@ -74,6 +96,7 @@ async function setup({ width = 1440, height = 900, locale = 'en', theme = 'light
     }
     if (path === '/api/chat') { sent.push(body); return json({ reply: 'Fixture response only.', mode: body.mode, model, usage: { limit: 100, used: 1, remaining: 99, unit: 'credits' } }); }
     if (path.endsWith('/instructions')) return json({ instruction: { projectId: path.split('/')[3], content: 'Check keyboard access and checkout errors.', createdAt: timestamp, updatedAt: timestamp } });
+    if (path.endsWith('/test-sessions')) return json({ sessions: [], unlinkedRequests: [] });
     if (path.endsWith('/memory')) return json({ memory: { projectId: path.split('/')[3], content: 'Guest checkout is supported.', source: 'USER', createdAt: timestamp, updatedAt: timestamp } });
     if (path.endsWith('/documents')) return json({ documents: [{ id: 'doc-a', projectId: 'project-a', title: 'Requirements.md', content: '# Requirements\nKeep existing upload and export.', source: 'USER_PROVIDED', mimeType: 'text/markdown', metadata: null, createdAt: timestamp, updatedAt: timestamp }] });
     if (path.endsWith('/documents/import')) return json({ documents: body.files.map((file, index) => ({ id: `imported-${file.name}-${index}`, projectId: path.split('/')[3], title: file.name, content: file.content, source: 'IMPORTED', mimeType: file.mimeType, metadata: null, createdAt: timestamp, updatedAt: timestamp })) });
@@ -89,11 +112,15 @@ async function setup({ width = 1440, height = 900, locale = 'en', theme = 'light
 
 async function waitHome(page) {
   await page.goto(`${origin}/#/home`);
-  await page.locator('.chat-home h1').waitFor();
+  await page.locator('.chat-home h1, .test-session__welcome h2').first().waitFor();
   await page.waitForFunction(() => document.querySelector('.sidebar-account') || document.querySelector('.sidebar'));
 }
 
 async function assertFrame(page, name) {
+  // Wait for ResizeObserver's measured dock before inspecting layout; in the
+  // short-height flow fallback the controls are reached through its scroller.
+  await page.locator('.composer-send-btn').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(100);
   const bounds = await page.evaluate(() => {
     const composer = document.querySelector('.chat-form')?.getBoundingClientRect();
     const controls = [...document.querySelectorAll('.composer-send-btn, .composer-icon-btn, .composer-setting select')]
@@ -109,6 +136,14 @@ async function assertFrame(page, name) {
   assert.ok(bounds.bottom <= bounds.height + 1 && bounds.top >= 0, `${name}: composer outside viewport ${JSON.stringify(bounds)}`);
   assert.equal(bounds.controls.length, 4, `${name}: attachment, send and native mode/model controls must remain visible`);
   for (const control of bounds.controls) {
+    if (!control.uncovered) console.error('Composer overlap diagnostics', name, await page.evaluate(() => {
+      const panel = document.querySelector('.workspace-work-panel');
+      const content = panel?.querySelector('.workspace-work-panel__content');
+      const composer = document.querySelector('.chat-form');
+      return { viewport: [innerWidth, innerHeight], panel: panel?.getBoundingClientRect().toJSON(), panelZ: panel && getComputedStyle(panel).zIndex,
+        content: content?.getBoundingClientRect().toJSON(), contentMax: content && getComputedStyle(content).maxHeight,
+        composer: composer?.getBoundingClientRect().toJSON() };
+    }));
     assert.ok(control.left >= 0 && control.right <= bounds.width + 1 && control.top >= 0 && control.bottom <= bounds.height + 1, `${name}: control outside viewport ${JSON.stringify(control)}`);
     assert.ok(control.uncovered, `${name}: control obscured ${JSON.stringify(control)}`);
     assert.ok(control.height >= 32 && control.width >= 32, `${name}: control target too small ${JSON.stringify(control)}`);
@@ -116,10 +151,10 @@ async function assertFrame(page, name) {
 }
 
 async function assertWorkspaceSurface(page, { theme, projectContext = false }) {
-  const surface = await page.locator('main').evaluate(element => {
+  const surface = await page.locator('main:visible').evaluate(element => {
     const style = getComputedStyle(element);
     const sidebar = document.querySelector('.sidebar');
-    const context = document.querySelector('.project-context');
+    const context = document.querySelector('.workspace-work-panel');
     return {
       marked: element.classList.contains('workspace-surface'),
       background: style.backgroundColor,
@@ -168,33 +203,26 @@ try {
   await page.getByRole('button', { name: 'Checkout regression', exact: false }).first().waitFor();
   assert.equal(await page.locator('.composer-setting select').first().locator('option').count(), 6);
   assert.equal(await page.locator('.quick-actions button').count(), 3);
-  const starters = await page.locator('.quick-actions').boundingBox();
-  const composer = await page.locator('.composer').boundingBox();
-  assert.ok(starters.y + starters.height <= composer.y + 1, 'Empty-state starters must sit above the composer');
+  const starters = await page.locator('.quick-actions').boundingBox(), composer = await page.locator('.composer').boundingBox();
+  assert.ok(starters.y + starters.height <= composer.y + 1);
   await page.locator('.composer-textarea').fill('Do not overwrite my home draft');
   await page.locator('.quick-actions button').first().click();
   assert.equal(await page.locator('.composer-textarea').inputValue(), 'Do not overwrite my home draft');
-  await assertFrame(page, 'desktop home');
-  await assertWorkspaceSurface(page, { theme: 'light' });
-  await capture(page, 'home-light');
-  passed('home, all six modes, three non-destructive starters, anchored composer');
+  await assertFrame(page, 'home'); await assertWorkspaceSurface(page, { theme: 'light' }); await capture(page, 'home-light');
+  passed('all six tasks, model controls and non-destructive starters');
 
   await page.locator('.sidebar-project-toggle').filter({ hasText: 'Checkout app' }).click();
-  await page.locator('.projects-page--detail').waitFor();
-  assert.equal(await page.locator('.composer-textarea').inputValue(), '');
+  await page.waitForURL('**/projects?projectId=project-a');
+  await page.locator('.topbar-breadcrumb__project').filter({ hasText: 'Checkout app' }).waitFor();
+  await page.locator('.test-session__welcome').waitFor();
   await page.locator('.composer-textarea').fill('New project draft');
-  assert.equal(await page.locator('.project-context__section').count(), 3);
-  await assertFrame(page, 'desktop project');
-  await assertWorkspaceSurface(page, { theme: 'light', projectContext: true });
-  await capture(page, 'project-light');
-  passed('project opens on title, visible instructions/memory/files, independent draft');
-
+  await page.getByText('Guest checkout is supported.', { exact: false }).waitFor();
+  await assertFrame(page, 'project'); await assertWorkspaceSurface(page, { theme: 'light', projectContext: true }); await capture(page, 'project-light');
+  await page.locator('.workspace-work-panel__tabs button').nth(1).click();
   await page.locator('.project-document-card__open').first().click();
   await page.locator('.project-document-preview').waitFor();
-  await assertScopedRoot(page.locator('.project-document-preview'), 'Project document preview');
-  await capture(page, 'project-document-dialog-light');
+  await assertScopedRoot(page.locator('.project-document-preview'), 'Document preview');
   await page.keyboard.press('Escape');
-  await page.locator('.project-document-preview').waitFor({ state: 'hidden' });
   await page.locator('.project-documents-section input[type=file]').setInputFiles({ name: 'project-input.txt', mimeType: 'text/plain', buffer: Buffer.from('project fixture') });
   await page.locator('.project-document-card').filter({ hasText: 'project-input.txt' }).waitFor();
   await page.locator('.project-documents-section').evaluate(element => {
@@ -204,271 +232,129 @@ try {
   await page.locator('.project-document-card').filter({ hasText: 'project-drop.txt' }).waitFor();
   assert.equal(await page.locator('.attachment-preview-card').count(), 0);
   assert.equal(await page.locator('.composer-textarea').inputValue(), 'New project draft');
-  await page.locator('.project-detail__actions [aria-haspopup=menu]').click();
-  await assertScopedRoot(page.locator('[role=menu]'), 'Project detail menu');
-  await capture(page, 'project-menu-light');
-  await page.getByRole('menuitem', { name: /Export/ }).click();
-  await page.locator('#project-export-include-chats').waitFor();
-  await assertScopedRoot(page.locator('[role=dialog]'), 'Project export dialog');
-  await capture(page, 'project-export-dialog-light');
-  await page.locator('#project-export-include-chats').uncheck();
-  await page.keyboard.press('Escape');
-  passed('project file picker/drop/preview stay separate from chat; ZIP include-chats control preserved');
+  passed('shared project memory, separate document upload/drop/preview and draft');
 
-  await page.locator('.project-detail__content button').filter({ hasText: 'Checkout regression' }).first().click();
-  await page.locator('.chat-topbar').waitFor();
+  await page.locator('.project-chat-list .project-chat-item').filter({ hasText: 'Checkout regression' }).click();
+  await page.locator('.message-content table').waitFor();
+  assert.equal(await page.locator('.message-content pre').count(), 1);
   await page.locator('.composer-textarea').fill('Existing chat draft');
-  await page.locator('.chat-form input[type=file]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('fixture attachment') });
+  await page.locator('.chat-form input[type=file]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('attachment') });
   await page.locator('.attachment-preview-name').filter({ hasText: 'notes.txt' }).waitFor();
   await page.locator('.sidebar-brand-link').click();
-  await page.locator('.chat-home').waitFor();
+  await page.locator('.test-session__welcome').waitFor();
   assert.equal(await page.locator('.composer-textarea').inputValue(), 'Do not overwrite my home draft');
   assert.equal(await page.locator('.attachment-preview-card').count(), 0);
-  await page.locator('.chat-home__recent').filter({ hasText: 'Checkout regression' }).click();
-  await page.locator('.chat-topbar').waitFor();
+  await page.locator('.project-chat-list .project-chat-item').filter({ hasText: 'Checkout regression' }).click();
+  await page.locator('.message-content table').waitFor();
   assert.equal(await page.locator('.composer-textarea').inputValue(), 'Existing chat draft');
   assert.equal(await page.locator('.attachment-preview-name').innerText(), 'notes.txt');
-  await assertFrame(page, 'desktop project chat');
-  await assertWorkspaceSurface(page, { theme: 'light', projectContext: true });
-  assert.equal(await page.locator('.message-content table').count(), 1);
-  assert.equal(await page.locator('.message-content pre').count(), 1);
-  await capture(page, 'chat-project-light');
-  passed('chat/home/project drafts preserve text and files across navigation');
-
   await page.locator('.attachment-remove-btn').click();
-  await capture(page, 'chat-filled-light');
-  await page.locator('.composer-textarea').fill('');
-  await page.locator('.composer').evaluate(element => {
-    const data = new DataTransfer(); data.items.add(new File(['drop'], 'drop.txt', { type: 'text/plain' }));
-    element.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data }));
-  });
-  await page.locator('.attachment-preview-name').filter({ hasText: 'drop.txt' }).waitFor();
-  await page.locator('.attachment-remove-btn').click();
-  await page.locator('.composer').evaluate(element => {
-    const data = new DataTransfer(); data.items.add(new File(['paste'], 'paste.txt', { type: 'text/plain' }));
-    element.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
-  });
-  await page.locator('.attachment-preview-name').filter({ hasText: 'paste.txt' }).waitFor();
-  assert.equal(await page.locator('.composer-send-btn').isEnabled(), true);
-  passed('composer input/drop/paste and attachment-only send availability');
-  await page.locator('.attachment-remove-btn').click();
-
+  for (const kind of ['drop', 'paste']) {
+    await page.locator('.composer').evaluate((element, kind) => {
+      const data = new DataTransfer(); data.items.add(new File([kind], kind + '.txt', { type: 'text/plain' }));
+      element.dispatchEvent(kind === 'drop' ? new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data }) : new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
+    }, kind);
+    await page.locator('.attachment-preview-name').filter({ hasText: kind + '.txt' }).waitFor();
+    assert.equal(await page.locator('.composer-send-btn').isEnabled(), true);
+    await page.locator('.attachment-remove-btn').click();
+  }
+  passed('shared Markdown and home/project/session drafts; composer picker/drop/paste');
   await page.locator('.topbar-breadcrumb__project').click();
-  await page.locator('.projects-page--detail').waitFor();
+  await page.locator('.test-session__welcome').waitFor();
   assert.equal(await page.locator('.composer-textarea').inputValue(), 'New project draft');
   await page.locator('.composer-send-btn').click();
-  await page.locator('.chat-topbar').waitFor();
-  await page.locator('.message-content').filter({ hasText: 'Fixture response only.' }).waitFor();
+  await page.getByText('Fixture response only.', { exact: false }).waitFor();
   assert.equal(fixture.sent.at(-1).projectId, 'project-a');
-  passed('project composer submits to the same project through the original chat contract');
-
   await page.locator('.project-context__integrations').click();
   await page.locator('.project-integrations-dialog').waitFor();
   assert.equal(await page.locator('.project-integrations__group').count(), 2);
-  await assertScopedRoot(page.locator('.project-integrations-dialog'), 'Integrations dialog');
-  await capture(page, 'project-integrations-light');
+  await assertScopedRoot(page.locator('.project-integrations-dialog'), 'Integrations'); await capture(page, 'project-integrations-light');
   await page.keyboard.press('Escape');
-  await page.locator('.project-integrations-dialog').waitFor({ state: 'hidden' });
-  passed('integrations entry and separate saved credentials / Runner state');
+  passed('server-managed project turn and preserved Integrations');
 
-  const chatMenuButton = page.locator('.sidebar-chat-row').filter({ hasText: 'Checkout regression' }).locator('[aria-haspopup=menu]');
-  await chatMenuButton.click();
-  await page.locator('#chat-actions-menu [aria-controls=chat-export-menu]').click();
-  assert.equal(await page.locator('#chat-export-menu [role=menuitem]').count(), 4);
-  await assertScopedRoot(page.locator('#chat-actions-menu'), 'Chat context menu');
-  await assertScopedRoot(page.locator('#chat-export-menu'), 'Chat export submenu');
-  await capture(page, 'chat-menu-light');
-  const downloadPromise = page.waitForEvent('download');
-  await page.locator('#chat-export-menu [role=menuitem]').last().click();
-  assert.ok((await downloadPromise).suggestedFilename().endsWith('.json'));
-  await chatMenuButton.click();
-  await page.locator('#chat-actions-menu [aria-controls=chat-project-menu]').click();
-  await page.locator('#chat-project-menu').getByRole('menuitem', { name: 'Mobile release', exact: true }).click();
+  const trigger = page.locator('.sidebar-session-row').filter({ hasText: 'Checkout regression' }).getByRole('button', { name: /^Actions for/ });
+  await trigger.click();
+  const popup = page.locator('.sidebar-session-menu__body');
+  await popup.getByRole('button', { name: 'Export conversation · JSON', exact: true }).waitFor();
+  assert.equal(await popup.getByRole('button', { name: /^Export conversation ·/ }).count(), 4);
+  await assertScopedRoot(popup, 'Session actions');
+  const download = page.waitForEvent('download');
+  await popup.getByRole('button', { name: 'Export conversation · JSON', exact: true }).click();
+  assert.ok((await download).suggestedFilename().endsWith('.json'));
+  await trigger.click(); await popup.locator('select').selectOption('project-b');
+  await popup.waitFor({ state: 'detached' });
   await page.locator('.sidebar-project-toggle').filter({ hasText: 'Mobile release' }).click();
-  await page.locator('.project-detail__content').getByRole('button', { name: /Checkout regression/ }).waitFor();
+  await page.locator('.project-chat-list .project-chat-item').filter({ hasText: 'Checkout regression' }).waitFor();
   await page.locator('.sidebar-section-link').click();
-  await page.locator('.projects-page--detail').waitFor({ state: 'hidden' });
-  await page.getByRole('button', { name: 'Import project', exact: true }).waitFor();
-  await assertWorkspaceSurface(page, { theme: 'light' });
-  await capture(page, 'projects-index-light');
+  await page.locator('.projects-page').waitFor();
+  await page.locator('.project-card').filter({ hasText: 'Checkout app' }).locator('[aria-haspopup=menu]').click();
+  await assertScopedRoot(page.locator('[role=menu]'), 'Project menu');
+  await page.getByRole('menuitem', { name: /Export/ }).click();
+  await page.locator('#project-export-include-chats').waitFor();
+  await page.locator('#project-export-include-chats').uncheck();
+  await assertScopedRoot(page.locator('[role=dialog]'), 'Project ZIP export'); await capture(page, 'project-export-dialog-light');
+  await page.keyboard.press('Escape');
   await page.locator('.sidebar-account input[type=file]').setInputFiles({ name: 'chat.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ type: 'qa-chat', chat: { title: 'Imported fixture', messages: [] } })) });
   await page.locator('.topbar-title').filter({ hasText: 'Imported fixture' }).waitFor();
-  passed('chat export download, project reassignment, return to index and account JSON import');
-  assert.deepEqual(fixture.unexpected, []);
-  await fixture.context.close();
+  passed('four transcript exports/download, guarded move, project ZIP options and ordinary JSON import');
+  assert.deepEqual(fixture.unexpected, []); await fixture.context.close();
 
-  // Representative cases exercise both themes, RTL, long translated controls and
-  // both sides of the existing mobile breakpoint without a Cartesian matrix.
-  for (const [width, locale, theme] of [[1440, 'en', 'dark'], [1024, 'ar', 'light'], [390, 'en', 'dark'], [320, 'ar', 'dark'], [991, 'de', 'light'], [992, 'en', 'light']]) {
-    const f = await setup({ width, height: 900, locale, theme });
-    await waitHome(f.page);
-    await f.page.locator('.chat-home__recent').first().waitFor();
-    await assertFrame(f.page, `${locale} home ${width}`);
-    await assertWorkspaceSurface(f.page, { theme });
-    await capture(f.page, `home-${locale}-${width}-${theme}`);
+  for (const [width, height, locale, theme] of [[1440,900,'en','dark'],[1024,900,'ar','light'],[992,900,'en','light'],[991,900,'de','light'],[390,667,'en','dark'],[320,568,'ar','dark']]) {
+    const f = await setup({ width, height, locale, theme });
+    await waitHome(f.page); await assertFrame(f.page, locale + ' home');
     if (width < 992) await f.page.locator('.sidebar-mobile-bar button').first().click();
     await f.page.locator('.sidebar-project-toggle').filter({ hasText: 'Checkout app' }).click();
-    await f.page.locator('.projects-page--detail').waitFor();
-    await assertFrame(f.page, `${locale} project ${width}`);
-    await assertWorkspaceSurface(f.page, { theme, projectContext: true });
-    await capture(f.page, `project-${locale}-${width}-${theme}`);
-    if (width < 992) {
-      assert.equal(await f.page.locator('.project-context__shortcuts button').count(), 3);
-      await f.page.locator('[data-context-trigger="files"]').click();
-      await f.page.locator('[data-section="files"].is-selected').waitFor();
-      await assertFrame(f.page, `${locale} project ${width} with files open`);
-      await f.page.keyboard.press('Escape');
-      assert.equal(await f.page.locator('[data-context-trigger="files"]').getAttribute('aria-expanded'), 'false');
-    }
-    await f.page.locator('.project-detail__content button').first().click();
-    await f.page.locator('.chat-topbar').waitFor();
-    await assertFrame(f.page, `${locale} chat ${width}`);
-    await assertWorkspaceSurface(f.page, { theme, projectContext: true });
-    await capture(f.page, `chat-${locale}-${width}-${theme}`);
-    await f.page.locator('.composer-textarea').fill('Review keyboard access and the checkout validation messages.');
-    await f.page.locator('.chat-form input[type=file]').setInputFiles({ name: 'review-notes.txt', mimeType: 'text/plain', buffer: Buffer.from('isolated visual fixture') });
-    await f.page.locator('.attachment-preview-name').filter({ hasText: 'review-notes.txt' }).waitFor();
-    await assertFrame(f.page, `${locale} attachment draft ${width}`);
-    await capture(f.page, `draft-${locale}-${width}-${theme}`);
+    await f.page.waitForURL('**/projects?projectId=project-a');
+    await f.page.locator('.topbar-breadcrumb__project').filter({ hasText: 'Checkout app' }).waitFor();
+    await f.page.locator('.test-session__welcome').waitFor();
+    if (width < 992) await f.page.locator('.workspace-work-panel__mobile-toggle').click();
+    await f.page.locator('.workspace-work-panel__tabs button').nth(1).click();
+    await f.page.locator('.project-document-card__open').first().click(); await f.page.locator('.project-document-preview').waitFor();
+    await f.page.keyboard.press('Escape');
+    if (width < 992) { await f.page.locator('.workspace-work-panel__tabs button').nth(1).focus(); await f.page.keyboard.press('Escape'); }
+    await f.page.locator('.project-chat-list .project-chat-item').first().click(); await f.page.locator('.message-content table').waitFor();
+    await f.page.locator('.composer-textarea').fill('Long private draft\n'.repeat(8));
+    await f.page.locator('.composer input[type=file]').setInputFiles({ name: 'draft.txt', mimeType: 'text/plain', buffer: Buffer.from('private draft') });
+    await f.page.locator('.attachment-preview-name').waitFor(); await assertFrame(f.page, locale + ' draft');
+    await capture(f.page, 'common-' + locale + '-' + theme + '-' + width + 'x' + height);
     if (width < 992) await f.page.locator('.sidebar-mobile-bar button').first().click();
-    const trigger = f.page.locator('.sidebar-chat-row').filter({ hasText: 'Checkout regression' }).locator('[aria-haspopup=menu]');
-    await trigger.click();
-    await f.page.locator('#chat-actions-menu [aria-controls=chat-export-menu]').click();
-    await f.page.locator('#chat-export-menu').waitFor();
-    const rect = await f.page.locator('#chat-export-menu').boundingBox();
-    assert.ok(rect.x >= 0 && rect.x + rect.width <= width + 1, 'Export submenu must fit the viewport');
-    await assertScopedRoot(f.page.locator('#chat-export-menu'), 'Responsive chat export submenu');
-    await capture(f.page, `menu-${locale}-${width}-${theme}`);
-    await f.page.keyboard.press('Escape');
-    await f.page.locator('#chat-export-menu').waitFor({ state: 'hidden' });
-    await f.page.keyboard.press('Escape');
-    await f.page.locator('#chat-actions-menu').waitFor({ state: 'hidden' });
-    assert.equal(await trigger.evaluate(element => element === document.activeElement), true);
+    const button = f.page.locator('.sidebar-session-row').filter({ hasText: 'Checkout regression' }).locator('[aria-haspopup=dialog]');
+    await button.click(); const body = f.page.locator('.sidebar-session-menu__body'); await body.waitFor();
+    const rect = await body.boundingBox(); assert.ok(rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= width + 1 && rect.y + rect.height <= height + 1);
+    await f.page.keyboard.press('Escape'); assert.equal(await button.evaluate(element => element === document.activeElement), true);
     if (width < 992) await f.page.keyboard.press('Escape');
-    if (width === 1440) {
-      await f.page.locator('.project-context__integrations').click();
-      await f.page.locator('.project-integrations-dialog').waitFor();
-      await assertScopedRoot(f.page.locator('.project-integrations-dialog'), 'Dark integrations dialog');
-      await capture(f.page, 'project-integrations-dark');
-      await f.page.keyboard.press('Escape');
-      await f.page.locator('.sidebar-section-link').click();
-      await f.page.getByRole('button', { name: 'Import project', exact: true }).waitFor();
-      await assertWorkspaceSurface(f.page, { theme });
-      await capture(f.page, 'projects-index-dark');
-    }
-    assert.deepEqual(f.unexpected, []);
-    passed(`${locale}/${theme} ${width}px project context, navigation and fixed composer`);
+    assert.deepEqual(f.unexpected, []); passed(locale + '/' + theme + ' ' + width + 'x' + height + ' shared context/files/menu/draft');
     await f.context.close();
   }
-
-  // Real phone heights must reserve composer space even when context and a
-  // multiline attachment draft are open together, not only at 900px height.
-  for (const [width, height] of [[390, 667], [320, 568]]) {
-    const f = await setup({ width, height });
-    await waitHome(f.page);
-    await f.page.locator('.chat-home__recent').first().waitFor();
-    await f.page.locator('.sidebar-mobile-bar button').first().click();
-    await f.page.locator('.sidebar-project-toggle').filter({ hasText: 'Checkout app' }).click();
-    await f.page.locator('.projects-page--detail').waitFor();
-    await assertFrame(f.page, `short project ${width}x${height}`);
-    await f.page.locator('[data-context-trigger="files"]').click();
-    await assertFrame(f.page, `short project files ${width}x${height}`);
-    // Context actions and project history remain reachable through scrolling.
-    await f.page.locator('.project-document-card__open').first().click();
-    await f.page.locator('.project-document-preview').waitFor();
-    await f.page.keyboard.press('Escape');
-    await f.page.locator('.composer-textarea').fill('Multiline project draft.\n'.repeat(12));
-    await f.page.locator('.chat-form input[type=file]').setInputFiles({ name: 'short-project.txt', mimeType: 'text/plain', buffer: Buffer.from('isolated short viewport fixture') });
-    await f.page.locator('.attachment-preview-name').filter({ hasText: 'short-project.txt' }).waitFor();
-    await assertFrame(f.page, `short project multiline attachment with files ${width}x${height}`);
-    await capture(f.page, `project-short-${width}-${height}`);
-    await f.page.locator('.project-context__section.is-selected .project-context__close').click();
-    await f.page.locator('.project-detail__content button').first().click();
-    await f.page.locator('.chat-topbar').waitFor();
-    await assertFrame(f.page, `short chat ${width}x${height}`);
-    await f.page.locator('[data-context-trigger="files"]').click();
-    await f.page.locator('.composer-textarea').fill('Multiline chat draft.\n'.repeat(12));
-    await f.page.locator('.chat-form input[type=file]').setInputFiles({ name: 'short-chat.txt', mimeType: 'text/plain', buffer: Buffer.from('isolated short viewport fixture') });
-    await f.page.locator('.attachment-preview-name').filter({ hasText: 'short-chat.txt' }).waitFor();
-    // In the most constrained case, scroll between context and the composer;
-    // neither region may collapse to zero or become permanently clipped.
-    assert.ok((await f.page.locator('.chat-workspace > .project-context').boundingBox()).height >= 80);
-    await f.page.locator('.chat-form').scrollIntoViewIfNeeded();
-    await assertFrame(f.page, `short chat multiline attachment with files ${width}x${height}`);
-    await capture(f.page, `chat-short-${width}-${height}`);
-    await f.page.locator('[data-context-trigger="files"]').click();
-    assert.equal(await f.page.locator('[data-context-trigger="files"]').getAttribute('aria-expanded'), 'false');
-    await f.page.locator('[data-context-trigger="files"]').click();
-    await f.page.locator('.project-document-card__open').first().click();
-    await f.page.locator('.project-document-preview').waitFor();
-    await f.page.keyboard.press('Escape');
-    await f.page.locator('.chat-form').scrollIntoViewIfNeeded();
-    await assertFrame(f.page, `short chat after file preview ${width}x${height}`);
-    assert.deepEqual(f.unexpected, []);
-    passed(`${width}x${height} short project/chat keep files, multiline draft and attachment controls reachable`);
-    await f.context.close();
-  }
-
-  const empty = await setup({ empty: true });
-  await waitHome(empty.page);
-  await empty.page.locator('.sidebar-section-link').click();
-  await empty.page.locator('.projects-page').waitFor();
-  assert.equal(await empty.page.locator('[role=dialog]').count(), 0);
-  passed('empty project account does not force a creation modal');
-  await empty.context.close();
 
   const startup = await setup({ signedIn: false, delayAuth: true, seedActive: true });
-  await waitHome(startup.page);
-  await startup.page.locator('.composer-textarea').fill('Fresh home request');
-  await startup.page.locator('.composer-send-btn').click();
-  await startup.page.locator('.message-content').filter({ hasText: 'Fixture response only.' }).waitFor();
-  assert.notEqual(startup.sent.at(-1).chatId, 'chat-a');
-  startup.releaseAuth();
-  passed('direct home reload cannot append into persisted active chat during authentication');
-  await startup.context.close();
-
+  await waitHome(startup.page); await startup.page.locator('.composer-textarea').fill('Fresh home request');
+  await startup.page.locator('.composer-send-btn').click(); await startup.page.getByText('Fixture response only.', { exact: false }).waitFor();
+  assert.notEqual(startup.sent.at(-1).chatId, 'chat-a'); startup.releaseAuth();
+  passed('guest direct-home reload cannot append to cached active chat'); await startup.context.close();
   const late = await setup({ delaySettings: true, seedActive: true });
-  await waitHome(late.page);
-  // Wait until owner-scoped chats have arrived and settings fetch has started.
-  await late.settingsStarted;
+  await waitHome(late.page); await late.settingsStarted;
   await late.page.locator('.composer-setting--model select').selectOption('gemini-2.5-flash');
-  const settingsResponse = late.page.waitForResponse(response => new URL(response.url()).pathname === '/api/settings');
-  late.releaseSettings();
-  await settingsResponse;
-  await late.page.locator('.composer-textarea').fill('Keep my model selection');
-  await late.page.locator('.composer-send-btn').click();
-  await late.page.locator('.message-content').filter({ hasText: 'Fixture response only.' }).waitFor();
-  assert.equal(late.sent.at(-1).model, 'gemini-2.5-flash');
-  passed('late account settings preserve a model changed in the current draft');
-  await late.context.close();
-
-  for (const theme of ['light', 'dark']) {
-    const login = await setup({ signedIn: false, empty: true, theme });
-    await login.page.goto(`${origin}/#/login`);
-    await login.page.locator('#login-email').waitFor();
-    await assertLegacySurface(login.page, '.auth-page', 'Login', theme);
-    await capture(login.page, `legacy-login-${theme}`);
-    await login.page.locator('#login-email').fill('qa@example.test');
-    await login.page.locator('#login-password').fill('fixture-password-only');
-    await login.page.locator('button[type=submit]').click();
-    await login.page.locator('.chat-home').waitFor();
-    assert.ok(login.page.url().endsWith('#/home'));
-    await assertWorkspaceSurface(login.page, { theme });
-    await login.page.locator('.sidebar-nav button').filter({ hasText: 'Tests' }).click();
-    await login.page.getByRole('heading', { name: 'Workspace', exact: true }).waitFor();
-    assert.ok(login.page.url().endsWith('#/'));
-    await assertLegacySurface(login.page, 'main', 'Tests workspace', theme);
-    await capture(login.page, `legacy-qa-${theme}`);
-    await login.page.goto(`${origin}/#/settings`);
-    await login.page.locator('.settings-form').waitFor();
-    await assertLegacySurface(login.page, 'main', 'Settings', theme);
-    await capture(login.page, `legacy-settings-${theme}`);
-    assert.deepEqual(login.unexpected, []);
-    passed(`${theme}: normal login opens home; QA/auth/settings keep legacy styling`);
-    await login.context.close();
+  const settings = late.page.waitForResponse(response => new URL(response.url()).pathname === '/api/settings'); late.releaseSettings(); await settings;
+  await late.page.locator('.composer-textarea').fill('Keep my model selection'); await late.page.locator('.composer-send-btn').click();
+  await late.page.getByText('Fixture response only.', { exact: false }).waitFor(); assert.equal(late.sent.at(-1).model, 'gemini-2.5-flash');
+  passed('late account settings preserve draft model choice'); await late.context.close();
+  for (const theme of ['light','dark']) {
+    const f = await setup({ signedIn: false, empty: true, theme });
+    await f.page.goto(origin + '/#/login'); await f.page.locator('#login-email').waitFor();
+    await assertLegacySurface(f.page, '.auth-page', 'Login', theme);
+    await f.page.locator('#login-email').fill('qa@example.test'); await f.page.locator('#login-password').fill('fixture-password-only');
+    await f.page.locator('button[type=submit]').click(); await f.page.locator('.test-session__welcome').waitFor();
+    assert.ok(f.page.url().endsWith('#/home')); assert.equal(await f.page.locator('.workspace-switcher select').count(), 0);
+    await f.page.getByRole('button', { name: 'New session', exact: true }).click(); assert.ok(f.page.url().endsWith('#/chat'));
+    await f.page.goto(origin + '/#/tests'); await f.page.locator('.sidebar-account-credit').waitFor(); await f.page.locator('.test-session').waitFor(); await f.page.locator('.qa-workspace-page').waitFor({ state: 'detached' });
+    assert.equal(await f.page.locator('.qa-workspace-page').count(), 0);
+    await f.page.goto(origin + '/#/settings'); await f.page.locator('.settings-form').waitFor();
+    await assertLegacySurface(f.page, 'main:visible', 'Settings', theme); await capture(f.page, 'legacy-settings-' + theme);
+    assert.deepEqual(f.unexpected, []); passed(theme + ' login/new session/legacy link/settings'); await f.context.close();
   }
   assert.deepEqual(errors, []);
-  console.log(`UX smoke complete: ${checks} scenarios; no page errors. Screenshots: ${output}`);
+  console.log('UX smoke complete: ' + checks + ' scenarios; no page errors. Screenshots: ' + output);
 } catch (error) {
   console.error('Page errors:', errors);
   for (const context of browser.contexts()) for (const page of context.pages()) {

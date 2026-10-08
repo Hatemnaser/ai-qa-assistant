@@ -10,6 +10,12 @@ describe("asset deletion integrity", () => {
   it("queues project-document objects in the same transaction as project deletion", async () => {
     const operations: string[] = [];
     const tx = {
+      async $executeRaw() { operations.push("project:lock"); return 1; },
+      chat: { async findMany() { operations.push("tests:find"); return []; } },
+      testSessionTurn: { async findFirst() { operations.push("turn:check"); return null; } },
+      qaRun: { async findFirst() { operations.push("run:check"); return null; } },
+      qaGenerationExecution: { async findFirst() { operations.push("generation:check"); return null; } },
+      testSessionPreparation: { async findFirst() { operations.push("preparation:check"); return null; } },
       objectDeletionJob: deletionJobs(operations),
       project: {
         async deleteMany() {
@@ -33,7 +39,13 @@ describe("asset deletion integrity", () => {
     assert.equal(await repository.deleteOwnedProject("u1", "p1"), 1);
     assert.deepEqual(operations, [
       "transaction:start",
+      "project:lock",
       "project:find",
+      "tests:find",
+      "turn:check",
+      "run:check",
+      "generation:check",
+      "preparation:check",
       "jobs:users/u1/doc-1,users/u1/doc-2",
       "assets:delete-pending:2",
       "project:delete",

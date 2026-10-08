@@ -67,7 +67,7 @@ const { dialogRef, onDialogKeydown } = useDialogAccessibility({
     <div
       v-if="isOpen"
       ref="dialogRef"
-      class="modal fade show d-block"
+      class="workspace-surface qa-focused-workspace modal fade show d-block"
       tabindex="-1"
       role="dialog"
       aria-modal="true"

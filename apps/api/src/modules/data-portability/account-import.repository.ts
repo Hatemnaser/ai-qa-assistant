@@ -223,6 +223,7 @@ export function createPrismaAccountImportRepository(
                 model: sourceChat.model,
                 projectId,
                 title: sourceChat.title,
+                nextTimelinePosition: sourceChat.messages.length + 1,
                 updatedAt,
                 userId,
               },
@@ -251,6 +252,7 @@ export function createPrismaAccountImportRepository(
                         ? toPrismaJson(message.attachments)
                         : undefined,
                     chatId: chat.id,
+                    timelinePosition: offset + index + 1,
                     content: message.content,
                     createdAt: messageDates[offset + index],
                     id: messageId,

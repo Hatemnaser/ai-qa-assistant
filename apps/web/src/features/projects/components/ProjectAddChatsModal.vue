@@ -5,11 +5,18 @@ import { useI18n } from "../../../i18n/useI18n";
 import Icon from "../../../ui/Icon.vue";
 import { useDialogAccessibility } from "../../../ui/useDialogAccessibility";
 import type { Chat } from "../../chat/types";
+import type { SidebarTestItem } from "../../test-sessions/navigation";
+import { movableProjectChats } from "../../sessions/sessionListPresentation";
 import { formatRelativeDate } from "../projectDate";
 import type { Project } from "../types";
 
 const props = defineProps<{
   chats: Chat[];
+  sessions?: SidebarTestItem[];
+  isSaving?: boolean;
+  errorMessage?: string;
+  isLoading?: boolean;
+  loadError?: string;
   isOpen: boolean;
   project: Project | null;
 }>();
@@ -17,6 +24,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   add: [chatIds: string[]];
   cancel: [];
+  retry: [];
 }>();
 
 const searchQuery = ref("");
@@ -26,9 +34,7 @@ const { t } = useI18n();
 const availableChats = computed(() => {
   if (!props.project) return [];
 
-  return props.chats
-    .filter((chat) => chat.projectId !== props.project?.id)
-    .sort((first, second) => new Date(second.updatedAt).getTime() - new Date(first.updatedAt).getTime());
+  return movableProjectChats({ chats: props.chats, sessions: props.sessions, projectId: props.project.id });
 });
 const filteredChats = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
@@ -38,7 +44,13 @@ const filteredChats = computed(() => {
   return availableChats.value.filter((chat) => chat.title.toLowerCase().includes(query));
 });
 const selectedCount = computed(() => selectedChatIds.value.size);
-const canAdd = computed(() => selectedCount.value > 0);
+const canInteract = computed(() => !props.isSaving && !props.isLoading && !props.loadError);
+const canAdd = computed(() => selectedCount.value > 0 && canInteract.value);
+
+watch(availableChats, chats => {
+  const availableIds = new Set(chats.map(chat => chat.id));
+  selectedChatIds.value = new Set([...selectedChatIds.value].filter(id => availableIds.has(id)));
+});
 
 watch(
   () => props.isOpen,
@@ -55,6 +67,7 @@ function isSelected(chatId: string) {
 }
 
 function toggleChat(chatId: string) {
+  if (!canInteract.value) return;
   const nextSelectedChatIds = new Set(selectedChatIds.value);
 
   if (nextSelectedChatIds.has(chatId)) {
@@ -67,10 +80,12 @@ function toggleChat(chatId: string) {
 }
 
 function selectVisibleChats() {
+  if (!canInteract.value) return;
   selectedChatIds.value = new Set([...selectedChatIds.value, ...filteredChats.value.map((chat) => chat.id)]);
 }
 
 function clearSelection() {
+  if (!canInteract.value) return;
   selectedChatIds.value = new Set();
 }
 
@@ -81,11 +96,13 @@ function addSelectedChats() {
 }
 
 function requestCancel() {
+  if (props.isSaving) return;
   emit("cancel");
 }
 
 const { dialogRef, onDialogKeydown } = useDialogAccessibility({
   isOpen: () => props.isOpen && Boolean(props.project),
+  canClose: () => !props.isSaving,
   onClose: requestCancel,
 });
 </script>
@@ -107,7 +124,7 @@ const { dialogRef, onDialogKeydown } = useDialogAccessibility({
         <form class="modal-content app-modal project-add-chats-modal" @submit.prevent="addSelectedChats">
           <div class="modal-header">
             <h2 id="project-add-chats-title" class="modal-title">{{ t("projects.addChats.title") }}</h2>
-            <button class="btn-close" type="button" :aria-label="t('app.actions.close')" @click="requestCancel"></button>
+            <button class="btn-close" type="button" :disabled="isSaving" :aria-label="t('app.actions.close')" @click="requestCancel"></button>
           </div>
 
           <div class="modal-body project-add-chats-modal__body">
@@ -116,6 +133,7 @@ const { dialogRef, onDialogKeydown } = useDialogAccessibility({
               <input
                 v-model="searchQuery"
                 type="search"
+                :disabled="!canInteract"
                 :placeholder="t('projects.addChats.searchPlaceholder')"
                 :aria-label="t('projects.addChats.searchAria')"
               />
@@ -127,21 +145,24 @@ const { dialogRef, onDialogKeydown } = useDialogAccessibility({
                 <button
                   class="btn btn-link btn-sm"
                   type="button"
-                  :disabled="filteredChats.length === 0"
+                  :disabled="filteredChats.length === 0 || !canInteract"
                   @click="selectVisibleChats"
                 >
                   {{ t("projects.addChats.selectVisible") }}
                 </button>
-                <button class="btn btn-link btn-sm" type="button" :disabled="selectedCount === 0" @click="clearSelection">
+                <button class="btn btn-link btn-sm" type="button" :disabled="selectedCount === 0 || !canInteract" @click="clearSelection">
                   {{ t("projects.addChats.clear") }}
                 </button>
               </div>
             </div>
 
-            <div v-if="availableChats.length === 0" class="project-add-chats-modal__empty">
+            <p v-if="isLoading" class="workspace-note" role="status">{{ t('testSessions.nav.loading') }}</p>
+            <p v-if="loadError" class="workspace-feedback workspace-feedback--error" role="alert">{{ loadError }} <button class="btn btn-link" type="button" :disabled="isSaving || isLoading" @click="emit('retry')">{{ t('testSessions.nav.retry') }}</button></p>
+            <p v-if="errorMessage" class="workspace-feedback workspace-feedback--error" role="alert">{{ errorMessage }}</p>
+            <div v-if="availableChats.length === 0 && !isLoading && !loadError" class="project-add-chats-modal__empty">
               {{ t("projects.addChats.noAvailable") }}
             </div>
-            <div v-else-if="filteredChats.length === 0" class="project-add-chats-modal__empty">
+            <div v-else-if="availableChats.length > 0 && filteredChats.length === 0" class="project-add-chats-modal__empty">
               {{ t("projects.addChats.noMatches") }}
             </div>
             <div v-else class="project-add-chats-list">
@@ -149,6 +170,7 @@ const { dialogRef, onDialogKeydown } = useDialogAccessibility({
                 <input
                   class="form-check-input"
                   type="checkbox"
+                  :disabled="!canInteract"
                   :checked="isSelected(chat.id)"
                   @change="toggleChat(chat.id)"
                 />
@@ -161,11 +183,11 @@ const { dialogRef, onDialogKeydown } = useDialogAccessibility({
           </div>
 
           <div class="modal-footer">
-            <button class="btn btn-outline-secondary" type="button" @click="requestCancel">
+            <button class="btn btn-outline-secondary" type="button" :disabled="isSaving" @click="requestCancel">
               {{ t("app.actions.cancel") }}
             </button>
             <button class="btn btn-primary" type="submit" :disabled="!canAdd">
-              {{ t("projects.addChats.addSelected") }}
+              {{ t(isSaving ? "projects.addChats.adding" : "projects.addChats.addSelected") }}
             </button>
           </div>
         </form>

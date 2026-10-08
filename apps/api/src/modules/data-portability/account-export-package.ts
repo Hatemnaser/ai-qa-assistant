@@ -127,6 +127,7 @@ export function createAccountExportPackage(
   if (hasUnpackagedAttachmentMetadata(account.chats, portableBinaryAssets)) {
     warnings.unshift(ATTACHMENT_WARNING);
   }
+  if (account.chats.some((chat) => chat.kind === "TEST" || chat.kind === "SESSION")) warnings.push("Session conversations are exported as inert transcripts. QA records, approvals, execution state and live links are not included and will not resume on import.");
 
   const manifest: AccountExportManifest = {
     formatVersion,

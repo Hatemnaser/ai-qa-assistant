@@ -11,6 +11,7 @@ import {
   validateExecutionEvidenceCompatibility,
 } from "../src/modules/qa-requests/qa-execution-evidence.ts";
 import { createQaExecutionRecipeIntelligence } from "../src/modules/qa-requests/qa-execution-recipe.intelligence.ts";
+import { PLAYWRIGHT_V1_EVIDENCE_GUIDANCE, RECIPE_EVIDENCE_REVIEW_GUIDANCE } from "../src/modules/qa-requests/qa-evidence.prompt.ts";
 import {
   RECIPE_LOCATOR_EXAMPLES,
   RECIPE_OUTPUT_EXAMPLE,
@@ -193,6 +194,9 @@ describe("Execution Recipe provider contract", () => {
         assert.match(input.prompt, /artifact\.items\[\]\.id, never clientRef/);
         assert.match(input.prompt, /including any intentionally failing assertion/);
         assert.match(input.prompt, /Only use profile keys declared in profileManifest\.valueReferences/);
+        assert.ok(input.prompt.includes(PLAYWRIGHT_V1_EVIDENCE_GUIDANCE));
+        assert.match(input.prompt, /Do not invent capture steps/);
+        assert.match(input.prompt, /Automatic TEXT does not contain outerHTML/);
         assert.match(input.prompt, /checkout\.email/);
         assert.doesNotMatch(input.prompt, /super-secret-value/);
         return {
@@ -240,6 +244,10 @@ describe("Execution Recipe provider contract", () => {
           assert.ok(input.prompt.includes(JSON.stringify(example)));
         }
         assert.match(input.prompt, /intentional-failure check may be a valid Recipe/);
+        assert.ok(input.prompt.includes(RECIPE_EVIDENCE_REVIEW_GUIDANCE));
+        assert.match(input.prompt, /Do not report missing evidence-collection steps/);
+        assert.match(input.prompt, /required DOM\/attribute\/log dump cannot be fulfilled by automatic TEXT/);
+        assert.match(input.prompt, /Do not rewrite, drop, or relabel the immutable evidence requirement/);
         return {
           model: "review-model",
           provider: "review-provider",
@@ -263,6 +271,40 @@ describe("Execution Recipe provider contract", () => {
     assert.equal(reviewed.status, "PASSED");
     assert.equal(calls[0], `${QA_EXECUTION_RECIPE_REVIEW_ACTION}:owner-1`);
     assert.equal(calls.at(-1), "complete:40");
+  });
+
+  it("preserves a content-capability finding for required DOM evidence without rewriting the immutable requirement or inventing capture steps", async () => {
+    const artifact = structuredClone(ARTIFACT);
+    artifact.items[0]!.evidenceRequirements[0]!.description = "Copy the welcome heading outerHTML";
+    const original = structuredClone(artifact);
+    const assessment = {
+      status: "SUGGESTIONS",
+      suggestions: [{
+        code: "TEXT_CAPTURE_CAPABILITY_MISMATCH",
+        severity: "WARNING",
+        itemClientRef: "checkout",
+        message: "The selected Runner records an execution summary, not the requested outerHTML. Owner review of the capture requirement is needed.",
+      }],
+    };
+    const calls: string[] = [];
+    const intelligence = createQaExecutionRecipeIntelligence({
+      async generateText(input) {
+        calls.push("provider");
+        assert.ok(input.prompt.includes(JSON.stringify(artifact)));
+        assert.ok(input.prompt.includes(RECIPE_EVIDENCE_REVIEW_GUIDANCE));
+        assert.match(input.prompt, /evidence-capability mismatch/);
+        assert.match(input.prompt, /without suggesting unsupported actions/);
+        return { model: "mock-review", provider: "mock-provider", text: JSON.stringify(assessment) };
+      },
+      usage: createUsage(calls),
+    });
+
+    const reviewed = await intelligence.review({ ...generationInput(), artifact, bundle: BUNDLE, recipeId: "recipe-1" });
+
+    assert.deepEqual(reviewed, { ...assessment, model: "mock-review", provider: "mock-provider" });
+    assert.deepEqual(artifact, original);
+    assert.equal(artifact.items[0]!.evidenceRequirements[0]!.id, "requirement-1");
+    assert.equal(calls.filter((call) => call === "provider").length, 1);
   });
 
   const invalidResponses: Array<{ name: string; change: (bundle: Record<string, any>) => void }> = [

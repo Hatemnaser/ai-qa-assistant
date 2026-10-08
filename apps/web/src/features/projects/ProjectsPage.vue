@@ -3,6 +3,7 @@ import {
   computed,
   defineAsyncComponent,
   onBeforeUnmount,
+  onDeactivated,
   onMounted,
   ref,
   nextTick,
@@ -10,12 +11,15 @@ import {
   watch,
 } from "vue";
 
-import ProjectContextAside from "./components/ProjectContextAside.vue";
+import WorkspacePanel from "./components/WorkspacePanel.vue";
+import { partitionSessionList } from "../sessions/sessionListPresentation";
+import SessionComposerDock from "../chat/components/SessionComposerDock.vue";
+const panelToggleTarget = ref<HTMLElement | null>(null);
+import type { SidebarTestItem } from "../test-sessions/navigation";
 import type { QuickAction } from "../chat/constants";
 import type { Chat, SelectedAttachment } from "../chat/types";
 import ProjectAddChatsModal from "./components/ProjectAddChatsModal.vue";
 import ProjectCard from "./components/ProjectCard.vue";
-import ProjectChatList from "./components/ProjectChatList.vue";
 import ProjectDeleteModal from "./components/ProjectDeleteModal.vue";
 import ProjectFormModal from "./components/ProjectFormModal.vue";
 import Icon from "../../ui/Icon.vue";
@@ -43,9 +47,17 @@ const ProjectExportModal = defineAsyncComponent(
 const ProjectImportModal = defineAsyncComponent(
   () => import("./components/ProjectImportModal.vue")
 );
+const ProjectIntegrationsDialog = defineAsyncComponent(
+  () => import("./components/ProjectIntegrationsDialog.vue")
+);
 
 const props = defineProps<{
+  workView?: "conversations" | "tests";
+  testSessions?: SidebarTestItem[];
+  isLoadingTests?: boolean;
+  testLoadError?: string;
   chats: Chat[];
+  addChatsToProject?: (chatIds: string[], projectId: string) => Promise<void>;
   currentUser?: AuthUser | null;
   disabled?: boolean;
   disabledMessage?: string;
@@ -62,6 +74,10 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  "new-test": [projectId: string];
+  "select-test": [item: SidebarTestItem];
+  "reload-tests": [];
+  "open-other-workspace": [projectId: string];
   "active-project-changed": [projectId: string | null];
   "add-chats-to-project": [chatIds: string[], projectId: string];
   "attachments-selected": [files: File[]];
@@ -93,6 +109,9 @@ const isSaving = ref(false);
 const isDeleting = ref(false);
 const isExportingProject = ref(false);
 const isAddChatsModalOpen = ref(false);
+const isIntegrationsOpen = ref(false);
+const isAddingChats = ref(false);
+const addChatsErrorMessage = ref("");
 const isProjectImportModalOpen = ref(false);
 const isProjectModalOpen = ref(false);
 const activeProjectId = ref<string | null>(null);
@@ -119,13 +138,11 @@ const openMenuProject = computed(() => {
 const activeProject = computed(() =>
   activeProjectId.value ? projects.value.find((project) => project.id === activeProjectId.value) || null : null
 );
-const activeProjectChats = computed(() => {
-  if (!activeProject.value) return [];
-
-  return props.chats
-    .filter((chat) => chat.projectId === activeProject.value?.id)
-    .sort((first, second) => new Date(second.updatedAt).getTime() - new Date(first.updatedAt).getTime());
-});
+const activeProjectSessionGroup = computed(() => activeProject.value
+  ? partitionSessionList({ chats: props.chats, sessions: props.testSessions, projects: projects.value })
+    .projectGroups.find(group => group.project.id === activeProject.value!.id) : undefined);
+const activeProjectSessions = computed(() => activeProjectSessionGroup.value?.active || []);
+const archivedProjectSessions = computed(() => activeProjectSessionGroup.value?.archived || []);
 const filteredProjects = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
   const matchedProjects = query
@@ -156,6 +173,8 @@ onBeforeUnmount(() => {
   document.removeEventListener("click", closeProjectMenu);
   document.removeEventListener("scroll", closeProjectMenu, true);
 });
+onDeactivated(() => { isIntegrationsOpen.value = false; });
+watch(activeProjectId, () => { isIntegrationsOpen.value = false; }, { flush: "sync" });
 
 watch(
   () => props.currentUser?.id,
@@ -226,6 +245,7 @@ function closeActiveProject() {
 
 function openAddChatsModal() {
   closeProjectMenu();
+  addChatsErrorMessage.value = "";
   isAddChatsModalOpen.value = true;
 }
 
@@ -233,11 +253,24 @@ function closeAddChatsModal() {
   isAddChatsModalOpen.value = false;
 }
 
-function addChatsToActiveProject(chatIds: string[]) {
-  if (!activeProject.value || chatIds.length === 0) return;
-
-  emit("add-chats-to-project", chatIds, activeProject.value.id);
-  closeAddChatsModal();
+async function addChatsToActiveProject(chatIds: string[]) {
+  if (!activeProject.value || chatIds.length === 0 || isAddingChats.value) return;
+  const identity = captureIdentity();
+  const projectId = activeProject.value.id;
+  isAddingChats.value = true;
+  addChatsErrorMessage.value = "";
+  try {
+    if (props.addChatsToProject) await props.addChatsToProject(chatIds, projectId);
+    else if (!props.currentUser) emit("add-chats-to-project", chatIds, projectId);
+    else throw new Error(t("projects.errors.addChats"));
+    if (isCurrentIdentity(identity) && activeProjectId.value === projectId) closeAddChatsModal();
+  } catch (error) {
+    if (isCurrentIdentity(identity) && activeProjectId.value === projectId) {
+      addChatsErrorMessage.value = error instanceof Error ? error.message : t("projects.errors.addChats");
+    }
+  } finally {
+    if (isCurrentIdentity(identity)) isAddingChats.value = false;
+  }
 }
 
 function openCreateProjectModal() {
@@ -533,6 +566,9 @@ function resetAccountScopedState() {
   isDeleting.value = false;
   isExportingProject.value = false;
   isAddChatsModalOpen.value = false;
+  isIntegrationsOpen.value = false;
+  isAddingChats.value = false;
+  addChatsErrorMessage.value = "";
   isProjectImportModalOpen.value = false;
   isProjectModalOpen.value = false;
   openProjectMenu.value = null;
@@ -639,9 +675,12 @@ function getSortDate(project: Project, key: SortKey) {
             </div>
 
             <div class="project-detail__actions">
+              <span ref="panelToggleTarget" />
+              <button class="btn btn-outline-secondary project-detail__integrations" type="button" @click="isIntegrationsOpen = true">{{ t('projects.integrations.title') }}</button>
               <button class="btn btn-outline-secondary" type="button" @click="openAddChatsModal">
                 {{ t("projects.addChats") }}
               </button>
+              <button class="btn btn-outline-secondary" type="button" @click="emit('new-test', activeProject.id)">{{ t('workspaces.newSession') }}</button>
               <button
                 class="ui-icon-btn ui-icon-btn--xs ui-icon-btn--ghost"
                 type="button"
@@ -659,17 +698,27 @@ function getSortDate(project: Project, key: SortKey) {
           <div class="project-detail__workspace">
             <div class="project-detail__main">
               <div class="project-detail__content">
-                <ProjectChatList :chats="activeProjectChats" @open-chat="emit('open-chat', $event)" />
+                <div class="project-chat-list">
+                  <button v-for="item in activeProjectSessions" :key="item.id" class="project-chat-item" type="button" @click="item.kind === 'chat' ? emit('open-chat', item.id) : emit('select-test', item.item)">
+                    <span>{{ item.title }}</span><small v-if="item.id.startsWith('request:')">{{ t('workspaces.legacy') }}</small>
+                  </button>
+                  <details v-if="archivedProjectSessions.length" class="project-session-archive"><summary>{{ t('sessionTools.navigation.archive') }} · {{ archivedProjectSessions.length }}</summary><button v-for="item in archivedProjectSessions" :key="item.id" class="project-chat-item" type="button" @click="item.kind === 'chat' ? emit('open-chat', item.id) : emit('select-test', item.item)">{{ item.title }}</button></details>
+                  <p v-if="!activeProjectSessions.length && !isLoadingTests" class="workspace-note">{{ t('testSessions.nav.noSessions') }}</p>
+                  <p v-if="isLoadingTests" class="workspace-note" role="status">{{ t('testSessions.nav.loading') }}</p>
+                  <p v-if="testLoadError" class="workspace-feedback workspace-feedback--error" role="alert">{{ testLoadError }} <button class="btn btn-link" type="button" @click="emit('reload-tests')">{{ t('testSessions.nav.retry') }}</button></p>
+                </div>
               </div>
-              <div class="project-detail__composer">
+              <SessionComposerDock scroll-selector=".project-detail__content">
                 <slot name="composer" :project-id="activeProject.id" />
-              </div>
+              </SessionComposerDock>
             </div>
-            <ProjectContextAside
+            <WorkspacePanel
+              :toggle-target="panelToggleTarget"
               :key="`${currentUser.id}:${activeProject.id}`"
               :current-user="currentUser"
               :project-id="activeProject.id"
               :project-name="activeProject.name"
+              @integrations="isIntegrationsOpen = true"
             />
           </div>
         </section>
@@ -748,6 +797,13 @@ function getSortDate(project: Project, key: SortKey) {
       </ul>
     </Teleport>
 
+    <ProjectIntegrationsDialog
+      v-if="isIntegrationsOpen && currentUser && activeProject"
+      :key="`${currentUser.id}:${activeProject.id}`"
+      :project-id="activeProject.id"
+      :project-name="activeProject.name"
+      @close="isIntegrationsOpen = false"
+    />
     <ProjectFormModal
       :error-message="modalErrorMessage"
       :is-open="isProjectModalOpen"
@@ -758,10 +814,16 @@ function getSortDate(project: Project, key: SortKey) {
     />
     <ProjectAddChatsModal
       :chats="chats"
+      :sessions="currentUser ? testSessions : undefined"
+      :is-saving="isAddingChats"
+      :error-message="addChatsErrorMessage"
+      :is-loading="Boolean(currentUser && isLoadingTests)"
+      :load-error="currentUser ? testLoadError : ''"
       :is-open="isAddChatsModalOpen"
       :project="activeProject"
       @add="addChatsToActiveProject"
       @cancel="closeAddChatsModal"
+      @retry="emit('reload-tests')"
     />
     <ProjectDeleteModal
       :is-deleting="isDeleting"

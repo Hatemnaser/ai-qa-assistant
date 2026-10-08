@@ -31,3 +31,7 @@
 
 // Opt-in presentation for conversation/project surfaces, including Teleports.
 @use "components/focused-workspace";
+@use "components/test-sessions";
+@use "components/qa-run-approval";
+@use "components/session-canvas";
+@use "components/workspace-navigation";

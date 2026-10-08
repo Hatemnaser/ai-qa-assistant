@@ -1,0 +1,129 @@
+// One global rail and one session list. Existing dialogs/menus keep their owners.
+.sidebar.workspace-surface.workspace-navigation {
+  --layout-sidebar-width: 272px;
+  width: 272px;
+  flex-direction: row;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+
+  .workspace-navigation__rail {
+    width: 48px;
+    flex: 0 0 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 2px;
+    border-inline-end: 1px solid var(--border-subtle);
+  }
+
+  .workspace-navigation__rail-button,
+  .workspace-navigation__account .sidebar-account-btn {
+    width: 44px;
+    min-height: 44px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 8px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .workspace-navigation__rail-button:hover,
+  .workspace-navigation__rail-button.active,
+  .workspace-navigation__account .sidebar-account-btn:hover {
+    background: var(--surface-row-active);
+    color: var(--text-main);
+  }
+
+  .workspace-navigation__rail-button:focus-visible,
+  .workspace-navigation__account .sidebar-account-btn:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+  }
+
+  .workspace-navigation__rail-label { display: none; }
+
+  .workspace-navigation__list {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1 1 224px;
+    height: 100%;
+    overflow: hidden;
+    padding-block: 24px 12px;
+    padding-inline-start: 8px;
+    border-inline-end: 1px solid var(--border-subtle);
+  }
+
+  .workspace-navigation__list .brand { padding-inline: 10px 12px; }
+  .workspace-navigation__list .sidebar-nav { margin-top: 22px; padding-inline-end: 8px; }
+  .workspace-navigation__list .sidebar-scroll { margin-top: 24px; padding-inline-end: 8px; }
+  .sidebar-project-chats { padding-inline-start: 12px; }
+  .workspace-navigation__account { margin-top: auto; padding: 0; border: 0; }
+  .workspace-navigation__account .sidebar-account-avatar { width: 28px; height: 28px; flex: 0 0 28px; }
+
+  .workspace-navigation__account .sidebar-account-menu {
+    width: min(304px, calc(100vw - 24px));
+    min-width: 0;
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 8px;
+    border-radius: 14px;
+    box-shadow: var(--shadow-soft);
+    z-index: 1200;
+  }
+
+  .workspace-navigation__account .dropdown-item {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    border-radius: 7px;
+    padding: 8px;
+    font-size: 13px;
+  }
+
+  .workspace-navigation__account-identity,
+  .workspace-navigation__usage { padding: 8px; overflow-wrap: anywhere; }
+  .workspace-navigation__account-identity strong,
+  .workspace-navigation__account-identity small,
+  .workspace-navigation__usage small { display: block; }
+  .workspace-navigation__account-identity small,
+  .workspace-navigation__usage small { color: var(--text-muted); font-size: 12px; }
+  .workspace-navigation__usage p { margin: 8px 0; font-size: 13px; }
+  .workspace-navigation__usage progress { display: block; width: 100%; height: 6px; margin-block: 10px; accent-color: var(--workspace-accent); }
+  .workspace-navigation__usage .dropdown-item { padding-inline: 0; }
+
+  .sidebar-archive summary {
+    padding: 9px 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .sidebar-archive summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+  .sidebar-unavailable-projects h2 { margin: 0 8px 6px; font-size: 12px; font-weight: 600; }
+  .sidebar-unavailable-projects p { margin: 0 8px 8px; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+}
+
+@media (max-width: 991px) {
+  .sidebar.workspace-surface.workspace-navigation:not(.sidebar--mobile-open) { display: none; }
+  .sidebar.workspace-surface.workspace-navigation.sidebar--mobile-open {
+    width: min(272px, calc(100vw - 24px));
+    padding-block: 48px 0;
+    box-sizing: border-box;
+
+    .workspace-navigation__list { padding-block-start: 12px; }
+    .workspace-navigation__rail-button,
+    .workspace-navigation__account .sidebar-account-btn { flex-direction: column; gap: 3px; padding: 6px 2px; min-height: 58px; }
+    .workspace-navigation__rail-label { display: block; font-size: 9px; line-height: 1.2; text-align: center; max-width: 44px; overflow-wrap: anywhere; }
+    .workspace-navigation__account .sidebar-account-menu { max-height: calc(100dvh - 72px); }
+  }
+}

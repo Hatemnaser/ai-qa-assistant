@@ -36,6 +36,21 @@ afterEach(() => {
 });
 
 describe("account chat sync", () => {
+  it("keeps a same-timestamp offline legacy append unresolved instead of silently discarding it", async () => {
+    const saved = createChat('legacy-conflict', '2026-07-03T10:00:00.000Z');
+    const local: Chat = { ...saved, messages: [{ id: 'unsaved-message', role: 'user', content: 'Keep this private local edit', mode: 'general', model: saved.model, createdAt: saved.updatedAt }] };
+    const chats = ref([local]);
+    const scope = getUserChatStorageScope('user-1');
+    markChatPendingUpsert(local.id, scope);
+    let writes = 0;
+    globalThis.fetch = createCsrfAwareFetch(async (_input, init) => { if (init?.method === 'PUT') writes++; return jsonResponse({ chats: [saved] }); });
+    const sync = useAccountChatSync({ chats, currentUser: ref<AuthUser | null>(authUser()), strictReconciliation: true, replaceChats: next => { chats.value = next; } });
+    await sync.syncAccountChats(); sync.clearScheduledChatPersist();
+    assert.equal(writes, 0);
+    assert.deepEqual(loadChatSyncState(scope).pendingUpserts, [local.id]);
+    assert.equal(chats.value[0]?.messages[0]?.content, 'Keep this private local edit');
+  });
+
   it("reconciles only explicit pending local mutations", () => {
     const localOnly = createChat("local-only", "2026-07-03T10:00:00.000Z");
     const staleLocalOnly = createChat("stale-local-cache", "2026-07-03T12:00:00.000Z");

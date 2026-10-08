@@ -179,7 +179,7 @@ async function scrollChatToBottom(isCurrent: () => boolean) {
   if (!isCurrent()) return;
   const chatArea = globalThis.document?.querySelector(".chat-area");
 
-  if (chatArea) {
+  if (chatArea && (chatArea as HTMLElement).dataset?.followLatest !== "false") {
     chatArea.scrollTop = chatArea.scrollHeight;
   }
 }

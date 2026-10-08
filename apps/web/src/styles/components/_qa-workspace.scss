@@ -981,6 +981,7 @@
 
 .qa-connection-value,
 .qa-token-reveal,
+.qa-connection-recovery,
 .qa-connection-help {
   display: grid;
   gap: var(--space-2);
@@ -988,6 +989,25 @@
   background: var(--surface-app);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+}
+
+.qa-connection-recovery {
+  min-width: 0;
+  color: var(--text-main);
+}
+
+.qa-connection-recovery p,
+.qa-connection-recovery small { margin: 0; color: var(--text-muted); font-size: var(--font-size-sm); }
+.qa-connection-recovery ol { margin: 0; padding-inline-start: var(--space-5); }
+.qa-connection-recovery pre {
+  max-width: 100%;
+  margin: 0;
+  overflow: auto;
+  padding: var(--space-3);
+  background: var(--surface-code);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .qa-token-reveal {
@@ -1130,4 +1150,678 @@
   .qa-copy-field { grid-template-columns: 1fr; }
   .qa-checklist-item { align-items: stretch; flex-direction: column; }
   .qa-run-footer { grid-template-columns: 1fr; }
+}
+
+// Focused Tests is an explicit opt-in. The legacy rules above still serve
+// previews and any QA dialog that has not opted into the workspace theme.
+.workspace-surface.qa-focused-workspace {
+  :is(.btn, .form-select, .ui-icon-btn) {
+    min-height: 44px;
+  }
+
+  :is(.btn, .form-select, .form-control) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .btn {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .ui-icon-btn {
+    min-width: 44px;
+    flex-shrink: 0;
+  }
+
+  :is(button, a, input, textarea, select, summary):focus-visible,
+  [tabindex="-1"]:focus {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+
+  :is(h1, h2, h3, p, small, strong, code, summary, li) {
+    overflow-wrap: anywhere;
+  }
+
+  .qa-status {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+  }
+
+  .qa-eyebrow {
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  // Dialog controls share the same neutral tokens without inheriting page
+  // layout. Long translated labels must wrap instead of widening the dialog.
+  .modal-header > div,
+  .qa-run-step__heading > div,
+  .qa-profile-summary > div,
+  .qa-recipe-review header > div {
+    min-width: 0;
+  }
+
+  .modal-header .btn-close {
+    width: 24px;
+    height: 24px;
+    min-width: 44px;
+    min-height: 44px;
+    margin-inline-start: auto;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .qa-run-step {
+    background: var(--surface-app);
+    border-color: var(--border-subtle);
+  }
+
+  .qa-profile-summary,
+  .qa-recipe-review,
+  .qa-confirmation {
+    min-width: 0;
+  }
+
+  .qa-recipe-integrity {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .qa-recipe-integrity code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .qa-confirmation {
+    min-height: 44px;
+  }
+
+  .qa-run-footer {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .qa-connection-row {
+    flex-wrap: wrap;
+  }
+
+  .qa-connection-row small {
+    white-space: normal;
+  }
+}
+
+.workspace-surface.qa-focused-workspace.qa-workspace-page {
+  gap: var(--space-4);
+  padding: var(--space-7) var(--space-8);
+  line-height: 1.6;
+
+  .qa-workspace-header {
+    align-items: center;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+  }
+
+  .qa-workspace-header h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+  .qa-workspace-header p {
+    max-width: 600px;
+    margin-block-start: var(--space-1);
+    font-size: var(--font-size-sm);
+  }
+
+  .qa-workspace-actions {
+    min-width: 0;
+    max-width: 100%;
+    gap: var(--space-2);
+    align-items: end;
+  }
+
+  .qa-project-select {
+    min-width: 0;
+    width: min(240px, 100%);
+  }
+
+  .qa-control-grid {
+    grid-template-columns: 224px minmax(0, 1fr);
+    gap: var(--space-6);
+  }
+
+  .qa-request-list-panel {
+    padding: 0;
+    background: transparent;
+    border-color: var(--border-subtle);
+    overflow: visible;
+  }
+
+  .qa-list-toggle {
+    display: none;
+  }
+
+  .qa-request-list {
+    min-width: 0;
+    max-height: min(680px, 70dvh);
+    border-color: var(--border-subtle);
+  }
+
+  .qa-request-row {
+    padding: var(--space-3);
+    gap: var(--space-1);
+    border-color: var(--border-subtle);
+  }
+
+  .qa-request-row:focus-visible {
+    // Keep the whole ring visible inside the list's scrolling viewport.
+    outline-offset: -3px;
+  }
+
+  .qa-request-row__top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+
+  .qa-request-row__top strong {
+    max-width: 100%;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .qa-request-row__objective {
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+  }
+
+  .qa-request-row__meta {
+    font-size: 11px;
+  }
+
+  .qa-record-panel {
+    padding: 0;
+    background: var(--surface-app);
+    border-color: var(--border-subtle);
+    overflow: visible;
+  }
+
+  .qa-record-header {
+    padding: var(--space-6);
+    border-color: var(--border-subtle);
+  }
+
+  .qa-record-header > div {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .qa-record-title-line {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .qa-record-title-line h2 {
+    flex: 1 1 200px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: 21px;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  .qa-record-header p {
+    font-size: var(--font-size-md);
+    white-space: pre-wrap;
+  }
+
+  .qa-record-metadata {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-color: var(--border-subtle);
+    background: var(--border-subtle);
+  }
+
+  .qa-record-metadata > span {
+    background: var(--surface-app);
+    white-space: normal;
+    overflow-wrap: anywhere;
+    padding: var(--space-3) var(--space-6);
+  }
+
+  .qa-next-action {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin: var(--space-5) var(--space-6);
+    padding: var(--space-4);
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+  }
+
+  .qa-next-action__copy {
+    flex: 1 1 220px;
+    min-width: 0;
+  }
+
+  .qa-next-action h3 {
+    margin: 0;
+    color: var(--text-main);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+  }
+
+  .qa-next-action p {
+    margin: var(--space-1) 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+  }
+
+  .qa-next-action__actions,
+  .qa-record-tools {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .qa-record-tools {
+    padding: 0 var(--space-6) var(--space-3);
+  }
+
+  .qa-project-overview,
+  .qa-workspace-help {
+    min-width: 0;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+  }
+
+  .qa-project-overview > summary,
+  .qa-workspace-help > summary,
+  .qa-record-details > summary,
+  .qa-record-history > summary,
+  .qa-operation-history > summary,
+  .qa-check-details > summary {
+    min-height: 44px;
+    padding-block: var(--space-3);
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+  }
+
+  .qa-workspace-help p {
+    margin: 0 0 var(--space-3);
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+  }
+
+  .qa-status-grid {
+    margin-block-end: var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .qa-status-card {
+    min-width: 0;
+    min-height: 56px;
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
+    background: transparent;
+    border-color: var(--border-subtle);
+  }
+
+  .qa-status-card > div {
+    min-width: 0;
+  }
+
+  .qa-status-icon {
+    flex-shrink: 0;
+  }
+
+  .qa-section-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: var(--space-4) var(--space-6);
+  }
+
+  .qa-request-list-panel .qa-section-heading {
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-1);
+  }
+
+  .qa-section-heading h2,
+  .qa-section-heading h3 {
+    font-weight: 500;
+    font-size: var(--font-size-md);
+    line-height: 1.5;
+  }
+
+  .qa-checklist-list {
+    border-color: var(--border-subtle);
+  }
+
+  .qa-focused-checklist-item {
+    display: block;
+    min-width: 0;
+    padding: var(--space-5) var(--space-6);
+    border-block-end: 1px solid var(--border-subtle);
+  }
+
+  .qa-check-result-heading {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    min-width: 0;
+  }
+
+  .qa-check-result-heading > strong,
+  .qa-check-result-heading > h4,
+  .qa-check-result-heading > div {
+    flex: 1 1 180px;
+    min-width: 0;
+    margin: 0;
+    color: var(--text-main);
+    font-size: var(--font-size-md);
+    font-weight: 600;
+  }
+
+  .qa-check-expected {
+    margin: var(--space-2) 0;
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    white-space: pre-wrap;
+  }
+
+  .qa-check-details {
+    margin-block-start: var(--space-2);
+    min-width: 0;
+  }
+
+  .qa-check-details > summary {
+    padding-block: var(--space-2);
+    align-content: center;
+  }
+
+  .qa-check-details h5 {
+    margin-block: var(--space-4) var(--space-2);
+    color: var(--text-main);
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .qa-check-details > ul,
+  .qa-check-details > ol {
+    margin-block: 0 var(--space-3);
+    padding-inline-start: var(--space-5);
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+  }
+
+  .qa-observed-result,
+  .qa-missing-evidence {
+    margin-block: var(--space-2);
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-main);
+    background: var(--surface-raised);
+  }
+
+  .qa-observed-result p {
+    margin: var(--space-1) 0 0;
+    white-space: pre-wrap;
+  }
+
+  .qa-missing-evidence {
+    color: var(--status-warning-text);
+    background: var(--status-warning-bg);
+    border-inline-start: 2px solid var(--status-warning);
+  }
+
+  .qa-missing-evidence ul {
+    margin-block: var(--space-2) 0;
+    padding-inline-start: var(--space-5);
+  }
+
+  .qa-evidence-requirements span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-size: 11px;
+  }
+
+  .qa-evidence-item {
+    padding: var(--space-3) 0;
+    border-color: var(--border-subtle);
+  }
+
+  .qa-evidence-item > div,
+  .qa-evidence-link {
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .qa-evidence-link {
+    min-height: 44px;
+    align-items: center;
+    overflow-wrap: anywhere;
+    text-align: start;
+  }
+
+  .qa-general-evidence,
+  .qa-proof-summary,
+  .qa-record-details,
+  .qa-record-history {
+    margin: var(--space-4) var(--space-6);
+    min-width: 0;
+  }
+
+  .qa-general-evidence h3,
+  .qa-proof-summary h3 {
+    color: var(--text-main);
+    font-size: var(--font-size-md);
+    font-weight: 500;
+  }
+
+  .qa-proof-summary {
+    padding-block: var(--space-3);
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+  }
+
+  .qa-proof-summary p {
+    margin: var(--space-2) 0 0;
+  }
+
+  .qa-record-details,
+  .qa-record-history {
+    border-block-start: 1px solid var(--border-subtle);
+  }
+
+  .qa-record-details .qa-harness-facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-color: var(--border-subtle);
+    background: var(--border-subtle);
+  }
+
+  .qa-record-details .qa-harness-facts strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .qa-timeline {
+    padding-inline: 0;
+  }
+
+  .qa-timeline strong {
+    white-space: normal;
+  }
+
+  .qa-human-review {
+    margin: var(--space-5) var(--space-6);
+    background: var(--surface-panel);
+    border-color: var(--border);
+  }
+
+  .qa-human-review textarea {
+    min-height: 88px;
+  }
+
+  .qa-human-review__actions {
+    flex-wrap: wrap;
+  }
+
+  .qa-execution-progress {
+    margin: var(--space-4) var(--space-6);
+    grid-template-columns: minmax(0, 1fr);
+    background: var(--surface-panel);
+    border-color: var(--border-subtle);
+  }
+
+  .qa-execution-progress__meter--indeterminate span {
+    width: 35%;
+    animation: qa-focused-progress 1.6s ease-in-out infinite alternate;
+  }
+
+  .qa-operation-banner {
+    border-inline-start-width: 3px;
+  }
+
+  .qa-record-panel > .qa-operation-stack {
+    margin: var(--space-4) var(--space-6);
+  }
+
+  .qa-operation-banner > div {
+    min-width: 0;
+  }
+
+  .qa-operation-history {
+    background: transparent;
+    border-color: var(--border-subtle);
+    padding-block: 0;
+  }
+
+  .qa-record-history .qa-operation-banner {
+    // Historical rows have no leading activity icon.
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-block-end: var(--space-2);
+  }
+
+  .qa-record-history .qa-operation-history {
+    margin-block: var(--space-4);
+    padding: var(--space-3);
+  }
+
+  .qa-record-history .qa-operation-history h3 {
+    margin: 0;
+    color: var(--text-main);
+    font-size: var(--font-size-md);
+    font-weight: 500;
+  }
+
+  .qa-assessment {
+    margin: var(--space-4) var(--space-6);
+  }
+
+  .qa-empty-artifact,
+  .qa-empty-side {
+    margin-inline: var(--space-6);
+  }
+}
+
+@keyframes qa-focused-progress {
+  from { transform: translateX(0); }
+  to { transform: translateX(var(--qa-progress-travel, 180%)); }
+}
+
+[dir="rtl"] .workspace-surface.qa-focused-workspace .qa-execution-progress__meter--indeterminate {
+  --qa-progress-travel: -180%;
+}
+
+@media (min-width: 992px) and (max-width: 1180px) {
+  .workspace-surface.qa-focused-workspace.qa-workspace-page {
+    padding-inline: var(--space-5);
+    .qa-control-grid { gap: var(--space-4); }
+  }
+}
+
+@media (max-width: 991px) {
+  .workspace-surface.qa-focused-workspace.qa-workspace-page {
+    padding: var(--space-5);
+    .qa-workspace-header { align-items: stretch; flex-direction: column; }
+    .qa-workspace-actions { justify-content: flex-start; }
+    .qa-project-select { width: auto; flex: 1 1 100%; }
+    .qa-control-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+    .qa-list-toggle { display: inline-flex; align-items: center; gap: var(--space-2); }
+    .qa-request-list { display: none; max-height: min(360px, 55dvh); }
+    .qa-request-list--open { display: grid; }
+    .qa-request-row__top { flex-direction: row; flex-wrap: wrap; }
+    .qa-request-row__top strong { flex: 1 1 180px; }
+  }
+}
+
+@media (max-width: 575px) {
+  .workspace-surface.qa-focused-workspace {
+    .qa-run-footer { grid-template-columns: minmax(0, 1fr); }
+    .qa-run-step__heading { grid-template-columns: auto minmax(0, 1fr); }
+    .qa-run-step__heading > button { grid-column: 2; justify-self: start; }
+    .qa-recipe-review header { flex-wrap: wrap; }
+    .qa-run-step { padding: var(--space-3); }
+  }
+
+  .workspace-surface.qa-focused-workspace.qa-workspace-page {
+    padding: var(--space-3);
+    .qa-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .qa-record-header, .qa-focused-checklist-item { padding: var(--space-4); }
+    .qa-record-metadata { grid-template-columns: minmax(0, 1fr); }
+    .qa-record-metadata > span { padding: var(--space-3) var(--space-4); }
+    .qa-record-tools { padding-inline: var(--space-4); }
+    .qa-section-heading { padding-inline: var(--space-4); }
+    .qa-next-action { padding: var(--space-3); }
+    .qa-next-action__actions { width: 100%; }
+    .qa-next-action__actions > .btn { width: 100%; }
+    .qa-next-action,
+    .qa-general-evidence,
+    .qa-proof-summary,
+    .qa-record-details,
+    .qa-record-history,
+    .qa-human-review,
+    .qa-execution-progress,
+    .qa-assessment,
+    .qa-empty-artifact,
+    .qa-empty-side { margin-inline: var(--space-3); }
+    .qa-record-panel > .qa-operation-stack { margin-inline: var(--space-3); }
+    .qa-record-details .qa-harness-facts { grid-template-columns: minmax(0, 1fr); }
+    .qa-check-result-heading > .qa-status { margin-inline-start: auto; }
+    .qa-operation-banner { grid-template-columns: auto minmax(0, 1fr); }
+    .qa-operation-banner > .qa-status { grid-column: 2; justify-self: start; }
+    .qa-record-history .qa-operation-banner { grid-template-columns: minmax(0, 1fr); }
+    .qa-record-history .qa-operation-banner > .qa-status { grid-column: 1; }
+    .qa-auth-state { padding: var(--space-4); margin-block-start: var(--space-4); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-surface.qa-focused-workspace {
+    .qa-operation-indicator--spinning,
+    .qa-execution-progress__meter--indeterminate span {
+      animation: none;
+      transform: none;
+    }
+
+    .qa-execution-progress__meter span {
+      transition: none;
+    }
+  }
 }

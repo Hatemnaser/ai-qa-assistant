@@ -19,8 +19,8 @@ Target stack:
 - Keep API contracts explicit with request schemas and response types.
 - Keep provider integrations behind adapters so Gemini, Stripe, and future platforms do not leak across the app.
 - Keep QA Requests, immutable artifacts, evidence, status, history, and Human
-  Review as the primary control-plane objects. Chat remains a separate,
-  optional collaboration surface.
+  Review as the primary control-plane objects. The unified conversation is their
+  user-facing session surface, not their execution authority or replacement.
 - Keep WEB, REST, and MCP as adapters over one QA domain service and
   transactional repository. Do not fork lifecycle rules by transport.
 - Keep user, project, chat, and memory data in PostgreSQL instead of browser storage.
