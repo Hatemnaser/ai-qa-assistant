@@ -19,6 +19,7 @@ export interface StoredMessageAttachmentRecord {
 }
 
 export interface StoredMessageRecord {
+  timelinePosition?: number | null;
   id: string;
   role: StoredMessageRole;
   content: string;
@@ -42,6 +43,7 @@ export interface StoredChatRecord {
 }
 
 export interface SaveUserChatInput {
+  expectedUpdatedAt?: string;
   chat: StoredChatInput;
   createdAt: Date;
   messages: Array<{
@@ -64,7 +66,7 @@ export interface SaveUserChatInput {
 
 export interface ChatHistoryRepository {
   deleteUserChat(userId: string, chatId: string): Promise<number>;
-  findChatOwner(chatId: string): Promise<{ userId: string } | null>;
+  findChatOwner(chatId: string): Promise<{ userId: string; kind?: string } | null>;
   findChatByIdAndUserId(chatId: string, userId: string): Promise<StoredChatRecord | null>;
   listUserChats(userId: string): Promise<StoredChatRecord[]>;
   saveUserChat(input: SaveUserChatInput): Promise<StoredChatRecord>;

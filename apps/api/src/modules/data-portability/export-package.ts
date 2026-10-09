@@ -146,6 +146,7 @@ export function createProjectExportPackage(
   }
 
   const warnings = createExportWarnings(chats, binaryAssets, assetDescriptors);
+  if (chats.some((chat) => chat.kind === "TEST" || chat.kind === "SESSION")) warnings.push("Session conversations are exported as inert transcripts. QA records, approvals, execution state and live links are not included and will not resume on import.");
   const files = createFileManifest(entries);
   const manifestCommon = {
     exportType: "project" as const,

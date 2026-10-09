@@ -6,6 +6,7 @@ import * as vue from "vue";
 import { compileScript, parse } from "vue/compiler-sfc";
 
 import * as harness from "../src/features/qa/harnessPresentation.ts";
+import * as approval from "../src/features/qa/useQaRunApproval.ts";
 import type { QaArtifact, QaExecutionRecipe, QaOperationReceipt, QaRunnerProfile } from "../src/features/qa/types.ts";
 import * as i18n from "../src/i18n/useI18n.ts";
 
@@ -17,11 +18,17 @@ interface ModalProps {
   isRetryingReview: boolean;
   isSaving: boolean;
   operations: QaOperationReceipt[];
+  profileLoadError?: string;
   profiles: QaRunnerProfile[];
   recipes: QaExecutionRecipe[];
+  identityKey?: string;
+  requestVersion?: number;
+  readError?: string;
+  disabled?: boolean;
 }
 
 interface ModalState {
+  canGenerate: vue.ComputedRef<boolean>;
   canRetryReview: vue.ComputedRef<boolean>;
   canStart: vue.ComputedRef<boolean>;
   startBlockReason: vue.ComputedRef<string | null>;
@@ -31,6 +38,7 @@ interface ModalState {
   recipeReview: vue.ComputedRef<ReturnType<typeof harness.qaRecipeReviewState>>;
   retryReview(): void;
   start(): void;
+  generate(): void;
 }
 
 const source = await readFile(new URL("../src/features/qa/components/QaPlaywrightRunModal.vue", import.meta.url), "utf8");
@@ -120,8 +128,10 @@ describe("Playwright Recipe review retry modal", () => {
     assert.equal(state.canStart.value, false);
     state.recipeApproved.value = true;
     state.productionConfirmed.value = true;
-    state.start();
     assert.equal(state.canStart.value, true);
+    state.start();
+    assert.equal(state.canStart.value, false);
+    assert.equal(state.recipeApproved.value, false);
     assert.equal(emitted[1]?.[0], "start");
   });
 
@@ -152,7 +162,7 @@ describe("Playwright Recipe review retry modal", () => {
     assert.match(descriptor.template!.content, /v-else-if="latestRecipeAssessment\?\.status === 'FAILED'"/);
     assert.match(descriptor.template!.content, /:disabled="!canRetryReview" @click="retryReview"/);
     for (const field of ["recipeApproved", "productionConfirmed"]) {
-      assert.ok(descriptor.template!.content.includes(`v-model="${field}" type="checkbox" :disabled="!isRecipeReviewed || isSaving || isGenerating"`));
+      assert.ok(descriptor.template!.content.includes(`v-model="${field}" type="checkbox" :disabled="approvalDisabled"`));
     }
   });
 
@@ -166,6 +176,7 @@ describe("Playwright Recipe review retry modal", () => {
       { overrides: { recipes: [recipe("recipe-1", "FAILED")], profiles: [profile("OFFLINE")] }, reason: "reviewFailed" },
       { overrides: { recipes: [recipe("recipe-1", null)] }, reason: "reviewMissing" },
       { overrides: { profiles: [], isLoadingProfiles: true }, reason: "loadingProfiles" },
+      { overrides: { isLoadingProfiles: true }, reason: "loadingProfiles" },
       { overrides: { profiles: [] }, reason: "profileMissing" },
       { overrides: { profiles: [profile("OFFLINE")] }, reason: "profileOffline" },
       { overrides: { profiles: [profile("INCOMPATIBLE")] }, reason: "profileIncompatible" },
@@ -193,6 +204,69 @@ describe("Playwright Recipe review retry modal", () => {
     });
     assert.equal(state.startBlockReason.value, "projects.qa.approval.reviewPending");
     assert.equal(state.canStart.value, false);
+  });
+
+  it("blocks stale online profiles on discovery failure without presenting them as missing", () => {
+    for (const profiles of [[], [profile()]]) {
+      const { state, emitted } = mountModal({
+        recipes: [recipe("recipe-1", "PASSED")],
+        profiles,
+        profileLoadError: "Discovery unavailable",
+      });
+      state.recipeApproved.value = true;
+      state.productionConfirmed.value = true;
+      assert.equal(state.startBlockReason.value, "projects.integrations.errors.profiles");
+      assert.equal(state.canGenerate.value, false);
+      assert.equal(state.canStart.value, false);
+      state.generate();
+      state.start();
+      assert.deepEqual(emitted, []);
+    }
+    const template = descriptor.template!.content;
+    assert.match(template, /v-if="isLoadingProfiles"[^>]*role="status"/);
+    assert.match(template, /v-else-if="profileLoadError"[^>]*role="alert"/);
+    assert.ok(template.indexOf('v-else-if="profileLoadError"') < template.indexOf('v-else-if="profiles.length === 0"'));
+    assert.match(template, /@click="emit\('refresh'\)">{{ t\('projects.integrations.refresh'\) }}/);
+  });
+
+  it("preserves review recovery while profile discovery is unavailable", () => {
+    for (const unavailable of [{ isLoadingProfiles: true }, { profileLoadError: "Discovery unavailable" }]) {
+      const { state, emitted } = mountModal(unavailable);
+      assert.equal(state.canRetryReview.value, true);
+      assert.equal(state.startBlockReason.value, "projects.qa.approval.reviewFailed");
+      state.generate();
+      state.start();
+      assert.deepEqual(emitted, []);
+      state.retryReview();
+      assert.equal(emitted[0]?.[0], "retryReview");
+    }
+  });
+
+  it("requires fresh explicit approval after profile rediscovery or a manifest change", async () => {
+    const { state, props, emitted } = mountModal({ recipes: [recipe("recipe-1", "PASSED")] });
+    state.recipeApproved.value = true;
+    state.productionConfirmed.value = true;
+    assert.equal(state.canStart.value, true);
+    props.isLoadingProfiles = true;
+    assert.equal(state.canStart.value, false);
+    assert.equal(state.canGenerate.value, false);
+    state.start();
+    state.generate();
+    await vue.nextTick();
+    assert.equal(state.recipeApproved.value, false);
+    assert.equal(state.productionConfirmed.value, false);
+    props.isLoadingProfiles = false;
+    await vue.nextTick();
+    assert.equal(state.startBlockReason.value, "projects.qa.approval.reviewRequired");
+    assert.deepEqual(emitted, []);
+
+    state.recipeApproved.value = true;
+    state.productionConfirmed.value = true;
+    props.profiles[0]!.manifestHash = "c".repeat(64);
+    await vue.nextTick();
+    assert.equal(state.recipeApproved.value, false);
+    assert.equal(state.productionConfirmed.value, false);
+    assert.equal(state.startBlockReason.value, "projects.qa.approval.profileMismatch");
   });
 
   it("requires both explicit confirmations for production and only review approval for local execution", () => {
@@ -272,6 +346,7 @@ function mountModal(overrides: Partial<ModalProps> = {}) {
     "../../../i18n/useI18n": i18n,
     "../../../ui/useDialogAccessibility": { useDialogAccessibility: () => ({ dialogRef: vue.ref(null), onDialogKeydown: () => {} }) },
     "../harnessPresentation": harness,
+    "../useQaRunApproval": approval,
   };
   const module = { exports: {} as { default?: { setup: (props: ModalProps, context: unknown) => ModalState } } };
   // Exercise the actual SFC setup with Vue reactivity; only DOM accessibility is stubbed.

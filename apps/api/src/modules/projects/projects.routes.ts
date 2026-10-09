@@ -17,6 +17,7 @@ import {
   saveProjectMemory,
 } from "../project-memory/project-memory.controller.js";
 import { qaRequestsRouter } from "../qa-requests/qa-requests.routes.js";
+import { testSessionsRouter } from "../test-sessions/test-sessions.routes.js";
 import { projectConnectionsRouter } from "../project-connections/project-connections.routes.js";
 import { createProject, deleteProject, listProjects, updateProject } from "./projects.controller.js";
 
@@ -26,6 +27,7 @@ projectsRouter.use(requireAuth);
 projectsRouter.get("/", listProjects);
 projectsRouter.post("/", createProject);
 projectsRouter.use("/:projectId/qa", qaRequestsRouter);
+projectsRouter.use("/:projectId/test-sessions", testSessionsRouter);
 projectsRouter.use("/:projectId/connections", projectConnectionsRouter);
 projectsRouter.get("/:projectId/instructions", getProjectInstruction);
 projectsRouter.put("/:projectId/instructions", saveProjectInstruction);

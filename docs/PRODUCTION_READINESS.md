@@ -14,6 +14,11 @@ It separates three different states:
 Do not call a release production-ready while any item in **Production
 Blockers** remains open.
 
+Product sequencing and the future release-readiness feature are documented in
+`PRODUCT_VISION_AND_LAUNCH_PLAN.md`. That roadmap does not mark any operational
+gate here complete, authorize deployment, or equate QA-record approval with
+real-user release approval.
+
 ## Current Release Status
 
 The application architecture can be deployed as:
@@ -764,13 +769,21 @@ internals to users.
 
 ### Acceptable Portfolio Demo
 
-A portfolio demo may launch with:
+A portfolio demo may show a deliberately limited product, for example:
 
 - Google OAuth disabled.
-- Generic forgot-password response without email delivery.
-- Conservative guest/user credits.
+- Account creation/auth email unavailable in a clearly labeled static or
+  isolated demonstration that does not accept real account data.
+- Conservative credits for any explicitly enabled demo AI path.
 - Embeddings disabled.
 - Clearly disposable demo accounts and data.
+
+This is not an exception to production runtime guards: the deployed production
+API still requires its validated SMTP configuration and other environment
+checks. The selected real-user beta requires verified invite-only accounts and
+guest AI disabled initially; a demo label cannot waive those decisions or open
+public signup. Password reset is implemented, but live email/browser proof
+remains a release gate for accounts offered to real users.
 
 It still requires durable database storage, HTTPS, secrets, safe migrations,
 and backups if visitors can create accounts or content.

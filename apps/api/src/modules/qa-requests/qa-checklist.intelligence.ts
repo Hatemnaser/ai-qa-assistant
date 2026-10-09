@@ -16,6 +16,7 @@ import {
   QA_CHECKLIST_REVIEW_ACTION,
 } from "../usage/usage.types.js";
 import { qaChecklistDraftSchema } from "./qa-requests.schema.js";
+import { CHECKLIST_EVIDENCE_GUIDANCE } from "./qa-evidence.prompt.js";
 import type {
   QaChecklistGenerator,
   QaChecklistReviewer,
@@ -204,6 +205,7 @@ function buildGenerationPrompt(context: Record<string, unknown>) {
       }],
     }),
     "Rules: 4-12 non-duplicative items; at least one required evidence item per check; use stable clientRef values; do not invent product behavior not supported by context; state assumptions in preconditions.",
+    CHECKLIST_EVIDENCE_GUIDANCE,
     "Locked context snapshot:",
     JSON.stringify(context),
   ].join("\n\n");
@@ -229,6 +231,7 @@ function buildReviewPrompt(
       }],
     }),
     "Return PASSED only when the checklist is executable, scoped, observable, and has sufficient evidence requirements.",
+    CHECKLIST_EVIDENCE_GUIDANCE,
     "Locked context snapshot:",
     JSON.stringify(context),
     "Agent-provided checklist:",

@@ -20,9 +20,7 @@ export function createPrismaConversationSummaryRepository(): ConversationSummary
         select: {
           conversationSummary: true,
           messages: {
-            orderBy: {
-              createdAt: "asc",
-            },
+            orderBy: [{ timelinePosition: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }, { id: "asc" }],
           },
         },
         where: {

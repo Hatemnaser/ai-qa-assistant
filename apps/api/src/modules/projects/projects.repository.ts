@@ -5,6 +5,7 @@ import { ProjectRole } from "../../generated/prisma/enums.js";
 import { AppError } from "../../lib/errors.js";
 import { enqueueAssetDeletionJobs } from "../assets/assets.deletion-outbox.js";
 import type { ProjectsRepository } from "./projects.types.js";
+import { lockTestProject } from "../test-sessions/test-sessions.guard.js";
 
 export function createPrismaProjectsRepository(database: typeof prisma = prisma): ProjectsRepository {
   return {
@@ -43,6 +44,7 @@ export function createPrismaProjectsRepository(database: typeof prisma = prisma)
 
     async deleteOwnedProject(userId, projectId) {
       return database.$transaction(async (tx) => {
+        await lockTestProject(tx, projectId);
         const project = await tx.project.findFirst({
           select: {
             storedAssets: {
@@ -58,8 +60,19 @@ export function createPrismaProjectsRepository(database: typeof prisma = prisma)
 
         if (!project) return 0;
 
-        const objectKeys = project.storedAssets.map((asset) => asset.objectKey);
-        await enqueueAssetDeletionJobs(tx, project.storedAssets);
+        const testChats = await tx.chat.findMany({ where: { projectId, userId, testSession: { requests: { some: {} } } },
+          include: { messages: { include: { attachments: { include: { asset: true } } } } },
+        });
+        const activeTest = await tx.testSessionTurn.findFirst({ where: { session: { chat: { projectId } }, status: { in: ["PENDING", "PROCESSING"] } }, select: { id: true } });
+        const activeRun = await tx.qaRun.findFirst({ where: { request: { projectId }, status: { in: ["CREATED", "ACTIVE"] } }, select: { id: true } });
+        const activeGeneration = await tx.qaGenerationExecution.findFirst({ where: { request: { projectId }, status: { in: ["PENDING", "PROCESSING"] } }, select: { id: true } });
+        const activePreparation = await tx.testSessionPreparation.findFirst({ where: { session: { chat: { projectId } }, status: { in: ["CHECKLIST", "RECIPE", "REVIEW"] } }, select: { id: true } });
+        if (activeTest || activeRun || activeGeneration || activePreparation) throw new AppError("Finish or stop active Test work before deleting this project.", 409, "PROJECT_TEST_WORK_ACTIVE");
+        const testAssets = testChats.flatMap((chat) => chat.messages.flatMap((message) => message.attachments.map(({ asset }) => asset)));
+
+        const assets = [...project.storedAssets, ...testAssets];
+        const objectKeys = assets.map((asset) => asset.objectKey);
+        await enqueueAssetDeletionJobs(tx, assets);
 
         if (objectKeys.length > 0) {
           await tx.storedAsset.updateMany({
@@ -68,6 +81,12 @@ export function createPrismaProjectsRepository(database: typeof prisma = prisma)
           });
         }
 
+        // Ordinary conversations remain projectless; Test transcripts and their QA records
+        // are explicitly deleted together, never orphaned by Chat.project's SET NULL.
+        if (testChats.length) {
+          await tx.qaRequest.deleteMany({ where: { projectId, testSessionId: { in: testChats.map(({ id }) => id) } } });
+          await tx.chat.deleteMany({ where: { id: { in: testChats.map(({ id }) => id) }, userId, projectId } });
+        }
         const result = await tx.project.deleteMany({
           where: {
             id: projectId,

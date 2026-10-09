@@ -14,6 +14,7 @@ const props = defineProps<{
   projectId?: string | null;
   projects?: Project[];
   usageSummary?: ChatUsageSummary | null;
+  lockedProject?: boolean;
 }>();
 const emit = defineEmits<{
   "update:projectId": [value: string | null];
@@ -23,10 +24,6 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const selectedProject = computed(() => props.projects?.find((project) => project.id === props.projectId));
 const chatTitleLabel = computed(() => !props.chatTitle || props.chatTitle === "New QA Chat" ? t("chat.title.default") : props.chatTitle);
-const usageTitle = computed(() => props.usageSummary ? t("chat.topbar.usageTitle", {
-  limit: props.usageSummary.limit, remaining: props.usageSummary.remaining,
-  unit: props.usageSummary.unit || "credits", used: props.usageSummary.used,
-}) : "");
 </script>
 
 <template>
@@ -39,7 +36,8 @@ const usageTitle = computed(() => props.usageSummary ? t("chat.topbar.usageTitle
       <h1 class="topbar-title">{{ chatTitleLabel }}</h1>
     </div>
     <div class="topbar-controls d-flex align-items-center flex-wrap gap-2">
-      <label class="topbar-project-select">
+      <slot name="actions" />
+      <label v-if="!lockedProject" class="topbar-project-select">
         <span class="visually-hidden">{{ t("sidebar.nav.projects") }}</span>
         <select class="form-select form-select-sm" :value="projectId || ''" :disabled="isLoadingProjects || Boolean(projectError)" @change="emit('update:projectId', ($event.target as HTMLSelectElement).value || null)">
           <option value="">{{ t("chat.home.noProject") }}</option>
@@ -48,7 +46,6 @@ const usageTitle = computed(() => props.usageSummary ? t("chat.topbar.usageTitle
       </label>
       <button v-if="!projects?.length && !isLoadingProjects" class="btn btn-sm btn-outline-secondary" type="button" @click="emit('open-projects')">{{ t("chat.topbar.manageProjects") }}</button>
       <small v-if="projectError" role="status">{{ t("chat.topbar.projectsUnavailable") }}</small>
-      <span v-if="usageSummary" class="topbar-status topbar-status--quota" :title="usageTitle" :aria-label="usageTitle">{{ t("chat.topbar.creditsLeft", { count: usageSummary.remaining }) }}</span>
     </div>
   </header>
 </template>

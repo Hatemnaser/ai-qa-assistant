@@ -2,6 +2,11 @@
 
 Last reviewed: 2026-08-12
 
+Implementation-status reconciliation: 2026-09-20. The proxy configuration,
+reset-password web page, and retention cleanup command below are implemented;
+their deployment-specific checks remain open. This documentation review is
+not evidence that a live environment has passed them.
+
 This review focuses on production/deploy readiness for auth, cookies, CSRF,
 CORS, SMTP, and IP-dependent abuse controls. It is documentation only and does
 not change runtime behavior.
@@ -303,7 +308,10 @@ domain is operationally safe.
 
 ## 3. Trust Proxy / IP Correctness
 
-`apps/api/src/app.ts` does not currently configure Express `trust proxy`.
+`apps/api/src/app.ts` configures Express `trust proxy` from
+`TRUST_PROXY_HOPS`. Production startup requires an explicitly configured value
+of `1` for the selected direct-to-Render topology; local development defaults
+to `0`. The API hostname stays Cloudflare DNS-only for this topology.
 
 This matters because the backend uses `req.ip` for:
 
@@ -316,23 +324,23 @@ Without a correct proxy setting, deployed traffic may appear to come from the
 reverse proxy instead of the real client. That can make rate limits too broad
 or too weak, and it can reduce the value of guest IP quota protection.
 
-Recommended approach:
+Required deployment checks:
 
 - Localhost: keep the default unless a local reverse proxy is being tested.
-- Render/Railway/managed Node hosts: follow the provider's documented proxy
-  guidance and verify what `req.ip` resolves to in staging.
-- Cloudflare in front of a host: trust only the known proxy path. Do not accept
-  spoofed `X-Forwarded-For` from arbitrary direct clients.
-- Nginx: trust the local/private Nginx hop or exact proxy subnet, and ensure
-  direct access to the Node process is blocked.
+- Render: retain `TRUST_PROXY_HOPS=1` and verify what `req.ip` resolves to in
+  staging from known client IPs.
+- Verify that attacker-supplied forwarding headers cannot bypass IP-based
+  limits through the selected ingress path.
+- Any future additional proxy, including enabling Cloudflare proxying for the
+  API, requires a new topology and spoofing review before changing this value.
 
 Do not set `trust proxy=true` blindly while the API is directly reachable.
-The value should be chosen after the hosting topology is known, then verified
-with a staging request from a known client IP.
+The configured hop count must match the actual ingress path, then be verified
+with staging requests from known client IPs.
 
-Recommendation for this project: decide and implement `trust proxy` before a
-public deploy that relies on app-level IP rate limits. If hosting is still
-undecided, keep it as a deploy-specific task rather than guessing now.
+The implementation and initial topology decision are complete; deployed IP
+correctness and spoofing resistance still need evidence. See
+`docs/DEPLOYMENT_CLOUDFLARE_RENDER.md` for the selected topology.
 
 ## 4. CORS / CSRF Production Check
 
@@ -383,10 +391,11 @@ Production checks:
 - Confirm email links open the frontend and not the API host.
 - Confirm reset and verification tokens are not printed in app logs.
 
-Known readiness note: the backend reset-password endpoint exists, but
-`docs/AUTH.md` currently lists the frontend reset-completion page as missing.
-Password reset should not be considered deploy-complete until the user can
-complete the reset from the emailed link in the browser.
+The backend reset-password endpoint and frontend reset-completion page are
+implemented (`apps/web/src/features/auth/pages/ResetPasswordPage.vue`, routed
+from `apps/web/src/App.vue`). Password reset should not be considered
+deploy-complete until a staging user can complete the reset from the actual
+emailed link in the deployed browser and old sessions are invalidated.
 
 ## 6. Smoke Test Checklist
 
@@ -430,9 +439,10 @@ Before real users:
 
 - Configure and verify a real SMTP provider, sender domain, SPF, DKIM, and
   DMARC.
-- Add or confirm a frontend reset-completion page.
-- Decide deployment-specific `trust proxy` settings and verify `req.ip` in
-  staging.
+- Verify the implemented frontend reset-completion page through the deployed
+  email-to-browser flow.
+- Verify the configured direct-to-Render `TRUST_PROXY_HOPS=1` boundary and
+  `req.ip` in staging, including forwarded-header spoofing checks.
 - Smoke-test HTTPS cookies, CORS, CSRF, register, verification, login, logout,
   forgot-password, and reset-password.
 - Review registration email-enumeration behavior.
@@ -445,7 +455,10 @@ Should have soon:
   store before multi-instance deployment.
 - Add monitoring and alerts for auth rate limits, chat abuse, SMTP failures,
   provider quota failures, and unusual usage spikes.
-- Add expired-session and expired-token cleanup jobs.
+- Schedule and monitor the implemented `npm run cleanup:retention` command
+  with reviewed retention periods. The command handles bounded cleanup of
+  expired sessions/tokens and other policy-scoped records; having the command
+  in the repository does not prove a deployed scheduler is running it.
 - Add end-to-end auth smoke tests against a staging database.
 
 Optional later:
@@ -477,7 +490,8 @@ Deployment blockers remain:
 
 - Real SMTP provider and DNS deliverability setup.
 - HTTPS cookie/CORS/CSRF smoke testing on the real frontend/API origins.
-- `trust proxy` decision for the selected host.
-- Frontend reset-completion path verification or implementation.
+- Verification of the configured proxy boundary for the selected host.
+- Deployed frontend reset-completion path verification.
+- Scheduling and monitoring of the implemented retention cleanup command.
 - Host/proxy-level public traffic rate limiting.
 - Monitoring/alerting and dependency audit review.

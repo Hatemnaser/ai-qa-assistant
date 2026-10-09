@@ -82,7 +82,7 @@ function createFixture() {
   const events: unknown[] = [];
   const tx = {
     async $executeRaw() { return 0; },
-    qaRequest: { async findFirst() {
+    qaRequest: { async findUnique() { return null; }, async findFirst() {
       return { id: command.requestId, phase: "READY_TO_RUN", selectedArtifactId: command.artifactId };
     } },
     qaArtifact: { async findFirst() {

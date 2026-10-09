@@ -12,6 +12,7 @@ export function createPrismaChatHistoryRepository(database: typeof prisma = pris
         await lockChat(tx, chatId);
         const chat = await tx.chat.findFirst({
           select: {
+            kind: true,
             messages: {
               select: {
                 attachments: {
@@ -26,6 +27,7 @@ export function createPrismaChatHistoryRepository(database: typeof prisma = pris
         });
 
         if (!chat) return 0;
+        assertOrdinaryChat(chat.kind);
 
         const assets = chat.messages.flatMap((message) =>
           message.attachments.map((attachment) => attachment.asset)
@@ -52,6 +54,7 @@ export function createPrismaChatHistoryRepository(database: typeof prisma = pris
       return database.chat.findUnique({
         select: {
           userId: true,
+          kind: true,
         },
         where: {
           id: chatId,
@@ -64,7 +67,7 @@ export function createPrismaChatHistoryRepository(database: typeof prisma = pris
         include: {
           messages: {
             include: messageAttachmentInclude,
-            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            orderBy: [{ timelinePosition: { sort: 'desc', nulls: 'last' } }, { createdAt: "desc" }, { id: "desc" }],
             take: DATA_LIMITS.messagesPerChat,
           },
         },
@@ -80,7 +83,7 @@ export function createPrismaChatHistoryRepository(database: typeof prisma = pris
         include: {
           messages: {
             include: messageAttachmentInclude,
-            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            orderBy: [{ timelinePosition: { sort: 'desc', nulls: 'last' } }, { createdAt: "desc" }, { id: "desc" }],
             take: DATA_LIMITS.messagesPerChat,
           },
         },
@@ -90,6 +93,7 @@ export function createPrismaChatHistoryRepository(database: typeof prisma = pris
         take: DATA_LIMITS.chatsPerUser,
         where: {
           userId,
+          kind: "CONVERSATION",
         },
       });
     },
@@ -106,11 +110,15 @@ export function createPrismaChatHistoryRepository(database: typeof prisma = pris
         };
 
         const existingChat = await tx.chat.findUnique({
-          select: { userId: true },
+          select: { userId: true, kind: true, updatedAt: true },
           where: { id: input.chat.id },
         });
         if (existingChat && existingChat.userId !== input.userId) {
           throw new AppError("Chat was not found.", 404, "CHAT_NOT_FOUND");
+        }
+        if (existingChat) assertOrdinaryChat(existingChat.kind);
+        if (input.expectedUpdatedAt && (!existingChat || existingChat.updatedAt.toISOString() !== input.expectedUpdatedAt)) {
+          throw new AppError("Saved conversation changed. Reconcile before adopting this session.", 409, "SESSION_LEGACY_CONFLICT");
         }
 
         if (!existingChat) {
@@ -250,13 +258,14 @@ export function createPrismaChatHistoryRepository(database: typeof prisma = pris
           (attachment) => !requestedAssetSet.has(attachment.assetId)
         );
 
-        for (const message of input.messages) {
+        for (const [index, message] of input.messages.entries()) {
           const messageData = {
               attachment: toPrismaJson(message.attachment),
               chatId: input.chat.id,
               content: message.content,
               createdAt: message.createdAt,
               id: message.id,
+              timelinePosition: index + 1,
               metadata: toPrismaJson(message.metadata),
               mode: message.mode,
               model: message.model,
@@ -272,10 +281,12 @@ export function createPrismaChatHistoryRepository(database: typeof prisma = pris
               mode: messageData.mode,
               model: messageData.model,
               role: messageData.role,
+              timelinePosition: messageData.timelinePosition,
             },
             where: { id: message.id },
           });
         }
+        await tx.chat.update({ where: { id: input.chat.id }, data: { nextTimelinePosition: input.messages.length + 1, updatedAt: input.updatedAt } });
 
         await tx.message.deleteMany({
           where: {
@@ -344,6 +355,10 @@ function toPrismaJson(value: unknown): Prisma.InputJsonValue | typeof Prisma.Jso
 
 async function lockChat(tx: Prisma.TransactionClient, chatId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`oddpath:chat:${chatId}`}, 0))`;
+}
+
+function assertOrdinaryChat(kind: string | undefined) {
+  if (kind && kind !== "CONVERSATION") throw new AppError("Session messages are server-owned.", 409, "TEST_SESSION_SERVER_OWNED");
 }
 
 async function lockUserChatQuota(tx: Prisma.TransactionClient, userId: string) {

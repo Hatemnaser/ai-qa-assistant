@@ -69,6 +69,7 @@ export interface CreateQaRequestCommand {
   checklistMode: QaArtifactOrigin;
   snapshot: QaContextSnapshotInput;
   idempotencyKeyHash?: string;
+  testSessionId?: string;
 }
 
 export interface SubmitQaChecklistCommand {

@@ -37,6 +37,7 @@ import {
 } from "../usage/usage.service.js";
 import type { UsageIdentity, UsageReservation } from "../usage/usage.types.js";
 import type { ChatRequest, ChatRequestContext } from "./chat.types.js";
+import { buildSessionBehaviorPrompt } from "../ai/session-response.js";
 import {
   isSupportedImageMimeType,
   isSupportedTextAttachment,
@@ -180,13 +181,13 @@ export function createChatService({
       history: recentTurns,
       imageCount: providerAttachmentPlan.images.length,
       memoryContext: preparedMemoryContext?.context,
-      message: input.message,
+      message: input.message + (context.sessionContext ? `\n${buildSessionBehaviorPrompt(input.mode)}\n${JSON.stringify(context.sessionContext)}` : ""),
       mode: input.mode,
       model: preflightModelRouting.model.model,
       modelRouting: preflightModelRouting.routing,
       provider: preflightModelRouting.model.provider,
       usesWorkflowRouter:
-        env.aiWorkflowRouterEnabled &&
+        !context.sessionContext && env.aiWorkflowRouterEnabled &&
         Boolean(routeWorkflow) &&
         shouldUseAiWorkflowRouter(workflowInput, preflightWorkflow),
       workflow: preflightWorkflow,
@@ -242,7 +243,8 @@ export function createChatService({
         preparedMemoryContext.context;
     }
     const workflow = await analyzeQaWorkflowWithRouter(workflowInput, {
-      enabled: env.aiWorkflowRouterEnabled,
+      // Session understanding belongs to the structured reply, not another classifier call.
+      enabled: !context.sessionContext && env.aiWorkflowRouterEnabled,
       minConfidence: env.aiWorkflowRouterMinConfidence,
       router: routeWorkflow
         ? async (routerInput) => {
@@ -278,6 +280,7 @@ export function createChatService({
       response = await sendWithModelFallback(
         {
           context: aiContext,
+          ...(context.sessionContext ? { sessionContext: context.sessionContext } : {}),
           history: recentTurns,
           ...(providerAttachments.attachments.length > 0 ? { attachments: providerAttachments.attachments } : {}),
           ...(providerAttachments.images.length > 0 ? { images: providerAttachments.images } : {}),

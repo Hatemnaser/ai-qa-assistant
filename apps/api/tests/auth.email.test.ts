@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
+import nodemailer from "nodemailer";
 
 import { loadEnv } from "../src/config/env.ts";
 import {
@@ -62,6 +63,35 @@ describe("auth email URL builders", () => {
 });
 
 describe("auth email provider", () => {
+  it("serializes both auth messages through the installed Nodemailer without network delivery", async () => {
+    const transport = nodemailer.createTransport({ jsonTransport: true });
+    const serialized: { from: { address: string }; to: { address: string }[]; subject: string; text: string }[] = [];
+    const service = new SmtpAuthEmailService({
+      from: "Oddpath <no-reply@example.test>",
+      transporter: {
+        async sendMail(message) {
+          const result = await transport.sendMail(message);
+          serialized.push(JSON.parse(result.message));
+        },
+      },
+    });
+    const expiresAt = new Date("2026-10-07T12:00:00.000Z");
+    const resetUrl = "https://example.test/#/reset-password?token=fixture-reset";
+    const verificationUrl = "https://example.test/#/verify-email?token=fixture-verify";
+    await service.sendPasswordResetEmail({ to: "person@example.test", expiresAt, resetUrl });
+    await service.sendEmailVerificationEmail({ to: "person@example.test", expiresAt, verificationUrl });
+    assert.equal(serialized.length, 2);
+    assert.deepEqual(serialized.map(message => message.subject), ["Reset your Oddpath password", "Verify your Oddpath email"]);
+    for (const message of serialized) {
+      assert.equal(message.from.address, "no-reply@example.test");
+      assert.equal(message.to[0]?.address, "person@example.test");
+      assert.ok(message.text.includes(expiresAt.toISOString()));
+    }
+    assert.ok(serialized[0]!.text.includes(resetUrl));
+    assert.ok(serialized[1]!.text.includes(verificationUrl));
+    transport.close();
+  });
+
   it("uses in-memory delivery by default outside production", () => {
     const config = loadEnv({
       NODE_ENV: "test",

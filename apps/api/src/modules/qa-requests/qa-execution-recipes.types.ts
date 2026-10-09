@@ -110,6 +110,8 @@ export interface QaExecutionRecipeRepository {
     profileManifest: ProfileManifestV1;
     projectId: string;
     requestId: string;
+    idempotencyKeyHash?: string;
+    preparation?: { id: string; attempt: number };
   }): Promise<string>;
   queueReviewRetry(input: {
     actor: QaActor;
@@ -117,6 +119,7 @@ export interface QaExecutionRecipeRepository {
     projectId: string;
     recipeId: string;
     requestId: string;
+    preparation?: { id: string; attempt: number };
   }): Promise<string>;
   submitRecipe(command: SubmitQaExecutionRecipeCommand): Promise<string>;
 }

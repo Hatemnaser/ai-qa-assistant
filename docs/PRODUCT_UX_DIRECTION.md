@@ -1,18 +1,34 @@
 # Oddpath Product And Launch UX Direction
 
-Last updated: 2026-09-14
+Last reconciled: 2026-10-05 (earlier UX discussion retained as history)
 
-Status: owner priorities and product direction recorded for handoff. This is
-not a finalized screen design, an implemented feature list, or authorization
-to build every idea below. Read this before proposing the next UX workstream.
-Operational release gates remain in `PRODUCTION_READINESS.md`.
-The proposed whole-product page/navigation map is in
-`PRODUCT_INFORMATION_ARCHITECTURE.md`. Its bounded phase-one shell was later
-approved and implemented locally; see that file's 2026-09-14 checkpoint and
-`UX_FEATURE_PRESERVATION.md`. The broader live-session brainstorm remains
-unimplemented and is not blanket implementation authorization.
-The existing first real-user rollout decision remains an invite-only beta;
-this UX direction does not open public registration or waive its release gates.
+Status: the session foundation and current presentation are locally implemented;
+future product work is identified separately. Read `ONE_SESSION_CHECKPOINT.md`,
+`SESSION_TOOLS_CHECKPOINT.md` and `SESSION_START_REFINEMENT.md` for delivery
+evidence, and `AI_HANDOFF.md` for the latest closeout status. The 1,601-test and
+68-browser-scenario verification in the last of those checkpoints predates this
+documentation reconciliation; it is not a fresh release certification.
+
+The current surface is one session for discussion, writing and testing. Projects
+own their sessions and archive; Recent contains projectless sessions only.
+Project instructions, memory, documents and Integrations are managed on project
+details. Sources, Activity and Results are session tools opened explicitly, and
+usage lives in the account menu. A clean new session has its heading and composer,
+with history kept in navigation. The six task choices remain optional preferences
+within the same conversation; they do not gate the ability to propose a test.
+
+`PRODUCT_INFORMATION_ARCHITECTURE.md` records that current arrangement before its
+historical prototypes. `PRODUCT_VISION_AND_LAUNCH_PLAN.md` preserves the owner’s
+goal of complementing AI/coding tools with useful, traceable QA and records the
+future independent-review, browser and integration ideas. Those are not blanket
+implementation authority. The first real-user rollout remains an invite-only
+beta subject to `PRODUCTION_READINESS.md`; publication is a separate task.
+
+The earlier coached local run and bounded Runner onboarding/recovery path are
+recorded in `TEST_SESSIONS_LIVE_CHECKPOINT.md` and
+`RUNNER_ONBOARDING_CHECKPOINT.md`. Packaged Runner delivery and an unfamiliar
+person’s unassisted first test remain open. No amount of fixture-based visual
+coverage establishes those usability outcomes.
 
 ## Owner Priority
 
@@ -54,19 +70,20 @@ usability checks, not assumptions about which reference product is best.
   a clear way to handle a site that requires login without entering credentials
   into chat or learning terminal commands for routine interaction.
 
-## Preferred UX Direction — Validate Before Implementation
+## Current Journey And Future Browser Extension
 
-Use one persistent test-session surface as the main experience. "Session" is
-a user-facing organizing concept, not a decision to replace QA Request/Run
-records, rename authentication sessions, or add a new database entity.
+Use the implemented shared session as the main experience. It reuses the
+persisted conversation/session foundation; QA Request/Run records keep their
+authority. It is not the account’s authentication session.
 
-The proposed first-test journey is:
+The first-test journey to validate with a new user is:
 
 1. Describe the target and testing goal from one obvious starting point.
 2. Resolve only the setup needed for this test in context. Keep the selected
    project, environment, and account scope visible without a separate tour.
 3. Review a readable plan and give the required explicit execution approval.
-4. Follow progress and, when useful, see the actual execution browser.
+4. Follow actual progress. Embedded viewing of the execution browser is a later
+   extension; current local Runner execution does not supply that session feature.
 5. Inspect results with expected versus observed behavior and supporting proof.
 6. Review the QA record or request changes; retain the history of attempts.
 
@@ -78,8 +95,9 @@ history on demand; do not hide meaningful scope, risk, or failure information.
 Projects remain organizational/security containers. Integrations belong in a
 discoverable setup/settings surface, not a mandatory stop during every run.
 Do not silently remove project scoping or create/move user data just to simplify
-navigation. Whether to offer a default project or a particular sidebar layout
-is still a design decision.
+navigation. The approved layout already places project sessions only under their
+projects and leaves projectless sessions in Recent. Do not revive the earlier
+Chat/QA split or add a hidden default project.
 
 The browser view should be optional, not something users must watch to complete
 a run. Distinguish live view, recorded evidence, and an offline executor
@@ -93,9 +111,9 @@ browser that actually executed the test.
 3. Actionable findings: expected behavior, observed behavior, failing step, and
    relevant evidence, rather than just a PASS/FAIL badge or step count.
 
-These are priorities, not three features to implement simultaneously. Select
-one bounded slice after the journey/prototype is reviewed. Preserve existing
-auth, chat, project data, settings, i18n, portability, and QA workflows.
+The shared journey is implemented; validate and refine it from observed friction.
+Choose browser delivery and richer diagnostic evidence as bounded follow-ups.
+Preserve auth, chat, project data, settings, i18n, portability and QA workflows.
 
 ## Existing Foundation Versus Unbuilt Capabilities
 
@@ -154,8 +172,9 @@ Important limits must stay explicit:
   still need an explicit decision and realistic validation.
 - The first visual scope: local browser visibility, embedded read-only live
   view, or richer interaction. Playback and live control are different features.
-- The exact information architecture, login/session lifetime, safe takeover,
-  and evidence capture/redaction scope. Prototype these before broad changes.
+- Browser-specific information architecture, login/session lifetime, safe
+  takeover and evidence capture/redaction. The current session/project/tools
+  arrangement is settled; future browser design builds on it.
 
 ## Proposed Usability Acceptance Checks
 
@@ -185,7 +204,7 @@ Mobile testing is a future owner interest; responsive web checks are not native
 mobile-app testing. Keep extension boundaries sensible without building a
 universal execution platform now.
 
-## Next Conversation
+## Historical Concepts
 
 ### First Concept Checkpoint — 2026-09-12
 
@@ -193,8 +212,8 @@ An interactive conversation-only concept now explores the public login-page
 example: request, simulated offline setup, readable plan/approval, illustrative
 browser progress, expected/observed evidence, and final record review. It also
 includes failed-review recovery, request changes, and English/Arabic layouts.
-Its source is local to this thread at
-`C:/Users/hatem/.codex/visualizations/2026/08/07/019fdd33-3d71-7d62-8cec-eb3f36e90c78/oddpath-first-test-session.html`.
+Its source, `oddpath-first-test-session.html`, is retained in the originating
+conversation's local visualization directory (not published).
 
 This is an unapproved prototype, not a changed application route, real browser
 stream, AI-generated plan, working executor connection, or persisted QA record.
@@ -206,17 +225,28 @@ This is not design acceptance. See `PRODUCT_INFORMATION_ARCHITECTURE.md` for
 the code-audited proposal; automated interaction/layout checks do not replace
 owner review or an unassisted usability trial.
 
-### Resume Guidance
+## Resume Guidance
 
 Read `AI_HANDOFF.md`, this document, and the relevant part of `NEXT_STEPS.md`.
 Start by checking Git state and preserving untracked preview/design files.
 Those previews are exploratory, not an approved design specification.
 
-The next task is to review the proposed whole-product information architecture
-and prototype its connected home/project/session shell. Reduce the first
-concept's extra steps while retaining offline/setup, approval, running, failure,
-and review states. Compare with the actual old flow and agree a bounded
-implementation slice before changing application routes or domain behavior.
-Read the QA control-plane/harness contracts before changing their behavior.
-Do not reopen the approved smoke, trigger deployment, or implement the full
-brainstorm simply because this handoff mentions those possibilities.
+The original shell/refresh was merged in PR #15 (`08c4f35`); the later one-session,
+project organization, tools and start refinements are locally implemented on
+`main`. Preserve the current dirty tree. Do not repeat the standalone Tests
+next-action plan, explicit Chat-to-Test handoff, or chat-side project editor.
+Current session discussions can propose QA in any task mode, but execution still
+requires its existing explicit approval.
+
+Closeout records should distinguish code/fixture checks from real isolated
+provider/Runner journeys and from unassisted user validation. The latter remains
+a product gate. Check the latest handoff before assuming a live concurrency or
+recovery drill has completed. Evidence presence alone does not prove diagnostic
+sufficiency; retain that limitation when describing results.
+
+The next independently scoped design can address real browser viewing and its
+login/control boundary. Independent code review, agent management and Android
+are also future work, not missing pieces of the current UI commit. Read the QA
+contracts before changing their behavior. Historical `work/` screenshots and
+prototypes are local artifacts, not guaranteed repository attachments; follow
+`LOCAL_ARTIFACT_POLICY.md` when curating public evidence.

@@ -2,6 +2,8 @@ import { DATA_LIMITS } from "../../config/data-limits.js";
 import { prisma } from "../../db/prisma.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { AppError } from "../../lib/errors.js";
+import { assertCurrentTestRequest, lockQaSessionScope } from "../test-sessions/test-sessions.guard.js";
+import { nextQaTimelinePosition } from "../chat-history/chat-timeline.js";
 import type {
   AddQaEvidenceCommand,
   CreateQaRequestCommand,
@@ -17,54 +19,7 @@ export function createPrismaQaRequestRepository(
   return {
     async createRequest(command) {
       return database.$transaction(async (tx) => {
-        await lockProjectQuota(tx, command.projectId);
-        const requestCount = await tx.qaRequest.count({ where: { projectId: command.projectId } });
-        if (requestCount >= DATA_LIMITS.qaRequestsPerProject) {
-          throw new AppError(
-            `A project can contain up to ${DATA_LIMITS.qaRequestsPerProject} QA requests.`,
-            409,
-            "QA_REQUEST_LIMIT_REACHED"
-          );
-        }
-
-        const phase = command.checklistMode === "ODDPATH_GENERATED" ? "GENERATING" : "DRAFT";
-        const request = await tx.qaRequest.create({
-          data: {
-            acceptanceNotes: command.acceptanceNotes || null,
-            createdByUserId: command.actor.userId || null,
-            environment: command.environment || null,
-            objective: command.objective,
-            phase,
-            projectId: command.projectId,
-            target: command.target || null,
-            title: command.title,
-            contextSnapshots: {
-              create: {
-                degraded: command.snapshot.degraded,
-                payload: toJson(command.snapshot.payload),
-                payloadHash: command.snapshot.payloadHash,
-                retrievalMode: command.snapshot.retrievalMode,
-                sourceManifest: toJson(command.snapshot.sourceManifest),
-                version: 1,
-              },
-            },
-          },
-        });
-
-        if (command.checklistMode === "ODDPATH_GENERATED") {
-          await tx.qaGenerationExecution.create({
-            data: {
-              idempotencyKeyHash: command.idempotencyKeyHash || null,
-              kind: "CHECKLIST_GENERATION",
-              requestId: request.id,
-            },
-          });
-        }
-
-        await appendEvent(tx, request.id, command.actor, "REQUEST_CREATED", {
-          checklistMode: command.checklistMode,
-        });
-        return request.id;
+        return createQaRequestInTransaction(tx, command);
       });
     },
 
@@ -286,6 +241,7 @@ export function createPrismaQaRequestRepository(
       return database.$transaction(async (tx) => {
         await lockRequest(tx, command.requestId);
         const request = await getMutableRequest(tx, command.projectId, command.requestId);
+        await assertCurrentTestRequest(tx, request, { allowPreparation: Boolean(command.processing), processingExecutionId: command.processing?.executionId });
         await assertChecklistMutable(tx, request.id, request.phase);
         const artifactCount = await tx.qaArtifact.count({ where: { requestId: request.id } });
         if (artifactCount >= DATA_LIMITS.qaArtifactsPerRequest) {
@@ -534,6 +490,7 @@ export function createPrismaQaRequestRepository(
       await database.$transaction(async (tx) => {
         await lockRequest(tx, input.requestId);
         const request = await getMutableRequest(tx, input.projectId, input.requestId);
+        await assertCurrentTestRequest(tx, request);
         if (request.version !== input.expectedRequestVersion) throw staleVersion();
         await assertChecklistMutable(tx, request.id, request.phase);
         const artifact = await tx.qaArtifact.findFirst({
@@ -589,6 +546,7 @@ export function createPrismaQaRequestRepository(
             return existingRun.id;
           }
         }
+        await assertCurrentTestRequest(tx, request);
         if (!new Set(["READY_TO_RUN", "CHANGES_REQUESTED"]).has(request.phase)) {
           throw invalidPhase(request.phase);
         }
@@ -1003,6 +961,7 @@ async function appendEvent(
       metadata: metadata ? toJson(metadata) : undefined,
       requestId,
       sequence: (latest?.sequence || 0) + 1,
+      timelinePosition: await nextQaTimelinePosition(tx, requestId),
       transport: actor.transport,
       type,
     },
@@ -1010,7 +969,44 @@ async function appendEvent(
 }
 
 async function lockRequest(tx: Prisma.TransactionClient, requestId: string) {
+  await lockQaSessionScope(tx, requestId);
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`oddpath:qa-request:${requestId}`}, 0))`;
+}
+
+export async function createQaRequestInTransaction(tx: Prisma.TransactionClient, command: CreateQaRequestCommand) {
+  await lockProjectQuota(tx, command.projectId);
+  const count = await tx.qaRequest.count({ where: { projectId: command.projectId } });
+  if (count >= DATA_LIMITS.qaRequestsPerProject) {
+    throw new AppError(`A project can contain up to ${DATA_LIMITS.qaRequestsPerProject} QA requests.`, 409, "QA_REQUEST_LIMIT_REACHED");
+  }
+  const request = await tx.qaRequest.create({ data: {
+    acceptanceNotes: command.acceptanceNotes || null,
+    createdByUserId: command.actor.userId || null,
+    environment: command.environment || null,
+    objective: command.objective,
+    phase: command.checklistMode === "ODDPATH_GENERATED" ? "GENERATING" : "DRAFT",
+    projectId: command.projectId,
+    target: command.target || null,
+    title: command.title,
+    ...(command.testSessionId ? { testSessionId: command.testSessionId } : {}),
+    contextSnapshots: { create: {
+      degraded: command.snapshot.degraded,
+      payload: toJson(command.snapshot.payload),
+      payloadHash: command.snapshot.payloadHash,
+      retrievalMode: command.snapshot.retrievalMode,
+      sourceManifest: toJson(command.snapshot.sourceManifest),
+      version: 1,
+    } },
+  } });
+  if (command.checklistMode === "ODDPATH_GENERATED") {
+    await tx.qaGenerationExecution.create({ data: {
+      idempotencyKeyHash: command.idempotencyKeyHash || null,
+      kind: "CHECKLIST_GENERATION",
+      requestId: request.id,
+    } });
+  }
+  await appendEvent(tx, request.id, command.actor, "REQUEST_CREATED", { checklistMode: command.checklistMode });
+  return request.id;
 }
 
 async function lockProjectQuota(tx: Prisma.TransactionClient, projectId: string) {

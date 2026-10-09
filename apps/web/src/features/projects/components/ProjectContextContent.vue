@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, ref, useId } from "vue";
+import { computed, nextTick, ref, useId, watch } from "vue";
 
 import { useI18n } from "../../../i18n/useI18n";
 import ProjectDocumentsPanel from "../../project-documents/components/ProjectDocumentsPanel.vue";
@@ -8,15 +8,15 @@ import ProjectMemoryPanel from "../../project-memory/components/ProjectMemoryPan
 import { useProjectMemory } from "../../project-memory/useProjectMemory";
 import { useProjectKnowledge } from "../composables/useProjectKnowledge";
 
-const ProjectIntegrationsDialog = defineAsyncComponent(() => import("./ProjectIntegrationsDialog.vue"));
-const props = defineProps<{ projectId: string; projectName: string }>();
+const props = defineProps<{ projectId: string; projectName: string; focusSection?: "files" | null; displaySection?: "context" | "files"; integrationsTarget?: HTMLElement | null }>();
+const emit = defineEmits<{ integrations: [] }>();
 const { t } = useI18n();
 const id = useId();
 const root = ref<HTMLElement | null>(null);
 const selectedSection = ref<"instructions" | "memory" | "files" | null>(null);
-const isIntegrationsOpen = ref(false);
+watch(() => props.focusSection, value => { selectedSection.value = value || null; });
 const projectId = computed(() => props.projectId || null);
-const sections = ["instructions", "memory", "files"] as const;
+const sections = computed(() => props.displaySection ? ["instructions", "memory"] as const : ["instructions", "memory", "files"] as const);
 const {
   addProjectDocument, documentErrorMessage, importProjectFiles, instructionErrorMessage,
   isImportingDocuments, isLoadingDocuments, isLoadingInstruction, isSavingDocument,
@@ -30,6 +30,10 @@ const {
 } = useProjectMemory(projectId);
 
 async function selectSection(section: typeof selectedSection.value) {
+  if (props.displaySection && section) {
+    const element = root.value?.querySelector<HTMLElement>(`[data-section="${section}"]`);
+    element?.focus({ preventScroll: true }); element?.scrollIntoView({ block: 'nearest' }); return;
+  }
   const previousSection = selectedSection.value;
   selectedSection.value = selectedSection.value === section ? null : section;
   await nextTick();
@@ -52,25 +56,27 @@ function onKeydown(event: KeyboardEvent) {
   <aside
     ref="root"
     class="project-context"
+    :class="{ 'project-context--filtered': displaySection }"
     :aria-label="t('projects.context.title', { project: projectName })"
     @keydown="onKeydown"
     @dragover.stop.prevent
     @drop.stop.prevent
   >
-    <nav class="project-context__shortcuts" :aria-label="t('projects.context.navigation')">
+    <h2 class="project-context__caption">{{ t('workspaces.currentContext') }}</h2>
+    <nav v-show="displaySection !== 'files'" class="project-context__shortcuts" :aria-label="t('projects.context.navigation')">
       <button
         v-for="section in sections"
         :key="section"
         class="btn btn-sm btn-outline-secondary"
         type="button"
         :data-context-trigger="section"
-        :aria-expanded="selectedSection === section"
+        :aria-expanded="displaySection ? undefined : selectedSection === section"
         :aria-controls="`${id}-${section}`"
         @click="selectSection(section)"
       >{{ t(`projects.context.${section}`) }}</button>
     </nav>
     <div class="workspace-panel project-knowledge project-context__panels">
-      <section :id="`${id}-instructions`" class="project-context__section" :class="{ 'is-selected': selectedSection === 'instructions' }" data-section="instructions">
+      <section v-show="displaySection !== 'files'" :id="`${id}-instructions`" class="project-context__section" :class="{ 'is-selected': selectedSection === 'instructions' }" data-section="instructions" tabindex="-1">
         <button class="btn btn-sm btn-link project-context__close" type="button" @click="selectSection(null)">{{ t('projects.context.close') }}</button>
         <ProjectInstructionsPanel
           :error-message="instructionErrorMessage" :instruction="projectInstruction"
@@ -79,7 +85,7 @@ function onKeydown(event: KeyboardEvent) {
         />
         <p v-if="instructionErrorMessage && !isSavingInstruction" class="workspace-feedback workspace-feedback--error project-context__error" role="alert">{{ instructionErrorMessage }}</p>
       </section>
-      <section :id="`${id}-memory`" class="project-context__section" :class="{ 'is-selected': selectedSection === 'memory' }" data-section="memory">
+      <section v-show="displaySection !== 'files'" :id="`${id}-memory`" class="project-context__section" :class="{ 'is-selected': selectedSection === 'memory' }" data-section="memory" tabindex="-1">
         <button class="btn btn-sm btn-link project-context__close" type="button" @click="selectSection(null)">{{ t('projects.context.close') }}</button>
         <ProjectMemoryPanel
           :draft-content="projectMemoryDraft" :error-message="projectMemoryErrorMessage"
@@ -89,7 +95,7 @@ function onKeydown(event: KeyboardEvent) {
           @update:draft-content="updateProjectMemoryDraft"
         />
       </section>
-      <section :id="`${id}-files`" class="project-context__section" :class="{ 'is-selected': selectedSection === 'files' }" data-section="files">
+      <section v-show="!displaySection || displaySection === 'files'" :id="`${id}-files`" class="project-context__section" :class="{ 'is-selected': selectedSection === 'files' }" data-section="files">
         <button class="btn btn-sm btn-link project-context__close" type="button" @click="selectSection(null)">{{ t('projects.context.close') }}</button>
         <ProjectDocumentsPanel
           :documents="projectDocuments" :error-message="documentErrorMessage"
@@ -98,7 +104,6 @@ function onKeydown(event: KeyboardEvent) {
         />
       </section>
     </div>
-    <button class="btn btn-sm btn-outline-secondary project-context__integrations" type="button" @click="isIntegrationsOpen = true">{{ t('projects.integrations.title') }}</button>
-    <ProjectIntegrationsDialog v-if="isIntegrationsOpen" :project-id="projectId!" :project-name="projectName" @close="isIntegrationsOpen = false" />
+    <Teleport :to="integrationsTarget || 'body'" :disabled="!integrationsTarget"><button class="btn btn-sm btn-outline-secondary project-context__integrations" type="button" @click="emit('integrations')">{{ t('projects.integrations.title') }}</button></Teleport>
   </aside>
 </template>

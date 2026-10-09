@@ -151,11 +151,19 @@ their existing generic lifecycle.
    Runner:
 
 ```powershell
-$env:ODDPATH_RUNNER_TOKEN = "odp_live_replace_me"
 $env:ODDPATH_TEST_CUSTOMER_EMAIL = "qa-user@example.test"
 npx playwright install chromium
+$runnerSecret = Read-Host "Runner token" -AsSecureString
+$env:ODDPATH_RUNNER_TOKEN = [System.Net.NetworkCredential]::new('', $runnerSecret).Password
+Remove-Variable runnerSecret
 npm run dev:runner
 ```
+
+The masked prompt keeps the token out of shell history. Use the saved token
+from the existing Runner connection on restart; Oddpath cannot reveal it again.
+Only if it has been lost, create a replacement Runner connection and update
+the local configuration. Creating a new connection does not start a process or
+authorize execution.
 
 The local config and resolved environment values are never returned by Runner
 registration. `oddpath.runner.json` is ignored by Git because literal values

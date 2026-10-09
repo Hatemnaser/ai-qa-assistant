@@ -17,11 +17,12 @@ interface AccountChatSyncOptions {
   chats: Ref<Chat[]>;
   currentUser: Ref<AuthUser | null>;
   replaceChats: (chats: Chat[]) => void;
+  strictReconciliation?: boolean;
 }
 
 const CHAT_PERSIST_DEBOUNCE_MS = 700;
 
-export function useAccountChatSync({ chats, currentUser, replaceChats }: AccountChatSyncOptions) {
+export function useAccountChatSync({ chats, currentUser, replaceChats, strictReconciliation = false }: AccountChatSyncOptions) {
   const isSyncingAccountChats = ref(false);
   let chatPersistTimer: ReturnType<typeof setTimeout> | null = null;
   let activeSync: Promise<void> | null = null;
@@ -129,19 +130,34 @@ export function useAccountChatSync({ chats, currentUser, replaceChats }: Account
         }
 
         const serverChat = serverChatsById.get(candidate.id);
+        if (strictReconciliation && serverChat && serverChat.messages.some((message, index) => {
+          const local = currentCandidate.messages[index];
+          return !local || local.id !== message.id || local.content !== message.content || local.role !== message.role
+            || JSON.stringify(local.attachments || (local.attachment ? [local.attachment] : [])) !== JSON.stringify(message.attachments || (message.attachment ? [message.attachment] : []));
+        })) {
+          failedUpserts.add(candidate.id);
+          continue;
+        }
         if (!serverChat && !pendingCreateIds.has(candidate.id)) {
+          // The legacy list omits managed sessions. An omission is not proof
+          // of deletion: preserve the pending local edit for explicit recovery.
+          if (strictReconciliation) { failedUpserts.add(candidate.id); continue; }
           // An update can never recreate a missing server row. A delete made
           // elsewhere wins over an offline edit from this cache.
           clearChatPendingUpsert(candidate.id, scope);
           continue;
         }
         if (serverChat && getTimestamp(serverChat.updatedAt) >= getTimestamp(currentCandidate.updatedAt)) {
+          if (strictReconciliation && JSON.stringify(serverChat) !== JSON.stringify(currentCandidate)) {
+            failedUpserts.add(candidate.id);
+            continue;
+          }
           clearChatPendingUpsert(candidate.id, scope);
           continue;
         }
 
         try {
-          const savedChat = await saveAccountChat(currentCandidate);
+          const savedChat = await saveAccountChat(currentCandidate, strictReconciliation ? serverChat?.updatedAt : undefined);
           serverChatsById.set(savedChat.id, savedChat);
 
           const latestLocal = chats.value.find((chat) => chat.id === currentCandidate.id);

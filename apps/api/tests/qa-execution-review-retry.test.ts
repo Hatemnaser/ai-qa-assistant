@@ -174,7 +174,7 @@ describe("transactional Recipe review retry", () => {
       assessmentId: pending.id, failedAssessmentId: "failed-1", operationId,
       recipeHash: originalRecipe.recipeHash, recipeId: "recipe-1",
     });
-    assert.deepEqual(fixture.reads.slice(0, 2), ["lock", "owner-scoped-request"]);
+    assert.deepEqual(fixture.reads.slice(0, 4), ["project:lock", "session:lock", "request:lock", "owner-scoped-request"]);
   });
 
   it("deduplicates concurrent clicks and replays even terminal retries without any new records", async () => {
@@ -327,8 +327,12 @@ function createFixture() {
   const failures = { event: false, operation: false, finishLease: false };
   const reads: string[] = [];
   const tx = {
-    async $executeRaw() { reads.push("lock"); return 0; },
-    qaRequest: { async findFirst({ where }: Row) {
+    async $executeRaw(strings: TemplateStringsArray) {
+      const sql = strings.join("");
+      reads.push(sql.includes("project-lifecycle") ? "project:lock" : sql.includes("oddpath:chat:") ? "session:lock" : "request:lock");
+      return 0;
+    },
+    qaRequest: { async findUnique() { return state.request; }, async findFirst({ where }: Row) {
       reads.push(where.project ? "owner-scoped-request" : "request");
       return where.id === state.request.id && where.projectId === state.request.projectId
         && (!where.project || where.project.ownerId === state.request.ownerId) ? state.request : null;

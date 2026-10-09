@@ -3,6 +3,9 @@ import type { Server } from "node:http";
 import { after, before, describe, it } from "node:test";
 
 import { createApp } from "../src/app.ts";
+import { env } from "../src/config/env.ts";
+import { createCsrfToken } from "../src/middleware/csrf.middleware.ts";
+import { isChatIpRateLimited, resetChatRateLimitersForTests } from "../src/modules/chat/chat.rateLimit.ts";
 
 let baseUrl: string;
 let server: Server;
@@ -32,6 +35,58 @@ after(async () => {
 });
 
 describe("API security headers", () => {
+  it("requires an account for the unified session facade without touching storage", async () => {
+    for (const suffix of ['', '/fixture-session']) {
+      const response = await fetch(`${baseUrl}/api/sessions${suffix}`);
+      assert.equal(response.status, 401);
+    }
+    const csrf = createCsrfToken();
+    for (const suffix of ['', '/fixture-session/turns', '/fixture-session/turns/fixture-turn/retry']) {
+      const response = await fetch(`${baseUrl}/api/sessions${suffix}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: `${env.csrfCookieName}=${csrf}`, [env.csrfHeaderName]: csrf }, body: '{}' });
+      assert.equal(response.status, 401);
+    }
+  });
+
+  it("rejects cross-origin session mutations before parsing an untrusted body", async () => {
+    const response = await fetch(`${baseUrl}/api/sessions/fixture-session/turns`, {
+      method: 'POST', headers: { Origin: 'https://untrusted.example', 'Content-Type': 'application/json' }, body: '{invalid json',
+    });
+    assert.equal(response.status, 403);
+  });
+
+  it("gates session turn aliases and method-substituted bodies before JSON parsing", async () => {
+    resetChatRateLimitersForTests();
+    const csrf = createCsrfToken();
+    try {
+      for (let attempt = 0; attempt <= env.chatRateLimitMax; attempt += 1) {
+        isChatIpRateLimited({ ipAddress: "127.0.0.1" });
+      }
+      for (const path of [
+        "/api/sessions/fixture-session/turns",
+        "/api/sessions/fixture-session/turns/fixture-turn/retry",
+        "/api/projects/fixture-project/test-sessions/fixture-session/turns",
+        "/API/SESSIONS/fixture-session/TURNS/",
+      ]) {
+        for (const method of ["POST", "PUT", "PATCH"]) {
+          const response = await fetch(`${baseUrl}${path}`, {
+            method,
+            headers: {
+              "Content-Type": "application/json",
+              Cookie: `${env.csrfCookieName}=${csrf}`,
+              [env.csrfHeaderName]: csrf,
+            },
+            body: "{invalid json",
+          });
+          assert.equal(response.status, 429, `${method} ${path} must be gated before parsing/auth`);
+          assert.equal(response.headers.get("connection"), "close");
+          assert.equal((await response.json()).code, "RATE_LIMITED");
+        }
+      }
+    } finally {
+      resetChatRateLimitersForTests();
+    }
+  });
+
   it("sets safe baseline headers without exposing Express", async () => {
     const response = await fetch(baseUrl);
 

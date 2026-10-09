@@ -25,6 +25,7 @@ import { qaMcpRouter } from "./modules/qa-requests/qa-mcp.routes.js";
 import { projectsRouter } from "./modules/projects/projects.routes.js";
 import { settingsRouter } from "./modules/settings/settings.routes.js";
 import { usageRouter } from "./modules/usage/usage.routes.js";
+import { sessionsRouter } from "./modules/sessions/sessions.routes.js";
 
 export interface CreateAppOptions {
   nodeEnv?: string;
@@ -91,6 +92,12 @@ export function createApp(options: CreateAppOptions = {}) {
     enforceChatPreBodyGate,
     express.json({ limit: env.requestBodyLimit })
   );
+  // Keep compatibility aliases and body-bearing method substitutions behind
+  // the same admission gate, before the shared JSON parser allocates buffers.
+  app.use([
+    /^\/api\/sessions\/[^/]+\/turns(?:\/[^/]+\/retry)?\/?$/iu,
+    /^\/api\/projects\/[^/]+\/test-sessions\/[^/]+\/turns\/?$/iu,
+  ], enforceChatPreBodyGate);
   app.use(express.json({ limit: "5mb" }));
 
   app.get("/", (_req, res) => {
@@ -105,6 +112,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use("/api/ai", aiRouter);
   app.use("/api/assets", assetsRouter);
   app.use("/api/chats", chatHistoryRouter);
+  app.use("/api/sessions", sessionsRouter);
   app.use("/api/chat", chatRouter);
   app.use("/api/memories", memoryRouter);
   app.use("/api/projects", projectsRouter);

@@ -16,6 +16,7 @@ import {
 } from "../usage/usage.types.js";
 import { parseJsonResponse, runTrackedGeneration } from "./qa-checklist.intelligence.js";
 import { buildRecipeGenerationPrompt } from "./qa-execution-recipe.prompt.js";
+import { RECIPE_EVIDENCE_REVIEW_GUIDANCE } from "./qa-evidence.prompt.js";
 import { QaRecipeOutputError } from "./qa-recipe-output.js";
 import {
   recipeAssessmentSchema,
@@ -124,6 +125,7 @@ function buildReviewPrompt(input: QaRecipeReviewInput) {
     "suggestions is REQUIRED and must ALWAYS be a JSON array. When there are no suggestions return exactly [] for this field, never omit it or use null, a string, or an object. Do not copy example findings unless they actually apply.",
     "Choose one status value: PASSED requires an empty suggestions array; SUGGESTIONS requires 1-80 suggestions. Each suggestion requires code (1-120 characters), severity (INFO, WARNING, or BLOCKING), and message (1-2000 characters). Optional itemClientRef (max 120), proposedChange (max 4000), and summary (max 4000) are strings; omit absent fields, do not return null or extra fields.",
     "Assess whether the Recipe faithfully implements the checklist, not whether its assertions will pass on the target. A clearly documented intentional-failure check may be a valid Recipe; never rewrite or invert its expected result to make the test pass.",
+    RECIPE_EVIDENCE_REVIEW_GUIDANCE,
     "Public runner profile manifest:",
     JSON.stringify(input.profileManifest),
     "Immutable checklist artifact:",

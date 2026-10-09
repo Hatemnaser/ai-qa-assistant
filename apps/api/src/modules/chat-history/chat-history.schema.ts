@@ -92,4 +92,5 @@ export const storedChatSchema = z.object({
 
 export const saveStoredChatRequestSchema = z.object({
   chat: storedChatSchema,
+  expectedUpdatedAt: z.string().datetime().optional(),
 });

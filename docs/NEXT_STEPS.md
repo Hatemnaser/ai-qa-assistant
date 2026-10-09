@@ -2,14 +2,142 @@
 
 This file is the working roadmap for what is done, what is still foundation work, and what should come next. Use it as the reference when asking "what is next?" or "what still needs cleanup?"
 
-Last reviewed: 2026-09-20
+Last reconciled: 2026-10-08
+
+## Publication review
+
+The owner subsequently authorized the accumulated MR-style review and a
+commit/review-branch push. `PRE_COMMIT_REVIEW.md` records findings, fixes,
+dependency remediation, final verification and publication exclusions. Merge,
+deployment and new paid-provider experiments are not part of that authorization.
+The dated closeout sections below retain their original limits.
+
+## Current Delivery And Closeout
+
+The current product uses one session for discussion, writing and QA. Its server-owned
+turns and stable timeline are recorded in `ONE_SESSION_CHECKPOINT.md`; separately
+approved local activation is in `LOCAL_ONE_SESSION_ACTIVATION.md` (23 migrations,
+zero drift and 47 original-table fingerprints preserved at that checkpoint).
+There is no current Chat/QA switch or Start test conversion workflow.
+
+The local presentation now follows `SESSION_TOOLS_CHECKPOINT.md` and
+`SESSION_START_REFINEMENT.md`: project sessions/archive stay in their folders,
+Recent is projectless only, and project instructions/memory/documents/Integrations
+live on project details. Session Sources/Activity/Results open on demand; usage is
+in the account menu. The start is a clean composer/heading, and all six task modes
+remain optional preferences in the same session, including when proposing QA.
+`SESSION_REVIEW_FIXES.md` records guarded project moves, earlier review selection
+and independent progression of QA preparation alongside conversational turns.
+
+`SESSION_CLOSEOUT.md` records the latest restoration/Integrations follow-up and
+its verification boundaries: final 1,618 tests, 71 read-only and eight critical
+browser fixture checks after the live-audit auth guard. Earlier totals (1,601 tests and 68 browser fixture
+scenarios in `SESSION_START_REFINEMENT.md`) are historical, not certification of
+later changes or live provider/storage behavior.
+
+The owner authorized closing these bounded points before a separate comprehensive
+commit/push review:
+
+- Product/handoff documentation has been reconciled with this architecture and
+  the owner's intent to complement AI/coding tools with durable, useful QA.
+- Last-destination recovery now reads owned session/request details independently
+  of capped sidebar lists. It preserves a selected historical request, explicit
+  link priority and account/navigation guards; transient failure remains retryable.
+- Discussion during QA and return/recovery have fixture/worker coverage plus the
+  separately approved bounded live journey in `SESSION_LIVE_CLOSEOUT.md`: same
+  run/job across an API restart, overlapping discussion, actual results/review/
+  report and restored draft. All eight additional calls were consumed, including
+  the disclosed initial guest-bootstrap failure; no further provider calls are
+  authorized by ordinary continuation. The discovered auth race is now guarded;
+  final regression results and remaining boundaries are in `SESSION_CLOSEOUT.md`.
+- Eventual commit contents follow `LOCAL_ARTIFACT_POLICY.md`. Local scratch/debug
+  output is ignored and preserved on disk; maintained harnesses remain eligible.
+  Final selected/staged diff and secret review are a separate authorized step.
+  Historical `work/` links are local evidence, not
+  a promise that all those files will be published.
+- Project Integrations is reachable from the project header even with context
+  collapsed, as well as its existing footer. Both open the same project-owned
+  dialog with the existing connection/Runner contracts. Open the project from
+  the session's project name or navigation first.
+
+These changes do not authorize commit, push, deployment, a new migration or live
+browser streaming. The owner-approved historical QA record is never a fixture.
+
+## Open Product And Release Gates
+
+- Resolve the model-selection mismatch; this is a behavior defect, not merely
+  a missing label explaining a silent override.
+  The bounded live audit requested Gemini 2.5 Flash-Lite but policy selected 3.1
+  Flash-Lite; use actual usage metadata, not the selected UI label, for cost/model
+  claims. This closeout does not change routing or billing policy.
+  Owner follow-up (2026-10-07): discuss model/provider selection in a separate
+  conversation, without constraining the product to Gemini. Removing the selector
+  is being considered, not approved or implemented. Decide that interaction and
+  routing contract before changing it; no new provider or migration is authorized.
+- Validate an unfamiliar person’s first test without coaching. Coached local
+  runs and fixture screenshots establish narrower behavior; packaged executor
+  delivery and routine terminal-free setup still need product decisions.
+- Bound diagnostic promises to the actual evidence: a structurally complete
+  TEXT attachment can still lack measured values or sufficient failure detail.
+  Distinguish execution completion, PASS/FAIL, QA-record approval and release.
+- Before real users, complete `PRODUCTION_READINESS.md` and
+  `DEPLOY_AUTH_READINESS.md`; local UI acceptance is not deployment approval.
+- Design real browser viewing/login/control as a separate workstream. Independent
+  cross-provider review, Android/native execution and new integrations remain
+  future options. The implemented session is the foundation for those choices.
+
+For the product purpose, use `PRODUCT_VISION_AND_LAUNCH_PLAN.md`: Oddpath
+complements coding/AI tools through useful QA, clear scope, evidence and durable
+history. Stronger models can improve it; model choice or another chat interface
+alone does not establish product value.
+
+## Historical checkpoints (superseded by the one-session implementation)
+
+Earlier presentation slice: `SESSION_DOCK_CHECKPOINT.md` documents the shared
+floating writer, one current decision, completed approvals in history, and the
+collapsible Context/Files/Results panel. Its verification supersedes earlier
+UI totals below. Changes stay local; inspect the existing session without
+re-running or rewriting the real approved QA record.
+
+Earlier local UX slice: the Chat/QA navigation split was superseded by one
+session workspace with a mixed project tree, explicit Chat-to-Test conversion,
+and an optional context/files/results panel. Read `UNIFIED_SESSION_CHECKPOINT.md`
+before using the older verification totals and navigation descriptions below.
+The next product check is still an unfamiliar person's unassisted first test;
+success in intercepted-API browser scenarios does not certify that experience.
+
+Priority recorded at that earlier checkpoint: an unassisted first-test validation
+with someone unfamiliar
+with the product. A bounded local Runner onboarding/recovery UI improvement is
+implemented; see `RUNNER_ONBOARDING_CHECKPOINT.md`. It does not package the
+Runner or eliminate terminal setup. The local **Conversational Test sessions**
+journey is complete; see `TEST_SESSIONS_LIVE_CHECKPOINT.md`.
+Implementation verification is in `TEST_SESSIONS_CHECKPOINT.md`.
+Verification at that checkpoint: 1,401/1,401; i18n 7/7; Test browser 61/61;
+earlier shell browser 21/21;
+isolated DB 30/30 with 22 migrations/zero drift; web/API/Runner builds passed.
+The owner approved local activation on 2026-09-25. Protected backup, isolated
+restore/migration rehearsal and working-DB migration completed: 22 migrations
+current, zero drift, all 44 old-table fingerprints preserved and six read-only
+HTTP checks passed. See `LOCAL_TEST_SESSIONS_ACTIVATION.md` for the evidence.
+The owner signed in, connected the Runner privately and completed exact-run/final
+record approval. One real run has four PASS, one intentional FAIL and five TEXT
+proofs; the approved record survives reload. A separate historical-request metadata
+difference is documented precisely in the live checkpoint. No commit, push or deployment.
+Earlier references below to session integration as future scope are historical.
+Do not start another integration by inference.
 
 For a short fresh-chat context, start with `docs/AI_HANDOFF.md`.
+For the consolidated product vision, before-live versus post-live scope, and
+the bounded future workstreams, read `docs/PRODUCT_VISION_AND_LAUNCH_PLAN.md`.
+That sequence is a proposal, not authorization to build every integration.
 For the owner's launch UX priority and the next product workstream, read
 `docs/PRODUCT_UX_DIRECTION.md`. The first-test experience felt too complicated;
 one clear, low-friction journey takes priority over adding more QA concepts or
 features. The first shell slice is implemented locally (below); live-browser
-scope and unified chat/test sessions are still separate decisions.
+scope remains separate; the later conversational Test-session plan is now
+implemented and its local schema activated. A bounded real provider/Runner journey
+through final record approval is verified; unassisted usability remains pending.
 Before future work on Project Memory, conversation summaries, AI-extracted memory,
 or memory embeddings, follow `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 For deployment, data safety, migrations, backups, rollback, and production
@@ -19,8 +147,45 @@ Human Review, follow `docs/QA_CONTROL_PLANE.md`.
 For immutable RecipeV1 approval and local Playwright Runner execution, follow
 `docs/QA_EXECUTION_HARNESS.md`.
 
-## Current Health
+## Historical Delivery Ledger
 
+This ledger preserves the original slice results and remaining checks at their
+recorded dates. Navigation, panel layouts and totals here are superseded by the
+current delivery above. An old unchecked prototype review is not a requirement
+to reconstruct that screen; current usability and release gates are listed above.
+
+- [x] Implement and verify Conversational Test sessions on `main`: shared project
+  context, server-owned discussion, durable preparation, exact inline approvals,
+  sequential request history and review. Current evidence and limits are in
+  `TEST_SESSIONS_CHECKPOINT.md`; older counts below describe their original slices.
+- [x] Complete owner-approved working-DB backup/preflight/migration on 2026-09-25,
+  including isolated restore rehearsal, zero drift and preservation of old-table
+  fingerprints. At activation, the existing 11 chats remained ordinary, with zero
+  Test sessions or historical QA links; see `LOCAL_TEST_SESSIONS_ACTIVATION.md`.
+- [x] Verify owner sign-in, one real provider turn, reload recovery and explicit
+  preparation of a new local test through reviewed Recipe. See the live checkpoint.
+- [x] Complete the new local test's exact-run approval, execution, five TEXT proofs
+  and final owner record approval. Read-only DB audit and reload confirm one run,
+  four passes and the intentional failure. Do not regenerate or rerun this record.
+- [x] Add a bounded local Runner onboarding/recovery path: visible offline and
+  missing-profile actions, an existing-connection restart path, and a masked
+  PowerShell token prompt. See `RUNNER_ONBOARDING_CHECKPOINT.md`.
+- [ ] Validate an unfamiliar user's first test without coaching. The local
+  terminal/config setup still requires work; one successful coached run and
+  isolated browser fixtures do not close usability or production release gates.
+- [x] Owner merged the focused-workspace update in PR #15 (`08c4f35`), and
+  local `main` was fast-forwarded to it on 2026-09-20. Its tree matches tested
+  commit `e63716b`; untracked prototypes/design/validation files are preserved.
+  Work directly on `main` per owner preference, without creating a branch by
+  default. Do not infer commit/push/deployment approval for future changes.
+- [x] Implement the owner-approved bounded Tests slice on `main`: one next
+  action, 224px/collapsible test list, adjacent check evidence, real progress,
+  clear read recovery and collapsible technical/history sections. Existing
+  approval/profile/Recipe/evidence/review contracts remain intact. See
+  `TESTS_FOCUS_CHECKPOINT.md` for verification and limits; no commit/push/deploy.
+- [ ] Owner usability review of the simplified local Tests flow, including
+  discovery errors, missing evidence and final record review. Then choose one
+  bounded before-live task; no hidden default project or automatic execution.
 - [x] Implement the approved phase-one focused shell without backend/data
   migrations: post-login `#/home`, bottom chat/project composers, six modes,
   non-destructive starters, preserved sidebar actions/import/export, visible
@@ -50,9 +215,9 @@ For immutable RecipeV1 approval and local Playwright Runner execution, follow
   preserve scroll access to project files/context and the composer even with
   a multiline attachment draft. Add 390x667 and 320x568 browser regressions;
   retain existing desktop layout and chat message autoscroll.
-- [ ] In a separate approved slice, design persisted chat-to-QA linkage before
-  bringing preparation, exact-run approval and results into the conversation.
-  Preserve the existing review/evidence gates; don't add fake live controls.
+- [x] Implement the subsequently approved persisted Test-session/QA linkage,
+  preparation and exact inline approvals, preserving existing review/evidence
+  gates. Working-DB activation is complete; real local acceptance remains above.
 - [ ] Decide Runner onboarding and visible-browser delivery/login interaction
   separately. No streaming, pause/takeover, arbitrary retry-from-step, mobile
   execution, extra MCP implementation, deploy or commit occurred in phase one.
@@ -163,10 +328,11 @@ For immutable RecipeV1 approval and local Playwright Runner execution, follow
   canonical finalization, and backward-compatible v1 import. Keep the
   production private-assets guard closed pending real-provider proof.
 
-## Next Product Priority — Simple First-Test UX
+## Historical UX Planning Ledger — Delivered Session Successors Above
 
-Source of direction: `docs/PRODUCT_UX_DIRECTION.md`. These are new UX tasks,
-not unfinished requirements of the already completed local TEXT smoke.
+Source of direction: `docs/PRODUCT_UX_DIRECTION.md`. The planning and prototype
+sequence below is retained as history. Its implemented successors are the current
+session and tools; unfamiliar-user acceptance remains open.
 
 - [x] Record the owner's feedback, session-oriented direction, safety
   boundaries, and open choices for the next conversation. Documentation only;
@@ -187,12 +353,20 @@ not unfinished requirements of the already completed local TEXT smoke.
   with fewer repeated entry points. Local sandbox checks cover the main paths,
   draft isolation, approval gates and Arabic/English narrow layouts. See the
   whole-product checkpoint in `PRODUCT_INFORMATION_ARCHITECTURE.md`.
-- [ ] Collect owner feedback on that connected concept; validate first-use
-  empty-account onboarding and an unassisted journey before accepting the design.
+- [x] Implement and merge the approved focused shell and core visual refresh
+  in PR #15 (`08c4f35`). Earlier prototype tasks are historical; do not repeat
+  them as if Home/chat/projects were still unimplemented.
+- [x] Record the 2026-09-20 owner direction: independent cross-model review,
+  one agent-coordination interface, evidence-led decisions, future issue/design/
+  MR adapters, and scoped release readiness. See `PRODUCT_VISION_AND_LAUNCH_PLAN.md`.
+- [ ] Validate first-use empty-account onboarding and an unassisted real
+  first-test journey; the merged shell and owner-guided smoke do not prove this.
 - [ ] Review a bounded prototype and decide launch audience/executor delivery
   and visual scope before committing to embedded streaming or takeover.
-- [ ] Choose and implement one approved slice; keep project isolation, exact
-  approval, evidence/history, and existing product behavior intact.
+- [x] Deliver the subsequently approved focused Tests next-action slice and its
+  unified-session successor. `TESTS_FOCUS_CHECKPOINT.md`,
+  `ONE_SESSION_CHECKPOINT.md` and `SESSION_TOOLS_CHECKPOINT.md` record those
+  stages. Do not re-plan or restore the standalone Tests presentation.
 - [ ] Validate an unassisted first test, actionable evidence, next-action
   clarity, recovery, accessibility, and en/ar/de behavior against the old flow.
 
@@ -283,8 +457,9 @@ Production Safety Gate requirements still apply before real-user launch.
   Gemini-specific.
 - [ ] QA request detail, web request pagination, and ambiguous idempotency
   reconciliation need a later scale/operations pass.
-- [ ] The first QA Workspace product copy is English-only and still needs a
-  dedicated i18n catalog.
+- [x] The current shared session, decisions and tool events use en/ar/de
+  catalogs with alignment/registration checks. The earlier standalone QA
+  Workspace English-only backlog is historical; new copy must preserve coverage.
 - [ ] Google OAuth is not wired. The UI button is intentionally disabled.
 - [x] Forgot/reset password uses expiring single-use tokens, SMTP delivery,
   session invalidation, and a working reset page.
@@ -375,7 +550,10 @@ In scope:
 Release gates:
 
 - [x] `npm run verify`, `npm run build:api`, and `npm run build:web` pass.
-- [x] The local database is migrated and Prisma reports no pending migrations.
+- [x] At this historical retrieval checkpoint, the local database was migrated
+  with no pending migrations. The later Test-session migration was separately
+  owner-approved and applied on 2026-09-25; its activation evidence is in
+  `LOCAL_TEST_SESSIONS_ACTIVATION.md`, not this historical retrieval checkpoint.
 - [x] Authorization tests prove that retrieval cannot cross user or project boundaries.
 - [x] Retrieval budgets remain bounded and lexical fallback remains deterministic.
 - [x] Provider failure does not block document CRUD or project chat.
@@ -818,9 +996,9 @@ When asking "what is next?", choose the first unfinished item that matches the c
    - Before any live deployment, complete the Production Safety Gate in
      `docs/PRODUCTION_READINESS.md`.
 2. If the goal is user product value:
-   - Follow `PRODUCT_UX_DIRECTION.md`: simplify the first-test journey and
-     validate a session-centered prototype before selecting an implementation
-     slice. Do not add collaboration or broad infrastructure to this UX phase.
+   - Follow `PRODUCT_UX_DIRECTION.md`: validate the implemented one-session
+     journey with a new user and use the observed friction to choose a bounded
+     follow-up. Do not restart the completed shell/session prototype phase.
 3. If the goal is portfolio/demo polish:
    - Add README screenshots/GIFs and run a portfolio demo pass.
 4. If the goal is SaaS direction:

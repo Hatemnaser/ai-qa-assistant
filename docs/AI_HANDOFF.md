@@ -2,9 +2,252 @@
 
 Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for QA lifecycle and integration contracts, read `docs/QA_CONTROL_PLANE.md`; for the RecipeV1/local Runner boundary, read `docs/QA_EXECUTION_HARNESS.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`. Memory Intelligence decisions and retained review requirements live in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 
-Last updated: 2026-09-20
+Last updated: 2026-10-08
 
-## Current Owner Priority — Easy First-Test UX
+## Current publication review
+
+Read `PRE_COMMIT_REVIEW.md` first for the accumulated-patch review and final
+verification ledger. The owner now authorizes fixes, commit and a review-branch
+push, but not merge/deployment or further live AI calls. Final local gates passed:
+1,642 regression tests, 35 disposable-database tests, 80 isolated browser cases,
+types, i18n and production builds; dependency audits reported zero vulnerabilities.
+The review branch is `codex/unified-session-workspace`; check its PR/CI status
+separately before merging. Preserve excluded local work, including
+the separate `eluthira-site` repository, prototypes, raw audit data and backups.
+The earlier closeout restrictions below are historical, not a revocation of this
+new permission. Model-selection behavior remains explicitly deferred.
+
+## Current closeout — recovery, discoverable Integrations and product direction
+
+Read `SESSION_CLOSEOUT.md` FIRST for this closeout's actual verification and
+remaining limits. Earlier totals in this file are dated evidence, not fresh
+checks of the accumulated patch. At that checkpoint work remained local on dirty
+`main`; its permission did not include Git publication, deployment, migration or
+mutation of the owner's approved QA records. See the later publication review
+above for the current, separately authorized Git work.
+
+Final post-live checks: `verify` **1,618/1,618** (contract 4, API 979, Runner 18,
+web 617), i18n **8/8**, and **71 read-only plus eight critical QA browser fixture
+checks**, with no runtime errors. Production web build passed with the existing
+large-chunk advisory. Evidence/dates are recorded in `SESSION_CLOSEOUT.md`.
+The separately authorized paid live audit is in `SESSION_LIVE_CLOSEOUT.md`;
+neither result is publication approval.
+
+The delivered product is one managed session for writing, discussion and QA,
+not separate Chat/Tests products or a Start test conversion. All six composer
+tasks are output preferences. QA scope confirmation, exact Recipe/Runner run
+approval and record review remain separate decisions. Project sessions/archive
+stay inside their project; Recent is projectless. Project instructions, memory
+and documents are managed from project details, while session Sources, Activity
+and Results open only on demand. Usage remains in the account menu.
+
+- Saved work now resolves through owned session/request detail reads, not
+  presence in capped sidebar lists. Historical request selection is retained;
+  explicit project scope is checked, not silently changed. Missing/inaccessible
+  destinations return to a clean start; transient failures preserve the hint
+  and offer retry. Explicit legacy Tests links use the same detail validation.
+  Account-generation and navigation guards reject late startup/restore replies.
+- Integrations remains project-scoped: click the session's project name, then
+  **Integrations** in the project header. It stays available with the context
+  panel collapsed. The existing panel-footer entry opens the same project-owned
+  dialog; changing project/account or leaving the page closes it. No second
+  connection store, new integration or QA authority was added.
+- `LOCAL_ARTIFACT_POLICY.md` separates publishable implementation/evidence from
+  preserved local scratch output. `work/` links below are local-only historical
+  evidence, not files guaranteed to exist in a clean checkout.
+
+The product thesis in `PRODUCT_VISION_AND_LAUNCH_PLAN.md` is to complement coding
+agents through useful QA findings, clear scope, approvals, evidence and history;
+another chat UI, browser control or a stronger model alone is not the value.
+Cross-provider independent code review, visible browser/takeover, Android and
+new adapters remain separate future work. The separately authorized live audit
+is in `SESSION_LIVE_CLOSEOUT.md`: eight additional provider calls, real discussion
+during execution, API restart retaining the same run/job, results/review/report
+and draft restoration. It exposed a guest-before-auth bootstrap race, now guarded
+with focused regressions. Read the final follow-up checks in `SESSION_CLOSEOUT.md`;
+do not silently reuse the earlier totals for later edits. No calls remain under
+this audit's eight-call cap. Unassisted onboarding and release gates remain open.
+
+Owner follow-up (2026-10-07): the silently overridden model selection is an open
+behavior defect. Model/provider design belongs in a separate conversation, with
+no Gemini-only product constraint; removing the selector is only under
+consideration. Do not infer authorization to remove it or add providers.
+
+## Previous presentation follow-up — new session and reader geometry
+
+Read `SESSION_START_REFINEMENT.md` for the preceding screenshot-driven fixes,
+evidence and limits. The empty start no longer repeats history in the center;
+tool buttons use distinct existing glyphs and registered translated labels.
+Latest-navigation measures real transcript entries, with scope resets and a
+header-aware short-phone flow fallback. The original old runtime was unreachable
+and its raw-label cause is not proven. No data/execution contracts changed.
+Final checks: verify 1,601/1,601; i18n 8/8; web build passed (existing main-chunk
+advisory); 60 read-only browser cases and eight isolated critical QA journeys.
+
+## Prior review follow-up — session decisions, project moves and worker scheduling
+
+Read `SESSION_REVIEW_FIXES.md` for the preceding three fixes and their historical
+verification. Explicit pending-review selection survives unchanged DTO refresh;
+signed-in project Add chats uses managed sessions and guarded server moves; QA
+preparation polling is independent of bounded conversational provider lanes.
+The existing one-session UI, schemas, APIs, approvals and project/asset guards
+remain. All changes are local; no new migration, live execution or git publication.
+Final checks: full verify 1,595/1,595 (API 979, web 594), i18n 7/7, API/web builds
+and Git checks passed; 59 read-only tools/layout cases plus 8 critical fixture
+journeys passed. The new project modal was checked across all 48 layout cases.
+The existing web chunk-size warning remains. Read the follow-up for logs/images
+and sandbox-versus-live verification limits.
+The presentation totals below are the preceding checkpoint, not this follow-up.
+
+## Presentation foundation — project organization and on-demand session tools
+
+Read `SESSION_TOOLS_CHECKPOINT.md` for this presentation checkpoint's implementation,
+verification and remaining limits. One managed session remains the foundation;
+there is no restored Chat/QA split or separate session writer. The global rail
+is 48px plus a 224px session list. Project sessions/archives stay under their
+project; Recent and its archive contain only projectless sessions. Unavailable
+project references remain in a recovery group rather than being reassigned.
+Failed reads preserve the current owner's cached list; account changes clear it.
+
+Project instructions, memory, document editing and Integrations are accessed in
+project details, not permanently beside each conversation. Existing project
+context/RAG and pinned QA snapshots still work. Sessions instead have Sources,
+Activity and Results tools, closed by default and opened when needed. Sources
+use supported image/text previews and actual references, not invented retrieval
+citations; Activity derives known work/events, not new multi-agent orchestration.
+Credits are in the account menu, with the last authoritative value retained on
+refresh failure. The project detail composer reuses the same managed controller
+through Teleport, preserving scope/drafts instead of a separate legacy submit.
+
+This slice changes presentation and local UI state only: no API/schema changes,
+migration, new provider/integration or QA approval authority. Keep the separate
+scope/run/record decisions. No live browser/tab, takeover, Android or fake feature
+controls were added. Work remains local on dirty main; no commit/push/deployment
+or real approved-record mutation. Refer to the checkpoint for final test counts;
+historical totals below are not this slice's verification.
+
+Post-resume final verification on 2026-10-05: full `verify` 1,568/1,568
+(web 576), i18n 7/7, web build and `git diff --check` passed; 59 isolated tools/
+layout browser checks plus 6 critical QA fixture journeys passed. Read the latest
+checkpoint for actual logs/images and mocked-versus-live limits. Review added
+stale private-download cache rejection and account-owned read-recovery regressions.
+
+## Persistence foundation — one session (previous checkpoint)
+
+Read `ONE_SESSION_CHECKPOINT.md` FIRST. One authenticated SessionPage and
+account-level `/api/sessions` facade replace the active Chat/Test split. IDs,
+project context, shared Markdown, credits and server-ordered QA timeline remain
+stable. Discussion and QA work have independent leases; exact human approvals
+remain in the QA domain. Changes are local on dirty main. After separate owner
+approval, local timeline activation completed on 2026-10-04; read
+`LOCAL_ONE_SESSION_ACTIVATION.md` for backup/rehearsal and preservation evidence
+(23 migrations, zero drift, 47 original tables unchanged). Earlier checkpoints below
+are historical. No commit/push/deployment or real approved-record mutation.
+Latest follow-up: `SESSION_ASSISTANT_CAPABILITY_FIX.md` corrects generic
+"cannot run tests" replies while preserving exact approvals. Managed sessions
+use a capability-aware prompt and no optional per-turn workflow classifier;
+six tasks remain output preferences. API tests 968/968; build/types passed.
+
+Preceding bounded follow-up: read `UX_AUDIT_FIXES_CHECKPOINT.md` and the original
+`work/ux-review-20261004/REPORT.md`. Explicit projectless canonical restoration is
+fixed; bundled Runner evidence promises/review and Results copy are aligned with
+summary-only TEXT. Full verify 1,471/1,471 and builds passed (web validation uses a
+dummy HTTPS origin, not a deployable configuration). Old evidence/QA records are
+unchanged; no new real-provider call/run/credential, commit/push or migration.
+At that preceding checkpoint TXT preview, false reader-follow state, event
+localization and a short-phone Results-body height limitation remained. Read the
+latest presentation checkpoint for their current status. Prompt alignment is not deterministic
+semantic evidence validation or launch certification.
+
+## Historical presentation slice — continuous conversation and one decision
+
+For the earlier presentation work, read `SESSION_DOCK_CHECKPOINT.md`. Home/Chat/project/Test share a
+measured floating composer; large decisions open in the transcript, completed
+approvals remain history, and only one current decision occupies the dock.
+Project Context/Files/Results are distinct views of one mounted state holder;
+the desktop panel is open by default with an owner-scoped collapse preference.
+The previous local changes are preserved. No QA contracts, working data,
+migrations, commit/push or deployment were changed by this presentation slice.
+
+## Previous slice — one session workspace
+
+For this earlier navigation stage, read `UNIFIED_SESSION_CHECKPOINT.md`. The owner rejected the visible
+Chat/QA selector and duplicate navigation: a single project tree now mixes
+conversations and Test sessions, with a shared central composer and optional
+context/files/results panel. Existing Chat can be explicitly promoted into a
+Test without losing its identifier or transcript; QA approval and execution
+remain separate authority. The former navigation split below is historical.
+Do not infer authorization to build live-browser tabs from this slice. Changes
+are local and uncommitted; no deployment or mutation of approved QA records.
+
+## Historical slice — independent Chat / QA navigation
+
+For the superseded navigation stage, read `WORKSPACE_NAVIGATION_CHECKPOINT.md`. The navigation split was
+implemented locally over the existing Test-session work: separate sidebar content
+and saved destinations, QA project filter, shared project details/context, archives
+and legacy records. This supersedes the shared-project-tree presentation, not
+execution or RAG contracts. Session tabs/live browser remain deferred. No commit,
+push, deployment, new migration or real QA mutation is authorized in this slice.
+
+## Historical delivery — Conversational Test sessions (2026-09-24–26)
+
+The owner approved the shared-project Conversations / Tests plan at this earlier
+checkpoint; the one-session delivery above supersedes its navigation and writer.
+Read `TEST_SESSIONS_CHECKPOINT.md` for the completed local implementation then,
+verification and activation boundary. Final `verify`: 1,399/1,399; i18n 7/7;
+Test browser 60/60; shell browser 21/21; isolated DB 30/30, 22 migrations and
+zero drift; all three builds passed. The older totals below are historical.
+On 2026-09-25 the owner explicitly approved local activation. A protected,
+Git-ignored backup was restored and the migration rehearsed on an isolated copy
+before applying it to the working DB. All 22 migrations are current, drift is zero,
+and fingerprints of all 44 pre-existing tables match before/after migration and
+after six successful read-only HTTP checks. At activation, the 11 existing chats
+remained ordinary and no Test sessions or historical QA links existed. Read
+`LOCAL_TEST_SESSIONS_ACTIVATION.md` for the backup and activation evidence.
+The owner subsequently signed in, privately connected the existing Runner and
+approved exact execution and final review of a new local test. On 2026-09-26 a
+read-only audit confirmed one run, four PASS/one intentional FAIL, five stored TEXT
+proofs and one owner APPROVED review. Reload retained the record and failing result.
+After a later interruption on 2026-09-26, supported Node 24.19.0 again passed
+full `verify`, i18n and all three builds; a read-only audit reconfirmed the same
+approved record without another run or mutation. No application source was changed
+in that resume.
+Read `TEST_SESSIONS_LIVE_CHECKPOINT.md` FIRST for the completed live acceptance,
+including checklist generation's two attempts and the earlier historical-request
+link/timestamp difference. The original result/approval preservation comparison
+was made before execution, not a claim that no new QA records now exist.
+Work remains local on `main`; no commit, push or deployment. A later bounded
+Runner onboarding/recovery UI slice is implemented and verified (1,401/1,401
+full tests, 61/61 isolated browser scenarios, i18n 7/7, web build). See
+`RUNNER_ONBOARDING_CHECKPOINT.md` for its security boundary, visual evidence
+and unassisted first-test script. An unfamiliar user's independent completion,
+packaged Runner setup and production readiness remain open; other integrations
+are separate scope.
+Never use either approved smoke record as a mutable fixture. Do not repeat
+completed implementation/migration or re-open the cancelled Sites task.
+
+## Historical owner direction and shell work — September 2026
+
+The following records the earlier UX sequence, not the current layout or an
+instruction to rebuild a separate Tests surface. For today's product boundaries,
+use the current closeout above and the reconciled product direction documents.
+
+Read `PRODUCT_VISION_AND_LAUNCH_PLAN.md` for the 2026-09-20 discussion and
+before/after-live split. The owner wants one QA-focused agent-coordination
+experience, including future independent cross-model review of coding-agent
+work. LLM opinions, test evidence, QA-record approval and release decisions
+remain distinct. MR/PR, Jira/design adapters and broader orchestration are
+future scope, not implemented capabilities or default launch requirements.
+Historical 2026-09-21 slice: the owner approved the bounded Tests plan, implemented locally on `main`.
+Read `TESTS_FOCUS_CHECKPOINT.md` for implementation, verification and remaining
+scope. One primary next action, adjacent check evidence and collapsible history
+reuse the existing approvals/modal/services; no new lifecycle or integration.
+Next is owner usability review, then a separately scoped before-live task.
+Do not restart the merged shell or implement the full vision. Operational
+real-user gates remain mandatory. No commit/push/deploy occurred in this slice.
+Verified 2026-09-21: full `verify` passed (381 web / 1,272 total tests), i18n
+7/7, frontend build, isolated Tests browser smoke 68/68 and shell smoke 21/21.
+Final screenshots and precise fixture/real-service limits are in the checkpoint.
 
 Read `docs/PRODUCT_UX_DIRECTION.md` before planning the next product work.
 The owner found the actual first-test flow too complicated: too many concepts,
@@ -26,8 +269,9 @@ panel. Assistant output is unboxed; starters sit above a bottom composer whose
 toolbar retains attachment, all six tasks, native model selection and send.
 No new workflow or persisted chat/QA association is implied by this styling.
 `workspace-surface` scopes tokens, including directly on body-Teleported menus
-and dialogs. Shared QA connection management opts in only from Project
-Integrations; QA/auth/settings retain their existing presentation and contracts.
+and dialogs. Shared QA connection management now also opts in from Tests via an
+explicit appearance variant. Tests and its dialogs use scoped neutral styling;
+auth/settings retain their existing presentation. QA contracts remain unchanged.
 Read the 2026-09-14 checkpoint in `PRODUCT_INFORMATION_ARCHITECTURE.md` and
 `UX_FEATURE_PRESERVATION.md` before continuing. Earlier HTML prototypes remain
 simulated design references, not evidence of live browser execution.
@@ -76,8 +320,9 @@ remaining blocking issue. The latest full dependency audit returned zero
 advisories; no dependencies or backend files were changed. The reviewed commit
 excludes local Runner configuration, Eluthira, prototypes and generated images.
 
-Still separate work: unified chat-to-QA session linkage and inline approvals,
-visible/live browser delivery and login takeover, simpler Runner onboarding,
+Session linkage and inline approvals have since been implemented in the current
+delivery above. Still separate work: visible/live browser delivery and login
+takeover, simpler Runner onboarding,
 public landing design and mobile-device execution. No blanket approvals or
 new MCP backend was added. Sites remains cancelled.
 An accidental Sites publication request was cancelled before registration or
@@ -87,17 +332,23 @@ preparation exists outside this application repository.
 ## Core Documentation Map
 
 - `AI_HANDOFF.md`: short current-state entry point for a new AI session.
+- `SESSION_CLOSEOUT.md`: latest bounded closeout, checks, evidence and remaining
+  live-versus-fixture limits; not authorization to publish the accumulated patch.
+- `LOCAL_ARTIFACT_POLICY.md`: preserve local scratch files while excluding them
+  from any later commit; curate only deliberate, reviewed evidence.
 - `ARCHITECTURE.md`: system-wide architecture and active module boundaries.
 - `QA_CONTROL_PLANE.md`: QA Request lifecycle, owner/agent capabilities,
   evidence, REST/MCP, scopes, concurrency, idempotency, and current gaps.
 - `QA_EXECUTION_HARNESS.md`: immutable RecipeV1, exact owner approval, local
   Runner protocol, production double confirmation, and execution limits.
 - `NEXT_STEPS.md`: completed work, active release tasks, and execution order.
+- `PRODUCT_VISION_AND_LAUNCH_PLAN.md`: consolidated owner vision, independent
+  review and integration boundaries, before/after-live sequence, and the next
+  bounded planning task; not a replacement for production release gates.
 - `PRODUCT_UX_DIRECTION.md`: owner UX priorities, first-test/session direction,
   current capability limits, open design decisions, and usability checks.
-- `PRODUCT_INFORMATION_ARCHITECTURE.md`: implemented phase-one shell and
-  broader proposed public/session architecture, compatibility boundaries,
-  owner decisions and staged implementation order.
+- `PRODUCT_INFORMATION_ARCHITECTURE.md`: current one-session/project/tool layout,
+  compatibility and recovery boundaries, with dated historical proposals below.
 - `MEMORY_INTELLIGENCE_ARCHITECTURE.md`: accepted Account/Project Memory,
   Conversation Summary, Recent Turns, and extraction decisions.
 - `RAG_RETRIEVAL_EVALS.md`: Project Document retrieval quality contract and
@@ -107,6 +358,33 @@ preparation exists outside this application repository.
 
 ## Current Repo State
 
+- Checked 2026-10-06: `main` remains at `08c4f35` with the preserved accumulated
+  session implementation, earlier additive migrations and documentation changes.
+  This closeout adds no migration. Do not stage, commit or push without a new
+  explicit request; inspect current Git state rather than assuming a clean tree.
+  The following dated merge/synchronization entries are historical, not a claim
+  that today's application files match HEAD. See the current delivery above.
+- On 2026-09-20 the owner merged focused-workspace PR #15: implementation
+  `e63716b`, merge commit `08c4f35`. Local `main` was safely fast-forwarded to
+  `origin/main`; its tree exactly matches the reviewed/tested implementation.
+  All 78 untracked local preview/design/validation files were preserved.
+  The owner prefers working directly on `main`; do not create another branch
+  unless requested. Commit/push still require the owner's request. No new push,
+  application-code change, migration or deployment was performed during this
+  synchronization. The screenshot showed the PR check passed; post-merge CI
+  and deployment have not been independently verified.
+- At the 2026-09-20 checkpoint, the next proposed slice was a clearer first-test surface inside Tests using
+  existing QA services: one visible next action, readable plan/setup in context,
+  progress and results, with advanced details available on demand. This is a
+  recommendation then awaiting approval; both the Tests slice and later session
+  integration have since been implemented as described above.
+  Persisted Chat/QaRequest linkage and the unified session index were later
+  implemented. Streaming/browser control and Runner packaging remain separate
+  decisions; this dated recommendation is not an instruction to repeat linkage.
+- Resume verification on 2026-09-20 passed `npm run check:web`, all 327 web
+  tests (72 suites), and `git diff --check`. Application/package files still
+  match HEAD; only these handoff/next-step notes are modified. No backend,
+  database, provider, deployment or new browser run was performed on resume.
 - Closure verified on 2026-09-12: implementation commit `65dfbf0` was pushed
   to `codex/qa-execution-harness`; the owner merged PR #14 into `main` as
   `303b063`. Post-merge GitHub CI completed successfully:
@@ -226,7 +504,7 @@ preparation exists outside this application repository.
   rejection), and zero Runs. That was a historical pre-smoke checkpoint,
   superseded by the user-validated APPROVED state above. The synthetic probes
   did not requeue or mutate the real request.
-- Workspace: `C:\Users\hatem\ai-qa-assistant`
+- Workspace: the local `ai-qa-assistant` checkout.
 - At the 2026-09-12 handoff, the local checkout remained on
   `codex/qa-execution-harness`; the remote merge did not update local `main`.
   Verify the current branch before starting new work.
@@ -244,10 +522,12 @@ preparation exists outside this application repository.
   foundation, Slice 4 controlled Summary Generation, and Slice 5 manual
   Project Memory are committed on `main`. The former Project Memory AI
   suggestion/review flow was removed from the MVP.
-- The repository contains 21 ordered Prisma migrations. `prisma validate`
-  passes; GitHub CI applies the complete migration set to a fresh PostgreSQL 16
-  database before verification. Do not infer that an unstarted local Docker
-  database has received the latest migrations.
+- The repository contains 22 ordered Prisma migrations. The owner's working DB
+  received the Test-session migration on 2026-09-25 after protected backup and an
+  isolated restore/migration rehearsal; status is current and drift is zero. See
+  `LOCAL_TEST_SESSIONS_ACTIVATION.md`. GitHub CI applies the complete migration set
+  to a fresh PostgreSQL 16 database before verification; other databases still
+  require their own migration-status check.
 - The local PostgreSQL volume was found empty on 2026-06-14. The services and
   migrations were healthy, but there were zero users, projects, chats,
   messages, or sessions. Treat prior local data as unavailable unless it can
@@ -433,9 +713,15 @@ npm run build:api
 
 ## Current Product Status
 
-Complete enough:
+Implemented locally (not production certification):
 
-- QA Workspace as the product home, with QA Chat on an explicit route.
+- One managed session for discussion, writing and QA on canonical
+  `#/chat?sessionId=...`, with optional historical `requestId`. Legacy Tests links
+  remain compatible; neither a Chat/QA switch nor a Start test handoff is needed.
+- Server-owned authenticated turns and an ordered message/QA-event timeline;
+  discussion and QA work have independent leases but retain separate approvals.
+- Project-only context management, projectless Recent, on-demand session tools
+  and account-menu usage. Restoring saved work uses owned detail validation.
 - Owner QA Request lifecycle: generated/agent checklist revisions, selection,
   versioned runs/results, evidence gates, history, and Human Review.
 - Project-scoped REST and 12 MCP tools for external agents, with hashed
@@ -553,16 +839,15 @@ Still unfinished:
 
 ## Likely Next Work
 
-The owner's next product priority is the first-test UX in
-`PRODUCT_UX_DIRECTION.md`. Agree one bounded slice before coding; operational
-release gates remain separate and are not waived by UX work.
+Complete the bounded closeout in `SESSION_CLOSEOUT.md` and `NEXT_STEPS.md` first,
+then obtain explicit scope for a comprehensive commit/push review or new product
+work. Paid real-provider validation requires its separate permission. Operational
+release gates are not waived by UI checks, previous local runs or this closeout.
 
 1. Product value: simple first-test session and QA pilot
-   - Review `PRODUCT_INFORMATION_ARCHITECTURE.md` and prototype the connected
-     home/project/session shell, including the first-test journey. The owner
-     requested fewer steps and a coherent whole product after trying the first
-     isolated session concept. Do not clone a reference tool or rewrite backend
-     concepts to match its appearance.
+   - Preserve the delivered one-session flow, project-only context management
+     and existing canonical QA lifecycle. Do not reintroduce a Tests handoff or
+     repeat completed linkage work. Broader agent coordination needs its own scope.
    - Validate setup/offline/login/failure recovery as well as the happy path.
      Embedded browser streaming/control is a separate capability, not assumed
      to exist because the local Playwright Runner works.

@@ -16,6 +16,19 @@ afterEach(() => {
 });
 
 describe("i18n", () => {
+  it("registers start and session-tool labels in every live locale catalog", () => {
+    const { setLocale, t } = useI18n();
+    const keys = [
+      'sessionTools.start.title', 'sessionTools.start.heading', 'sessionTools.start.body',
+      'sessionTools.sources', 'sessionTools.activity', 'sessionTools.results',
+      'sessionTools.activity.empty', 'sessionTools.activity.active',
+      'sessionTools.activity.attention', 'sessionTools.activity.completed', 'sessionTools.activity.none',
+    ] as const;
+    for (const locale of ['en', 'ar', 'de']) {
+      setLocale(locale);
+      for (const key of keys) assert.notEqual(t(key), key, `${locale}: ${key} must render text, not a raw key`);
+    }
+  });
   it("uses the first supported browser language when no preference is stored", () => {
     assert.equal(resolveInitialLocale(null, ["fr-FR", "de-DE", "en-US"]), "de");
     assert.equal(resolveInitialLocale(undefined, ["ar-SY", "de-DE"]), "ar");

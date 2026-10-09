@@ -78,7 +78,69 @@ describe("assets api", () => {
 
     await assert.rejects(() => getAssetDownloadUrl("asset-1"), /unsupported protocol/);
   });
+
+  for (const forceRefresh of [false, true]) {
+    it(`rejects a late download URL after an account cache reset (forceRefresh=${forceRefresh})`, async () => {
+      const previousOwner = deferred<Response>();
+      let calls = 0;
+      globalThis.fetch = createCsrfAwareFetch(async () => {
+        calls += 1;
+        if (calls === 1) return previousOwner.promise;
+        return jsonResponse({
+          download: {
+            expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+            url: "https://download.invalid/current-owner",
+          },
+        });
+      });
+
+      const pending = getAssetDownloadUrl("shared-metadata-id", { forceRefresh });
+      const rejected = assert.rejects(pending, /attachment scope changed/);
+      clearAssetDownloadUrlCache();
+      assert.equal(await getAssetDownloadUrl("shared-metadata-id"), "https://download.invalid/current-owner");
+      previousOwner.resolve(jsonResponse({
+        download: {
+          expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+          url: "https://download.invalid/previous-owner",
+        },
+      }));
+      await rejected;
+
+      assert.equal(await getAssetDownloadUrl("shared-metadata-id"), "https://download.invalid/current-owner");
+      assert.equal(calls, 2, "the previous response must not overwrite the current owner's cache");
+    });
+  }
+
+  it("also rejects an obsolete download URL when its response body completes after the cache reset", async () => {
+    const body = deferred<unknown>();
+    const bodyStarted = deferred<void>();
+    globalThis.fetch = createCsrfAwareFetch(async () => {
+      const response = jsonResponse({});
+      response.json = () => {
+        bodyStarted.resolve();
+        return body.promise;
+      };
+      return response;
+    });
+    const pending = getAssetDownloadUrl("asset-1");
+    const rejected = assert.rejects(pending, /attachment scope changed/);
+    await bodyStarted.promise;
+    clearAssetDownloadUrlCache();
+    body.resolve({
+      download: {
+        expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+        url: "https://download.invalid/previous-owner",
+      },
+    });
+    await rejected;
+  });
 });
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>(fulfill => { resolve = fulfill; });
+  return { promise, resolve };
+}
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

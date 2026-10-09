@@ -70,6 +70,7 @@ export interface ProjectExportMessageRecord {
 
 export interface ProjectExportChatRecord {
   id: string;
+  kind?: string;
   title: string;
   mode: string;
   model: string;

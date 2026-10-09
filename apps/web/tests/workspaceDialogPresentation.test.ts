@@ -40,18 +40,30 @@ describe("workspace dialog presentation boundaries", () => {
     assert.match(projects, /class="workspace-surface chat-dropdown-menu show"/);
   });
 
-  it("keeps the shared connection dialog's QA appearance unchanged unless explicitly requested", async () => {
+  it("keeps the shared connection dialog legacy by default and lets Tests opt in explicitly", async () => {
     const [modal, integrations, workspace] = await Promise.all([
       source("features/qa/components/QaConnectionModal.vue"),
       source("features/projects/components/ProjectIntegrationsDialog.vue"),
       source("features/qa/QaWorkspacePage.vue"),
     ]);
-    assert.match(modal, /appearance\?: "workspace";/);
-    assert.match(modal, /:class="\{ 'workspace-surface': appearance === 'workspace' \}"/);
+    assert.match(modal, /appearance\?: "workspace" \| "tests";/);
+    assert.match(modal, /'workspace-surface': appearance === 'workspace' \|\| appearance === 'tests'/);
+    assert.match(modal, /'qa-focused-workspace': appearance === 'tests'/);
     assert.doesNotMatch(modal, /class="workspace-surface/);
     assert.match(integrations, /<QaConnectionModal\b[^>]*appearance="workspace"/);
-    assert.doesNotMatch(workspace.match(/<QaConnectionModal\b[^>]*\/>/)?.[0] || "", /appearance=/);
+    assert.match(workspace, /<QaConnectionModal\b[^>]*appearance="tests"/);
     assert.match(integrations, /:inert="Boolean\(managing\)"/);
     assert.match(integrations, /:aria-hidden="managing \? 'true' : undefined"/);
+  });
+
+  it("opts Tests request and execution dialogs into their own teleported scope", async () => {
+    for (const name of ["QaRequestFormModal", "QaPlaywrightRunModal"]) {
+      const modal = await source(`features/qa/components/${name}.vue`);
+      assert.match(modal, /<Teleport to="body">\s*<div\s[^>]*class="workspace-surface qa-focused-workspace modal /);
+      assert.match(modal, /role="dialog"/);
+      assert.match(modal, /aria-modal="true"/);
+      assert.match(modal, /@keydown="onDialogKeydown"/);
+      assert.match(modal, /class="modal-backdrop fade show"/);
+    }
   });
 });

@@ -18,10 +18,10 @@ export async function fetchAccountChats(): Promise<Chat[]> {
   return Array.isArray(body.chats) ? body.chats : [];
 }
 
-export async function saveAccountChat(chat: Chat): Promise<Chat> {
+export async function saveAccountChat(chat: Chat, expectedUpdatedAt?: string): Promise<Chat> {
   const chatForPersistence = sanitizeChatForExport(chat);
   const response = await csrfFetch(`${API_BASE_URL}/api/chats/${encodeURIComponent(chat.id)}`, {
-    body: JSON.stringify({ chat: chatForPersistence }),
+    body: JSON.stringify({ chat: chatForPersistence, ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}) }),
     credentials: "include",
     headers: {
       "Content-Type": "application/json",

@@ -61,6 +61,17 @@
 .project-context .project-document-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); }
 
 .project-integrations-dialog { max-width: 760px; }
+.project-integrations-dialog .modal-header { gap: var(--space-3); }
+.project-integrations-dialog .modal-header > div { min-width: 0; overflow-wrap: anywhere; }
+.project-integrations-dialog .modal-header .btn-close {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+  // Bootstrap's physical negative margins overlap the title in RTL.
+  margin: 0;
+  margin-inline-start: auto;
+}
 .project-integrations,
 .project-integrations__group { display: grid; gap: var(--space-4); min-width: 0; }
 .project-integrations__group h3 { margin: 0; font-size: var(--font-size-lg); }

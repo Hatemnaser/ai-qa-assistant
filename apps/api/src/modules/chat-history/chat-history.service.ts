@@ -48,13 +48,14 @@ export function createChatHistoryService({
     return selectRecentCompleteTurns(sortMessagesChronologically(chat.messages));
   }
 
-  async function saveUserChat(userId: string, input: StoredChatInput): Promise<StoredChatDto> {
+  async function saveUserChat(userId: string, input: StoredChatInput, expectedUpdatedAt?: string): Promise<StoredChatDto> {
     const existingChat = await repository.findChatOwner(input.id);
     const projectId = input.projectId || null;
 
     if (existingChat && existingChat.userId !== userId) {
       throw new AppError("Chat was not found.", 404, "CHAT_NOT_FOUND");
     }
+    if (existingChat?.kind && existingChat.kind !== "CONVERSATION") throw new AppError("Session messages are server-owned.", 409, "TEST_SESSION_SERVER_OWNED");
 
     if (projectId) {
       await projectAccess.assertProjectAccess(userId, projectId);
@@ -62,6 +63,7 @@ export function createChatHistoryService({
 
     const fallbackDate = now();
     const savedChat = await repository.saveUserChat({
+      ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}),
       chat: {
         ...input,
         projectId,
@@ -146,6 +148,7 @@ function toStoredMessageDto(message: StoredMessageRecord): StoredChatMessageDto 
 function sortMessagesChronologically(messages: StoredMessageRecord[]) {
   return [...messages].sort(
     (first, second) =>
+      (first.timelinePosition != null && second.timelinePosition != null ? first.timelinePosition - second.timelinePosition : 0) ||
       first.createdAt.getTime() - second.createdAt.getTime() ||
       first.id.localeCompare(second.id)
   );
@@ -183,7 +186,6 @@ function toPersistenceAttachments(message: { attachment?: unknown; attachments?:
       assetAttachments.push({ assetId: attachment.assetId.trim(), ordinal });
       return;
     }
-
     legacyAttachments.push({
       type: attachment.type === "image" ? "image" : "file",
       name: typeof attachment.name === "string" && attachment.name.trim() ? attachment.name : "Attachment",

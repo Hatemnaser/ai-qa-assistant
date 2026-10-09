@@ -6,6 +6,7 @@ import { startAuthEmailOutboxLoop } from "./modules/auth/auth-email-outbox.worke
 import { closeDefaultReadinessProbe } from "./modules/health/health.routes.js";
 import { qaProcessingHandlers } from "./modules/qa-requests/qa-processing.handlers.js";
 import { startQaProcessingLoop } from "./modules/qa-requests/qa-processing.worker.js";
+import { startTestSessionsLoop } from "./modules/test-sessions/test-sessions.worker.js";
 
 const app = createApp();
 
@@ -18,6 +19,7 @@ const stopAuthEmailOutbox = env.emailProvider === "smtp"
 const stopQaProcessing = env.qaProcessingWorkerEnabled
   ? startQaProcessingLoop({ handlers: qaProcessingHandlers })
   : async () => {};
+const stopTestSessions = env.qaProcessingWorkerEnabled ? startTestSessionsLoop() : async () => {};
 let authEmailOutboxStopPromise: Promise<void> | undefined;
 let qaProcessingStopPromise: Promise<void> | undefined;
 
@@ -27,7 +29,7 @@ function requestAuthEmailOutboxStop() {
 }
 
 function requestQaProcessingStop() {
-  qaProcessingStopPromise ??= stopQaProcessing();
+  qaProcessingStopPromise ??= Promise.all([stopQaProcessing(), stopTestSessions()]).then(() => {});
   return qaProcessingStopPromise;
 }
 

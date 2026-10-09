@@ -8,8 +8,29 @@ node_modules
 .codex-remote-attachments
 .npm-cache
 
+# Local scratch tools, private audit fixtures, and generated validation runs.
+# Maintained harnesses stay in apps/*/scripts; curated evidence belongs in
+# docs/evidence after review. See docs/LOCAL_ARTIFACT_POLICY.md.
+/work/
+/debug.log
+
+# Private local PostgreSQL archives and restore-verification fingerprints.
+/work/local-db-backups/
+
 # Eluthira is a separate repository; never record it as an embedded Git link.
 /eluthira-site/
+
+# Historical local design explorations, not application entry points or tests.
+# Preserve the files locally; publish maintained implementation and curated evidence.
+/apps/web/qa-critical-flow-preview.html
+/apps/web/qa-workspace-preview.html
+/apps/web/src/previews/qa-critical-flow/
+/apps/web/src/previews/qa-workspace/
+/docs/design/generate-oddpath-critical-flow-board.mjs
+/docs/design/oddpath-critical-flow-board.png
+/docs/design/oddpath-critical-flow-board.svg
+/docs/design/oddpath-qa-workspace-board.png
+/docs/design/oddpath-qa-workspace-board.svg
 
 apps/*/node_modules
 apps/*/.env

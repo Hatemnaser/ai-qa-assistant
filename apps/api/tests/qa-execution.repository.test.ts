@@ -26,7 +26,11 @@ describe("QA execution repository concurrency guards", () => {
     const calls: string[] = [];
     let reads = 0;
     const tx = {
-      async $executeRaw() { calls.push("lock"); return 0; },
+      async $executeRaw(strings: TemplateStringsArray) {
+        const sql = strings.join("");
+        calls.push(sql.includes("project-lifecycle") ? "project:lock" : sql.includes("oddpath:chat:") ? "session:lock" : "request:lock");
+        return 0;
+      },
       qaExecutionJob: {
         async findFirst() {
           reads += 1;
@@ -37,6 +41,7 @@ describe("QA execution repository concurrency guards", () => {
         async update() { calls.push("job:update"); },
       },
       qaRequest: {
+        async findUnique() { return null; },
         async update() { calls.push("request:update"); },
       },
       qaRun: {
@@ -57,14 +62,18 @@ describe("QA execution repository concurrency guards", () => {
       runId: "run-1",
     });
 
-    assert.deepEqual(calls, ["read:1", "lock", "read:2"]);
+    assert.deepEqual(calls, ["read:1", "project:lock", "session:lock", "request:lock", "read:2"]);
   });
 
   it("does not overwrite a terminal execution found after locking a reconciliation candidate", async () => {
     const calls: string[] = [];
     let reads = 0;
     const tx = {
-      async $executeRaw() { calls.push("lock"); return 0; },
+      async $executeRaw(strings: TemplateStringsArray) {
+        const sql = strings.join("");
+        calls.push(sql.includes("project-lifecycle") ? "project:lock" : sql.includes("oddpath:chat:") ? "session:lock" : "request:lock");
+        return 0;
+      },
       qaExecutionJob: {
         async findFirst() {
           reads += 1;
@@ -86,7 +95,7 @@ describe("QA execution repository concurrency guards", () => {
         async update() { calls.push("job:update"); },
         async updateMany() { calls.push("job:updateMany"); return { count: 0 }; },
       },
-      qaRequest: { async update() { calls.push("request:update"); } },
+      qaRequest: { async findUnique() { return null; }, async update() { calls.push("request:update"); } },
       qaRun: { async update() { calls.push("run:update"); return { version: 2 }; } },
       qaRunnerRegistration: {
         async findFirst() {
@@ -103,7 +112,7 @@ describe("QA execution repository concurrency guards", () => {
     const result = await repository.claim(CLAIM_INPUT);
 
     assert.equal(result, null);
-    assert.deepEqual(calls, ["read:1", "lock", "read:2", "read:3"]);
+    assert.deepEqual(calls, ["read:1", "project:lock", "session:lock", "request:lock", "read:2", "read:3"]);
   });
 });
 
@@ -156,6 +165,7 @@ describe("QA execution claim recovery", () => {
           async updateMany() { return { count: 0 }; },
         },
         qaRequest: {
+          async findUnique() { return null; },
           async update(input: { data: Record<string, unknown> }) { requestUpdates.push(input.data); },
         },
         qaRun: {
@@ -202,6 +212,7 @@ describe("QA execution claim recovery", () => {
       let reads = 0;
       const tx = {
         async $executeRaw() { return 0; },
+        qaRequest: { async findUnique() { return null; } },
         qaExecutionJob: {
           async findFirst() {
             reads += 1;
@@ -445,6 +456,7 @@ function approvalBindingFixture(
       },
     },
     qaRequest: {
+      async findUnique() { return null; },
       async update(input: { data: Record<string, unknown> }) { requestUpdates.push(input.data); },
     },
     qaWorkflowEvent: {

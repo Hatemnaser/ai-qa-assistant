@@ -12,6 +12,7 @@ const props = defineProps<{
   copyAnswer: (content: string) => Promise<boolean>;
   isSending: boolean;
   messages: ChatMessage[];
+  inline?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -45,13 +46,13 @@ function copyLabel(message: ChatMessage) {
 </script>
 
 <template>
-  <section class="chat-area">
+  <section :class="inline ? 'chat-message-list' : 'chat-area'">
     <div v-if="messages.length === 0" class="welcome-message text-center">
       <h3 class="welcome-title">{{ t("chat.messages.welcomeTitle") }}</h3>
       <p>{{ t("chat.messages.welcomeBody") }}</p>
     </div>
 
-    <div v-for="message in messages" :key="message.id" class="chat-message-turn">
+    <div v-for="message in messages" :key="message.id" class="chat-message-turn" :data-message-id="message.id" tabindex="-1">
       <div v-if="message.role === 'assistant'" class="answer">
         <div class="message-content" v-html="renderMarkdown(message.content)" />
         <div class="message-actions d-flex justify-content-end gap-2">
