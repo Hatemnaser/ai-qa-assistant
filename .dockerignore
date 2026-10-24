@@ -1,0 +1,13 @@
+.git
+**/node_modules
+**/dist
+**/src/generated
+**/oddpath.runner.json
+work
+docs
+**/.env
+**/.env.*
+**/coverage
+**/test-results
+**/playwright-report
+**/*.sqlite*

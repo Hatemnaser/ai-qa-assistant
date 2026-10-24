@@ -18,6 +18,10 @@ afterEach(() => {
 });
 
 describe("project portability api", () => {
+  it("accepts v3 QA archive previews and presents the inert-history warning",async()=>{
+    mockFetch(async()=>jsonResponse({...createPreview(),formatVersion:'3.0',warnings:['QA history is inert; no approval is restored.']}));
+    const preview=await previewProjectImport(createZipFile('qa-v3.zip'));assert.equal(preview.formatVersion,'3.0');assert.match(preview.warnings[0]!,/no approval/u);
+  });
   it("exports a project ZIP with chats included by default", async () => {
     mockFetch(async (input, init) => {
       assert.equal(

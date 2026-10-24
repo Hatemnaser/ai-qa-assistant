@@ -4,6 +4,7 @@ import type {
   ProjectDocumentSource,
 } from "../../generated/prisma/enums.js";
 import { DATA_LIMITS } from "../../config/data-limits.js";
+import type {QaHistory,QaBinarySource} from "../qa-requests/qa-report.types.js";
 import type { ProjectDocumentRecord } from "../project-documents/project-documents.types.js";
 import type {
   PortableBinaryAssetDescriptor,
@@ -14,9 +15,11 @@ import type { UploadedPortableBinaryAsset } from "./binary-asset-restore.types.j
 
 export const PROJECT_EXPORT_LEGACY_FORMAT_VERSION = "1.0";
 export const PROJECT_EXPORT_FORMAT_VERSION = "2.0";
+export const PROJECT_EXPORT_QA_FORMAT_VERSION = "3.0";
 export type ProjectExportFormatVersion =
   | typeof PROJECT_EXPORT_LEGACY_FORMAT_VERSION
-  | typeof PROJECT_EXPORT_FORMAT_VERSION;
+  | typeof PROJECT_EXPORT_FORMAT_VERSION
+  | typeof PROJECT_EXPORT_QA_FORMAT_VERSION;
 
 export const PROJECT_EXPORT_LIMITS = Object.freeze({
   maxArchiveBytes: 8_000_000,
@@ -80,6 +83,8 @@ export interface ProjectExportChatRecord {
 }
 
 export interface ProjectExportSourceRecord {
+  qaHistory?: QaHistory;
+  qaBinarySources?: QaBinarySource[];
   id: string;
   name: string;
   description: string | null;
@@ -150,7 +155,8 @@ export interface ProjectExportManifestV2 extends ProjectExportManifestBase {
 
 export type ProjectExportManifest =
   | ProjectExportManifestV1
-  | ProjectExportManifestV2;
+  | ProjectExportManifestV2
+  | (Omit<ProjectExportManifestV2,"formatVersion"> & {formatVersion:typeof PROJECT_EXPORT_QA_FORMAT_VERSION});
 
 export interface ProjectExportPackage {
   archive: Buffer;
@@ -222,6 +228,7 @@ export interface ValidatedProjectImportPackage {
   formatVersion: ProjectExportFormatVersion;
   packageDigest: string;
   project: {
+    qaHistory?: QaHistory;
     sourceId: string;
     name: string;
     description: string | null;

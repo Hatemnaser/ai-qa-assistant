@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-14",
+  "status": "REPAIR_REQUIRED",
+  "publicActivation": "NO_GO",
+  "findings": [
+    {
+      "id": "F1",
+      "priority": 2,
+      "file": "apps/web/src/features/chat/components/ChatMessages.vue",
+      "start": 58,
+      "end": 58,
+      "issue": "Inferred historical model displayed as actual model",
+      "reproduced": true
+    },
+    {
+      "id": "F2",
+      "priority": 2,
+      "file": "apps/api/src/modules/ai/model-fallback.ts",
+      "start": 29,
+      "end": 29,
+      "issue": "Auto does not fall back for model-specific provider NOT_FOUND",
+      "reproduced": true
+    }
+  ],
+  "freshMaintainedTests": {
+    "focused": 80,
+    "postgres": 108,
+    "modelUi": 7,
+    "resourceUi": 17,
+    "productionCspSeparate": 2,
+    "distinctPassed": 214
+  },
+  "additionalCharacterizationCases": {
+    "sdkProvider": 8,
+    "historyUi": 1
+  },
+  "fullVerifyFresh": false,
+  "buildsFresh": false,
+  "implementationLogsHashVerified": true,
+  "integrity": {
+    "before": {
+      "generatedAt": "2026-10-14T11:37:54.720Z",
+      "files": 1085,
+      "changed": [],
+      "logChanges": [],
+      "ledgerHash": "4ffbba8f63aed611a8da55b2ca6b2326f7dc49ccd2240a85b7fd0e7f74492aa6"
+    },
+    "after": {
+      "generatedAt": "2026-10-14T11:43:48.647Z",
+      "files": 1085,
+      "changed": [],
+      "logChanges": [],
+      "ledgerHash": "4ffbba8f63aed611a8da55b2ca6b2326f7dc49ccd2240a85b7fd0e7f74492aa6"
+    }
+  },
+  "cleanup": {
+    "generatedAt": "2026-10-14T11:44:56.8214781Z",
+    "ownedContainers": [],
+    "ownedTestProcesses": [],
+    "fixturePortListeners": []
+  },
+  "logs": {
+    "cleanup.json": {
+      "path": "work/phase-06a-review-20261014/cleanup.json",
+      "sha256": "d96ce470686673a7c8f1c74513bbc17d24689323ca29260174b3855db2007d0b"
+    },
+    "focused.log": {
+      "path": "work/phase-06a-review-20261014/focused.log",
+      "sha256": "34f9db74b974c29ba818f0fde13b17472a3693c994d2efb334db126df76fe606"
+    },
+    "history-model-result.json": {
+      "path": "work/phase-06a-review-20261014/history-model-result.json",
+      "sha256": "954e9cb57dc49e07b0bf36bffa717a94c65e5caf1bdd00c6c020f00845585841"
+    },
+    "history-model.browser.mjs": {
+      "path": "work/phase-06a-review-20261014/history-model.browser.mjs",
+      "sha256": "f8a3e10cee7c1c93bb6464137af11c92576755f30f2572f0a31acc6995c145d6"
+    },
+    "history-model.log": {
+      "path": "work/phase-06a-review-20261014/history-model.log",
+      "sha256": "bd833237d7162d8fbdb7fb8435c8559cca5f244b8acd7965f25eebc324f4b5bc"
+    },
+    "history-model.png": {
+      "path": "work/phase-06a-review-20261014/history-model.png",
+      "sha256": "c18ea9c94ad2158f61725d8882b37149ed6bd12d4ea8e1f887e7895ba6d207be"
+    },
+    "integrity-after.json": {
+      "path": "work/phase-06a-review-20261014/integrity-after.json",
+      "sha256": "3372bbab2f68d89963d6dd5477d156777de72efb287f0316b322b3faba487995"
+    },
+    "integrity-before.json": {
+      "path": "work/phase-06a-review-20261014/integrity-before.json",
+      "sha256": "9ef80cc621aa71e619b30e5101d56000c2121281d3bd186dd163846f695ea54e"
+    },
+    "integrity.cjs": {
+      "path": "work/phase-06a-review-20261014/integrity.cjs",
+      "sha256": "1ad10afe9719f036ccdf97527027e6520d3a71c140a861b919fd60feca5ea4ea"
+    },
+    "model-ui.log": {
+      "path": "work/phase-06a-review-20261014/model-ui.log",
+      "sha256": "1dc4ee27c448850591551b01c37e5a939934b29598ca9bddab87c8dff7c8c608"
+    },
+    "package.json": {
+      "path": "work/phase-06a-review-20261014/package.json",
+      "sha256": "89c47db7851f89caec72da4f215ebc21cf1e294aeef3b45d2583562d846ab035"
+    },
+    "postgres-migrate.log": {
+      "path": "work/phase-06a-review-20261014/postgres-migrate.log",
+      "sha256": "bbee078769e84d8e112995e27d05de61e7a5318a9042668f22cd8f08bfe06ba5"
+    },
+    "postgres-proof.json": {
+      "path": "work/phase-06a-review-20261014/postgres-proof.json",
+      "sha256": "606462cd080f852d3b7f1372fe46795c41026c9f4e4c7a206dc2462e2cbf5a07"
+    },
+    "postgres-run.log": {
+      "path": "work/phase-06a-review-20261014/postgres-run.log",
+      "sha256": "0878857fac84e604c500b216d108b55d31a2daf853a813c9ee451f7debe10e6d"
+    },
+    "postgres-tests.log": {
+      "path": "work/phase-06a-review-20261014/postgres-tests.log",
+      "sha256": "dfb88ac5169a3740f47909b3475bed79490151999ebfa38545b1d30044efcb8b"
+    },
+    "postgres.cjs": {
+      "path": "work/phase-06a-review-20261014/postgres.cjs",
+      "sha256": "1e3e229e350d40ba9a2ae1555e996fa8d8abe807ac94c8149314b4de8fe8734a"
+    },
+    "provider-wire-final.log": {
+      "path": "work/phase-06a-review-20261014/provider-wire-final.log",
+      "sha256": "213e4f4d02ff09524a8fec8c7d896cb1d9d024865851aa16c4693c966996332e"
+    },
+    "provider-wire-results.json": {
+      "path": "work/phase-06a-review-20261014/provider-wire-results.json",
+      "sha256": "6c765e087ba249d30c382caa93ad031b203e8a587ef69057a4117180b34b945a"
+    },
+    "provider-wire.log": {
+      "path": "work/phase-06a-review-20261014/provider-wire.log",
+      "sha256": "6314a36ac25f8819b94e1e5d659f537224e79171b50ca7ebba1ef100f4921526"
+    },
+    "provider-wire.test.ts": {
+      "path": "work/phase-06a-review-20261014/provider-wire.test.ts",
+      "sha256": "ba62362c961a6b26864a5772d388c87a3666282f23532befac02410f01d43186"
+    },
+    "report-evidence.cjs": {
+      "path": "work/phase-06a-review-20261014/report-evidence.cjs",
+      "sha256": "76a7a57837c0120156e037d972ce693ae6ca5cc12253392f1bed47f1dfe70044"
+    },
+    "resource-csp.log": {
+      "path": "work/phase-06a-review-20261014/resource-csp.log",
+      "sha256": "401aaec884d38a5857af81839d52349e3148726212a4342b1a43df4c673e74e1"
+    },
+    "resources-ui.log": {
+      "path": "work/phase-06a-review-20261014/resources-ui.log",
+      "sha256": "ce16d4357c7949e8de7fdce870c6f7acec08d3a97443959b3f279c00f9cec551"
+    }
+  },
+  "limits": [
+    "Synthetic AI transport and UI API/viewer responses; no paid requests",
+    "No product edits or working-database migrations",
+    "No publication, deployment, real Docker browser or R2 checks",
+    "Scratch ESM startup failure retained; resource CSP cases rerun separately with required flag"
+  ]
+}

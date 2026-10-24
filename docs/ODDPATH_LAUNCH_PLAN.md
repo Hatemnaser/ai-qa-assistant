@@ -1,6 +1,30 @@
 # Oddpath Real-User Launch Plan
 
-This is the active implementation plan for preparing Oddpath for a small
+## Current precedence — 2026-10-18
+
+This is the retained earlier deployment/provider plan. Current product scope
+is [ODDPATH_BETA_IMPLEMENTATION_PLAN.md](ODDPATH_BETA_IMPLEMENTATION_PLAN.md);
+use [Phase 08A inventory](PHASE_08A_READINESS_INVENTORY.md) to reuse existing
+operations and distinguish missing work. Phase 07 has local GO
+([closeout](PHASE_07_CLOSEOUT.md)); public release remains NO_GO. Invite-only,
+provider purchases and the old phase numbering below are historical, not a new
+hosting decision within the EUR 10 infrastructure ceiling. Domain/API charges
+remain separate. Preserve storage/privacy/safe-migration requirements.
+
+## Current plan — 2026-10-13
+
+Use [ODDPATH_BETA_IMPLEMENTATION_PLAN.md](ODDPATH_BETA_IMPLEMENTATION_PLAN.md)
+as the accepted plan. Stages 0-2 are accepted locally after independent review;
+see [PHASE_02_CLOSEOUT.md](PHASE_02_CLOSEOUT.md). The owner selected manual
+login/MFA first and saved login after review. Stage 3A's local closeout is
+recorded in PHASE_03A_CLOSEOUT.md; the owner authorized encrypted saved state
+in stage3B (PHASE_03B_CHECKPOINT.md). The accepted rollout is public beta with
+verified email and bounded queues/quotas. Older invite-only/provider selections
+below are historical. Product resources/tabs and production activation still require later
+gates. Public beta remains NO-GO. No working-DB activation or paid hosting is
+included. The following sections retain historical storage/privacy requirements.
+
+This was the implementation plan for preparing Oddpath for a small
 real-user beta in Germany. It records the selected deployment shape, ownership
 boundaries, implementation order, and launch gates.
 

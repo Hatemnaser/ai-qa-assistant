@@ -4,7 +4,8 @@ import { testSessionTurnSchema, updateTestSessionSchema } from "../test-sessions
 const id = z.string().trim().min(1).max(191);
 export const sessionParams = z.object({ sessionId: id });
 export const createSessionSchema = z.object({ clientSessionId: id, projectId: id.nullable().optional(), title: z.string().trim().min(1).max(180).optional(), requestId: id.optional() }).strict();
-export const sessionTurnSchema = testSessionTurnSchema.innerType().extend({
+export const sessionTurnSchema = z.object({
+  ...testSessionTurnSchema.shape,
   expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
   content: z.string().trim().max(20_000),
 }).strict().superRefine((input, ctx) => {

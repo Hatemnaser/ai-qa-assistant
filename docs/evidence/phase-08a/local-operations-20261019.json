@@ -1,0 +1,476 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-19T17:10:23.345Z",
+  "scope": "PHASE_08A_CLOSED_LOCAL_MAINTENANCE_ENCRYPTED_DATABASE_BACKUP_AND_QUARANTINED_RESTORE",
+  "status": "IMPLEMENTED_LOCALLY_VERIFIED_PENDING_INDEPENDENT_ACCEPTANCE",
+  "phase08Accepted": false,
+  "publicReleaseAuthorized": false,
+  "source": {
+    "digest": "2fb2662cfb1a8582e583b15241e5aea806613dc10d5ac50211c8fb9268635491",
+    "fileCount": 1053,
+    "codeHashes": [
+      {
+        "path": "deploy/Dockerfile.api",
+        "sha256": "a4764e333eda900d5fce77fbce48dd61ea71f89b57cf274156753ac11199bade"
+      },
+      {
+        "path": "deploy/self-hosted.operations.compose.yml",
+        "sha256": "e91657f7ac5ce46c4cdc519938ed4685cf8e619e3754d1034264b0f6df1e4ee9"
+      },
+      {
+        "path": "deploy/self-hosted.env.example",
+        "sha256": "5f488225fda5fcf6bb30148cf3041808cfab4e71a50235b4491cdecb8e6f1406"
+      },
+      {
+        "path": "ops/maintenance.mjs",
+        "sha256": "b6c6e96e6feee51e91c1923d8acba36a18761b494b75ec87fb18fdf16182d711"
+      },
+      {
+        "path": "ops/backup.mjs",
+        "sha256": "31ec5fced972e277e5e772f3987ce8e582a81942fc39473b56215fa22cd8de07"
+      },
+      {
+        "path": "ops/lib/backup-archive.mjs",
+        "sha256": "94a8e64e342eab8f25b24fb8d24a2824c16400ca05c5c326f677eb5c09f9aeff"
+      },
+      {
+        "path": "ops/lib/local-lock.mjs",
+        "sha256": "423978f64b81b4b5f35c04f16c03af4fc8e731c640875c5935bf19b53812bd59"
+      },
+      {
+        "path": "ops/lib/private-files.mjs",
+        "sha256": "8c42d241895d1b0d3b521782fef443d88586d23760a68a4208df9d08e9db8222"
+      },
+      {
+        "path": "ops/tests/backup.test.mjs",
+        "sha256": "b57056495c0a2ac2852cf526926af8dabe4f3d050c12725956b27e60e8362922"
+      },
+      {
+        "path": "ops/tests/maintenance.test.mjs",
+        "sha256": "21190e7b7955143bc3f6a27a8ea5a07e6f492c8d2ad0d2ed41a011ff3a2970c3"
+      },
+      {
+        "path": "ops/tests/local-lock.test.mjs",
+        "sha256": "ab7cd2a9cdde2d66745ad8f54443def702f6453ecfc9e6c3edfeda849aecf04c"
+      },
+      {
+        "path": "ops/tests/local-operations.integration.mjs",
+        "sha256": "cdd35767ffe892c9c9a775affc62189d7976d404e081dadd1b2ae7c99f50793b"
+      },
+      {
+        "path": "ops/tests/fixtures/operations-seed.mjs",
+        "sha256": "a7df7cdf24a599b35d645da65af0b22efd84908542962688990eb95aa35d68a6"
+      },
+      {
+        "path": "package.json",
+        "sha256": "a2d8fc5864f100edf7bb8e1bf7585e3e64d35fd65a03c54785d4282934f68d9e"
+      }
+    ],
+    "businessAPIChanged": false,
+    "databaseSchemaChanged": false,
+    "contractsChanged": false,
+    "existingTestsChanged": false
+  },
+  "implementation": {
+    "maintenance": "Existing compiled usage:reconcile, cleanup:retention and conditional assets:cleanup only, same API env, session advisory exclusivity, bounded retries/timeouts, durable atomic status, heartbeat and capped status-only alerts. DB lock loss and state IO failure close clients and exit. No generation/claim/provider command.",
+    "backups": "Separate SELECT-only credential and independent private key; consistent PG16 snapshot streamed into AES-256-GCM with authenticated metadata, exclusive publication, full authentication and pg_restore list verification. Daily local backups and seven-day retention; standalone hourly pruning has no DB/key dependency and serializes concurrent deletion with a local OS-backed SQLite lock.",
+    "restore": "Full authentication before target connection; explicit prefix+ack, owned empty private DB with no other clients and no CONNECT for PUBLIC/other roles. Single transaction without clean/overwrite. Always RESTORED_QUARANTINED with financialContinuity UNVERIFIED; no application/provider replay or auto-release.",
+    "deployment": "Separate opt-in operations image/profile overlay, production defaults, nonroot/readonly/cap-drop/resource limits/no Docker socket, separate private external volumes. Original closed API/PG service behavior preserved.",
+    "operationsImage": {
+      "id": "sha256:c7ccc0fa3fcec877deb1f3070bbb0926f090553ae2796938c8649a4d7ffd2c1f",
+      "architecture": "amd64",
+      "user": "postgres:postgres",
+      "maintainedFilesExactlyMatched": 10
+    },
+    "budgets": "No provider provisioning, cloud deployment, paid service, external notification or additional model. Actual free-host capacity/cost not certified."
+  },
+  "verification": {
+    "operationsUnit": {
+      "windows": {
+        "tests": 15,
+        "pass": 15,
+        "skipped": 0,
+        "evidence": "work/phase-08a-operations-20261019/unit-final-05.log"
+      },
+      "linux": {
+        "tests": 15,
+        "pass": 15,
+        "skipped": 0,
+        "evidence": "work/phase-08a-operations-20261019/unit-linux.log"
+      },
+      "note": "Same 15 cases on two platforms; not 30 unique cases."
+    },
+    "realDockerPostgresHTTP": {
+      "checkCount": 38,
+      "pass": 38,
+      "migrations": 34,
+      "evidence": "work/phase-08a-operations-20261019/integration-final-02/verification.json",
+      "reportSha256": "3d1053ba331c6d8062df70128f2819469014d1996e3a6e816ce693ec49866e3e",
+      "checks": [
+        {
+          "name": "all-34-migrations-present",
+          "status": "PASS"
+        },
+        {
+          "name": "backup-uses-distinct-read-only-role",
+          "status": "PASS"
+        },
+        {
+          "name": "real-pg-dump-encrypted-and-verified",
+          "status": "PASS"
+        },
+        {
+          "name": "archive-storage-has-no-plaintext-or-partials",
+          "status": "PASS"
+        },
+        {
+          "name": "tampered-archive-cannot-write-any-target-table",
+          "status": "PASS"
+        },
+        {
+          "name": "actual-Linux-key-mode-is-enforced",
+          "status": "PASS"
+        },
+        {
+          "name": "pg-dump-error-is-not-success",
+          "status": "PASS"
+        },
+        {
+          "name": "failed-dump-retains-prior-good-backup-without-partials",
+          "status": "PASS"
+        },
+        {
+          "name": "restored-data-is-never-written-to-publicly-connectable-database",
+          "status": "PASS"
+        },
+        {
+          "name": "snapshot-preserves-pending-receipt-unknown-and-active-hold",
+          "status": "PASS"
+        },
+        {
+          "name": "restored-migration-history-matches-current-build",
+          "status": "PASS"
+        },
+        {
+          "name": "restored-User-content-matches-snapshot",
+          "status": "PASS"
+        },
+        {
+          "name": "restored-Project-content-matches-snapshot",
+          "status": "PASS"
+        },
+        {
+          "name": "restored-Chat-content-matches-snapshot",
+          "status": "PASS"
+        },
+        {
+          "name": "restored-Message-content-matches-snapshot",
+          "status": "PASS"
+        },
+        {
+          "name": "restored-ProjectDocument-content-matches-snapshot",
+          "status": "PASS"
+        },
+        {
+          "name": "restored-ProjectMemory-content-matches-snapshot",
+          "status": "PASS"
+        },
+        {
+          "name": "restored-Memory-content-matches-snapshot",
+          "status": "PASS"
+        },
+        {
+          "name": "non-empty-target-is-never-overwritten",
+          "status": "PASS"
+        },
+        {
+          "name": "restore-needs-explicit-isolated-target-ack",
+          "status": "PASS"
+        },
+        {
+          "name": "actual-PostgreSQL-settlement-failure-was-exercised",
+          "status": "PASS"
+        },
+        {
+          "name": "recovery-applies-confirmed-credits-once-and-keeps-unknown-separate",
+          "status": "PASS"
+        },
+        {
+          "name": "both-supervisors-complete-their-real-jobs",
+          "status": "PASS"
+        },
+        {
+          "name": "retention-actually-deletes-expired-session",
+          "status": "PASS"
+        },
+        {
+          "name": "maintenance-recovers-receipt-without-double-charge-or-lost-hold",
+          "status": "PASS"
+        },
+        {
+          "name": "maintenance-inherits-closed-gates-with-no-public-ports",
+          "status": "PASS"
+        },
+        {
+          "name": "backup-nonroot-readonly-no-socket-or-application-secrets",
+          "status": "PASS"
+        },
+        {
+          "name": "concurrent-supervisor-cannot-run-or-overwrite-active-state",
+          "status": "PASS"
+        },
+        {
+          "name": "DB-disconnection-is-not-reported-as-healthy",
+          "status": "PASS"
+        },
+        {
+          "name": "seven-day-retention-continues-during-DB-and-key-unavailability",
+          "status": "PASS"
+        },
+        {
+          "name": "supervisor-restarted-after-lock-loss",
+          "status": "PASS"
+        },
+        {
+          "name": "restart-and-recovery-preserve-credit-hold-invariants",
+          "status": "PASS"
+        },
+        {
+          "name": "state-write-failure-does-not-strand-the-database-client-or-process",
+          "status": "PASS"
+        },
+        {
+          "name": "abrupt-restart-releases-local-lock-and-preserves-daily-backup-schedule",
+          "status": "PASS"
+        },
+        {
+          "name": "incomplete-object-backup-is-refused",
+          "status": "PASS"
+        },
+        {
+          "name": "real-restored-HTTP-login-and-cookie-succeed",
+          "status": "PASS"
+        },
+        {
+          "name": "real-restored-HTTP-session-is-readable",
+          "status": "PASS"
+        },
+        {
+          "name": "restore-never-authorizes-release-or-claims-financial-continuity",
+          "status": "PASS"
+        }
+      ]
+    },
+    "priorPhaseRegressions": {
+      "status": "PASS_LOCAL_SUITES",
+      "suites": 15,
+      "tests": 256,
+      "pass": 256,
+      "skipped": 0,
+      "unchangedInputs": true,
+      "evidence": "work/phase-08a-operations-20261019/release-gate-final-02/verification.json",
+      "reportSha256": "ccbf2bbb388f84ed292fdb91696c0e0af5f2ca29b11b9246c7e699d232b61bb0"
+    },
+    "fullVerify": {
+      "status": "PASS",
+      "evidence": "work/phase-08a-operations-20261019/verify.log",
+      "suiteSummaries": [
+        {
+          "tests": 41,
+          "suites": 4,
+          "pass": 41,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 1117,
+          "suites": 169,
+          "pass": 1116,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 1,
+          "todo": 0
+        },
+        {
+          "tests": 33,
+          "suites": 6,
+          "pass": 33,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 676,
+          "suites": 106,
+          "pass": 676,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 91,
+          "suites": 4,
+          "pass": 91,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 12,
+          "suites": 0,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 14,
+          "suites": 0,
+          "pass": 14,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        }
+      ],
+      "note": "Complete verify passed during implementation. Later ops-only cleanup/retention/restore hardening was validated by the final 15-case ops runs, 38-case integration and fingerprint-bound 256 regressions; API/UI/business code stayed unchanged throughout this task."
+    },
+    "windowsExistingSkip": {
+      "name": "refuses cached authority when the live journal file has been replaced",
+      "linuxUnchangedSuite": {
+        "tests": 5,
+        "pass": 5,
+        "skipped": 0,
+        "evidence": "work/phase-08a-operations-20261019/vault-linux.log"
+      }
+    },
+    "audit": {
+      "status": "PASS",
+      "productionVulnerabilities": 0,
+      "evidence": "work/phase-08a-operations-20261019/audit.json"
+    },
+    "diffCheck": "PASS",
+    "statePersistenceRegression": {
+      "red": {
+        "expectedFail": 1,
+        "otherPass": 14,
+        "evidence": "work/phase-08a-operations-20261019/unit-linux-red-statefix.log",
+        "beforeCode": "work/phase-08a-operations-20261019/pre-statefix-maintenance.mjs"
+      },
+      "green": "15/15 on Windows and Linux; actual chmod500 of private state volume causes daemon exit/restart, then a NEW heartbeat after chmod700 repair.",
+      "rootCause": "A rejected terminal status save could bypass client.end in finally. Nested cleanup now always releases the connection/lock."
+    }
+  },
+  "accountingProof": {
+    "source": "Synthetic relational/accounting fixtures; actual compiled repositories/reconciler, real PG trigger failure and real HTTP. No paid SDK/model invocation.",
+    "confirmedCreditsAfterRepeatedRecovery": 2,
+    "receiptCountAfterRepeatedRecovery": 1,
+    "unknownCredits": null,
+    "unknownQuotaExposure": 3,
+    "activeReservationUnits": 5,
+    "unknownAndActiveHoldsRetained": true,
+    "postSnapshotConsumptionNotReconstructed": true
+  },
+  "cleanup": {
+    "allAttemptResourcesRechecked": true,
+    "syntheticSecretDirectoriesAbsent": true,
+    "workingDatabaseSameIdAndStartAndHealthy": true,
+    "imagesRetainedAsReviewArtifacts": true,
+    "attempts": [
+      {
+        "directory": "integration-01",
+        "status": "FAIL",
+        "checks": 0,
+        "cleanupVerified": true,
+        "reportSha256": "f004bbba880fc0a314aece68e21c7a61c1a08f36a506663801ceef532c303778"
+      },
+      {
+        "directory": "integration-02",
+        "status": "FAIL",
+        "checks": 0,
+        "cleanupVerified": true,
+        "reportSha256": "8a975f4ed4385281685105c222c9d282f16be10eac998761200e78bf873a4220"
+      },
+      {
+        "directory": "integration-03",
+        "status": "FAIL",
+        "checks": 14,
+        "cleanupVerified": true,
+        "reportSha256": "39a1f28b8a2a5b856aac979442c57ecb15ed018d0e1eeb0a582efed9a8090139"
+      },
+      {
+        "directory": "integration-04",
+        "status": "FAIL",
+        "checks": 0,
+        "cleanupVerified": true,
+        "reportSha256": "c3b85ca4705eeb29d7b954c21f43e4800ed1eede5bcb7db159b47b97048c421d"
+      },
+      {
+        "directory": "integration-05",
+        "status": "PASS_LOCAL_OPERATIONS",
+        "checks": 36,
+        "cleanupVerified": true,
+        "reportSha256": "beb76e0a6ac846443d06b0d23a4fbed77b230cf903017a674d0de6fce035a479"
+      },
+      {
+        "directory": "integration-final",
+        "status": "PASS_LOCAL_OPERATIONS",
+        "checks": 37,
+        "cleanupVerified": true,
+        "reportSha256": "458bf62b76acf0796a6fb554405f42a1ffedd08b21788ecca4b3795433be5553"
+      },
+      {
+        "directory": "integration-final-02",
+        "status": "PASS_LOCAL_OPERATIONS",
+        "checks": 38,
+        "cleanupVerified": true,
+        "reportSha256": "3d1053ba331c6d8062df70128f2819469014d1996e3a6e816ce693ec49866e3e"
+      }
+    ]
+  },
+  "attemptNotes": [
+    "integration-01: restricted Docker CLI environment omitted ProgramFiles, preventing Compose plugin discovery; only those non-secret Windows lookup vars were added.",
+    "integration-02: synthetic SMTP/encryption secrets accidentally reused; existing production validation rejected them. Fixture now generates independent secrets; no validation weakened.",
+    "integration-03: recovered DB had no application CONNECT grant. Explicit test-only grant added after quarantine, before deliberate recovery/smoke.",
+    "integration-04: Windows-file-backed PG secret creation timed out before app checks. All owned resources cleaned. Later fixtures use private Linux volumes without longer timeouts or product Compose workaround; native host bind remains unverified.",
+    "integration-05 and integration-final passed earlier subsets; integration-final-02 is authoritative for the final code and extra state-write failure case.",
+    "An early release gate correctly failed on changed maintained inputs during implementation; intermediate stable gate passed256. Final gate passes256 on the FINAL fingerprint.",
+    "Initial vault Linux fixture lacked the API package.json ESM context; corrected only the isolated transport. The original five assertions were not edited.",
+    "Concurrent NTFS unlink could count duplicate successful deletes; cleanup now serializes via a local OS lock. Exact two-file removal assertion is preserved; the new metadata lock file is asserted explicitly."
+  ],
+  "remainingGates": [
+    "Independent acceptance of THIS operations slice remains pending; Phase08/Public Release not accepted.",
+    "No encrypted off-host upload/delivery or disaster-host-loss recovery. Current archives remain local; keys require separate secured escrow. Seven-day local retention alone is not off-host backup.",
+    "No live email/webhook alert delivery or proof an external monitor observes health; status-only local alerts and nonzero health are implemented.",
+    "Database-only backup rejects browser runtime/saved-login/object data. Full current vault revocations, keys, runtime journal, physical Stop and object recovery remain required before their activation.",
+    "Unknown post-snapshot usage/deletions/revocations cannot be reconstructed; restore stays private/quarantined until trusted reconciliation. No guessed debit or provider replay.",
+    "Quota/retention config rollout is operator-fenced: stop cleanup and recreate API+maintenance from the same policy before resuming. No distributed config-version fencing is added.",
+    "Native Oracle ARM, browser isolation/capacity, real TLS/proxy/WebSocket/mail/storage, hosted CI, operator/legal and public UX acceptance remain open.",
+    "Test transport on Windows uses private Linux secret volumes. Native host bind permissions and the historical Docker Desktop creation stall are not claimed fixed.",
+    "Backup envelope bound5GiB; default private verification tmpfs256MiB may impose a smaller real archive limit. Larger datasets/disk pressure/host power loss need measured resource sizing and monitoring; no capacity guarantee.",
+    "G1/G2 public production activation/project routing and full G3/G4 browser/scheduler/alert/off-host topology remain separate work."
+  ],
+  "independentReviewFocus": [
+    "Advisory/local lock loss and state-write failure must not strand a client/child",
+    "Unknown vs confirmed receipts and holds survive failed settlement/restart",
+    "Malformed/tampered/wrong-key and publicly accessible/nonempty restore targets must remain untouched",
+    "Retention must stay finite offline and under concurrent/manual cleanup",
+    "Restore authority must remain quarantined; snapshot alone is never financial/deletion continuity"
+  ],
+  "modelUse": {
+    "subagents": false,
+    "additionalModels": false,
+    "astraInvoked": false
+  },
+  "documentation": {
+    "markdownFilesAdded": 0,
+    "updatedExisting": "docs/PHASE_08A_READINESS_INVENTORY.md",
+    "newSanitizedEvidence": "docs/evidence/phase-08a/local-operations-20261019.json"
+  }
+}

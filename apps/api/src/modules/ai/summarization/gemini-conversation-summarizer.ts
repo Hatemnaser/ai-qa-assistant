@@ -3,9 +3,11 @@ import { z } from "zod";
 
 import { env } from "../../../config/env.js";
 import { AppError } from "../../../lib/errors.js";
+import { ConversationSummaryGenerationError } from "../../conversation-summary/conversation-summary.errors.js";
 import type {
   ConversationSummarizer,
   ConversationSummaryGenerationInput,
+  ConversationSummaryGenerationResult,
 } from "../../conversation-summary/conversation-summary.types.js";
 import {
   CONVERSATION_SUMMARY_MAX_CHARS,
@@ -51,6 +53,7 @@ export const geminiConversationSummarizer: ConversationSummarizer = {
     const ai = new GoogleGenAI({
       apiKey: env.geminiApiKey,
     });
+    let usage: ConversationSummaryGenerationResult["usage"];
 
     try {
       const response = await withTimeout(
@@ -68,6 +71,11 @@ export const geminiConversationSummarizer: ConversationSummarizer = {
         }),
         env.aiSummaryTimeoutMs
       );
+      usage = {
+        inputTokens: response.usageMetadata?.promptTokenCount,
+        outputTokens: response.usageMetadata?.candidatesTokenCount,
+        totalTokens: response.usageMetadata?.totalTokenCount,
+      };
       const parsed = parseSummaryOutput(response.text || "");
 
       return {
@@ -75,17 +83,19 @@ export const geminiConversationSummarizer: ConversationSummarizer = {
         openQuestions: parsed.openQuestions,
         provider: GEMINI_PROVIDER_ID,
         summary: parsed.summary,
-        usage: {
-          inputTokens: response.usageMetadata?.promptTokenCount,
-          outputTokens: response.usageMetadata?.candidatesTokenCount,
-          totalTokens: response.usageMetadata?.totalTokenCount,
-        },
+        usage,
       };
     } catch (error) {
-      throw normalizeGeminiError(error, model, {
+      const normalizedError = normalizeGeminiError(error, model, {
         operation: "conversation_summary",
         provider: GEMINI_PROVIDER_ID,
       });
+
+      if (usage) {
+        throw new ConversationSummaryGenerationError(normalizedError, usage);
+      }
+
+      throw normalizedError;
     }
   },
 };

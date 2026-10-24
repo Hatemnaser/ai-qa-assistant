@@ -75,6 +75,11 @@
   "model.gemini25Flash.recommended": "Visuelle Pruefung und tiefere QA-Analyse",
   "model.gemini25FlashLite.recommended": "Schnelle Textaufgaben",
   "model.gemini31FlashLite.recommended": "Textaufgaben mit hohem Volumen",
+  "model.auto.label": "Automatisch",
+  "model.auto.description": "Wählt ein geeignetes Modell und kann bei Nichtverfügbarkeit ein anderes verwenden.",
+  "model.explicit.description": "Verwendet dein gewähltes Modell. Ist es nicht verfügbar, wird ein Fehler angezeigt.",
+  "model.unavailableChoice": "Nicht verfügbar: {model}",
+  "model.used": "Verwendetes Modell: {model}",
   "model.hint": "{label}: {recommendedFor}.",
   "model.hintVisual": " Visuelle Pruefung funktioniert am besten mit {model}."
 }

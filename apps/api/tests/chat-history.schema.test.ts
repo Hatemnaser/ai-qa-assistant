@@ -9,6 +9,14 @@ describe("stored chat limits", () => {
     assert.equal(storedChatSchema.safeParse(createChat(2, "hello")).success, true);
   });
 
+  it("accepts unknown message models without changing the chat selection", () => {
+    const input = createChat(2, "history");
+    const { model: _model, ...message } = input.messages[0];
+    const result = storedChatSchema.parse({ ...input, messages: [message, { ...input.messages[1], model: "" }] });
+    assert.equal(result.model, input.model);
+    assert.deepEqual(result.messages.map(item => item.model), ["", ""]);
+  });
+
   it("rejects more than the per-chat message limit", () => {
     assert.equal(
       storedChatSchema.safeParse(

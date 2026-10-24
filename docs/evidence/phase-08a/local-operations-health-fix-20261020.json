@@ -1,0 +1,223 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-19T22:38:52.799Z",
+  "scope": "PHASE_08A_2_BACKUP_HEALTH_RECOVERY",
+  "status": "FIXED_LOCALLY_PENDING_INDEPENDENT_ACCEPTANCE",
+  "phase08Accepted": false,
+  "publicReleaseAuthorized": false,
+  "source": {
+    "digest": "ca28518f9c9728d7b1eaf2d66826baa52313ae53d64cfcaa47435853d76c469d",
+    "fileCount": 1053,
+    "image": "sha256:998bcaa349dcb8704a19d7f8a56f334389a605eb163bae28e89927126e6528c6",
+    "changedFiles": [
+      {
+        "path": "ops/maintenance.mjs",
+        "sha256": "b43071e205c800200554ae052980d47270f58e89ffc1eeef78a0fa4c3a57e59d"
+      },
+      {
+        "path": "ops/tests/maintenance.test.mjs",
+        "sha256": "f56509b25aa6bd67ec778968ea4231115dc001262f3ef49e7484b9aec8974c4e"
+      },
+      {
+        "path": "ops/tests/local-operations.integration.mjs",
+        "sha256": "7ebed02303769c0beaf1fca7842e057f5da06b8895efd99339fac1d22f978778"
+      },
+      {
+        "path": "docs/PHASE_08A_READINESS_INVENTORY.md",
+        "sha256": "11ef57f883d67f5cfc6b73d484c0736bfbbb551986a0f4672655020e3d478106"
+      }
+    ],
+    "unrelatedOriginalFilesUnchanged": 1204,
+    "imageSourceParity": {
+      "ops/maintenance.mjs": "b43071e205c800200554ae052980d47270f58e89ffc1eeef78a0fa4c3a57e59d",
+      "ops/backup.mjs": "a57a443278937e41013f605e0d77d2c4eaf8e03991a91fce79669dcce1a8bf23",
+      "ops/lib/backup-archive.mjs": "94a8e64e342eab8f25b24fb8d24a2824c16400ca05c5c326f677eb5c09f9aeff",
+      "ops/lib/private-files.mjs": "8c42d241895d1b0d3b521782fef443d88586d23760a68a4208df9d08e9db8222",
+      "ops/lib/local-lock.mjs": "423978f64b81b4b5f35c04f16c03af4fc8e731c640875c5935bf19b53812bd59",
+      "apps/api/scripts/verify-release.mjs": "b96c00e1cb77260e630959b8d32aac1ad052170f86716165616873c6d723faa2",
+      "apps/api/scripts/verify-release-fingerprint.mjs": "40c4b2703770e1bb662c75e327d0f35bbbcdd685854e5a4daaa76483e3cd08f7",
+      "apps/api/scripts/verify-release-manifest.mjs": "9facf9c31a490035f9fab6f17d27c38c68ee15a18314545765d0429945bcc90d",
+      "apps/api/scripts/verify-release-network.mjs": "3570149f59c4d49127c904450696ace16974d9690ceb02e2e57070e7d2e8d087",
+      "package.json": "a2d8fc5864f100edf7bb8e1bf7585e3e64d35fd65a03c54785d4282934f68d9e"
+    }
+  },
+  "fix": {
+    "failureMarker": "failurePending",
+    "legacyFailureRetained": true,
+    "legacyAmbiguousRunningFailsClosed": true,
+    "normalScheduledRunningHealthPreserved": true,
+    "redSequence": [
+      1,
+      0,
+      0,
+      1
+    ],
+    "greenFailedRetrySequence": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "greenRecovery": {
+      "healthExit": 0,
+      "newVerifiedSuccess": true
+    }
+  },
+  "verification": {
+    "unitRed": {
+      "pass": 19,
+      "expectedFailures": 2
+    },
+    "unitGreenWindows": 21,
+    "unitGreenLinux": 21,
+    "sameCases": true,
+    "realIntegration": 48,
+    "retainedPriorChecks": 46,
+    "fullVerify": {
+      "pass": 1990,
+      "skipped": 1,
+      "summaries": [
+        {
+          "tests": 41,
+          "suites": 4,
+          "pass": 41,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 1117,
+          "suites": 169,
+          "pass": 1116,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 1,
+          "todo": 0
+        },
+        {
+          "tests": 33,
+          "suites": 6,
+          "pass": 33,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 676,
+          "suites": 106,
+          "pass": 676,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 91,
+          "suites": 4,
+          "pass": 91,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 12,
+          "suites": 0,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 21,
+          "suites": 0,
+          "pass": 21,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        }
+      ]
+    },
+    "linuxVaultPass": 5
+  },
+  "cleanup": {
+    "allOwnedResourcesRemoved": true,
+    "originalWorkingDatabaseUnchanged": true,
+    "originalWorkingDatabaseHealthy": true
+  },
+  "scopeLimits": {
+    "noDatabaseSchemaChange": true,
+    "noApiChange": true,
+    "noDependencyChange": true,
+    "noExistingAssertionsWeakened": true,
+    "additionalModelsUsed": false,
+    "subagentsUsed": false,
+    "deployed": false
+  },
+  "evidence": [
+    {
+      "path": "work/phase-08a-health-fix-20261020/baseline.json",
+      "sha256": "c0599273f32bf96adaadb46a1dc0260af730fb9a0729089ffa6b237efb3f9edb"
+    },
+    {
+      "path": "work/phase-08a-health-fix-20261020/unit-red-confirmed.log",
+      "sha256": "cdce68c00b4abfa5c7b54de0b633a7839940324a26ec3c3efd27f197d6c7bd8d"
+    },
+    {
+      "path": "work/phase-08a-health-fix-20261020/unit-green.log",
+      "sha256": "dccb0ac47cb38072e4738b8c61dc659395c95e7cf44eeb14c1e9576ce2f38402"
+    },
+    {
+      "path": "work/phase-08a-health-fix-20261020/unit-linux.log",
+      "sha256": "6c32d9537eba370c5ea8a8e41d018d7b24eeb4ae439aeac77e122d21988b9fad"
+    },
+    {
+      "path": "work/phase-08a-health-fix-20261020/postgres-red/adversarial-meta.json",
+      "sha256": "5de877264dd08f8e8b91291d18fae284a75246b9fc3ff4fe4bfc625bdc92e39e"
+    },
+    {
+      "path": "work/phase-08a-health-fix-20261020/postgres-red/adversarial-linux.mjs",
+      "sha256": "a7fad5b28de7c369d4ac9de710f0af82a8a3d6af2864ce0564de0b085df8b8f1"
+    },
+    {
+      "path": "work/phase-08a-health-fix-20261020/postgres-green-recovery/adversarial-meta.json",
+      "sha256": "10094349840fea84a13752be29b5f82f8362e7d428750b89d62eeba3a2320d3d"
+    },
+    {
+      "path": "work/phase-08a-health-fix-20261020/postgres-green-recovery/adversarial-linux.mjs",
+      "sha256": "cb656e8961c6e3e8c2b218854d9e0701ca60b9d45365e5f88259d51f99113f44"
+    },
+    {
+      "path": "work/phase-08a-health-fix-20261020/postgres-green-second-failure/adversarial-meta.json",
+      "sha256": "1ba4649a4be2c1250d57e4ad1978f69b406e58e03f438f47751271ed581f5026"
+    },
+    {
+      "path": "work/phase-08a-health-fix-20261020/postgres-green-second-failure/adversarial-linux.mjs",
+      "sha256": "3228430e492cb130fec2ff7e1b55cd9584dea5d8271ed22978427f71689fbe36"
+    },
+    {
+      "path": "work/phase-08a-health-fix-20261020/integration-green/verification.json",
+      "sha256": "aba8bf50f5652a54dd417c6d8b39691c5048811f2461b1283877f703764eaa8d"
+    },
+    {
+      "path": "work/phase-08a-health-fix-20261020/verify.log",
+      "sha256": "8f096909fff53b41c77d2c3f96a1cbfedab258665d438bde3664e66c327de280"
+    },
+    {
+      "path": "work/phase-08a-health-fix-20261020/vault-linux.log",
+      "sha256": "676b624313a7f2b4d79d98df9670791db2c34b3621cc096c84b44558f39d209b"
+    },
+    {
+      "path": "work/phase-08a-health-fix-20261020/build-operations.log",
+      "sha256": "7e472c1b4629fa8ec4c768a1f33cfe0e784761af69ecd2879299640131fdcd1b"
+    },
+    {
+      "path": "work/phase-08a-health-fix-20261020/IMPLEMENTATION_REPORT.md",
+      "sha256": "0355fb5c95491c4a6c28cc51634e30b7a0ba72110b2cd9a73cc58e4ce861dd69"
+    }
+  ]
+}

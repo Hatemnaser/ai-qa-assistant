@@ -7,6 +7,7 @@ import navigation from "./navigation.json";
 import projects from "./projects.json";
 import testSessions from "./testSessions.json";
 import sessionTools from "./sessionTools.json";
+import sessionResources from "./sessionResources.json";
 import portability from "./portability.json";
 import settings from "./settings.json";
 import usage from "./usage.json";
@@ -23,6 +24,7 @@ const ar = mergeMessageCatalogs(
   projects,
   testSessions,
   sessionTools,
+  sessionResources,
   portability
 ) satisfies MessageMap;
 

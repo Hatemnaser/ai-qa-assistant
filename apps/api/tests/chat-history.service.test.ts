@@ -13,10 +13,31 @@ import type {
   StoredMessageRecord,
 } from "../src/modules/chat-history/chat-history.types.ts";
 import { createFakeProjectAccess } from "./helpers/projectAccess.ts";
+import { storedChatSchema } from "../src/modules/chat-history/chat-history.schema.ts";
 
 const NOW = new Date("2026-05-21T10:00:00.000Z");
 
 describe("chat history service", () => {
+  it("keeps unknown stored/source model metadata separate from the chat default", async () => {
+    const records = [
+      { ...createStoredMessageRecord("1-unknown", "ASSISTANT", "Unknown"), model: null },
+      { ...createStoredMessageRecord("2-known", "ASSISTANT", "Known"), model: "retired-model" },
+      createStoredMessageRecord("3-external-unknown", "ASSISTANT", "External", { imported: { originalModel: null } }),
+      createStoredMessageRecord("4-external-known", "ASSISTANT", "External", { imported: { originalModel: "gpt-source-model" } }),
+      { ...createStoredMessageRecord("5-native-known", "ASSISTANT", "Native", { imported: { archiveType: "account" } }), model: "gemini-2.5-flash" },
+      { ...createStoredMessageRecord("6-native-unknown", "ASSISTANT", "Native", { imported: { archiveType: "account" } }), model: null },
+      { ...createStoredMessageRecord("7-native-error", "ASSISTANT", "Native failed", { isError: true, imported: { archiveType: "account" } }), model: "gemini-2.5-flash" },
+    ];
+    const { service } = setupChatHistoryService([createFakeChatRecord({ messages: records })]);
+    const listed = await service.listUserChats("user-1");
+    const expected = ["", "retired-model", "", "gpt-source-model", "gemini-2.5-flash", "", "gemini-2.5-flash"];
+    assert.deepEqual(listed[0].messages.map(message => message.model), expected);
+    assert.equal(listed[0].messages[6].isError, true);
+    const saved = await service.saveUserChat("user-1", storedChatSchema.parse(listed[0]));
+    assert.deepEqual(saved.messages.map(message => message.model), expected);
+    assert.equal(saved.messages[6].isError, true);
+  });
+
   it("saves and lists chats for the owning user only", async () => {
     const { repository, service } = setupChatHistoryService();
 

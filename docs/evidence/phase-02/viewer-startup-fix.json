@@ -1,0 +1,356 @@
+{
+  "date": "2026-10-11",
+  "recordedAtUtc": "2026-10-11T16:50:08.974Z",
+  "scope": "Stage-2 controlled noVNC startup race: do not expose an allocation until Chrome, viewer assets and the RFB backend are ready",
+  "baseCommit": "08ae650",
+  "hostNodeVersion": "24.19.0",
+  "reviewStatus": {
+    "R1": "INDEPENDENT_REVIEW_PASSED_SCOPED_TO_SELECTED_FINDING",
+    "R2": "INDEPENDENT_REVIEW_PASSED_SCOPED_TO_SELECTED_FINDING",
+    "R3": "SQLITE_LOCK_FIX_INDEPENDENT_RE_REVIEW_PASSED",
+    "R4": "INDEPENDENT_REVIEW_PASSED_SCOPED_TO_SELECTED_FINDING",
+    "viewerStartup": "IMPLEMENTED_AND_LOCALLY_VERIFIED_PENDING_INDEPENDENT_REVIEW",
+    "independentReportSha256": "4a9ce3d7129fd8dcec7241e291cbd22586307842d40ed9c932fdd06cb0b53553"
+  },
+  "historicalLedger": "docs/evidence/phase-02/sqlite-lock-fix.json",
+  "historicalLedgerSha256": "a395676f99675cb94f2d874bc1c64b100a480a691d3fc1daab8ca41b17615e7e",
+  "controlledRegression": {
+    "injectedDelayMs": 8000,
+    "service": "websockify only; pinned Chrome unchanged",
+    "beforeRepair": {
+      "result": "FAIL",
+      "tests": 1,
+      "failed": 1,
+      "moduleHttpStatus": 502,
+      "framebuffer": "ABSENT",
+      "leaseStillValid": true,
+      "viewerTimeoutMs": 15000
+    },
+    "afterRepair": {
+      "focusedPairPassed": 2,
+      "delayedCaseIncludedInFullSuite": true
+    },
+    "limitation": "Demonstrates an actual startup race mechanism. The individual earlier uninstrumented 10/11 failures have no diagnostic proving this same cause."
+  },
+  "startupContract": {
+    "probes": [
+      "AUTHENTICATED_CDP_VERSION",
+      "NOVNC_RFB_MODULE",
+      "WEBSOCKET_RFB_GREETING"
+    ],
+    "probeLocation": "TRUSTED_SUPERVISOR_PRIVATE_NETWORK",
+    "inputSent": false,
+    "deadline": "min(startup+15000ms, existingLease, immutableExecutionDeadline)",
+    "freshExpiryAfterProbes": true,
+    "failedStartup": "EXISTING_PHYSICAL_STOP_PATH",
+    "viewerTimeoutMs": 15000
+  },
+  "verify": {
+    "command": "npm run verify",
+    "result": "PASS",
+    "contractTests": 33,
+    "apiTests": 1036,
+    "runnerTests": 31,
+    "webTests": 636,
+    "runtimeTests": 43,
+    "totalTests": 1779,
+    "failedTests": 0,
+    "typesArchitectureRuntimeSyntax": "PASS",
+    "newReadinessTests": 6
+  },
+  "databaseIntegration": {
+    "result": "PASS",
+    "passed": 81,
+    "failed": 0,
+    "migrations": 25,
+    "schemaDrift": "NONE",
+    "target": "Disposable PostgreSQL 16 tmpfs with exact database guard; removed after verification"
+  },
+  "dockerIntegration": {
+    "result": "PASS",
+    "passed": 12,
+    "failed": 0,
+    "cancelled": 0,
+    "durationMs": 165886.4659,
+    "focusedViewerPair": "2_PASS_0_FAIL",
+    "sanitizedProof": {
+      "images": {
+        "chromeImage": "sha256:b437d924db7ccfda4848f8fdfab604881d63585c3bda6c3b8d5b608cd0b508c0",
+        "egressImage": "sha256:4c2a759133faf621757364ab08231ef161b2786a1fe38bb4f3a17cd752c682b2"
+      },
+      "supervisorDocker": "29.9.0 / 29.8.2",
+      "chrome": {
+        "version": "155.0.8059.39",
+        "sandbox": "Sandbox Status\nLayer 1 Sandbox\tNamespace\nPID namespaces\tYes\nNetwork namespaces\tYes\nSeccomp-BPF sandbox\tYes\nSeccomp-BPF sandbox supports TSYNC\tYes\nPtrace Protection with Yama LSM (Broker)\tNo\nPtrace Protection with Yama LSM (Non-broker)\tNo\n\nYou are adequately sandboxed."
+      },
+      "navigation": {
+        "url": "https://example.com/",
+        "screenshotBytes": 63862,
+        "noVNC": 200,
+        "rfb": "\u0002\fRFB 003.008\n",
+        "unauthorized": 403
+      },
+      "network": {
+        "internet": "BLOCKED",
+        "metadata": "BLOCKED",
+        "host": "BLOCKED",
+        "hostBridge": "BLOCKED"
+      },
+      "rendererCrash": {
+        "pageCrash": true,
+        "browserStillResponsive": true,
+        "passedBeforeCrash": true,
+        "recorded": [
+          {
+            "item": "item-1",
+            "status": "PASS",
+            "evidence": [
+              {
+                "kind": "TEXT",
+                "requirementId": "requirement-text-1",
+                "textContent": "Successful checkout: PASS. 2 step(s) completed. All declared steps completed."
+              }
+            ]
+          }
+        ],
+        "finished": false,
+        "failure": "BROWSER_SESSION_UNAVAILABLE",
+        "terminated": true
+      },
+      "viewerFramebuffer": {
+        "width": 1440,
+        "height": 900,
+        "screenshotBytes": 5147,
+        "disconnectedAfterStop": true
+      },
+      "delayedViewerFramebuffer": {
+        "width": 1440,
+        "height": 900,
+        "screenshotBytes": 5147,
+        "disconnectedAfterStop": true
+      },
+      "tenantIsolation": "PASS",
+      "stop": "CONFIRMED",
+      "leaseWatchdog": "PASS",
+      "hardDeadline": "PASS",
+      "chromeCrash": "STOPPED_WITHOUT_REPLAY",
+      "orphanNetwork": "REMOVED"
+    },
+    "earlierAttempts": [
+      {
+        "result": "12_CANCELLED_IN_SETUP",
+        "reason": "Disposable image build exceeded the original 30s generic Docker command timeout.",
+        "correction": "Only fixture-image build command gets 90s; viewer and authority timeouts unchanged."
+      },
+      {
+        "result": "11_PASS_1_FAIL",
+        "reason": "Both viewer cases used the same controller port; the first detached gateway retained the previous in-memory journal.",
+        "correction": "Track and terminate each case-owned gateway process with PID, command and execution identity checks after physical Stop assertion."
+      }
+    ]
+  },
+  "builds": {
+    "supervisorImage": "PASS_REBUILT_WITH_READINESS_HELPER_AND_DRIVER",
+    "chromeAndEgress": "UNCHANGED"
+  },
+  "images": {
+    "chrome-runtime": "sha256:b437d924db7ccfda4848f8fdfab604881d63585c3bda6c3b8d5b608cd0b508c0",
+    "browser-egress": "sha256:4c2a759133faf621757364ab08231ef161b2786a1fe38bb4f3a17cd752c682b2",
+    "browser-supervisor": "sha256:794e63cf39ba3fd3ddc68f9e58805d401caaa09de96cce62e93b376e79bb6b24"
+  },
+  "cleanup": {
+    "runtimeContainers": "NONE",
+    "runtimeNetworks": "NONE",
+    "testControllers": "NONE",
+    "testImages": "NONE",
+    "disposableDatabases": "NONE",
+    "applicationPostgres": "HEALTHY_PRESERVED"
+  },
+  "preservation": {
+    "existingProductionFilesChanged": [
+      "apps/browser-runtime/src/docker-driver.mjs"
+    ],
+    "newProductionFiles": [
+      "apps/browser-runtime/src/browser-readiness.mjs"
+    ],
+    "sessionAndQaController": "HASH_MATCH_PREVIOUS_SNAPSHOT",
+    "sqliteJournalAndSelectedR1R2R3R4Repairs": "HASH_MATCH_PREVIOUS_SNAPSHOT",
+    "historicalEvidence": "UNCHANGED",
+    "migrations": "UNCHANGED",
+    "publicationDeploymentPaidAi": "NONE"
+  },
+  "activation": {
+    "publicBeta": "NO_GO",
+    "productionV2Activation": "DISABLED",
+    "nextGate": "Independent review of viewer startup fix, then stage-2 closeout decision; stages 3-8 remain pending"
+  },
+  "changedFromPreviousSnapshot": [
+    "apps/browser-runtime/src/docker-driver.mjs",
+    "apps/browser-runtime/tests/docker.integration.mjs",
+    "apps/browser-runtime/tests/supervisor.test.mjs",
+    "docs/AI_HANDOFF.md",
+    "docs/NEXT_STEPS.md"
+  ],
+  "sourceHashesSha256": {
+    ".dockerignore": "3e91f84024e4b990f7879077cb986f739a8baa984efd5b699f5c24095ff6f307",
+    "apps/api/.env.example": "bfe9d38972c047c913656737634cdc2703c2b1168c067ca49efee7e532e85a3c",
+    "apps/api/package.json": "211c8b65cd98013452cd63c6dd65aa22377bf3606536a19c60149c5752e42cd9",
+    "apps/api/prisma/migrations/20261010000100_add_qa_target_approval_v2/migration.sql": "d1c750352f1f416aa1874462d5cabb096c7886cf2030403c4a3b0ddb7a644096",
+    "apps/api/prisma/migrations/20261011000100_add_browser_runtime_supervision/migration.sql": "ee98d813f090e4acc4471ca535c6604c7df382273ed5fb61e69ab0378506e1ea",
+    "apps/api/prisma/schema.prisma": "a23efeb92838107abb18b3fe47400a74ac4c596be1f5668fc7b5730725425bff",
+    "apps/api/src/config/env/loaders/core.ts": "7c18d95a9df109d743b5e724959ab00dd37b8a7732917de0c646f9ea8a0b838c",
+    "apps/api/src/config/env/validate.ts": "010342e98bb10548861c9496090d5eb31dadb7ed4fc9c9e7ad23f73281f29ba2",
+    "apps/api/src/lib/canonical-json.ts": "0d1a38d80f454096b7304da4b526e444825ec93393acdac81731be467df45db2",
+    "apps/api/src/modules/browser-runtime/browser-runtime.repository.ts": "e681addd0e7ec3ffbf8b0e3ac29894af2d42de78a92ad5bfcd7c14614305bb72",
+    "apps/api/src/modules/browser-runtime/browser-runtime.routes.ts": "08f625a4587685b76098ac2eaeef028f041c573cd1908655e7c1dcff4675b2e2",
+    "apps/api/src/modules/browser-runtime/browser-runtime.service.ts": "195d3b1908e5a948370a9457b47b76b90e6a880f6fb24da0c466f225f5d1b07f",
+    "apps/api/src/modules/browser-runtime/browser-runtime.types.ts": "326241aa205acf0fc3cc401c10b20d77b38915828a8ab25275837d298e9ccca6",
+    "apps/api/src/modules/projects/projects.routes.ts": "327e1e953a6d02f3398432f11ba89bc79389cfe45c5a859c15b46cce37b91c62",
+    "apps/api/src/modules/qa-requests/qa-agent.routes.ts": "0f3b8f151ee22ce119a209d4f8e867600d675718b9dbb774f2cf954a666f5af7",
+    "apps/api/src/modules/qa-requests/qa-execution-recipes.repository.ts": "00912512687d3f93ff8dfe95f6596629d9feeb78f5967a7c8b44f86d04861316",
+    "apps/api/src/modules/qa-requests/qa-execution-recipes.schema.ts": "3686315512f6c5f3b16e5ab9f01e4ebd19ac24094e4f283d1d5bd7c534975f19",
+    "apps/api/src/modules/qa-requests/qa-execution-recipes.types.ts": "ddebd617b80d50a8fd1b29d3998b061306c83f12e664a17adabbe77ba40d76f2",
+    "apps/api/src/modules/qa-requests/qa-execution.controller.ts": "896411481e15882d28518f46e5a0e37f73341de5aafec9c7240c4557141cf671",
+    "apps/api/src/modules/qa-requests/qa-execution.repository.ts": "ffee5933c7121f5a2a52b028aafa23fd4061bb9d5f01a7b985194f0a8b2a9062",
+    "apps/api/src/modules/qa-requests/qa-execution.service.ts": "74fd542f3a8d548c9d5d93958fefb12b684ff3312487cdfd7c68290f36c35e78",
+    "apps/api/src/modules/qa-requests/qa-execution.types.ts": "c8659334e9d6b37b54d3bea458e1ff7d83c92632d5c3cf749d3f5fd28b4051ca",
+    "apps/api/src/modules/qa-requests/qa-processing.handlers.ts": "77f9a46f4128c4c8a88ef71c7668c1e7530b889f67e0e2c17361b3361aebd06a",
+    "apps/api/src/modules/qa-requests/qa-runner.controller.ts": "cce4ea5bbb51999030fdae9cbe3b32b7048178bc5952889dfe4445e5f2d21873",
+    "apps/api/src/modules/qa-requests/qa-runner.repository.ts": "4541d3d1b9d7d7bf02e21c24554cc7426cd1755dd2a87674bebb8a2612ccf9c3",
+    "apps/api/src/modules/qa-requests/qa-runner.service.ts": "0f5bcba41bdfed52b2a40a788a027e5bd66e188dc9b2f809c0d05ec6bade56b5",
+    "apps/api/src/modules/qa-requests/qa-runner.types.ts": "1adef311b9fb9988aca901ff3c0f6d78a5e820faebc54a34fdafc92567c5b573",
+    "apps/api/src/modules/qa-targets/qa-targets.binding.ts": "2f8a25c7698750fa3e45e1090598c1f47ef49c55a9197b37339af74b30d3c60b",
+    "apps/api/src/modules/qa-targets/qa-targets.execution.ts": "880b001871c0905aae65846dbfd4d6d7ebc51f2adda873c003da8c52f90c23fd",
+    "apps/api/src/modules/qa-targets/qa-targets.proof.ts": "2a887b2c8d622903a31017722b96d4b581207602201d0cd4441acedc05a89c41",
+    "apps/api/src/modules/qa-targets/qa-targets.repository.ts": "0c3bf15b7c03aeeecd048a0f887f17a64b7a9c8c45adcc49eb7a883624d3a3ae",
+    "apps/api/src/modules/qa-targets/qa-targets.routes.ts": "ddde7b445136bc992df59a679246ae7fd679f25caa01bac8b8626a564622eb41",
+    "apps/api/src/modules/qa-targets/qa-targets.schema.ts": "a72c239c1da29a0ef98e98ea12ac3ec3211c2387a46218c743abbf53f06ad20d",
+    "apps/api/src/modules/qa-targets/qa-targets.service.ts": "7de1cf7bf01956d368acf9122852f3e7aa71e975eb6cda3986859f85adf76b35",
+    "apps/api/src/modules/qa-targets/qa-targets.types.ts": "f0697dc1f30c816342a1d002dea399d970f56dfc2d98d19f6c71a9f76dfdcbf1",
+    "apps/api/src/modules/test-sessions/test-sessions.repository.ts": "d18de0dd60b4d7c5b6c89410332bf481e5d1870d72cd995e61999fa8333bdc4a",
+    "apps/api/src/modules/test-sessions/test-sessions.worker.ts": "bf2518cf78b16aa63443de599b46659e5f761f2b5b754aa08e22521f2825fb77",
+    "apps/api/src/scripts/browser-reaper.ts": "aca429557cbf2ed81733fa93717832c9101cb9e85712cce14b388efb92b61906",
+    "apps/api/src/scripts/browser-transition.ts": "ebf7e31a55e3aad71b38d252ff3ebadf643d19c9b5a4ed8b59e67659085cf627",
+    "apps/api/tests/browser-runtime.service.test.ts": "c73e4e7d591d99a5e878f40da7096c8df290c1f9e246c9462fe4ccb9a0f9b2e7",
+    "apps/api/tests/env.test.ts": "cd7a65cf47977906240c713b4b332139ef4ff8c045a85d9bccca1d21d066ce88",
+    "apps/api/tests/postgres.integration.ts": "63e09946cbf321ee96a4656b3818e7718220b9aed267fcdffaf52b3403904e6c",
+    "apps/api/tests/projects.routes.test.ts": "7ad08e16ad341f8fcfefd311ac80e4025e246750fbe3ed05d4f8a349ea99d0e1",
+    "apps/api/tests/qa-execution-expiry.test.ts": "35de2d1a17cc675347c10051f1f28e498dd46772f1b2626dfaaf519fc6d2285d",
+    "apps/api/tests/qa-runner.service.test.ts": "de324b705e52424bee093ed6e8c97361128b011c3b5153c7a0929159a75e45e0",
+    "apps/api/tests/qa-targets.postgres.integration.ts": "ebd5a2c9d77e0001b625d7ed4fedb6082718cb95b4508f5a7009f56ca74d0cd5",
+    "apps/api/tests/qa-targets.service.test.ts": "e3b0faa77c2f712f1ee3745c624835878944543ccc3b74d29ed2ddf8578c03fb",
+    "apps/browser-runtime/Dockerfile": "81c10ec8ff0ca7e3d0016e63c2a07f1115dbe3245f0883c3cee9b7e9c2a47865",
+    "apps/browser-runtime/Dockerfile.egress": "6ed3f48f2911512139df2ef1c7110a5a24385b031ab5a6bf6906e2ba58f45544",
+    "apps/browser-runtime/Dockerfile.supervisor": "54f311ab7a578d35d1644e1038b0456a39bf027c54bec891d514dcfe4a420249",
+    "apps/browser-runtime/README.md": "204551aad94c63ca2e89e749ebfa0c600e003cd3030312d8395309335e360d39",
+    "apps/browser-runtime/package.json": "cb954bca56aa9f1b5773a5a2130f2dda553b6a0fb532b68d512295a8103835f5",
+    "apps/browser-runtime/scripts/check.mjs": "360ec4270d5c8475447193fb9a4cc558ee1f8751fcd3fae60924fe5722ff6e3c",
+    "apps/browser-runtime/seccomp.json": "17d0d3fd50b465f5fe12aad0ea68917492fed2798cdc38053fdd0d0d1984aeac",
+    "apps/browser-runtime/src/browser-readiness.mjs": "7ab6462a173aff57212ff1c2e02365100121b7b1de8f095f3840a10fc78a3cf0",
+    "apps/browser-runtime/src/config.mjs": "d6708599e5c5f0ac87aa65dee9bbaeed41c22c937c29bba63f13204c9687db3a",
+    "apps/browser-runtime/src/docker-driver.mjs": "9d1f175131091e821f0953123a581cc6e901d55b4d19c7c9c8ec2b1ca26f0121",
+    "apps/browser-runtime/src/egress-main.mjs": "233226f43681396bc8e8e3f6b0bcecfb32b0a922602d9632decadec2392aafb4",
+    "apps/browser-runtime/src/egress-policy.mjs": "d72eaf0e1ce965c74bc05438a164755c022777fa49990e26a5ad15f9a573cdd3",
+    "apps/browser-runtime/src/journal.mjs": "07f3cd6e81168e3a5dbcf192644f2c83902164ea8ca569b9f7e59399b856ef12",
+    "apps/browser-runtime/src/project-claim.mjs": "d01193b836d50eceb0ef946a892ff16b6a165283124855a994b5223a08d3aad2",
+    "apps/browser-runtime/src/reaper-main.mjs": "de5a0c0e1b127d161a91fdac712874797a3f34d83201799a6dde1d731d72013b",
+    "apps/browser-runtime/src/runtime-main.mjs": "8721ec66b45dd801c537726caab963a42249d24913e22dba04208571ac81807a",
+    "apps/browser-runtime/src/supervisor-main.mjs": "8a89729991a54a4e17e0c92787a3afda8fedce74837ec4e2a54d8b1ad289d703",
+    "apps/browser-runtime/src/supervisor.mjs": "f04a4e32c7cc7fd3fb56316ba1bf94a143a36c0c6520eac1bfcfa26ecf6d9c26",
+    "apps/browser-runtime/src/viewer-gateway.mjs": "ff3c03d489b3c60d366a868bf03f0786e79e26757ff5827ea34b7e8ca7cedc0b",
+    "apps/browser-runtime/src/viewer-grants.mjs": "c8be2bd60e073e3a90ff15954f0a1620cfad891ed3b373bc18c8b561b104540b",
+    "apps/browser-runtime/tests/browser-readiness.test.mjs": "e90c7d210c08ede9efa0edcad7cf68bf0d41429ad9b740d308cb5ebf13c98cd7",
+    "apps/browser-runtime/tests/docker.integration.mjs": "78745bee98930e2440f57bac92e624120d776d72348391f4bd7ccff1cb2fbe2e",
+    "apps/browser-runtime/tests/egress-policy.test.mjs": "b8e57ce1d8c42c07da0ccd0d26ee3c5eee60cb4ad866f6a04d2e9516614095ac",
+    "apps/browser-runtime/tests/fixtures/registration-contract.mts": "6c0a9be0c961f0451e967421e4f04a7597e2666823aba8afb245e4557fc53599",
+    "apps/browser-runtime/tests/fixtures/runtime-lease.mjs": "a9e47a5036785eb1921989952303891987082bf268f288d599b98f1b7d781ffd",
+    "apps/browser-runtime/tests/fixtures/viewer-startup/Dockerfile": "406507b730c8e53d336b6a393366bc390b7d68cdc9cb81d455d003f23c10d509",
+    "apps/browser-runtime/tests/fixtures/viewer-startup/delayed-websockify": "4d926eb531a38c35cd0d59a2de9e25e4a65cc54628e90712b58be416c8509b37",
+    "apps/browser-runtime/tests/journal-lock.test.mjs": "48f9c791226e5fdeec4f9e75bc665dd7d070eaab651d2537f81195addbaf3c8f",
+    "apps/browser-runtime/tests/registration.test.mjs": "8353b3632047604432726ab99750f2d1a307ff5b8694b55569c6c9c6131cd4dd",
+    "apps/browser-runtime/tests/runtime-lease.test.mjs": "b0fec5cf46b68e75c641f9bed1c1e5117439502ff250db996e7eafd5f76a092d",
+    "apps/browser-runtime/tests/supervisor.test.mjs": "ceec797cbb81244b36a70c91524b988a275b102f62242d7c282e66dbd520347b",
+    "apps/browser-runtime/tests/viewer-gateway.test.mjs": "677cb0d7c976828cd638c6526c59e8b4d4a46717863f49df04cbeed82a6b0a12",
+    "apps/browser-runtime/tests/viewer-grants.test.mjs": "13002b2bf55a8fc1d53e9286322127c8d6278c4cd291d2011a9fcf0709de1ff2",
+    "apps/runner/package.json": "5451058b325f1c8f7df1ac369b01f1543e352140a1170d023433e56f5d5b3224",
+    "apps/runner/src/execution.ts": "4659e3e5eefca0a853b3b4b6c25f91f70022f743407bf3b8e70d8b0d2880d168",
+    "apps/runner/src/http-client.ts": "284193202415f1c5e280750371d3ef4248bcf9c7917b9ddb726cd31cdc4aed23",
+    "apps/runner/src/index.ts": "5266284c5f323cfa005a9cc74d6b703712f4c400bcf99eb36705625940dc71c3",
+    "apps/runner/src/interpreter.ts": "2849ffa43415bb030dec419efe72ef78aa6cb4ec636106856715381086eea00e",
+    "apps/runner/src/playwright-session.ts": "0cdfcb5d3de40054cdf47b2813985f0a67265e41ee1282de68d100088d804d2c",
+    "apps/runner/tests/execution.test.ts": "5fd62a39acaadb71d43854d9d7364122b44ff479c09529ed7afc9735120ab982",
+    "apps/runner/tests/fixtures.ts": "70edc6a91fec5f9de131fe2b8e534b4178a336334b142e17fbdb74504ab5b700",
+    "apps/runner/tests/http-client.test.ts": "1d5a3a15287118f03083c77171b185c7f5202ed3801a9aa69ec5dc7ebfb0a1ec",
+    "apps/web/tests/accountSessionBoundaries.test.ts": "efa7953847b693e07320a33a778dba00054da272019fa1d976cc3df41d5e71a9",
+    "deploy/browser-runtime.compose.yml": "d2301202810bc1e57d141e7b4bcf1f63d1d659b34bea69b99fa2e5f1e2d442fe",
+    "docs/AI_HANDOFF.md": "1c267e5c8056859576420134a26adf3225da65f52b8ce0a676c805fc302f9df4",
+    "docs/NEXT_STEPS.md": "abb0c722719276a5c1f898e2656e050eb12e010e3995c73c1a29164df56c8f2e",
+    "docs/PHASE_02_REVIEW_FIX.md": "d55ad25ba1c9c1c70aeb4d3f5b79095c7d390415c30987c8ea1a69ef11cc458f",
+    "docs/PHASE_02_SQLITE_LOCK_FIX.md": "75e8720286e5a4e36c7fe15d46f6ea7c413e4483dcf566a9fef4126d32983327",
+    "docs/PHASE_02_VIEWER_STARTUP_FIX.md": "451b72be78bc7bae88ba3504909181ea86a1f1e2bb1b6cb685a8f19d196233d9",
+    "package-lock.json": "e336e1e1ac4153687b8cd3a94fc46d37a60e56515a63274daefa1e19f7fb3221",
+    "package.json": "ac5f278b254e2c7e25000757765c3136f394d0a2f6172d0cbe489e95ede113be",
+    "packages/qa-execution-contract/src/index.ts": "9b28f456b3ee1d9d3f16a9dd6be4544ff59a14f1805fae43b21ab31699fdbbc5",
+    "packages/qa-execution-contract/src/runtime.ts": "287e50d56df1f288810727c710ba8478336c01d4b2ac13bb8d1a7354c131916e",
+    "packages/qa-execution-contract/src/target.ts": "16a887db6f60884c4c9dbf19d0c9e2c9f40dd924ae84aed386692e05c8620614",
+    "packages/qa-execution-contract/src/v2.ts": "a5a629eac5b1b70bcc089667b85974e07747a7507d51ef381c2332cc0a8abd4e",
+    "packages/qa-execution-contract/tests/v2.test.ts": "d2f4390191f12d5b8bae57e411b040a282142e15216b0548711ccc176b19aff7"
+  },
+  "localLogFingerprints": [
+    {
+      "path": "work/novnc-startup/baseline.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "b5557506df081788cf22704975bd7febd0af5367239bd9dfaf5079add5ddb0a0"
+    },
+    {
+      "path": "work/novnc-startup/build.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "1542599ff4f9035e3261c7d342844d711cf4f2eaae8899507e1af40c759e1a25"
+    },
+    {
+      "path": "work/novnc-startup/verify.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "ade4d7b0285bb34210b3e6512897c68f6def3ee94fad0b02db96fc3e5b52349f"
+    },
+    {
+      "path": "work/novnc-startup/migration.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "e50697dc80ee0a06b06beee6258604dcea95e9a1bec6655f104720ac10042025"
+    },
+    {
+      "path": "work/novnc-startup/drift.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "acc609255ec92669a28612a8368121206c69413f3be24f441dcb2e064d9b1cb1"
+    },
+    {
+      "path": "work/novnc-startup/db.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "db0b13cf1c2a69b7da38002f6a289f214877ed46febe42ab5178f36b25c785af"
+    },
+    {
+      "path": "work/novnc-startup/docker.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "b5084343b7e5e4cc3e86fdd509b0ab8c74e133808027df95651d7b26020d5fa1"
+    },
+    {
+      "path": "work/novnc-startup/docker-final.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "d9d155da1f01d7a2caad72d789ebe05391213d115a2bee38a467847385a5dfd4"
+    },
+    {
+      "path": "work/novnc-startup/viewer-pair.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "a9692d27356ebeed472d7105a4a10788abec51a920db3c855bcb01edc70d18dc"
+    },
+    {
+      "path": "work/novnc-startup/docker-verified.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "a60f4554a1a787785f789b09d5a15f787a458244970415bb828a13d5701aa594"
+    },
+    {
+      "path": "work/novnc-startup/supervisor-build.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "fb015bf818c720e16343b797e36962d049bdd4f0ea459187d6cfc3d60efe1b5e"
+    }
+  ]
+}

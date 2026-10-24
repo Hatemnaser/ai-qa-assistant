@@ -112,7 +112,7 @@ describe("QA asynchronous processing worker", () => {
         const error = new QaRecipeOutputError(stage, [{
           code: "invalid_type",
           expected: "string",
-          received: "undefined",
+          input: undefined,
           path: stage === "generation" ? ["bundle", "items", 0, "steps", 0, "ref"] : ["suggestions", 0, "message"],
           message: "synthetic-private-issue-message",
         }]);

@@ -1,9 +1,11 @@
 import { DATA_LIMITS } from "../../config/data-limits.js";
+import { hasQaEvidenceContent } from "@oddpath/qa-execution-contract";
 import { prisma } from "../../db/prisma.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { AppError } from "../../lib/errors.js";
 import { assertCurrentTestRequest, lockQaSessionScope } from "../test-sessions/test-sessions.guard.js";
 import { nextQaTimelinePosition } from "../chat-history/chat-timeline.js";
+import { availableEvidenceWhere, createQaProvenance, evidenceAssetSnapshot } from "./qa-evidence-provenance.js";
 import type {
   AddQaEvidenceCommand,
   CreateQaRequestCommand,
@@ -129,6 +131,8 @@ export function createPrismaQaRequestRepository(
                           id: true,
                           originalName: true,
                           readyAt: true,
+                          checksumSha256: true,
+                          evidenceExpiresAt: true,
                           sizeBytes: true,
                           status: true,
                         },
@@ -606,10 +610,12 @@ export function createPrismaQaRequestRepository(
         if (run.status !== "ACTIVE") throw invalidRunStatus(run.status);
         if (run.version !== input.expectedVersion) throw staleVersion();
         const item = await tx.qaChecklistItem.findFirst({
-          select: { id: true },
+          select: { id: true, expectedResult: true },
           where: { artifactId: run.artifactId, id: input.checklistItemId },
         });
         if (!item) throw notFound();
+        const provenance = createQaProvenance({actor: input.actor, projectId: input.projectId, requestId: request.id, runId: run.id,
+          artifactId: run.artifactId, item, target: request.target, environment: request.environment, commitSha: run.commitSha, recordedAt: new Date()});
         await tx.qaCheckResult.upsert({
           create: {
             checklistItemId: item.id,
@@ -617,11 +623,13 @@ export function createPrismaQaRequestRepository(
             observedResult: input.observedResult || null,
             runId: run.id,
             status: input.status,
+            provenance: toJson(provenance),
           },
           update: {
             notes: input.notes || null,
             observedResult: input.observedResult || null,
             status: input.status,
+            provenance: toJson(provenance),
           },
           where: { runId_checklistItemId: { checklistItemId: item.id, runId: run.id } },
         });
@@ -780,6 +788,7 @@ async function addEvidence(tx: Prisma.TransactionClient, command: AddQaEvidenceC
   }
 
   const uniqueAssetIds = [...new Set(command.assetIds)].sort();
+  const snapshots = new Map<string, ReturnType<typeof evidenceAssetSnapshot>>();
   if (uniqueAssetIds.length > 0) {
     if (!command.actor.userId) throw new AppError("Asset owner is required.", 403, "QA_EVIDENCE_FORBIDDEN");
     for (const assetId of uniqueAssetIds) await lockAsset(tx, assetId);
@@ -791,6 +800,7 @@ async function addEvidence(tx: Prisma.TransactionClient, command: AddQaEvidenceC
         purpose: true,
         qaEvidenceAsset: { select: { id: true } },
         status: true,
+        originalName: true, declaredMimeType: true, detectedMimeType: true, sizeBytes: true, checksumSha256: true, evidenceExpiresAt: true,
       },
       where: { id: { in: uniqueAssetIds } },
     });
@@ -801,12 +811,20 @@ async function addEvidence(tx: Prisma.TransactionClient, command: AddQaEvidenceC
         asset.projectId !== command.projectId ||
         asset.purpose !== "QA_EVIDENCE" ||
         asset.status !== "READY" ||
+        (asset.evidenceExpiresAt && asset.evidenceExpiresAt <= new Date()) ||
         Boolean(asset.qaEvidenceAsset)
       )
     ) {
       throw new AppError("Asset was not found.", 404, "ASSET_NOT_FOUND");
     }
+    for (const asset of assets) snapshots.set(asset.id, evidenceAssetSnapshot(asset));
   }
+
+  const requirement = command.requirementId ? await tx.qaEvidenceRequirement.findFirst({select: {checklistItemId: true}, where: {id: command.requirementId}}) : null;
+  const itemId = command.checklistItemId || requirement?.checklistItemId;
+  const item = itemId ? await tx.qaChecklistItem.findFirst({select: {id: true, expectedResult: true}, where: {id: itemId, artifactId: run.artifactId}}) : null;
+  const provenance = createQaProvenance({actor: command.actor, projectId: command.projectId, requestId: request.id, runId: run.id,
+    artifactId: run.artifactId, item, target: request.target, environment: request.environment, commitSha: run.commitSha, recordedAt: new Date()});
 
   const evidence = await tx.qaEvidence.create({
     data: {
@@ -817,12 +835,13 @@ async function addEvidence(tx: Prisma.TransactionClient, command: AddQaEvidenceC
       externalReference: command.externalReference || null,
       kind: command.kind,
       metadata: command.metadata ? toJson(command.metadata) : undefined,
+      provenance: toJson(provenance),
       requirementId: command.requirementId || null,
       runId: run.id,
       textContent: command.textContent || null,
       transport: command.actor.transport,
       assets: {
-        create: uniqueAssetIds.map((assetId, ordinal) => ({ assetId, ordinal })),
+        create: uniqueAssetIds.map((assetId, ordinal) => ({ assetId, ordinal, snapshot: toJson(snapshots.get(assetId)!) })),
       },
     },
   });
@@ -856,11 +875,10 @@ async function countMissingEvidence(
   });
   if (requirements.length === 0) return 0;
   const fulfilled = await tx.qaEvidence.findMany({
-    distinct: ["requirementId"],
-    select: { requirementId: true },
-    where: { requirementId: { in: requirements.map(({ id }) => id) }, runId },
+    select: { requirementId: true, kind: true, externalReference: true, assets: {select: {id: true}} },
+    where: { requirementId: { in: requirements.map(({ id }) => id) }, runId, ...availableEvidenceWhere(new Date()) },
   });
-  return requirements.length - new Set(fulfilled.map(({ requirementId }) => requirementId)).size;
+  return requirements.length - new Set(fulfilled.filter(hasQaEvidenceContent).map(({ requirementId }) => requirementId)).size;
 }
 
 function assertGenericRunMutationAllowed(run: { executionRecipeId: string | null }) {

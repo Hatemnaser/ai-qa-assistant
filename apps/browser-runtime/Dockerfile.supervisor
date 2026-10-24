@@ -1,0 +1,26 @@
+FROM node:24-bookworm-slim AS build
+WORKDIR /opt/oddpath
+COPY package.json package-lock.json ./
+COPY apps/runner/package.json apps/runner/package.json
+COPY apps/browser-runtime/package.json apps/browser-runtime/package.json
+COPY packages/qa-execution-contract/package.json packages/qa-execution-contract/package.json
+RUN npm ci --ignore-scripts --workspace=@oddpath/browser-runtime --workspace=@oddpath/runner --workspace=@oddpath/qa-execution-contract --include-workspace-root
+COPY packages/qa-execution-contract packages/qa-execution-contract
+COPY apps/runner apps/runner
+RUN npm --prefix apps/runner run build
+COPY apps/browser-runtime apps/browser-runtime
+FROM node:24-bookworm-slim
+ARG TARGETARCH
+RUN case "$TARGETARCH" in amd64|arm64) ;; *) printf 'Unsupported browser supervisor architecture: %s (expected amd64 or arm64)\n' "$TARGETARCH" >&2; exit 1 ;; esac \
+    && test "$(dpkg --print-architecture)" = "$TARGETARCH" \
+    && apt-get update && apt-get install -y --no-install-recommends ca-certificates curl tini \
+    && install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
+    && printf 'Types: deb\nURIs: https://download.docker.com/linux/debian\nSuites: bookworm\nComponents: stable\nArchitectures: %s\nSigned-By: /etc/apt/keyrings/docker.asc\n' "$TARGETARCH" > /etc/apt/sources.list.d/docker.sources \
+    && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /opt/oddpath
+COPY --from=build /opt/oddpath /opt/oddpath
+ENV NODE_ENV=production
+EXPOSE 8081
+ENTRYPOINT ["/usr/bin/tini", "--", "node", "apps/browser-runtime/src/supervisor-main.mjs"]

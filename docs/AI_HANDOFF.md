@@ -1,21 +1,194 @@
 # AI Handoff
 
+Latest checkpoint (2026-10-24, Oracle refresh): recovery fencing/read-only
+assessment has bounded independent GO in
+`work/phase-08a-recovery-acceptance-20261024/REVIEW.md`. Native Oracle ARM64
+browser acceptance is GO in `work/oracle-arm-acceptance-20261024/REVIEW.md`.
+Dependency repair has targeted GO in
+`work/dependency-acceptance-20261024/REVIEW.md`. The closed combined API/PG/one-browser
+rehearsal was repeated with the accepted patched images: 21 checks passed;
+independent combined acceptance is still pending. Read
+`work/oracle-combined-refresh-20261024/REPORT.md` next. These are local-only
+evidence paths, not artifacts promised in a fresh clone. Production feature
+activation, full hosted QA/noVNC workflow, off-host recovery, real services,
+unaided UX/legal and release gates remain open. Phase 08 NOT ACCEPTED;
+Public Release NO_GO. No new hosting spend, public deployment or merge is
+authorized by this checkpoint. Earlier entries preserve their dated states.
+
+Current checkpoint (2026-10-24): local notifications have targeted acceptance GO
+in `work/phase-08a-alerts-fix-acceptance-20261023/REVIEW.md`; full-data backup and
+quarantined restore retain their bounded GO. The next owner-authorized slice
+adds a persistent recovery database fence and read-only assessment. Read the
+newest `PHASE_08A_READINESS_INVENTORY.md` section and
+`work/phase-08a-recovery-fence-20261024/IMPLEMENTATION_REPORT.md`. This new slice
+requires independent acceptance. It cannot establish post-snapshot accounting,
+deletion or revocation continuity, nor promote recovered data. Live inbox,
+external host-death monitoring, off-host/PITR evidence, native host capacity,
+production activation and deployment/UX/legal gates remain open. Phase 08 and
+Public Release remain unaccepted. Sentry is deferred; no paid service or
+deployment is authorized.
+The older pending-review entries below describe their original checkpoints.
+
+Current checkpoint (2026-10-23): the integrated local stack has bounded GO in
+`work/phase-08a-stack-acceptance-20261023/REVIEW.md`. The next authorized slice
+adds full-data backup and quarantined recovery; read the newest section of
+`PHASE_08A_READINESS_INVENTORY.md` and `BROWSER_VAULT_OPERATIONS.md` first.
+Its implementation and fault-test evidence are in
+`work/phase-08a-full-backup-20261023/IMPLEMENTATION_REPORT.md`; independent
+acceptance remains pending. Historical backups cannot establish current
+financial/deletion continuity or authorize restored execution. Production
+activation, actual off-host/R2 recovery and Phase 08/Public Release remain gated.
+Earlier dated checkpoints below describe their original review state.
+
+2026-10-23 current: local 08A.1 managed-routing/login acceptance is GO after the
+CONNECT disconnect repair; see the bounded review and independence limits in
+`work/phase-08a-egress-acceptance-20261023/REVIEW.md`. Phase 08 and public release
+remain unaccepted. The owner authorized the next local integration slice:
+`deploy/self-hosted.stack.compose.yml` adds standard Nginx TLS/static ingress,
+browser/API reapers and separate durable journals to the existing closed API/PG
+and operations files. The isolated integration has 25 passing checks (TLS,
+real frontend/noVNC/QA/Stop, restart, maintenance and quarantined DB restore).
+`npm run verify` also passed (2038 pass, 0 fail, 1 Windows skip covered on Linux);
+568 prior evidence hashes remain unchanged. Implementation evidence is under
+`work/phase-08a-stack-20261023/`; independent
+acceptance of this new slice remains pending. Production v2/assets guards remain unchanged;
+the synthetic opt-in harness is not a deployment override. Read the latest
+section of `PHASE_08A_READINESS_INVENTORY.md` before using older dated status.
+
+2026-10-20: the R5 operations repair has targeted independent local GO
+(`work/phase-08a-state-ownership-acceptance-20261020/FINAL_REVIEW.md`). The owner
+then authorized bounded 08A.1 managed project discovery/routing. Its local
+implementation awaits independent acceptance; read `PHASE_08A_READINESS_INVENTORY.md`
+and the current `apps/browser-runtime/README.md` section. Production activation,
+full Phase 08 and public release remain unaccepted. No documentation restructuring.
+
 Use this file as the first context block for a fresh AI chat. It is intentionally short. For deeper roadmap details, read `docs/NEXT_STEPS.md`; for architecture details, read `docs/ARCHITECTURE.md`; for QA lifecycle and integration contracts, read `docs/QA_CONTROL_PLANE.md`; for the RecipeV1/local Runner boundary, read `docs/QA_EXECUTION_HARNESS.md`; for coding rules, read `docs/DEVELOPMENT_GUIDE.md`. Memory Intelligence decisions and retained review requirements live in `docs/MEMORY_INTELLIGENCE_ARCHITECTURE.md`.
 
-Last updated: 2026-10-08
+Last updated: 2026-10-23
 
-## Current publication review
+Current: phases 06B, 06C and 07 have bounded local acceptance GO; see their
+closeouts, including `PHASE_07_CLOSEOUT.md` and its acceptance evidence pointer.
+R1 False GO is Fixed after independent adversarial acceptance. Preserve the
+original failing review, repair and final acceptance evidence unchanged.
+
+The owner subsequently authorized local Phase 08 work with no additional hosting
+spend. Read `PHASE_08A_READINESS_INVENTORY.md`: closed API/private-PG packaging,
+separate runtime/migrator roles, browser amd64/arm64 package selection and the
+sequential PostgreSQL/HTTP/SMTP/upgrade release manifest are implemented locally
+and pending independent review. Oracle account exists, but no VM is available.
+Production browser/assets guards, automatic public project routing, complete
+vault/proxy/job/backup integration and live proof remain open. Reuse existing
+smoke/cleanup/recovery/ledger tools. No deployment or paid service was activated.
+Phase 08 NOT ACCEPTED; public release NO_GO. Older entries below are history.
+
+2026-10-16 identity-retention repair: the targeted acceptance review confirmed
+the global-window fix but proved that a longer `USAGE_WINDOW_HOURS` could
+still lose user quota history during cleanup. The owner authorized this P2
+repair only. Read `PHASE_06B_IDENTITY_RETENTION_FIX.md` and its separate ledger.
+No Astra/subagent was run; fresh independent acceptance is still required.
+Public activation and Phase06C remain gated.
+
+2026-10-15 retention-window repair: the acceptance-gate review confirmed the
+four preceding fixes but rejected 06B for an allowed 40-day quota with 32-day
+retention. The owner authorized only this remaining P2 repair. Read
+`PHASE_06B_RETENTION_WINDOW_FIX.md` and its separate evidence ledger. No Astra
+was run for implementation; final independent acceptance is still pending.
+Public activation and starting Phase06C remain gated.
+
+2026-10-15 final-review repair: the owner authorized the four final adversarial
+findings (anonymous global exposure after account deletion, QA provider replay,
+receipt preflight retry, and summary validation accounting). Read
+`PHASE_06B_FINAL_REVIEW_FIX.md` and its separate evidence ledger. Astra must not
+be started without fresh authorization for this repair; independent acceptance
+remains pending and public activation remains NO_GO.
+
+2026-10-15 follow-up: the owner authorized the independent findings about
+summary admission failing open and mixed confirmed/unknown fallback debits.
+Read `PHASE_06B_PARTIAL_REVIEW_FIX.md` and its separate evidence. The repair
+requires fresh independent Astra review; public activation remains NO_GO.
+
+2026-10-15 update: the owner authorized the two P1 financial-review repairs in
+Phase 06B. Read `PHASE_06B_P1_REVIEW_FIX.md`, its separate evidence ledger and
+`QUOTA_OPERATIONS.md`. Attempt-time quota aggregation and durable consumption
+receipts/recovery are the active repair boundary. A fresh independent review
+is required; 06C/public authentication and activation remain gated.
+
+Current slice: **Phase 06B durable quotas and browser reservations**, authorized
+after the independent native-import repair review passed and Phase 06A closed
+locally (`PHASE_06A_CLOSEOUT.md`). Read `PHASE_06B_CHECKPOINT.md` and
+`QUOTA_OPERATIONS.md`; its own final evidence is separate under phase-06b.
+Independent review of 06B precedes public-auth/email/abuse work. Production
+activation stays NO_GO. Earlier checkpoint paragraphs below are dated history.
+
+Stage 5 passed independent repair review; read `PHASE_05_CLOSEOUT.md` and the
+retained independent report/evidence. The original implementation and repair
+ledgers stay unchanged. QA history imports are inert; original QA binaries stay
+in the user's ZIP. The owner authorized **06A model selection and Auto**,
+described in `PHASE_06A_CHECKPOINT.md`. Review 06A before the durable quota and
+public-auth/email slices. The full Phase 06 and public beta remain incomplete.
+No working-DB migration, activation, deployment or paid provider call is included.
+
+06A's Auto boundary and unified reader/error-flag integration passed their
+reviewed cases. The latest review found native account imports losing known
+models because their import envelope lacks external `originalModel` metadata.
+The owner authorized this local repair; read
+`PHASE_06A_NATIVE_IMPORT_REVIEW_FIX.md` and
+`evidence/phase-06a/native-import-review-fix-validation.json`. Independent
+review of this repair passed before 06B. Original ledgers/reviews remain.
+
+3B closed locally after the retained independent review; read `PHASE_03B_CLOSEOUT.md`.
+The owner authorized stage 4 resources/tabs. Read `PHASE_04_CHECKPOINT.md` and
+`evidence/phase-04/validation.json` for the independent reader, scoped tabs and
+embedded viewer boundary. Stage 4 passed its independent repair review; older ledgers
+remain dated evidence. Public activation remains NO-GO.
+The three stage-4 review findings passed independent review. Their original
+implementation and repair ledgers remain dated evidence.
+
+## Current work — public-beta foundation
+
+Stage 2's local closeout is accepted after its independent reviews, including
+the actual noVNC CSP/framebuffer repair. Read `PHASE_02_CLOSEOUT.md` and preserve
+the dated stage-2 ledgers. The owner authorized the next local slice and chose
+manual login/MFA first, then encrypted saved login **after independent review**.
+
+Stage **3A** is the retained reviewed local foundation. Read
+`PHASE_03A_CHECKPOINT.md`, `apps/browser-runtime/README.md` and
+`evidence/phase-03a/validation.json`. It adds immutable MANUAL authentication,
+owner/CSRF login requests, Runner acknowledgements, capture/input fences,
+bounded preparation and execution, physical VNC handoff, ephemeral login,
+logout/Stop/deletion guards and controls in the existing SessionPage/controller.
+The PostgreSQL migration is additive and rehearsed only in a disposable DB.
+Working application data and activation settings are unchanged.
+
+Stage 3A's cumulative local closeout is recorded in `PHASE_03A_CLOSEOUT.md`.
+The owner authorized **3B** after the final EOF review. Read
+`PHASE_03B_CHECKPOINT.md` for the saved-login implementation and its verification
+boundary: opt-in cookies/localStorage, versioned AES-GCM and independent
+revocation journal, seven-day expiry, private encrypted transfer, active-use
+Stop and permanent deletion tombstones. Product tabs/resources remain stage 4. Stages 6-8 still own the remaining
+public routing/quotas, model choice, readiness and deployment
+gates. Public beta remains **NO-GO**. One session, one QA controller, current-run
+ownership, partial results and physical Stop proof remain mandatory.
+
+V2/browser/manual/saved-login flags remain disabled by default and production enablement is
+still rejected. No working-DB migration, deployment, publication, paid AI calls
+or third-party sign-in credentials are included. Stage-2 historical test counts
+are dated evidence, not proof of 3A; use its own final validation ledger.
+
+## Historical publication review (before this slice)
 
 Read `PRE_COMMIT_REVIEW.md` first for the accumulated-patch review and final
-verification ledger. The owner now authorizes fixes, commit and a review-branch
-push, but not merge/deployment or further live AI calls. Final local gates passed:
+verification ledger. At that checkpoint the owner authorized fixes, commit and a review-branch
+push, but not merge/deployment or further live AI calls. Its local gates passed:
 1,642 regression tests, 35 disposable-database tests, 80 isolated browser cases,
 types, i18n and production builds; dependency audits reported zero vulnerabilities.
 The review branch is `codex/unified-session-workspace`; check its PR/CI status
 separately before merging. Preserve excluded local work, including
 the separate `eluthira-site` repository, prototypes, raw audit data and backups.
 The earlier closeout restrictions below are historical, not a revocation of this
-new permission. Model-selection behavior remains explicitly deferred.
+checkpoint permission. It does not authorize publication of this new slice.
+Model-selection behavior was deferred at that historical checkpoint; 06A is now
+the explicitly authorized model-selection slice.
 
 ## Current closeout — recovery, discoverable Integrations and product direction
 

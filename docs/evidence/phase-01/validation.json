@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-10",
+  "scope": "Oddpath stages 0 and 1; isolated fixtures only",
+  "baseCommit": "08ae650",
+  "nodeVersion": "24.19.0",
+  "postgresMajorVersion": 16,
+  "verify": {
+    "command": "npm run verify",
+    "result": "PASS",
+    "contractTests": 33,
+    "apiTests": 1020,
+    "runnerTests": 18,
+    "webTests": 636,
+    "totalTests": 1707,
+    "failedTests": 0,
+    "architectureSourceFiles": 293,
+    "architectureTestFiles": 150
+  },
+  "i18n": { "command": "npm run test:i18n", "passed": 8, "failed": 0 },
+  "databaseIntegration": { "command": "npm run test:integration:db", "passed": 66, "failed": 0, "targetApprovalCases": 31 },
+  "migrations": { "command": "npm run db:migrate:deploy", "applied": 24, "result": "PASS" },
+  "schemaDrift": { "command": "npm run db:drift:check", "result": "NONE" },
+  "migrationHistoryRehearsal": { "result": "PASS", "scope": "legacy approval fields and QA request history unchanged; transaction rolled back" },
+  "restore": {
+    "method": "pg_dump custom archive / pg_restore into a second disposable database",
+    "result": "PASS",
+    "matchingTableCountAndContentFingerprints": 51,
+    "nonEmptyTables": 21,
+    "targetRevisions": 2,
+    "v2Approvals": 1,
+    "scope": "synthetic session text, QA history, target revisions/proof and exact approval; not production vault/R2/browser restore certification"
+  },
+  "productionBuilds": {
+    "api": "PASS",
+    "runner": "PASS",
+    "web": "PASS",
+    "webOrigin": "synthetic HTTPS origin; no host contacted",
+    "advisory": "existing web bundle chunk above 500 KiB"
+  },
+  "productionAudit": { "command": "npm run audit:production", "vulnerabilities": 0, "result": "PASS" },
+  "activation": { "v2Default": "OFF", "productionEnablement": "REJECTED", "publicBrowserBeta": "NO_GO_PENDING_STAGES_2_TO_8" },
+  "preservation": { "originalCheckout": "unchanged clean main", "workingDatabase": "not used", "syncedProjectSources": "read-only", "paidProviderCalls": 0, "deployments": 0 }
+}

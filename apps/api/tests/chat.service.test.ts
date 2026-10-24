@@ -11,13 +11,13 @@ describe("chat service", () => {
       chatWithAi: async (input) => {
         assert.equal(input.message, "hello");
         assert.equal(input.mode, "general");
-        assert.equal(input.model, "gemini-3.1-flash-lite");
+        assert.equal(input.model, "gemini-2.5-flash-lite");
         assert.equal(input.provider, "gemini");
         assert.equal(input.workflow?.intent, "general_qa");
 
         return {
           reply: "Hi from test AI",
-          model: "gemini-3.1-flash-lite",
+          model: input.model!,
           provider: "gemini",
         };
       },
@@ -33,12 +33,12 @@ describe("chat service", () => {
     assert.deepEqual(response, {
       reply: "Hi from test AI",
       mode: "general",
-      model: "gemini-3.1-flash-lite",
+      model: "gemini-2.5-flash-lite",
       modelRouting: {
-        reason: "Workflow intent general_qa uses the configured general model.",
+        reason: "Explicit model selection.",
         requestedModel: "gemini-2.5-flash-lite",
-        selectedModel: "gemini-3.1-flash-lite",
-        source: "policy",
+        selectedModel: "gemini-2.5-flash-lite",
+        source: "requested",
       },
       provider: "gemini",
       workflow: {
@@ -57,11 +57,11 @@ describe("chat service", () => {
     let providerWasCalled = false;
     let usageWasReserved = false;
     const service = createChatService({
-      chatWithAi: async () => {
+      chatWithAi: async (providerInput) => {
         providerWasCalled = true;
         return {
           reply: "should not happen",
-          model: "gemini-2.5-flash",
+          model: providerInput.model!,
           provider: "gemini",
         };
       },
@@ -91,11 +91,11 @@ describe("chat service", () => {
   it("reserves usage before calling the AI provider", async () => {
     const calls: string[] = [];
     const service = createChatService({
-      chatWithAi: async () => {
+      chatWithAi: async (providerInput) => {
         calls.push("ai");
         return {
           reply: "Hi from test AI",
-          model: "gemini-3.1-flash-lite",
+          model: providerInput.model!,
           provider: "gemini",
         };
       },
@@ -107,7 +107,7 @@ describe("chat service", () => {
           userId: undefined,
         });
         assert.equal(estimate.credits > 0, true);
-        assert.equal(estimate.model, "gemini-3.1-flash-lite");
+        assert.equal(estimate.model, "gemini-2.5-flash");
 
         return {
           limit: 3,
@@ -142,9 +142,9 @@ describe("chat service", () => {
 
   it("keeps usage event internals out of the public chat response", async () => {
     const service = createChatService({
-      chatWithAi: async () => ({
+      chatWithAi: async (providerInput) => ({
         reply: "Hi from test AI",
-        model: "gemini-3.1-flash-lite",
+        model: providerInput.model!,
         provider: "gemini",
       }),
       reserveUsage: async () => ({
@@ -174,9 +174,9 @@ describe("chat service", () => {
 
   it("returns the AI response even when completing usage metadata fails", async () => {
     const service = createChatService({
-      chatWithAi: async () => ({
+      chatWithAi: async (providerInput) => ({
         reply: "Hi from test AI",
-        model: "gemini-3.1-flash-lite",
+        model: providerInput.model!,
         provider: "gemini",
         usage: {
           inputTokens: 100,
@@ -216,11 +216,11 @@ describe("chat service", () => {
   it("does not call the AI workflow router when usage is rejected", async () => {
     const calls: string[] = [];
     const service = createChatService({
-      chatWithAi: async () => {
+      chatWithAi: async (providerInput) => {
         calls.push("ai");
         return {
           reply: "should not happen",
-          model: "gemini-3.1-flash-lite",
+          model: providerInput.model!,
           provider: "gemini",
         };
       },
@@ -257,11 +257,11 @@ describe("chat service", () => {
   it("does not call the AI workflow router or provider when global usage is limited", async () => {
     const calls: string[] = [];
     const service = createChatService({
-      chatWithAi: async () => {
+      chatWithAi: async (providerInput) => {
         calls.push("ai");
         return {
           reply: "should not happen",
-          model: "gemini-3.1-flash-lite",
+          model: providerInput.model!,
           provider: "gemini",
         };
       },
@@ -302,11 +302,11 @@ describe("chat service", () => {
   it("rejects over-quota guests before calling the AI provider", async () => {
     let providerWasCalled = false;
     const service = createChatService({
-      chatWithAi: async () => {
+      chatWithAi: async (providerInput) => {
         providerWasCalled = true;
         return {
           reply: "should not happen",
-          model: "gemini-3.1-flash-lite",
+          model: providerInput.model!,
           provider: "gemini",
         };
       },
@@ -344,9 +344,9 @@ describe("chat service", () => {
 
   it("uses server context identity instead of identity fields from the input body", async () => {
     const service = createChatService({
-      chatWithAi: async () => ({
+      chatWithAi: async (providerInput) => ({
         reply: "Hi from test AI",
-        model: "gemini-3.1-flash-lite",
+        model: providerInput.model!,
         provider: "gemini",
       }),
       reserveUsage: async (identity) => {
@@ -378,25 +378,26 @@ describe("chat service", () => {
   it("reserves credits for the workflow router before calling it", async () => {
     const calls: string[] = [];
     const service = createChatService({
-      chatWithAi: async () => {
+      chatWithAi: async (providerInput) => {
         calls.push("ai");
         return {
           reply: "أهلاً!",
-          model: "gemini-3.1-flash-lite",
+          model: providerInput.model!,
           provider: "gemini",
         };
       },
       reserveUsage: async (_identity, estimate) => {
         calls.push("usage");
         assert.notEqual(estimate.workflowSource, "ai_router");
-        assert.equal(estimate.credits, 3);
+        assert.equal(estimate.model, "gemini-2.5-flash");
+        assert.equal(estimate.credits, 5);
 
         return {
           eventId: "usage-1",
           limit: 20,
-          remaining: 17,
+          remaining: 15,
           unit: "credits",
-          used: 3,
+          used: 5,
         };
       },
       recordUsageAttempt: async () => {
@@ -439,7 +440,7 @@ describe("chat service", () => {
 
         return {
           reply: "Hi from test AI",
-          model: "gemini-2.5-flash",
+          model: input.model!,
           provider: "gemini",
         };
       },
@@ -472,7 +473,7 @@ describe("chat service", () => {
     const service = createChatService({
       chatWithAi: async (input) => {
         calls.push("ai");
-        assert.equal(input.model, "gemini-3.1-flash-lite");
+        assert.equal(input.model, "gemini-2.5-flash");
         assert.deepEqual(input.attachments, [
           {
             type: "file",
@@ -484,7 +485,7 @@ describe("chat service", () => {
 
         return {
           reply: "Hi from test AI",
-          model: "gemini-2.5-flash",
+          model: input.model!,
           provider: "gemini",
         };
       },
@@ -524,7 +525,7 @@ describe("chat service", () => {
 
         return {
           reply: "Hi from test AI",
-          model: "gemini-3.1-flash-lite",
+          model: input.model!,
           provider: "gemini",
         };
       },
@@ -579,7 +580,7 @@ describe("chat service", () => {
 
         return {
           reply: "Hi from test AI",
-          model: "gemini-3.1-flash-lite",
+          model: input.model!,
           provider: "gemini",
         };
       },
@@ -637,7 +638,7 @@ describe("chat service", () => {
 
         return {
           reply: "Hi from test AI",
-          model: "gemini-3.1-flash-lite",
+          model: input.model!,
           provider: "gemini",
         };
       },
@@ -697,7 +698,7 @@ describe("chat service", () => {
 
         return {
           reply: "Hi from test AI",
-          model: "gemini-3.1-flash-lite",
+          model: input.model!,
           provider: "gemini",
         };
       },
@@ -751,7 +752,7 @@ describe("chat service", () => {
 
         return {
           reply: "Hi from test AI",
-          model: "gemini-3.1-flash-lite",
+          model: input.model!,
           provider: "gemini",
         };
       },
@@ -807,7 +808,7 @@ describe("chat service", () => {
 
           return {
             reply: "Hi from test AI",
-            model: "gemini-3.1-flash-lite",
+            model: input.model!,
             provider: "gemini",
           };
         },
@@ -844,7 +845,7 @@ describe("chat service", () => {
 
         return {
           reply: "Hi from test AI",
-          model: "gemini-3.1-flash-lite",
+          model: input.model!,
           provider: "gemini",
         };
       },
@@ -883,7 +884,7 @@ describe("chat service", () => {
 
         return {
           reply: "Hi from test AI",
-          model: "gemini-3.1-flash-lite",
+          model: input.model!,
           provider: "gemini",
         };
       },
@@ -911,11 +912,11 @@ describe("chat service", () => {
   it("rejects inaccessible project context before reserving usage", async () => {
     const calls: string[] = [];
     const service = createChatService({
-      chatWithAi: async () => {
+      chatWithAi: async (providerInput) => {
         calls.push("ai");
         return {
           reply: "should not happen",
-          model: "gemini-3.1-flash-lite",
+          model: providerInput.model!,
           provider: "gemini",
         };
       },
@@ -979,7 +980,7 @@ describe("chat service", () => {
 
         return {
           reply: "Semantic answer",
-          model: "gemini-3.1-flash-lite",
+          model: input.model!,
           provider: "gemini",
         };
       },
@@ -1042,12 +1043,12 @@ describe("chat service", () => {
   it("does not resolve semantic project context when usage is rejected", async () => {
     const calls: string[] = [];
     const service = createChatService({
-      chatWithAi: async () => {
+      chatWithAi: async (providerInput) => {
         calls.push("ai");
 
         return {
           reply: "should not happen",
-          model: "gemini-3.1-flash-lite",
+          model: providerInput.model!,
           provider: "gemini",
         };
       },
@@ -1109,11 +1110,11 @@ describe("chat service", () => {
       chatWithAi: async (input) => {
         assert.equal(input.workflow?.intent, "conversational");
         assert.equal(input.workflow?.source, "ai_router");
-        assert.equal(input.model, "gemini-3.1-flash-lite");
+        assert.equal(input.model, "gemini-2.5-flash");
 
         return {
           reply: "You are welcome.",
-          model: "gemini-2.5-flash",
+          model: input.model!,
           provider: "gemini",
           workflow: input.workflow,
         };
@@ -1143,7 +1144,7 @@ describe("chat service", () => {
     assert.equal(response.workflow.source, "ai_router");
   });
 
-  it("falls back to the configured model when the selected model is over quota", async () => {
+  it("Auto falls back to the configured model when its primary model is over quota", async () => {
     const calls: string[] = [];
     let completedAttempts = 0;
     const service = createChatService({
@@ -1187,7 +1188,7 @@ describe("chat service", () => {
       history: [],
       message: "review this",
       mode: "general",
-      model: "gemini-2.5-flash",
+      model: "auto",
     });
 
     assert.deepEqual(calls, ["gemini-2.5-flash", "gemini-2.5-flash-lite"]);
@@ -1199,7 +1200,7 @@ describe("chat service", () => {
   it("reports a failed provider attempt to conservative usage accounting", async () => {
     let failureAttempts = 0;
     const service = createChatService({
-      chatWithAi: async () => {
+      chatWithAi: async (providerInput) => {
         throw new AppError("provider failed", 502, "AI_PROVIDER_ERROR");
       },
       failUsage: async (reservation, failure) => {

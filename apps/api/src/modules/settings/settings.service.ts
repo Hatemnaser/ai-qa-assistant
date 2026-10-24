@@ -1,4 +1,4 @@
-import { resolveAiModel } from "../ai/provider-registry.js";
+import { resolveAiModelSelection } from "../ai/provider-registry.js";
 import { DEFAULT_LOCALE } from "../../config/locales.js";
 import { settingsRepository } from "./settings.repository.js";
 import type {
@@ -28,7 +28,7 @@ export function createSettingsService({ repository }: SettingsServiceDependencie
 
   async function updateUserSettings(userId: string, input: UserSettingsInput): Promise<UserSettingsDto> {
     const normalizedInput = {
-      defaultModel: resolveAiModel({ model: input.defaultModel }).model,
+      defaultModel: resolveAiModelSelection({ model: input.defaultModel }).selection,
       language: input.language,
       theme: input.theme,
     };

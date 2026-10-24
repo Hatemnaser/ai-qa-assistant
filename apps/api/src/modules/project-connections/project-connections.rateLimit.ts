@@ -4,6 +4,7 @@ import type { NextFunction, Request, Response } from "express";
 
 import { env } from "../../config/env.js";
 import { InMemoryFixedWindowRateLimiter } from "../../lib/fixed-window-rate-limiter.js";
+import {isManagedHostCredential} from '../browser-runtime/managed-project-identity.js';
 
 const RATE_LIMITED_MESSAGE = "Too many integration requests. Please try again later.";
 
@@ -21,6 +22,9 @@ export function createProjectConnectionPreBodyRateLimit(options: {
     maxAttempts: options.tokenLimit ?? env.qaIntegrationTokenRateLimitMax,
     windowMs,
   });
+  // Many tenants share this authenticated Docker host's source IP. Keep a
+  // bounded host budget without lifting ordinary public IP/token limits.
+  const managedLimiter=new InMemoryFixedWindowRateLimiter({maxAttempts:12000,windowMs});
 
   return function projectConnectionPreBodyRateLimit(
     req: Request,
@@ -28,6 +32,12 @@ export function createProjectConnectionPreBodyRateLimit(options: {
     next: NextFunction
   ) {
     const now = Date.now();
+    if(isManagedHostCredential(req.get('x-oddpath-managed-host'))){
+      const result=managedLimiter.consume('managed-host',now);
+      if(!result.limited){next();return;}
+      res.setHeader('Retry-After',Math.max(1,Math.ceil((result.resetAt-now)/1000)).toString());
+      res.status(429).json({code:'RATE_LIMITED',error:RATE_LIMITED_MESSAGE});return;
+    }
     const ipAddress = req.ip || req.socket.remoteAddress || "unknown-ip";
     const ipResult = ipLimiter.consume(`ip:${ipAddress}`, now);
     const token = readBearerToken(req.get("authorization"));

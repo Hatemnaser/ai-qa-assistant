@@ -37,6 +37,7 @@ export interface QaExecutionRepository {
     leaseExpiresAt: Date;
     leaseToken: string;
     request: ExecutionClaimRequestV1;
+    protocolVersion?: 1 | 2;
   }): Promise<unknown | null>;
   fail(input: {
     actor: QaActor;

@@ -75,6 +75,11 @@
   "model.gemini25Flash.recommended": "المراجعة البصرية وتحليل QA الأعمق",
   "model.gemini25FlashLite.recommended": "مهام نصية سريعة",
   "model.gemini31FlashLite.recommended": "مهام نصية بحجم كبير",
+  "model.auto.label": "تلقائي",
+  "model.auto.description": "يختار موديلًا مناسبًا، ويمكن أن يستخدم بديلًا إذا لم يكن متاحًا.",
+  "model.explicit.description": "يستخدم الموديل الذي اخترته. إذا لم يكن متاحًا، يظهر خطأ للطلب.",
+  "model.unavailableChoice": "غير متاح: {model}",
+  "model.used": "الموديل المستخدم: {model}",
   "model.hint": "{label}: {recommendedFor}.",
   "model.hintVisual": " المراجعة البصرية أفضل مع {model}."
 }

@@ -11,6 +11,7 @@ describe("asset deletion integrity", () => {
     const operations: string[] = [];
     const tx = {
       async $executeRaw() { operations.push("project:lock"); return 1; },
+      async $queryRaw(){return [{saved:false,runtime:false}];},
       chat: { async findMany() { operations.push("tests:find"); return []; } },
       testSessionTurn: { async findFirst() { operations.push("turn:check"); return null; } },
       qaRun: { async findFirst() { operations.push("run:check"); return null; } },

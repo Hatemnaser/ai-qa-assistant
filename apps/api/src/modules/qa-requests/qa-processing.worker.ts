@@ -101,7 +101,10 @@ export function createQaProcessingWorker({
       if (error instanceof QaRecipeOutputError) {
         logRecipeOutputFailure(logger, job, error, errorCode);
       }
-      if (job.attempts < maxAttempts && isRetryable(errorCode)) {
+      // A storage failure after a provider attempt must not buy another
+      // generation. The persisted fence also survives a dead process/lease.
+      const providerStarted=await repository.hasProviderStarted?.(job.id);
+      if (!providerStarted && job.attempts < maxAttempts && isRetryable(errorCode)) {
         const retried = await repository.scheduleRetry({
           availableAt: new Date(now().getTime() + retryDelayMs(job.attempts, random)),
           errorCode,

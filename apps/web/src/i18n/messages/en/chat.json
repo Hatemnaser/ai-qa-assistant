@@ -75,6 +75,11 @@
   "model.gemini25Flash.recommended": "Visual review and deeper QA analysis",
   "model.gemini25FlashLite.recommended": "Fast text tasks",
   "model.gemini31FlashLite.recommended": "High-volume text tasks",
+  "model.auto.label": "Auto",
+  "model.auto.description": "Auto chooses a compatible model and may use another if it is unavailable.",
+  "model.explicit.description": "Uses your selected model. If it is unavailable, the request returns an error.",
+  "model.unavailableChoice": "Unavailable: {model}",
+  "model.used": "Model used: {model}",
   "model.hint": "{label}: {recommendedFor}.",
   "model.hintVisual": " Visual review is best with {model}."
 }

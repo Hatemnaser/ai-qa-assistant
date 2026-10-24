@@ -1,17 +1,24 @@
 import {
   executionClaimReceiptV1Schema,
   executionClaimResponseV1Schema,
+  executionClaimResponseSchema,
+  executionTaskV2Schema,
   executionReceiptV1Schema,
   executionTaskV1Schema,
   runnerRegistrationReceiptV1Schema,
+  runnerRegistrationReceiptV2Schema,
+  browserStateTransferSchema,
   type ExecutionClaimRequestV1,
   type ExecutionFailureV1,
   type ExecutionFinishV1,
   type ExecutionItemSubmissionV1,
   type ExecutionReceiptV1,
   type ExecutionTaskV1,
+  type ExecutionTaskV2,
+  type RunnerRegistration,
   type RunnerRegistrationV1,
   type RunnerRegistrationReceiptV1,
+  type RunnerRegistrationReceiptV2,
 } from "@oddpath/qa-execution-contract";
 import { z, type ZodType } from "zod";
 
@@ -27,7 +34,7 @@ const uploadInitiationSchema = z.object({
   asset: uploadAssetSchema,
   upload: z.object({
     expiresAt: z.string().datetime({ offset: true }),
-    headers: z.record(z.string()),
+    headers: z.record(z.string(), z.string()),
     method: z.literal("PUT"),
     url: z.string().url(),
   }).strict(),
@@ -42,6 +49,10 @@ export interface ExecutionLease {
 export interface ClaimedExecution {
   claim: z.infer<typeof executionClaimReceiptV1Schema>;
   task: ExecutionTaskV1;
+}
+export interface ManagedClaimedExecution {
+  claim: z.infer<typeof executionClaimReceiptV1Schema>;
+  task: ExecutionTaskV2;
 }
 
 export interface EvidenceUploadInput {
@@ -73,6 +84,7 @@ export interface OddpathClientOptions {
   requestTimeoutMs?: number;
   serverUrl: string;
   token: string;
+  protocolVersion?: 1 | 2;
 }
 
 export class OddpathClient {
@@ -81,6 +93,7 @@ export class OddpathClient {
   readonly #requestTimeoutMs: number;
   readonly #serverOrigin: string;
   readonly #token: string;
+  readonly #protocolVersion: 1 | 2;
 
   constructor({
     delay = defaultDelay,
@@ -88,12 +101,14 @@ export class OddpathClient {
     requestTimeoutMs = 15_000,
     serverUrl,
     token,
+    protocolVersion = 1,
   }: OddpathClientOptions) {
     this.#delay = delay;
     this.#fetch = fetchImplementation;
     this.#requestTimeoutMs = requestTimeoutMs;
     this.#serverOrigin = new URL(serverUrl).origin;
     this.#token = token;
+    this.#protocolVersion = protocolVersion;
   }
 
   register(input: RunnerRegistrationV1): Promise<RunnerRegistrationReceiptV1> {
@@ -117,8 +132,39 @@ export class OddpathClient {
       : { claim: response.claim, task: executionTaskV1Schema.parse(response.task) };
   }
 
+  registerV2(input: RunnerRegistration): Promise<RunnerRegistrationReceiptV2> {
+    if (this.#protocolVersion !== 2 || input.schemaVersion !== 2) throw new Error("Managed v2 client required.");
+    return this.#request('/api/integrations/v1/runner/v2/registration', { body: input, method: 'PUT', retry: 'safe', schema: runnerRegistrationReceiptV2Schema });
+  }
+
+  async claimV2(input: ExecutionClaimRequestV1): Promise<ManagedClaimedExecution | null> {
+    if (this.#protocolVersion !== 2) throw new Error("Managed v2 client required.");
+    const response = await this.#request('/api/integrations/v1/runner/v2/executions/claim', { body: input, method: 'POST', retry: 'none', schema: executionClaimResponseSchema });
+    return response.claim === null ? null : { claim: response.claim, task: executionTaskV2Schema.parse(response.task) };
+  }
+
+  runtime(executionId: string, action: 'begin' | 'status' | 'stop' | 'exit' | 'login', body?: unknown, lease?: ExecutionLease) {
+    if (this.#protocolVersion !== 2) throw new Error("Managed v2 client required.");
+    return this.#request(this.executionPath(executionId, `runtime${action === 'login' ? '/login-state' : action === 'stop' || action === 'exit' ? `/${action}` : ''}`),
+      { body, lease, method: action === 'status' ? 'GET' : 'POST', retry: 'safe', schema: z.object({ runtimeId: z.string(), state: z.enum(['LIVE','STOP_REQUESTED','STOP_UNCONFIRMED','STOP_CONFIRMED']), stopRequestedAt: z.string().nullable().optional() }).passthrough() });
+  }
+  savedLogins() {
+    if(this.#protocolVersion!==2)throw new Error('Managed v2 client required.');
+    return this.#request('/api/integrations/v1/runner/v2/saved-logins',{method:'GET',retry:'safe',schema:z.object({states:z.array(z.object({id:z.string().uuid(),revision:z.number().int(),targetRevisionId:z.string(),targetHash:z.string(),expiresAt:z.string(),revoked:z.boolean()}).passthrough()).max(20)})});
+  }
+  savedState(executionId:string,mode:'capture'|'restore',lease:ExecutionLease,body?:unknown) {
+    if(this.#protocolVersion!==2)throw new Error('Managed v2 client required.');
+    const path=this.executionPath(executionId,`runtime/saved-state/${mode}`);
+    if(mode==='restore')return this.#request(path,{body,lease,method:'POST',retry:'safe',schema:browserStateTransferSchema});
+    return this.#request(path,{body,lease,method:'POST',retry:'safe',schema:z.object({savedLoginId:z.string().uuid()})});
+  }
+
+  private executionPath(executionId: string, suffix: string) {
+    return `/api/integrations/v1/runner/v${this.#protocolVersion}/executions/${pathSegment(executionId)}/${suffix}`;
+  }
+
   async accept(executionId: string, lease: ExecutionLease) {
-    const response = await this.#request(executionPath(executionId, "accept"), {
+    const response = await this.#request(this.executionPath(executionId, "accept"), {
       lease,
       method: "POST",
       retry: "safe",
@@ -128,7 +174,7 @@ export class OddpathClient {
   }
 
   async heartbeat(executionId: string, lease: ExecutionLease) {
-    const response = await this.#request(executionPath(executionId, "heartbeat"), {
+    const response = await this.#request(this.executionPath(executionId, "heartbeat"), {
       lease,
       method: "POST",
       retry: "safe",
@@ -145,7 +191,7 @@ export class OddpathClient {
     idempotencyKey: string
   ): Promise<ExecutionReceiptV1> {
     const response = await this.#request(
-      `/api/integrations/v1/runner/v1/executions/${pathSegment(executionId)}/items/${pathSegment(checklistItemId)}`,
+      this.executionPath(executionId, `items/${pathSegment(checklistItemId)}`),
       {
         body: input,
         idempotencyKey,
@@ -164,7 +210,7 @@ export class OddpathClient {
     input: ExecutionFinishV1,
     idempotencyKey: string
   ): Promise<ExecutionReceiptV1> {
-    const response = await this.#request(executionPath(executionId, "finish"), {
+    const response = await this.#request(this.executionPath(executionId, "finish"), {
       body: input,
       idempotencyKey,
       lease,
@@ -181,7 +227,7 @@ export class OddpathClient {
     input: ExecutionFailureV1,
     idempotencyKey: string
   ): Promise<ExecutionReceiptV1> {
-    const response = await this.#request(executionPath(executionId, "fail"), {
+    const response = await this.#request(this.executionPath(executionId, "fail"), {
       body: input,
       idempotencyKey,
       lease,
@@ -198,7 +244,7 @@ export class OddpathClient {
     input: EvidenceUploadInput,
     idempotencyKey: string
   ) {
-    return this.#request(executionPath(executionId, "evidence/uploads"), {
+    return this.#request(this.executionPath(executionId, "evidence/uploads"), {
       body: input,
       idempotencyKey,
       lease,
@@ -216,7 +262,7 @@ export class OddpathClient {
     idempotencyKey: string
   ) {
     return this.#request(
-      executionPath(executionId, `evidence/uploads/${pathSegment(assetId)}/complete`),
+      this.executionPath(executionId, `evidence/uploads/${pathSegment(assetId)}/complete`),
       {
         body: { checksumSha256 },
         idempotencyKey,
@@ -268,9 +314,9 @@ export class OddpathClient {
       body?: unknown;
       idempotencyKey?: string;
       lease?: ExecutionLease;
-      method: "POST" | "PUT";
+      method: "GET" | "POST" | "PUT";
       retry: "none" | "safe";
-      schema: ZodType<T>;
+      schema: ZodType<T, unknown>;
     }
   ): Promise<T> {
     const attempts = options.retry === "safe" ? 4 : 1;
@@ -338,10 +384,6 @@ export class OddpathClient {
     const signal = AbortSignal.timeout(this.#requestTimeoutMs);
     return this.#fetch(input, { ...init, signal });
   }
-}
-
-function executionPath(executionId: string, suffix: string) {
-  return `/api/integrations/v1/runner/v1/executions/${pathSegment(executionId)}/${suffix}`;
 }
 
 function pathSegment(value: string) {

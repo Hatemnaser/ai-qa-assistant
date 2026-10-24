@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { recordedMessageMetadata } from "../chat-history/chat-message-metadata.js";
+import {addPortableQaHistory,QA_HISTORY_IMPORT_WARNING} from "./qa-history-portable.js";
+import type {QaBinaryBundle} from "../qa-requests/qa-report.package.js";
 
 import { strToU8, zipSync } from "fflate";
 
@@ -8,6 +11,7 @@ import { ChatRole } from "../../generated/prisma/enums.js";
 import { CHAT_ATTACHMENT_LIMITS } from "../chat/chat.attachments.js";
 import {
   ACCOUNT_EXPORT_BINARY_FORMAT_VERSION,
+  ACCOUNT_EXPORT_QA_FORMAT_VERSION,
   ACCOUNT_EXPORT_FORMAT_VERSION,
   ACCOUNT_EXPORT_LIMITS,
   type AccountExportFormatVersion,
@@ -37,11 +41,13 @@ const MIGRATION_WARNING =
 export function createAccountExportPackage(
   account: AccountExportSourceRecord,
   exportedAt = new Date(),
-  binaryAssets?: CollectedPortableBinaryAssets
+  binaryAssets?: CollectedPortableBinaryAssets,
+  qaBinaries?: Map<string,QaBinaryBundle>
 ): AccountExportPackage {
   validateSourceSemantics(account);
 
-  const formatVersion: AccountExportFormatVersion = binaryAssets
+  const hasQa=account.projects.some(project=>project.qaHistory?.requests.length);
+  const formatVersion: AccountExportFormatVersion = hasQa ? ACCOUNT_EXPORT_QA_FORMAT_VERSION : binaryAssets
     ? ACCOUNT_EXPORT_BINARY_FORMAT_VERSION
     : ACCOUNT_EXPORT_FORMAT_VERSION;
   const portableBinaryAssets = binaryAssets
@@ -50,7 +56,7 @@ export function createAccountExportPackage(
 
   const entries = new Map<string, Uint8Array>();
   const projectReferences = account.projects.map((project, index) =>
-    addProjectEntries(entries, project, index, account.chats, formatVersion)
+    addProjectEntries(entries, project, index, account.chats, formatVersion,qaBinaries?.get(project.id))
   );
   const chatReferences = account.chats.map((chat, index) =>
     addChatEntries(entries, chat, index, formatVersion)
@@ -87,7 +93,7 @@ export function createAccountExportPackage(
     })),
     projects: projectReferences,
     chats: chatReferences,
-    ...(binaryAssets ? { binaryAssets: portableBinaryAssets } : {}),
+    ...(binaryAssets || hasQa ? { binaryAssets: portableBinaryAssets } : {}),
   };
 
   if (binaryAssets) {
@@ -127,7 +133,8 @@ export function createAccountExportPackage(
   if (hasUnpackagedAttachmentMetadata(account.chats, portableBinaryAssets)) {
     warnings.unshift(ATTACHMENT_WARNING);
   }
-  if (account.chats.some((chat) => chat.kind === "TEST" || chat.kind === "SESSION")) warnings.push("Session conversations are exported as inert transcripts. QA records, approvals, execution state and live links are not included and will not resume on import.");
+  if(account.projects.some(project=>project.qaHistory?.requests.length))warnings.push(QA_HISTORY_IMPORT_WARNING);
+  if (account.chats.some((chat) => chat.kind === "TEST" || chat.kind === "SESSION")) warnings.push("Session conversations are exported as inert transcripts. Execution state and live links will not resume on import.");
 
   const manifest: AccountExportManifest = {
     formatVersion,
@@ -146,7 +153,7 @@ export function createAccountExportPackage(
         0
       ),
       accountMemories: account.memories.length,
-      ...(binaryAssets ? { binaryAssets: portableBinaryAssets.length } : {}),
+      ...(binaryAssets || hasQa ? { binaryAssets: portableBinaryAssets.length } : {}),
     },
     contains: {
       canonicalJson: true,
@@ -155,8 +162,8 @@ export function createAccountExportPackage(
       attachmentFiles: portableBinaryAssets.some(
         (asset) => asset.binding.kind === "message_attachment"
       ),
-      ...(binaryAssets
-        ? { privateAssetFiles: portableBinaryAssets.length > 0 }
+      ...(binaryAssets || hasQa
+        ? { privateAssetFiles: portableBinaryAssets.length > 0 || [...(qaBinaries?.values() || [])].some(bundle=>bundle.entries.size>0) }
         : {}),
       derivedData: false,
       secrets: false,
@@ -190,9 +197,11 @@ function addProjectEntries(
   project: AccountExportProjectRecord,
   projectIndex: number,
   chats: AccountExportChatRecord[],
-  formatVersion: AccountExportFormatVersion
+  formatVersion: AccountExportFormatVersion,
+  qaBinaries?: QaBinaryBundle
 ) {
   const sequence = padSequence(projectIndex);
+  const qaHistory=addPortableQaHistory(entries,project.qaHistory,qaBinaries,sequence);
   const documentReferences = project.documents.map((document, documentIndex) => {
     const path = createDocumentPath(document, projectIndex, documentIndex);
 
@@ -246,6 +255,7 @@ function addProjectEntries(
           : null,
         documents: documentReferences,
         chatSourceIds: projectChats,
+        ...(qaHistory?{qaHistory}:{}),
       },
     })
   );
@@ -311,7 +321,7 @@ function toPortableMessage(message: AccountExportMessageRecord) {
     role: toPortableRole(message.role),
     content: message.content,
     mode: message.mode,
-    model: message.model,
+    model: recordedMessageMetadata(message).model || null,
     createdAt: message.createdAt.toISOString(),
     ...(attachments.length > 0 ? { attachments } : {}),
     ...(hasErrorFlag(message.metadata) ? { isError: true } : {}),

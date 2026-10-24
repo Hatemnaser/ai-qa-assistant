@@ -53,7 +53,7 @@ export const registerRequestSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   password: passwordSchema,
   termsAccepted: z.literal(true, {
-    errorMap: () => ({ message: "You must accept the current terms and privacy notice." }),
+    error: "You must accept the current terms and privacy notice.",
   }),
   termsVersion: z.string().trim().min(1).max(64),
 });
@@ -77,6 +77,7 @@ export const resetPasswordRequestSchema = z.object({
 });
 
 export const verifyEmailRequestSchema = z.object({
+  newPassword: passwordSchema,
   token: z.string().trim().min(24, "A valid verification token is required."),
 });
 

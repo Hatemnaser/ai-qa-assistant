@@ -17,6 +17,14 @@ import { setLocale } from "../src/i18n/useI18n.ts";
 
 describe("QA harness presentation", () => {
   beforeEach(() => setLocale("en"));
+  it('preserves manual authentication, target revision and limits in the v2 approval manifest',()=>{
+    const target={targetId:'target',revisionId:'revision',revision:1,targetHash:'a'.repeat(64),baseUrl:'https://example.com/',candidate:null,environmentKind:'STAGING' as const,authenticationOrigins:['https://login.example.com'],resourceOrigins:[]};
+    const input=profile({protocolVersion:2,target,authentication:{kind:'MANUAL'},executionLimits:{preparationTimeoutMs:300000,executionTimeoutMs:600000},valueRefs:[]});
+    const result=qaRunnerProfileManifest(input);assert.equal(result.schemaVersion,2);
+    if(result.schemaVersion!==2)throw Error('Wrong approval protocol');
+    assert.deepEqual(result.target,target);assert.deepEqual(result.authentication,{kind:'MANUAL'});assert.deepEqual(result.executionLimits,input.executionLimits);
+    assert.throws(()=>qaRunnerProfileManifest(profile({protocolVersion:2})));
+  });
 
   it("moves older terminal reviews into history without changing or discarding their receipts", () => {
     const latest = operation({ operationId: "new", kind: "EXECUTION_RECIPE_REVIEW", recipeId: "recipe-1", status: "SUCCEEDED" });

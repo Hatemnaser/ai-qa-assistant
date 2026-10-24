@@ -1,14 +1,17 @@
-import type { ProfileManifestV1 } from "@oddpath/qa-execution-contract";
+import type { ProfileManifest } from "@oddpath/qa-execution-contract";
 
 import { prisma } from "../../db/prisma.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { AppError } from "../../lib/errors.js";
+import {requireManagedAdmission} from '../browser-runtime/managed-project-identity.js';
+import {lockTestProject} from '../test-sessions/test-sessions.guard.js';
 import type { QaRunnerRepository } from "./qa-runner.types.js";
 
 export function createQaRunnerRepository(database: typeof prisma = prisma): QaRunnerRepository {
   return {
     async upsertRegistration(input) {
-      const connection = await database.projectConnectionToken.findFirst({
+      const persist=async(store:Pick<Prisma.TransactionClient,'projectConnectionToken'|'qaRunnerRegistration'>)=>{
+      const connection = await store.projectConnectionToken.findFirst({
         select: { id: true },
         where: {
           id: input.connectionTokenId,
@@ -19,7 +22,7 @@ export function createQaRunnerRepository(database: typeof prisma = prisma): QaRu
       if (!connection) {
         throw new AppError("Runner connection was not found.", 401, "CONNECTION_TOKEN_INVALID");
       }
-      return database.qaRunnerRegistration.upsert({
+      return store.qaRunnerRegistration.upsert({
         create: {
           connectionTokenId: input.connectionTokenId,
           displayName: input.registration.displayName,
@@ -46,6 +49,12 @@ export function createQaRunnerRepository(database: typeof prisma = prisma): QaRu
         },
         select: { id: true, lastSeenAt: true },
       });
+      };
+      return input.connectionTokenId.startsWith('mb-')?database.$transaction(async tx=>{
+        await lockTestProject(tx,input.projectId);
+        await requireManagedAdmission(tx,input.connectionTokenId,()=>new Date());
+        return persist(tx);
+      }):persist(database);
     },
 
     async listRegistrations(projectId) {
@@ -75,6 +84,6 @@ export function createQaRunnerRepository(database: typeof prisma = prisma): QaRu
 
 export const qaRunnerRepository = createQaRunnerRepository();
 
-function toJson(value: ProfileManifestV1[]) {
+function toJson(value: ProfileManifest[]) {
   return value as Prisma.InputJsonValue;
 }

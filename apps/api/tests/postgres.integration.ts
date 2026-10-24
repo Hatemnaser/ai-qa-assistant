@@ -18,6 +18,15 @@ process.env.TZ = "UTC";
 
 const target = assertPostgresIntegrationTarget(process.env);
 await import("./test-sessions.postgres.integration.ts");
+await import("./qa-targets.postgres.integration.ts");
+await import("./qa-evidence.postgres.integration.ts");
+await import("./model-selection.postgres.integration.ts");
+await import("./quota-reservations.postgres.integration.ts");
+await import("./quota-recovery.postgres.integration.ts");
+await import("./quota-partial.postgres.integration.ts");
+await import("./quota-final.postgres.integration.ts");
+await import("./quota-qa-publication.postgres.integration.ts");
+await import("./quota-privacy.postgres.integration.ts");
 const pool = new Pool({
   connectionString: target.connectionString,
   max: 6,

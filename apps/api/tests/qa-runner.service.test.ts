@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { ProfileManifestV1 } from "@oddpath/qa-execution-contract";
+import { profileManifestV2Schema, targetDefinitionSchema, type ProfileManifest } from "@oddpath/qa-execution-contract";
 
 import type { ProjectAccessService } from "../src/modules/projects/project-access.service.ts";
 import type { QaIntegrationAuth } from "../src/modules/project-connections/project-connections.middleware.ts";
@@ -10,7 +10,7 @@ import { createQaRunnerService } from "../src/modules/qa-requests/qa-runner.serv
 import type { QaRunnerRepository } from "../src/modules/qa-requests/qa-runner.types.ts";
 
 const NOW = new Date("2026-08-30T12:00:00.000Z");
-const PROFILE: ProfileManifestV1 = {
+const PROFILE: ProfileManifest = {
   environmentKind: "TEST",
   evidenceKinds: ["TEXT", "SCREENSHOT"],
   executorKey: "playwright",
@@ -25,8 +25,25 @@ const PROFILE: ProfileManifestV1 = {
 };
 
 describe("QA runner service", () => {
+  it("registers v2 metadata while keeping its profiles incompatible before activation", async () => {
+    const definition = targetDefinitionSchema.parse({ baseUrl: "https://staging.example.com", environmentKind: "STAGING" });
+    const profile = profileManifestV2Schema.parse({ ...PROFILE, schemaVersion: 2, environmentKind: "STAGING", target: { ...definition, targetId: "target", revisionId: "revision", revision: 1, targetHash: hashCanonicalJson(definition) }, authentication: { kind: "NONE" }, executionLimits: { preparationTimeoutMs: 300_000, executionTimeoutMs: 600_000 } });
+    let profiles: ProfileManifest[] = [];
+    const service = createQaRunnerService({ now: () => NOW, projectAccess: createProjectAccess([]), repository: {
+      async upsertRegistration(input) { profiles = input.registration.profiles; return { id: "registration-v2", lastSeenAt: NOW }; },
+      async listRegistrations() { return [{ ...registration("v2", NOW, profiles[0]), protocolVersions: [2] }]; },
+    } });
+    const receipt = await service.register(auth(), { schemaVersion: 2, displayName: "Remote", executorKeys: ["playwright"], instanceId: "v2", profiles: [profile], protocolVersions: [2], runnerVersion: "0.2-test" });
+    assert.equal(receipt.schemaVersion, 2);
+    assert.ok('projectId' in receipt);
+    assert.equal(receipt.projectId, auth().projectId);
+    const listed = await service.listProfiles("owner", "project");
+    assert.equal(listed[0].status, "INCOMPATIBLE");
+    assert.equal(listed[0].protocolVersion, 2);
+    assert.deepEqual(listed[0].target, profile.target);
+  });
   it("registers only a canonical public profile manifest", async () => {
-    let storedProfiles: ProfileManifestV1[] = [];
+    let storedProfiles: ProfileManifest[] = [];
     const service = createQaRunnerService({
       now: () => NOW,
       projectAccess: createProjectAccess([]),
@@ -52,6 +69,8 @@ describe("QA runner service", () => {
     const { manifestHash: _omitted, ...canonicalInput } = PROFILE;
     assert.equal(storedProfiles[0]?.manifestHash, hashCanonicalJson(canonicalInput));
     assert.equal(receipt.profiles[0]?.manifestHash, storedProfiles[0]?.manifestHash);
+    assert.equal(receipt.schemaVersion, 1);
+    assert.equal('projectId' in receipt, false);
     assert.deepEqual(receipt.profiles[0]?.valueReferences, PROFILE.valueReferences);
     assert.equal(JSON.stringify(receipt).includes("checkout.password="), false);
   });
@@ -103,7 +122,7 @@ function auth(): QaIntegrationAuth {
 function registration(
   suffix: string,
   lastSeenAt: Date,
-  profile: ProfileManifestV1
+  profile: ProfileManifest
 ): Awaited<ReturnType<QaRunnerRepository["listRegistrations"]>>[number] {
   return {
     displayName: `Runner ${suffix}`,

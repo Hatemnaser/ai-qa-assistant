@@ -1,4 +1,4 @@
-import { DEFAULT_MODE, DEFAULT_MODEL } from "./constants";
+import { DEFAULT_MODE, normalizeRecordedModel } from "./constants";
 import {
   convertMarkdownTableToCsv,
   escapeCsvCell,
@@ -66,7 +66,7 @@ export function exportChatCsv(chat: Chat) {
     ...chat.messages.map((message) => [
       message.role,
       message.mode || chat.mode || DEFAULT_MODE,
-      message.model || chat.model || DEFAULT_MODEL,
+      normalizeRecordedModel(message.model),
       message.createdAt || "",
       getMessageAttachments(message)
         .map((attachment) => attachment.name)

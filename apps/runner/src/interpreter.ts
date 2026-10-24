@@ -16,6 +16,7 @@ type ExpectStep = Extract<RecipeStepV1, { action: "expect" }>;
 type SelectStep = Extract<RecipeStepV1, { action: "select" }>;
 
 export interface SemanticBrowserSession {
+  assertHealthy?(): void;
   check(locator: RecipeLocatorV1, checked: boolean, timeoutMs: number): Promise<void>;
   click(locator: RecipeLocatorV1, timeoutMs: number): Promise<void>;
   close(): Promise<void>;
@@ -32,6 +33,13 @@ export interface SemanticBrowserSession {
     value: string,
     timeoutMs: number
   ): Promise<void>;
+}
+
+export class BrowserSessionUnavailableError extends Error {
+  constructor() {
+    super("The managed browser page crashed or disconnected.");
+    this.name = "BrowserSessionUnavailableError";
+  }
 }
 
 export interface RecipeItemExecutionResult {
@@ -62,12 +70,17 @@ export async function executeRecipeItem({
 
   for (const step of item.steps) {
     assertActive();
+    session.assertHealthy?.();
     try {
       await executeStep(session, profile, step);
+      session.assertHealthy?.();
       assertSameOriginUrl(profile.baseUrl, session.currentUrl());
       assertActive();
       completedStepRefs.push(step.ref);
-    } catch {
+    } catch (error) {
+      if (error instanceof BrowserSessionUnavailableError) throw error;
+      session.assertHealthy?.();
+      assertActive();
       const failedExpectation = step.action === "expect";
       return {
         completedStepRefs,

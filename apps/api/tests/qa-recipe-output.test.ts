@@ -50,9 +50,9 @@ describe("Recipe prompt contract examples", () => {
 describe("Recipe output diagnostics", () => {
   it("keeps trusted field paths but discards issue messages, arbitrary keys, and provider values", () => {
     const issues: z.ZodIssue[] = [{
-      code: "invalid_enum_value",
-      options: ["playwright"],
-      received: "synthetic-private-provider-value",
+      code: "invalid_value",
+      values: ["playwright"],
+      input: "synthetic-private-provider-value",
       path: ["bundle", "items", 0, "synthetic-private-key", "engine"],
       message: "synthetic-private-message",
     }, {
@@ -63,10 +63,10 @@ describe("Recipe output diagnostics", () => {
     }];
     const error = new QaRecipeOutputError("generation", issues);
     assert.deepEqual(error.diagnostics.issues, [
-      { code: "invalid_enum_value", path: "$.bundle.items.0.*.engine" },
+      { code: "invalid_value", path: "$.bundle.items.0.*.engine" },
       { code: "unrecognized_keys", path: "$.bundle" },
     ]);
-    assert.doesNotMatch(JSON.stringify(error), /synthetic-private|"(?:received|options|keys)"\s*:/);
+    assert.doesNotMatch(JSON.stringify(error), /synthetic-private|"(?:received|options|keys|input|values)"\s*:/);
     assert.equal("cause" in error, false);
     assert.equal(error.expose, false);
   });
@@ -88,9 +88,9 @@ describe("Recipe output diagnostics", () => {
       code: "invalid_union",
       path: ["bundle", "items", 0, "steps", 2, "expectation"],
       message: "synthetic-private-union-message",
-      unionErrors: [new z.ZodError([{ code: "custom", path: ["synthetic-private-path"], message: "synthetic-private-message" }])],
+      errors: [[{ code: "custom", path: ["synthetic-private-path"], message: "synthetic-private-message" }]],
     }]);
     assert.deepEqual(error.diagnostics.issues, [{ code: "invalid_union", path: "$.bundle.items.0.steps.2.expectation" }]);
-    assert.doesNotMatch(JSON.stringify(error), /synthetic-private|unionErrors/);
+    assert.doesNotMatch(JSON.stringify(error), /synthetic-private|unionErrors|"errors"/);
   });
 });

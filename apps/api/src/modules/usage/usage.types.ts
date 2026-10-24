@@ -34,6 +34,8 @@ export interface UsageCountInput {
 export interface UsageListInput extends UsageCountInput {}
 
 export interface UsageRecordInput {
+  expiresAt?: Date;
+  fixedCredits?: number;
   action: string;
   attachmentCount?: number;
   creditsReserved?: number;
@@ -136,6 +138,9 @@ export interface UsageEventRecord {
 }
 
 export interface UsageUpdateInput {
+  /** Internal accounting only: bind trustworthy late evidence to its original attempt. */
+  attemptId?: string;
+  usageConfirmed?: boolean;
   creditsUsed?: number;
   id: string;
   mode?: string;
@@ -153,6 +158,7 @@ export interface UsageUpdateInput {
 }
 
 export interface UsageReservation {
+  accountingStatus?: 'pending' | 'unconfirmed';
   eventId?: string;
   fixedCredits?: number;
   generationAttempts?: number;
@@ -166,6 +172,10 @@ export interface UsageReservation {
 }
 
 export interface UsageRepository {
+  beginUsageAttempt?(id: string, attempt?: UsageAttemptDescriptor): Promise<void>;
+  reconcileExpiredUsage?(options?:{strict?:boolean}): Promise<number>;
+  readUsageCharge?(id:string): Promise<number>;
+  readUsageAccounting?(id:string): Promise<{units:number;confirmedUnits?:number;unconfirmedUnits?:number;status:'settled'|'pending'|'unconfirmed';receiptRecorded:boolean}>;
   cleanupStaleReservedUsage(input: UsageCleanupStaleReservedInput): Promise<number>;
   countUsage(input: UsageCountInput): Promise<number>;
   listUsageEvents(input: UsageListInput): Promise<UsageEventRecord[]>;
@@ -173,4 +183,10 @@ export interface UsageRepository {
   recordUsage(input: UsageRecordInput): Promise<{ id: string }>;
   reserveUsage(input: UsageReservationInput): Promise<UsageReservationRecord>;
   updateUsage(input: UsageUpdateInput): Promise<void>;
+}
+
+export interface UsageAttemptDescriptor {
+  kind?: "generation" | "router";
+  model?: string;
+  provider?: string;
 }

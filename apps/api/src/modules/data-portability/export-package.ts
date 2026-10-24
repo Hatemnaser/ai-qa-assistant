@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { recordedMessageMetadata } from "../chat-history/chat-message-metadata.js";
+import {addPortableQaHistory,QA_HISTORY_IMPORT_WARNING} from "./qa-history-portable.js";
+import type {QaBinaryBundle} from "../qa-requests/qa-report.package.js";
 
 import { strToU8, zipSync } from "fflate";
 
@@ -14,6 +17,7 @@ import {
 } from "./binary-assets.js";
 import {
   PROJECT_EXPORT_FORMAT_VERSION,
+  PROJECT_EXPORT_QA_FORMAT_VERSION,
   PROJECT_EXPORT_LEGACY_FORMAT_VERSION,
   PROJECT_EXPORT_LIMITS,
   type ProjectExportChatRecord,
@@ -44,12 +48,14 @@ export function createProjectExportPackage(
   project: ProjectExportSourceRecord,
   options: ProjectExportOptions,
   exportedAt = new Date(),
-  binaryAssets?: CollectedPortableBinaryAssets
+  binaryAssets?: CollectedPortableBinaryAssets,
+  qaBinaries?: QaBinaryBundle
 ): ProjectExportPackage {
   validateSourceSemantics(project, options);
 
   const entries = new Map<string, Uint8Array>();
-  const formatVersion = binaryAssets
+  const qaHistory=addPortableQaHistory(entries,project.qaHistory,qaBinaries);
+  const formatVersion = qaHistory ? PROJECT_EXPORT_QA_FORMAT_VERSION : binaryAssets
     ? PROJECT_EXPORT_FORMAT_VERSION
     : PROJECT_EXPORT_LEGACY_FORMAT_VERSION;
   const chats = options.includeChats ? project.chats : [];
@@ -128,6 +134,7 @@ export function createProjectExportPackage(
         : null,
       documents: documentReferences,
       chats: chatReferences,
+      ...(qaHistory?{qaHistory}:{}),
     },
   };
 
@@ -146,7 +153,8 @@ export function createProjectExportPackage(
   }
 
   const warnings = createExportWarnings(chats, binaryAssets, assetDescriptors);
-  if (chats.some((chat) => chat.kind === "TEST" || chat.kind === "SESSION")) warnings.push("Session conversations are exported as inert transcripts. QA records, approvals, execution state and live links are not included and will not resume on import.");
+  if(qaHistory)warnings.push(QA_HISTORY_IMPORT_WARNING);
+  if (chats.some((chat) => chat.kind === "TEST" || chat.kind === "SESSION")) warnings.push("Session conversations are exported as inert transcripts. Execution state and live links will not resume on import.");
   const files = createFileManifest(entries);
   const manifestCommon = {
     exportType: "project" as const,
@@ -160,10 +168,10 @@ export function createProjectExportPackage(
     (total, chat) => total + chat.messages.length,
     0
   );
-  const manifest: ProjectExportManifest = binaryAssets
+  const manifest: ProjectExportManifest = binaryAssets || qaHistory
     ? {
         ...manifestCommon,
-        formatVersion: PROJECT_EXPORT_FORMAT_VERSION,
+        formatVersion: formatVersion as typeof PROJECT_EXPORT_FORMAT_VERSION | typeof PROJECT_EXPORT_QA_FORMAT_VERSION,
         include: {
           assets: true,
           chats: options.includeChats,
@@ -171,7 +179,7 @@ export function createProjectExportPackage(
           readable: true,
         },
         counts: {
-          assetBytes: binaryAssets.totalBytes,
+          assetBytes: binaryAssets?.totalBytes || 0,
           assets: assetDescriptors.length,
           documents: project.documents.length,
           chats: chats.length,
@@ -238,7 +246,7 @@ function toPortableMessage(message: ProjectExportMessageRecord) {
     role: toPortableRole(message.role),
     content: message.content,
     mode: message.mode,
-    model: message.model,
+    model: recordedMessageMetadata(message).model || null,
     createdAt: message.createdAt.toISOString(),
     ...(attachments.length > 0 ? { attachments } : {}),
     ...(hasErrorFlag(message.metadata) ? { isError: true } : {}),

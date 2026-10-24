@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { runtimeRunnerRouter } from "../browser-runtime/browser-runtime.routes.js";
+import { browserAuthRepository } from '../browser-auth/browser-auth.repository.js';
 
 import {
   requireConnectedProject,
@@ -36,6 +38,18 @@ import {
 export const qaAgentRouter = Router();
 
 qaAgentRouter.use(requireProjectConnection);
+qaAgentRouter.use('/runner/v2/executions/:executionId/runtime', requireConnectionScope('execution:write'), runtimeRunnerRouter);
+qaAgentRouter.get('/runner/v2/saved-logins',requireConnectionScope('execution:claim'),async(req,res,next)=>{try{res.setHeader('Cache-Control','no-store');res.json({states:await browserAuthRepository.list(req.qaIntegration!.ownerId,req.qaIntegration!.projectId)});}catch(error){next(error);}});
+// Both protocol adapters use the same domain services and capability checks.
+qaAgentRouter.put("/runner/v2/registration", requireConnectionScope("execution:claim"), registerQaRunner);
+qaAgentRouter.post("/runner/v2/executions/claim", requireConnectionScope("execution:claim"), claimQaExecution);
+qaAgentRouter.post("/runner/v2/executions/:executionId/accept", requireConnectionScope("execution:write"), acceptQaExecution);
+qaAgentRouter.post("/runner/v2/executions/:executionId/heartbeat", requireConnectionScope("execution:write"), heartbeatQaExecution);
+qaAgentRouter.put("/runner/v2/executions/:executionId/items/:checklistItemId", requireConnectionScope("execution:write"), recordQaExecutionItem);
+qaAgentRouter.post("/runner/v2/executions/:executionId/finish", requireConnectionScope("execution:write"), finishQaExecution);
+qaAgentRouter.post("/runner/v2/executions/:executionId/fail", requireConnectionScope("execution:write"), failQaExecution);
+qaAgentRouter.post("/runner/v2/executions/:executionId/evidence/uploads", requireConnectionScope("execution:write"), requireConnectionScope("evidence:write"), initiateQaExecutionUpload);
+qaAgentRouter.post("/runner/v2/executions/:executionId/evidence/uploads/:assetId/complete", requireConnectionScope("execution:write"), requireConnectionScope("evidence:write"), completeQaExecutionUpload);
 qaAgentRouter.put(
   "/runner/v1/registration",
   requireConnectionScope("execution:claim"),

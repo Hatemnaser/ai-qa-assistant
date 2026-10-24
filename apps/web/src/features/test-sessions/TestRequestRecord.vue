@@ -3,6 +3,7 @@ import { computed, nextTick, ref } from "vue";
 import { useI18n } from "../../i18n/useI18n";
 import QaEvidenceCard from "../qa/components/QaEvidenceCard.vue";
 import { qaChecklistEvidence, qaGeneralEvidence } from "../qa/workspacePresentation";
+import {qaEvidenceAvailable} from '../qa/evidenceAvailability';
 import type { QaRequestDetail } from "../qa/types";
 import { qaEventLabelKey } from "../sessions/sessionActivityPresentation";
 
@@ -16,7 +17,7 @@ const rows = computed(() => qaChecklistEvidence(artifact.value, run.value).map(r
   ...row,
   requirements: row.item.evidenceRequirements.map(requirement => ({
     requirement,
-    attached: row.evidence.some(evidence => evidence.requirementId === requirement.id),
+    attached: row.evidence.some(evidence => evidence.requirementId === requirement.id && qaEvidenceAvailable(evidence)),
   })),
 })));
 const generalEvidence = computed(() => qaGeneralEvidence(artifact.value, run.value));

@@ -1,9 +1,11 @@
 import { z } from "zod";
+import {qaHistoryReferenceSchema} from "../qa-requests/qa-report.types.js";
 
 import { CHAT_ATTACHMENT_LIMITS } from "../chat/chat.attachments.js";
 import { BINARY_ASSET_PORTABILITY_LIMITS } from "./binary-assets.js";
 import {
   PROJECT_EXPORT_FORMAT_VERSION,
+  PROJECT_EXPORT_QA_FORMAT_VERSION,
   PROJECT_EXPORT_LEGACY_FORMAT_VERSION,
   PROJECT_IMPORT_LIMITS,
 } from "./data-portability.types.js";
@@ -78,7 +80,7 @@ const projectExportManifestV2Schema = z.object({
 
 export const projectExportManifestSchema = z.discriminatedUnion(
   "formatVersion",
-  [projectExportManifestV1Schema, projectExportManifestV2Schema]
+  [projectExportManifestV1Schema, projectExportManifestV2Schema,projectExportManifestV2Schema.extend({formatVersion:z.literal(PROJECT_EXPORT_QA_FORMAT_VERSION)})]
 );
 
 const portableDocumentMetadataSchema = z
@@ -114,9 +116,11 @@ export const portableProjectSchema = z.object({
   formatVersion: z.enum([
     PROJECT_EXPORT_LEGACY_FORMAT_VERSION,
     PROJECT_EXPORT_FORMAT_VERSION,
+    PROJECT_EXPORT_QA_FORMAT_VERSION,
   ]),
   exportType: z.literal("project"),
   project: z.object({
+    qaHistory: qaHistoryReferenceSchema.optional(),
     sourceId: z.string().min(1).max(240),
     name: z.string().trim().min(1).max(120),
     description: z.string().max(1000).nullable(),
@@ -172,6 +176,7 @@ export const portableProjectChatSchema = z.object({
   formatVersion: z.enum([
     PROJECT_EXPORT_LEGACY_FORMAT_VERSION,
     PROJECT_EXPORT_FORMAT_VERSION,
+    PROJECT_EXPORT_QA_FORMAT_VERSION,
   ]),
   exportType: z.literal("project_chat"),
   projectId: z.string().min(1).max(240),

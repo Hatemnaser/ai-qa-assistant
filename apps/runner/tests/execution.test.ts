@@ -6,8 +6,9 @@ import type { ExecutionItemSubmissionV1 } from "@oddpath/qa-execution-contract";
 
 import { executeClaim, idempotencyKey, type ExecuteClaimOptions } from "../src/execution.js";
 import { OddpathApiError } from "../src/http-client.js";
-import type { SemanticBrowserSession } from "../src/interpreter.js";
-import { claimedExecution, executionReceipt, testConfig } from "./fixtures.js";
+import { BrowserSessionUnavailableError, type SemanticBrowserSession } from "../src/interpreter.js";
+import { claimedExecution, managedClaimedExecution, executionReceipt, testConfig } from "./fixtures.js";
+import { hashCanonicalJson } from '../src/config.js';
 
 const originalEmail = process.env.ODDPATH_TEST_EMAIL;
 afterEach(() => {
@@ -57,6 +58,9 @@ describe("runner execution lifecycle", () => {
     assert.deepEqual(calls, ["accept", "record:1", "finish:2"]);
     assert.equal(submissions[0]?.status, "PASS");
     assert.equal(submissions[0]?.evidence[0]?.kind, "TEXT");
+    assert.deepEqual(submissions[0]?.observation?.completedStepRefs,claimed.task.recipe.bundle.items[0]?.steps.map(step=>step.ref));
+    assert.equal(submissions[0]?.observation?.failedStepRef,null);
+    assert.ok(Date.parse(submissions[0]!.observation!.finishedAt)>=Date.parse(submissions[0]!.observation!.startedAt));
     assert.equal(JSON.stringify(submissions).includes("private@example.test"), false);
     assert.equal(session.filledValue, "private@example.test");
     assert.equal(session.closed, true);
@@ -269,7 +273,102 @@ const silentLogger = {
   warn() {},
 };
 
+describe('managed v2 immutable execution', () => {
+  function fixture() {
+    const base = recoveryFixture(), claimed = managedClaimedExecution(), calls = base.calls;
+    const options: ExecuteClaimOptions = { ...base.options, profiles: [], createSession: async () => { calls.push('browser'); return base.session; },
+      managedV2: { profileHashes: [claimed.task.profile.manifestHash!], async beforeSteps() { calls.push('start-once'); }, async assertRuntimeLive() {}, async terminate() { calls.push('terminate'); } } };
+    return { ...base, claimed, options };
+  }
+  for(const completed of [false,true]) it(`requires completed human preparation before manual execution (${completed})`,async()=>{
+    const f=fixture(),task=f.claimed.task;task.profile.authentication={kind:'MANUAL'};
+    const {manifestHash,...manifest}=task.profile;task.profile.manifestHash=hashCanonicalJson(manifest);
+    task.approval.profileManifestHash=task.profile.manifestHash;
+    const {bindingHash,...approval}=task.approval;
+    task.approval.bindingHash=hashCanonicalJson({...approval,authentication:task.profile.authentication,executionLimits:task.profile.executionLimits,candidate:task.profile.target.candidate});
+    f.options.managedV2!.profileHashes=[task.profile.manifestHash];f.options.managedV2!.humanPreparationCompleted=completed;
+    await executeClaim(f.claimed,f.options);
+    assert.deepEqual(f.calls,completed?['accept','start-once','browser','record:item-1','finish','terminate']:['fail:RUNNER_TASK_INVALID','terminate']);
+  });
+  it('accepts exact canonical authority and durably fences execution before opening the managed session', async () => {
+    const f = fixture(); await executeClaim(f.claimed, f.options);
+    assert.deepEqual(f.calls, ['accept', 'start-once', 'browser', 'record:item-1', 'finish', 'terminate']);
+    assert.equal(f.session.closed, true); assert.equal(f.session.url, 'https://example.com/checkout');
+  });
+  for (const field of ['binding', 'profile', 'expiry'] as const) it(`rejects invalid ${field} before acceptance or browser steps`, async () => {
+    const f = fixture();
+    if (field === 'binding') f.claimed.task.approval.bindingHash = 'f'.repeat(64);
+    if (field === 'profile') f.options.managedV2!.profileHashes = ['f'.repeat(64)];
+    if (field === 'expiry') f.options.now = () => new Date(f.claimed.task.deadlineAt);
+    await executeClaim(f.claimed, f.options);
+    assert.deepEqual(f.calls, ['fail:RUNNER_TASK_INVALID', 'terminate']);
+  });
+  it('does not execute a step when the durable start fence refuses replay', async () => {
+    const f = fixture(); f.options.managedV2!.beforeSteps = async () => { throw new Error('Already started'); };
+    await executeClaim(f.claimed, f.options);
+    assert.deepEqual(f.calls, ['accept', 'fail:RUNNER_EXECUTION_FAILED', 'terminate']);
+  });
+  it('does not record an assertion FAIL when the browser runtime has crashed', async () => {
+    const f = fixture(); let checks = 0;
+    f.session.expect = async () => { throw new Error('Browser closed during expectation'); };
+    f.options.managedV2!.assertRuntimeLive = async () => { if (++checks > 1) throw new Error('Runtime crashed'); };
+    await executeClaim(f.claimed, f.options);
+    assert.deepEqual(f.calls, ['accept', 'start-once', 'browser', 'fail:RUNNER_EXECUTION_FAILED', 'terminate']);
+    assert.equal(f.submissions.length, 0);
+  });
+  it('kills the managed runtime on heartbeat lease loss during an in-flight step', async t => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const f = fixture(), entered = deferredSignal(), release = deferredSignal();
+    f.session.navigate = async () => { entered.resolve(); await release.promise; };
+    f.client.heartbeat = async () => { throw new OddpathApiError('Cancelled', 409, 'QA_EXECUTION_LEASE_LOST'); };
+    f.options.managedV2!.terminate = async () => { f.calls.push('terminate'); release.resolve(); };
+    const execution = executeClaim(f.claimed, { ...f.options, heartbeatIntervalMs: 10 });
+    await entered.promise; t.mock.timers.tick(10); await setImmediate();
+    assert.equal(await execution, null);
+    assert.deepEqual(f.calls, ['accept', 'start-once', 'browser', 'terminate', 'terminate']);
+    assert.equal(f.submissions.length, 0);
+  });
+  it('reports a crashed page as infrastructure failure even while runtime health stays LIVE', async () => {
+    const f = fixture();
+    f.session.expect = async () => { f.session.unavailable = true; throw Error('Renderer crashed'); };
+    await executeClaim(f.claimed, f.options);
+    assert.deepEqual(f.calls, ['accept', 'start-once', 'browser', 'fail:BROWSER_SESSION_UNAVAILABLE', 'terminate']);
+    assert.equal(f.submissions.length, 0); assert.equal(f.session.closed, true);
+  });
+  it('preserves an earlier PASS and fails the execution if the page disconnects before finish', async () => {
+    const f = fixture(), record = f.client.recordItem;
+    f.client.recordItem = async (...args) => { const receipt = await record(...args); f.session.unavailable = true; return receipt; };
+    await executeClaim(f.claimed, f.options);
+    assert.deepEqual(f.calls, ['accept', 'start-once', 'browser', 'record:item-1', 'fail:BROWSER_SESSION_UNAVAILABLE', 'terminate']);
+    assert.equal(f.submissions.length, 1); assert.equal(f.submissions[0]!.submission.status, 'PASS');
+    assert.equal(f.submissions[0]!.submission.evidence[0]!.kind, 'TEXT');
+  });
+  it('still records a failed expectation when the managed page is healthy', async () => {
+    const f = fixture(); f.session.expect = async () => { throw Error('Expectation mismatch'); };
+    await executeClaim(f.claimed, f.options);
+    assert.deepEqual(f.calls, ['accept', 'start-once', 'browser', 'record:item-1', 'finish', 'terminate']);
+    assert.equal(f.submissions[0]!.submission.status, 'FAIL');
+  });
+  it('rejects production mutation despite an explicit production permission', async () => {
+    const f = fixture(), task = f.claimed.task;
+    task.profile.environmentKind = task.profile.target.environmentKind = 'PRODUCTION';
+    const { revision, revisionId, targetId, targetHash, ...definition } = task.profile.target;
+    task.profile.target.targetHash = hashCanonicalJson(definition);
+    const { manifestHash, ...manifest } = task.profile; task.profile.manifestHash = hashCanonicalJson(manifest);
+    task.recipe.bundle.items[0]!.steps.push({ action: 'click', ref: 'save', locator: { by: 'role', role: 'button', name: 'Save' } });
+    task.recipe.hash = f.claimed.claim.recipeHash = hashCanonicalJson(task.recipe.bundle);
+    task.approval.profileManifestHash = task.profile.manifestHash; task.approval.targetHash = task.profile.target.targetHash; task.approval.recipeHash = task.recipe.hash;
+    const { bindingHash, ...approval } = task.approval;
+    task.approval.bindingHash = hashCanonicalJson({ ...approval, authentication: task.profile.authentication, executionLimits: task.profile.executionLimits, candidate: task.profile.target.candidate });
+    f.options.managedV2!.profileHashes = [task.profile.manifestHash];
+    await executeClaim(f.claimed, { ...f.options, allowProduction: true });
+    assert.deepEqual(f.calls, ['fail:PRODUCTION_NOT_ALLOWED', 'terminate']);
+  });
+});
+
 class FakeSession implements SemanticBrowserSession {
+  unavailable = false;
+  assertHealthy() { if (this.unavailable) throw new BrowserSessionUnavailableError(); }
   closed = false;
   filledValue = "";
   url = "about:blank";

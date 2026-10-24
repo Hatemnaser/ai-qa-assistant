@@ -11,6 +11,7 @@ import {
 } from "../usage/conversation-summary-usage.service.js";
 import { isAiUsageLimitError, type AiOperationReservation } from "../usage/usage.service.js";
 import { conversationSummaryRepository } from "./conversation-summary.repository.js";
+import { ConversationSummaryGenerationError } from "./conversation-summary.errors.js";
 import {
   conversationSummaryService,
   type ConversationSummaryService,
@@ -107,11 +108,13 @@ export function createConversationSummaryRefreshService({
 
       logOperationalEvent("warn", {
         event: "conversation_summary_refresh",
-        outcome: "degraded",
+        outcome: "failed",
         stage: "usage_reservation",
       });
-      usageReservation = undefined;
+      return "failed";
     }
+
+    if (!usageReservation?.eventId) return "failed";
 
     let generated;
     let providerAttempted = false;
@@ -120,8 +123,18 @@ export function createConversationSummaryRefreshService({
       await usage.recordAttempt(usageReservation);
       providerAttempted = true;
       generated = await summarizer.generate(plan.input);
-    } catch {
-      await ignoreUsageFailure(() => usage.fail(usageReservation, providerAttempted));
+    } catch (error) {
+      if (
+        providerAttempted &&
+        error instanceof ConversationSummaryGenerationError &&
+        error.usage
+      ) {
+        await ignoreUsageFailure(() =>
+          usage.complete(usageReservation, error.usage)
+        );
+      } else {
+        await ignoreUsageFailure(() => usage.fail(usageReservation, providerAttempted));
+      }
       logOperationalEvent("warn", {
         event: "conversation_summary_refresh",
         outcome: "failed",

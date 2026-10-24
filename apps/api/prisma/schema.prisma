@@ -1,3 +1,12 @@
+// Shared abuse history has no User relation and cannot be reset by account deletion.
+model AuthAbuseBucket {
+  key     String   @id @db.VarChar(64)
+  hits    Int
+  resetAt DateTime
+
+  @@index([resetAt])
+}
+
 generator client {
   provider               = "prisma-client"
   output                 = "../src/generated/prisma"
@@ -205,6 +214,7 @@ model User {
   memories                   Memory[]
   aiUsageLogs                AiUsageLog[]
   usageEvents                UsageEvent[]
+  browserDailyUsage          QaBrowserDailyUsage[]
   passwordResetTokens        PasswordResetToken[]
   emailVerificationTokens    EmailVerificationToken[]
   authEmailJobs              AuthEmailJob[]
@@ -217,6 +227,7 @@ model User {
   projectConnectionTokens    ProjectConnectionToken[]    @relation("ProjectConnectionTokenOwner")
   authoredQaExecutionRecipes QaExecutionRecipe[]         @relation("QaExecutionRecipeAuthor")
   qaExecutionAuthorizations  QaExecutionAuthorization[]  @relation("QaExecutionApprover")
+  savedBrowserStates         QaSavedBrowserState[]
 
   @@index([emailVerifiedAt, createdAt, id])
 }
@@ -327,9 +338,12 @@ model Project {
   projectMemory         ProjectMemory?
   storedAssets          StoredAsset[]
   qaRequests            QaRequest[]
+  qaImportedArchives    QaImportedArchive[]
   connectionTokens      ProjectConnectionToken[]
   qaRunnerRegistrations QaRunnerRegistration[]
   qaExecutionJobs       QaExecutionJob[]
+  qaTargets             QaTarget[]
+  savedBrowserStates    QaSavedBrowserState[]
 
   @@index([ownerId])
 }
@@ -533,6 +547,7 @@ model StoredAsset {
   readyAt             DateTime?
   restoreSessionId    String?
   restoreAttempt      Int?
+  evidenceExpiresAt   DateTime?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
@@ -550,6 +565,7 @@ model StoredAsset {
   @@index([status, validationStartedAt])
   @@index([status, readyAt])
   @@index([restoreSessionId, restoreAttempt, status])
+  @@index([purpose, evidenceExpiresAt, status])
 }
 
 model BinaryAssetRestoreSession {
@@ -688,6 +704,13 @@ model UsageEvent {
   fileCount             Int      @default(0)
   providerAttempts      Int      @default(0)
   createdAt             DateTime @default(now())
+  fixedCredits          Int      @default(0)
+  expiresAt             DateTime?
+  settledAt             DateTime?
+  reservationPolicy     Json?
+  anonymousUntil        DateTime?
+  attempts              UsageProviderAttempt[]
+  settlementReceipts    UsageSettlementReceipt[]
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
@@ -697,6 +720,68 @@ model UsageEvent {
   @@index([model, createdAt])
   @@index([action, createdAt])
   @@index([createdAt, id])
+  @@index([anonymousUntil])
+}
+
+model UsageProviderAttempt {
+  id              String   @id @default(uuid())
+  eventId         String
+  ordinal         Int
+  kind            String
+  provider        String?
+  model           String?
+  status          String   @default("started")
+  creditsReserved Int
+  creditsUsed     Int?
+  promptTokens    Int?
+  outputTokens    Int?
+  totalTokens     Int?
+  startedAt       DateTime @default(now())
+  settledAt       DateTime?
+  event           UsageEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  settlementReceipt UsageSettlementReceipt?
+
+  @@unique([eventId, ordinal])
+  @@index([eventId, status])
+  @@index([startedAt])
+}
+
+model UsageSettlementReceipt {
+  eventId     String
+  attemptId   String @id
+  fingerprint String
+  credits     Int
+  payload     Json
+  createdAt   DateTime @default(now())
+  appliedAt   DateTime?
+  event       UsageEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  attempt     UsageProviderAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([appliedAt, createdAt])
+  @@index([eventId])
+}
+
+model QaBrowserDailyUsage {
+  ownerId String
+  day     DateTime @db.Date
+  count   Int
+  owner   User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@id([ownerId, day])
+}
+
+model QaBrowserReservation {
+  executionId   String @id
+  ownerId       String
+  state         String @default("QUEUED")
+  queuedAt      DateTime @default(now())
+  queueExpiresAt DateTime
+  grantedAt     DateTime?
+  releasedAt    DateTime?
+  execution     QaExecutionJob @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([state, queuedAt])
+  @@index([ownerId, state])
 }
 
 model QaRequest {
@@ -728,6 +813,7 @@ model QaRequest {
   executionJobs    QaExecutionJob[]
   testSession      TestSession?            @relation(fields: [testSessionId], references: [id], onDelete: Restrict)
   preparation      TestSessionPreparation?
+  readinessCandidates QaReadinessCandidate[]
 
   @@index([projectId, phase, updatedAt, id])
   @@index([createdByUserId, createdAt])
@@ -879,6 +965,7 @@ model QaCheckResult {
   status          QaCheckResultStatus
   observedResult  String?
   notes           String?
+  provenance      Json?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
@@ -902,6 +989,7 @@ model QaEvidence {
   textContent       String?
   externalReference String?
   metadata          Json?
+  provenance        Json?
   createdAt         DateTime       @default(now())
 
   run             QaRun                   @relation(fields: [runId], references: [id], onDelete: Cascade)
@@ -918,14 +1006,27 @@ model QaEvidence {
 model QaEvidenceAsset {
   id         String @id @default(cuid())
   evidenceId String
-  assetId    String @unique
+  assetId    String? @unique
   ordinal    Int
+  snapshot   Json?
+  unavailableReason String?
 
   evidence QaEvidence  @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
-  asset    StoredAsset @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  asset    StoredAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   @@unique([evidenceId, ordinal])
   @@index([evidenceId])
+}
+
+// Imported history is deliberately disconnected from all executable QA models.
+model QaImportedArchive {
+  id           String @id @default(cuid())
+  projectId    String
+  sourceDigest String
+  payload      Json
+  importedAt   DateTime @default(now())
+  project      Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId, importedAt])
 }
 
 model QaHumanReview {
@@ -989,6 +1090,7 @@ model QaGenerationExecution {
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   completedAt         DateTime?
+  providerStartedAt   DateTime?
 
   request  QaRequest          @relation(fields: [requestId], references: [id], onDelete: Cascade)
   artifact QaArtifact?        @relation(fields: [artifactId], references: [id], onDelete: SetNull)
@@ -1102,6 +1204,50 @@ model QaRunnerRegistration {
   @@index([connectionTokenId, lastSeenAt])
 }
 
+model QaTarget {
+  id              String   @id @default(cuid())
+  projectId       String
+  label           String
+  currentRevision Int      @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  revisions       QaTargetRevision[]
+
+  @@index([projectId])
+}
+
+model QaTargetRevision {
+  id                 String   @id @default(cuid())
+  targetId           String
+  revision           Int
+  definition         Json
+  targetHash         String
+  authorityUserId    String
+  authorityAcceptedAt DateTime @default(now())
+  createdAt          DateTime @default(now())
+  target             QaTarget @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  verifications      QaTargetVerification[]
+  authorizations     QaExecutionAuthorization[]
+
+  @@unique([targetId, revision])
+}
+
+model QaTargetVerification {
+  id            String   @id @default(cuid())
+  revisionId    String
+  method        String
+  challengeHash String
+  expiresAt     DateTime
+  verifiedAt    DateTime?
+  validUntil    DateTime?
+  createdAt     DateTime @default(now())
+  revision      QaTargetRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  authorizations QaExecutionAuthorization[]
+
+  @@index([revisionId, validUntil])
+}
+
 model QaExecutionAuthorization {
   id                   String   @id @default(cuid())
   runId                String   @unique
@@ -1114,6 +1260,14 @@ model QaExecutionAuthorization {
   profileManifestHash  String
   productionConfirmed  Boolean  @default(false)
   approvedAt           DateTime @default(now())
+  protocolVersion      Int      @default(1)
+  requestVersion       Int?
+  targetRevisionId     String?
+  targetHash           String?
+  verificationId       String?
+  bindingHash          String?
+  binding              Json?
+  expiresAt            DateTime?
 
   run                QaRun                 @relation(fields: [runId], references: [id], onDelete: Cascade)
   recipe             QaExecutionRecipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
@@ -1121,11 +1275,15 @@ model QaExecutionAuthorization {
   approvedBy         User?                 @relation("QaExecutionApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
   runnerRegistration QaRunnerRegistration? @relation(fields: [runnerRegistrationId], references: [id], onDelete: SetNull)
   job                QaExecutionJob?
+  targetRevision     QaTargetRevision? @relation(fields: [targetRevisionId], references: [id], onDelete: NoAction)
+  verification       QaTargetVerification? @relation(fields: [verificationId], references: [id], onDelete: NoAction)
 
   @@index([recipeId, approvedAt])
   @@index([runnerRegistrationId, approvedAt])
   @@index([artifactId])
   @@index([approvedByUserId])
+  @@index([targetRevisionId])
+  @@index([verificationId])
 }
 
 model QaExecutionJob {
@@ -1166,6 +1324,8 @@ model QaExecutionJob {
   authorization      QaExecutionAuthorization    @relation(fields: [authorizationId], references: [id], onDelete: Cascade)
   runnerRegistration QaRunnerRegistration        @relation(fields: [runnerRegistrationId], references: [id], onDelete: Cascade)
   uploads            QaExecutionEvidenceUpload[]
+  browserRuntime     QaBrowserRuntime?
+  browserReservation QaBrowserReservation?
 
   @@index([status, availableAt, leaseExpiresAt])
   @@index([runnerRegistrationId, status, availableAt])
@@ -1173,6 +1333,46 @@ model QaExecutionJob {
   @@index([projectId])
   @@index([artifactId])
   @@index([recipeId])
+}
+
+model QaBrowserRuntime {
+  runtimeId        String   @id
+  executionId      String   @unique
+  claimId          String
+  imageDigest      String
+  state            String   @default("LIVE")
+  startedAt        DateTime @default(now())
+  lastSeenAt       DateTime @default(now())
+  stopRequestedAt  DateTime?
+  exitObservedAt   DateTime?
+  loginPhase       String   @default("NONE")
+  loginEpoch       String?
+  loginDeadlineAt  DateTime?
+  saveLoginConsentAt DateTime?
+  authenticationKind String @default("NONE")
+  savedLoginId       String?
+  execution        QaExecutionJob @relation(fields: [executionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "QaBrowserRuntime_execution_fkey")
+
+  @@index([state, lastSeenAt])
+}
+
+model QaSavedBrowserState {
+  id               String   @id @default(uuid())
+  ownerId          String
+  projectId        String
+  targetRevisionId String
+  targetHash       String
+  revision         Int      @default(1)
+  sourceRuntimeId  String   @unique
+  sealedState      Json
+  createdAt        DateTime
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  owner            User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, expiresAt])
+  @@index([ownerId])
 }
 
 model QaExecutionEvidenceUpload {
@@ -1201,6 +1401,7 @@ model ProjectConnectionToken {
   name        String
   tokenPrefix String
   tokenHash   String    @unique
+  managedHostId String?
   scopes      String[]  @default([])
   expiresAt   DateTime?
   revokedAt   DateTime?
@@ -1219,6 +1420,7 @@ model ProjectConnectionToken {
   @@index([projectId, revokedAt])
   @@index([ownerId, createdAt])
   @@index([tokenPrefix])
+  @@unique([projectId, managedHostId])
 }
 
 model ExternalIdempotencyRecord {
@@ -1243,4 +1445,30 @@ model ExternalIdempotencyRecord {
   @@unique([credentialId, operation, keyHash])
   @@index([credentialId, createdAt])
   @@index([state, expiresAt])
+}
+
+model QaReadinessCandidate {
+  id                String @id @default(cuid())
+  requestId         String
+  revision          Int
+  definition        Json
+  definitionHash    String
+  initialDeployment Json
+  invalidatedAt     DateTime?
+  createdAt         DateTime @default(now())
+  request           QaRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  evaluations       QaReadinessEvaluation[]
+
+  @@unique([requestId, revision])
+}
+
+model QaReadinessEvaluation {
+  id           String @id @default(cuid())
+  candidateId  String
+  snapshot     Json
+  snapshotHash String
+  createdAt    DateTime @default(now())
+  candidate    QaReadinessCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId, createdAt])
 }

@@ -41,7 +41,7 @@ export class QaRecipeOutputError extends AppError {
             if (typeof part === "number") {
               return Number.isInteger(part) && part >= 0 && part <= 10_000 ? String(part) : "*";
             }
-            return SAFE_PATH_FIELDS.has(part) ? part : "*";
+            return typeof part === "string" && SAFE_PATH_FIELDS.has(part) ? part : "*";
           })].join("."),
         })),
     };

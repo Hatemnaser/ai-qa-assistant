@@ -1,5 +1,10 @@
 import { prisma } from "../../db/prisma.js";
 import { Prisma } from "../../generated/prisma/client.js";
+import { AppError } from '../../lib/errors.js';
+import { createDurableUsageLedger, durableUsagePolicy } from './usage-ledger.js';
+import { aggregateQuotaUsage } from './usage-quota.js';
+import { summarizeAttemptAccounting } from './usage-accounting.js';
+import { logOperationalEvent } from '../../lib/operational-events.js';
 import { AI_USAGE_ACTIONS as aiUsageActions } from "./usage.types.js";
 import type {
   UsageCleanupStaleReservedInput,
@@ -13,40 +18,47 @@ import type {
   UsageUpdateInput,
 } from "./usage.types.js";
 
-export function createPrismaUsageRepository(): UsageRepository {
+export function createPrismaUsageRepository(database:typeof prisma=prisma,now:()=>Date=()=>new Date()): UsageRepository {
+  const ledger=createDurableUsageLedger(database,now);
+  async function reconcileExpiredUsage(options:{strict?:boolean}={}){
+    const pending=await database.usageEvent.findMany({where:{settlementReceipts:{some:{appliedAt:null}}},select:{id:true},take:50,orderBy:{createdAt:'asc'}});
+    let count=0,failed=0;
+    for(const row of pending){try{count+=await ledger.recover(row.id);}catch{failed++;logOperationalEvent('error',{event:'usage_accounting',stage:'recovery',outcome:'pending'});}}
+    const expired=await database.usageEvent.findMany({where:{status:'reserved',expiresAt:{lte:now()},settlementReceipts:{none:{}}},select:{id:true},take:Math.max(0,50-pending.length),orderBy:{expiresAt:'asc'}});
+    for(const row of expired)count+=await ledger.cleanup(row.id);
+    if(failed&&options.strict)throw new AppError('Usage receipts remain pending. Accounting recovery failed.',503,'AI_USAGE_RECOVERY_PENDING');
+    return count;
+  }
+  async function readUsageAccounting(id:string){
+    const event=await database.usageEvent.findUniqueOrThrow({where:{id},include:{attempts:{include:{settlementReceipt:true}},settlementReceipts:true}});
+    const summary=summarizeAttemptAccounting(event.fixedCredits,event.attempts);
+    const pending=event.settlementReceipts.some(receipt=>!receipt.appliedAt);
+    return {units:event.settlementReceipts.length?summary.units:event.units,confirmedUnits:summary.confirmedUnits,unconfirmedUnits:summary.unconfirmedUnits,
+      status:pending?'pending' as const:event.status==='completed'&&!summary.unconfirmed?'settled' as const:'unconfirmed' as const,receiptRecorded:event.settlementReceipts.length>0};
+  }
   return {
+    beginUsageAttempt:ledger.begin,
+    reconcileExpiredUsage,
+    readUsageAccounting,
+    async readUsageCharge(id){return (await readUsageAccounting(id)).units;},
     async cleanupStaleReservedUsage(input) {
-      const result = await prisma.usageEvent.updateMany({
+      await reconcileExpiredUsage();
+      const result = await database.usageEvent.updateMany({
         data: {
           status: "unknown",
         },
-        where: buildStaleReservedCleanupWhere(input),
+        where: {...buildStaleReservedCleanupWhere(input),expiresAt:null},
       });
 
       return result.count;
     },
 
     async countUsage(input) {
-      const usage = await prisma.usageEvent.aggregate({
-        _sum: {
-          units: true,
-        },
-        where: {
-          action: input.action,
-          createdAt: {
-            gte: input.since,
-          },
-          guestId: input.guestId,
-          ipHash: input.ipHash,
-          userId: input.userId,
-        },
-      });
-
-      return usage._sum.units || 0;
+      return (await aggregateQuotaUsage(database,{...input,actions:[input.action]})).unitsUsed;
     },
 
     async listUsageEvents(input) {
-      return prisma.usageEvent.findMany({
+      return database.usageEvent.findMany({
         orderBy: {
           createdAt: "desc",
         },
@@ -80,7 +92,7 @@ export function createPrismaUsageRepository(): UsageRepository {
     },
 
     async recordUsage(input) {
-      return prisma.usageEvent.create({
+      return database.usageEvent.create({
         data: {
           action: input.action,
           attachmentCount: input.attachmentCount,
@@ -114,7 +126,7 @@ export function createPrismaUsageRepository(): UsageRepository {
     },
 
     async recordUsageAttempt(id) {
-      await prisma.usageEvent.update({
+      await database.usageEvent.update({
         data: {
           providerAttempts: {
             increment: 1,
@@ -127,13 +139,15 @@ export function createPrismaUsageRepository(): UsageRepository {
     },
 
     async reserveUsage(input) {
-      return prisma.$transaction(
+      await reconcileExpiredUsage();
+      return database.$transaction(
         async (tx) => {
           const lockKeys = createUsageLockKeys(input);
 
           for (const lockKey of lockKeys) {
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('usage_quota'), hashtext(${lockKey}))`;
           }
+          if(input.event.expiresAt&&input.event.expiresAt<=now())throw new AppError('AI reservation expired while waiting for capacity.',409,'AI_RESERVATION_EXPIRED');
 
           if (input.globalGuard) {
             const windows = [input.globalGuard, ...(input.globalGuard.additionalWindows || [])];
@@ -178,8 +192,13 @@ export function createPrismaUsageRepository(): UsageRepository {
             };
           }
 
+          if(input.event.expiresAt&&input.event.expiresAt<=now())throw new AppError('AI reservation expired while checking capacity.',409,'AI_RESERVATION_EXPIRED');
           const event = await tx.usageEvent.create({
             data: {
+              createdAt:now(),
+              fixedCredits: input.event.fixedCredits,
+              expiresAt: input.event.expiresAt,
+              reservationPolicy: input.event.expiresAt?durableUsagePolicy(input):undefined,
               action: input.event.action,
               attachmentCount: input.event.attachmentCount,
               creditsReserved: input.event.creditsReserved,
@@ -228,7 +247,8 @@ export function createPrismaUsageRepository(): UsageRepository {
     },
 
     async updateUsage(input) {
-      await prisma.usageEvent.update({
+      if(await ledger.finalize(input))return;
+      await database.usageEvent.update({
         data: {
           creditsUsed: input.creditsUsed,
           mode: input.mode,
@@ -290,22 +310,7 @@ async function aggregateUsageUnits(
     action: string | { in: string[] };
   }
 ) {
-  const usage = await tx.usageEvent.aggregate({
-    _sum: {
-      units: true,
-    },
-    where: {
-      action: input.action,
-      createdAt: {
-        gte: input.since,
-      },
-      guestId: input.guestId,
-      ipHash: input.ipHash,
-      userId: input.userId,
-    },
-  });
-
-  return usage._sum.units || 0;
+  return (await aggregateQuotaUsage(tx,{...input,actions:typeof input.action==='string'?[input.action]:input.action.in})).unitsUsed;
 }
 
 async function countInFlightScopeUsage(
@@ -353,23 +358,7 @@ async function aggregateGlobalUsage(
     };
   }
 
-  const where = buildGlobalUsageWhere(input, since);
-  const [requestCount, usage] = await Promise.all([
-    tx.usageEvent.count({
-      where,
-    }),
-    tx.usageEvent.aggregate({
-      _sum: {
-        units: true,
-      },
-      where,
-    }),
-  ]);
-
-  return {
-    requestCount,
-    unitsUsed: usage._sum.units || 0,
-  };
+  return aggregateQuotaUsage(tx,{since,actions:aiUsageActions});
 }
 
 function createUsageLockKeys(input: UsageReservationInput) {
@@ -465,25 +454,6 @@ function buildStaleReservedCleanupWhere(input: UsageCleanupStaleReservedInput) {
   return {
     ...base,
     OR: identityFilters,
-  };
-}
-
-function buildGlobalUsageWhere(input: UsageReservationInput, since: Date) {
-  const globalGuard = input.globalGuard;
-
-  if (!globalGuard) {
-    return {
-      id: "__no_global_guard__",
-    };
-  }
-
-  return {
-    action: {
-      in: [...aiUsageActions],
-    },
-    createdAt: {
-      gte: since,
-    },
   };
 }
 

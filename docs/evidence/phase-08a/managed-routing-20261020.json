@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "scope": "PHASE_08A_1_BOUNDED_MANAGED_PROJECT_ROUTING",
+  "status": "IMPLEMENTED_PENDING_INDEPENDENT_REVIEW",
+  "phaseAccepted": false,
+  "publicReleaseAuthorized": false,
+  "additionalModelsOrSubagentsUsed": false,
+  "implemented": [
+    "Verified-target discovery and project-scoped binding",
+    "Serialized Runner registration and revocation-safe admission",
+    "Narrow host Stop/exit adapter retained during routing disable",
+    "Existing QA approval, quota, lease and physical Stop contracts"
+  ],
+  "validation": {
+    "verify": {
+      "pass": 2012,
+      "fail": 0,
+      "skipped": 1,
+      "skip": "Existing Windows journal-file replacement test"
+    },
+    "release": {
+      "status": "PASS_LOCAL_SUITES",
+      "suites": 16,
+      "pass": 266,
+      "fail": 0,
+      "skipped": 0
+    },
+    "docker": {
+      "pass": 24,
+      "fail": 0,
+      "skipped": 0
+    },
+    "composed": {
+      "status": "PASS_MANAGED_ROUTING_DOCKER_E2E",
+      "discoveredWithoutProjectConfig": true,
+      "ownerHttpApproval": true,
+      "realChromePlaywright": true,
+      "immutableRecipePassed": true,
+      "physicalStopConfirmed": true,
+      "reservationReleased": true,
+      "providerCalls": 0,
+      "transport": "LOCAL_HTTP_FIXTURE_NOT_TLS_PROOF"
+    },
+    "builds": {
+      "api": "PASS",
+      "runner": "PASS",
+      "web": "PASS_WITH_SYNTHETIC_HTTPS_ORIGINS"
+    },
+    "migration": {
+      "legacy": 34,
+      "current": 35,
+      "legacyConnectionHashesPreserved": true,
+      "nullableLegacyRows": 2,
+      "deletedAccountNotRevived": true,
+      "cleanDatabase": true
+    },
+    "lockOrderRegression": {
+      "before": "FAIL_DEADLOCK_BOTH_HTTP_OPERATIONS",
+      "after": "PASS_NO_DEADLOCK_DENY_AFTER_DELETE"
+    },
+    "sourceFingerprint": {
+      "digest": "89ba0c9c9f4535b99fbabe7f4105dc0967b1559041709fee0cec5681e195a3bb",
+      "fileCount": 1064,
+      "file": "source-fingerprint.after.json"
+    }
+  },
+  "evidence": [
+    {
+      "path": "work/phase-08a-managed-routing-20261020/release-final/verification.json",
+      "sha256": "49293ded70a1ef1a3693f1b00f42636ae170c9a8803e1f746e247f0aec650249"
+    },
+    {
+      "path": "work/phase-08a-managed-routing-20261020/verify-summary.json",
+      "sha256": "9843af5e135d26686e35aa6d5c5efc4504a1c1e785fc447e18fcefa22c61490e"
+    },
+    {
+      "path": "work/phase-08a-managed-routing-20261020/browser-docker-current.log",
+      "sha256": "7d8cd8eaa9aec3bcbc98d826383dd098d32943e6cce39dca3ffc3fb0386b2f2d"
+    },
+    {
+      "path": "work/phase-08a-managed-routing-20261020/managed-docker-repeat10.log",
+      "sha256": "7e29e2defb0c62680ede3c980f7700ba0ef116169e99a5b3862fb0e2faf22242"
+    },
+    {
+      "path": "work/phase-08a-managed-routing-20261020/managed-http-repeat9.log",
+      "sha256": "255ea6ca598a66fe4bd5ccacaebd94bf4cb6a417caf4d1ab1b5798399c00318b"
+    },
+    {
+      "path": "work/phase-08a-managed-routing-20261020/managed-http-repeat10.log",
+      "sha256": "80973540a5b26bb0c36d7c125f9067b43b1507c5cb04c83e861c7db4c7f5dafd"
+    },
+    {
+      "path": "work/phase-08a-managed-routing-20261020/image-parity.json",
+      "sha256": "9ebc0c4bbfebece823e01acac5f3d9d78ec6036f4bd2839f133789dc525a02ed"
+    },
+    {
+      "path": "work/phase-08a-managed-routing-20261020/docker-assertion-integrity.json",
+      "sha256": "1f24b2c1503a99ae803912a21b324e6783d3cb45473cfd8d14a7b71c41e89a19"
+    },
+    {
+      "path": "work/phase-08a-managed-routing-20261020/quota-assertion-integrity.json",
+      "sha256": "f8d49fda2b42f8f83942bede33f75ab0e0b02807bf1b0ceab277fbe8abdf6fa9"
+    },
+    {
+      "path": "work/phase-08a-managed-routing-20261020/quota-upgrade-targeted-2.log",
+      "sha256": "86ffed7e7bd5d5d9f30250a5687148da3e880f03c164283f53aead11c59bc3ea"
+    }
+  ],
+  "history": {
+    "baselineFiles": 1211,
+    "unchanged": 1186,
+    "intentionallyModifiedOriginals": 25,
+    "newFilesIncludingThisReceipt": 12,
+    "protectedHistoricalFiles": 72
+  },
+  "deployment": {
+    "performed": false,
+    "workingDatabaseMigrated": false,
+    "requiredMigration": "20261020000100_managed_project_routing"
+  },
+  "remaining": [
+    "Independent acceptance of this slice",
+    "Production activation and full topology",
+    "Owner reconnect/key-rotation UX",
+    "Native ARM sandbox/capacity",
+    "Deployed HTTPS/cookies/WebSocket/SMTP/storage",
+    "Off-host recovery and live cost/resource proof"
+  ],
+  "report": "work/phase-08a-managed-routing-20261020/IMPLEMENTATION_REPORT.md"
+}

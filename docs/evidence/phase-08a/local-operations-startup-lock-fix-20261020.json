@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-20T10:38:56.691Z",
+  "scope": "PHASE_08A_2_SUPERVISOR_STARTUP_STATE_LOADING",
+  "status": "FIXED_LOCALLY_PENDING_INDEPENDENT_ACCEPTANCE",
+  "phase08Accepted": false,
+  "publicReleaseAuthorized": false,
+  "source": {
+    "digest": "bf99fbdf7820d382263b6c309a8e345312ebc32fa9f6240639f8bdf24e5ee225",
+    "fileCount": 1053,
+    "image": "sha256:999a1f9eaf8b525ba0b9578223f66b5fae09c2f3b61567c2b42904e57202f7ce",
+    "changedFiles": [
+      {
+        "path": "ops/maintenance.mjs",
+        "sha256": "aad2f151a2c9f2d1213ff22a88fd1595ba943b87f7ca7c26240b9a18cf7a97a3"
+      },
+      {
+        "path": "ops/tests/maintenance.test.mjs",
+        "sha256": "fdf84565f5bbe6b0806d20a3101ca030ea7a8826eac5eaef30bd225c029d790f"
+      },
+      {
+        "path": "ops/tests/local-operations.integration.mjs",
+        "sha256": "2273b638550d84d2dbfc8d1e5ebf85175705c371bd787e214f3281d69932b7de"
+      },
+      {
+        "path": "docs/PHASE_08A_READINESS_INVENTORY.md",
+        "sha256": "9f4d0ca651ccff84659cdb60dd33203b9d8fd619f4016a3b798262a939ca18a5"
+      }
+    ],
+    "unrelatedOriginalFilesUnchanged": 1205,
+    "imageSourceParity": {
+      "ops/maintenance.mjs": "aad2f151a2c9f2d1213ff22a88fd1595ba943b87f7ca7c26240b9a18cf7a97a3",
+      "ops/backup.mjs": "a57a443278937e41013f605e0d77d2c4eaf8e03991a91fce79669dcce1a8bf23",
+      "ops/lib/backup-archive.mjs": "94a8e64e342eab8f25b24fb8d24a2824c16400ca05c5c326f677eb5c09f9aeff",
+      "ops/lib/private-files.mjs": "8c42d241895d1b0d3b521782fef443d88586d23760a68a4208df9d08e9db8222",
+      "ops/lib/local-lock.mjs": "423978f64b81b4b5f35c04f16c03af4fc8e731c640875c5935bf19b53812bd59",
+      "apps/api/scripts/verify-release.mjs": "b96c00e1cb77260e630959b8d32aac1ad052170f86716165616873c6d723faa2",
+      "apps/api/scripts/verify-release-fingerprint.mjs": "40c4b2703770e1bb662c75e327d0f35bbbcdd685854e5a4daaa76483e3cd08f7",
+      "apps/api/scripts/verify-release-manifest.mjs": "9facf9c31a490035f9fab6f17d27c38c68ee15a18314545765d0429945bcc90d",
+      "apps/api/scripts/verify-release-network.mjs": "3570149f59c4d49127c904450696ace16974d9690ceb02e2e57070e7d2e8d087",
+      "package.json": "a2d8fc5864f100edf7bb8e1bf7585e3e64d35fd65a03c54785d4282934f68d9e"
+    }
+  },
+  "fix": {
+    "authoritativeReadUnderLock": true,
+    "unreadableStatePreserved": true,
+    "lockLoserCannotReadOrWrite": true,
+    "alertsAndRetryTimingPreserved": true,
+    "redHealthSequence": [
+      1,
+      0,
+      0
+    ],
+    "greenHealthSequence": [
+      1,
+      1,
+      1
+    ],
+    "healthAfterVerifiedRecovery": 0
+  },
+  "verification": {
+    "unitRed": {
+      "pass": 21,
+      "expectedFailures": 4
+    },
+    "unitGreenWindows": 25,
+    "unitGreenLinux": 25,
+    "sameCases": true,
+    "realStartupRegression": 4,
+    "realIntegration": 48,
+    "existingAssertionsPreserved": true,
+    "fullVerify": {
+      "pass": 1994,
+      "skipped": 1,
+      "summaries": [
+        {
+          "tests": 41,
+          "suites": 4,
+          "pass": 41,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 1117,
+          "suites": 169,
+          "pass": 1116,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 1,
+          "todo": 0
+        },
+        {
+          "tests": 33,
+          "suites": 6,
+          "pass": 33,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 676,
+          "suites": 106,
+          "pass": 676,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 91,
+          "suites": 4,
+          "pass": 91,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 12,
+          "suites": 0,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 25,
+          "suites": 0,
+          "pass": 25,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        }
+      ]
+    },
+    "linuxVaultPass": 5,
+    "gitDiffCheck": "PASS",
+    "activeInventoryLocalLinks": "PASS"
+  },
+  "cleanup": {
+    "allOwnedResourcesRemoved": true,
+    "syntheticSecretFilesRemoved": true,
+    "originalWorkingDatabaseUnchanged": true,
+    "originalWorkingDatabaseHealthy": true
+  },
+  "scopeLimits": {
+    "noDatabaseSchemaChange": true,
+    "noApiChange": true,
+    "noDependencyChange": true,
+    "additionalModelsUsed": false,
+    "subagentsUsed": false,
+    "deployed": false
+  },
+  "evidence": [
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/baseline.json",
+      "sha256": "581926aa31976496ebe5c29dcb8dea5f1f2ce9c4d91e44e0ad3ba3fe6f75de65"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/before-maintenance.mjs",
+      "sha256": "b43071e205c800200554ae052980d47270f58e89ffc1eeef78a0fa4c3a57e59d"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/before-maintenance.test.mjs",
+      "sha256": "f56509b25aa6bd67ec778968ea4231115dc001262f3ef49e7484b9aec8974c4e"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/unit-red.log",
+      "sha256": "4f673808244c587824720b91d625705b1823f284d69a565a23cda95ea47a0468"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/unit-windows.log",
+      "sha256": "0fe149958064d64c431adaf576ef1c04eb0a8f2ad4d6f95e4ab88da6081bb3bc"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/unit-linux.log",
+      "sha256": "ed194c843de1dfa916c368f33c056cb587c5df0659b46d7318ba36740e35d54a"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/postgres-regression/adversarial-linux.mjs",
+      "sha256": "e1601d4663ab9347466e29a131a4d718814922087e0a4d564663e96000bd60b6"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/postgres-regression/run-adversarial.mjs",
+      "sha256": "c3afa7309a45469546d9c8bdbb1dff4eaa7ccb2ac2a9f86278813aaa91354a06"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/postgres-regression/adversarial-meta.json",
+      "sha256": "c0de39b225a2026e29830ec17ff470f992418f8a9adaa17a5af26bd755eed67a"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/postgres-regression/adversarial.log",
+      "sha256": "0757981edf8eac861b3e58c6669f645327a53aa0246b0e8feed6e7fc37ef18e3"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/postgres-regression/adversarial-repeat1-meta.json",
+      "sha256": "bd09c611a6029a90c6fead8280fde8347a2a8134308fc4adf038c478393a1d44"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/postgres-regression/adversarial-repeat1.log",
+      "sha256": "4e5e21aba23bc47d00119e9f33c13c2b40803cf340403a10a2a97987bab1959f"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/integration-green/verification.json",
+      "sha256": "cb26a39d7db307563448828296b0033540b9e029fa14c52dbab3c91436bb4cc6"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/verify.log",
+      "sha256": "b806e31f43432759dbcecba7c3c3096ad47efe98e66b373fde80131de5704957"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/vault-linux.log",
+      "sha256": "e762774dd87f961e37dd4a4a9438769169aea2f1c19ca6e7f8a09f695c1ab2cb"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/build-operations.log",
+      "sha256": "1375b46e8fa781e065c3448afc38bbcffe612712d917800d1def8ba4f5ad8382"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/maintenance-change.patch",
+      "sha256": "bc1881c0e9c9a2e7a19dffc35e0c221a9886e7be1d099101425ef89cbd20aabc"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/diff-check.log",
+      "sha256": "db456496245738f6bc6940a967445b44a99e532985ff7f397c4a789c379d9024"
+    },
+    {
+      "path": "work/phase-08a-startup-lock-fix-20261020/IMPLEMENTATION_REPORT.md",
+      "sha256": "7a661523b5b64a3809e748a1086d05347e821fe2355ef5b902c910d975c4193a"
+    }
+  ]
+}

@@ -79,6 +79,7 @@ export interface CreatePasswordUserInput {
 }
 
 export interface CreateSessionInput extends AuthRequestContext {
+  expectedPasswordHash?: string;
   expiresAt: Date;
   tokenHash: string;
   userId: string;
@@ -90,6 +91,7 @@ export interface CreateAuthEmailJobInput {
 }
 
 export interface CreatePasswordResetTokenInput {
+  expectedPasswordHash?: string | null;
   emailJob?: CreateAuthEmailJobInput;
   expiresAt: Date;
   now: Date;
@@ -98,6 +100,7 @@ export interface CreatePasswordResetTokenInput {
 }
 
 export interface CreateEmailVerificationTokenInput {
+  expectedPasswordHash?: string | null;
   emailJob?: CreateAuthEmailJobInput;
   expiresAt: Date;
   now: Date;
@@ -112,14 +115,15 @@ export interface ResetPasswordWithTokenInput {
 }
 
 export interface VerifyEmailWithTokenInput {
+  newPasswordHash: string;
   now: Date;
   tokenHash: string;
 }
 
 export interface AuthRepository {
   createPasswordUser(input: CreatePasswordUserInput): Promise<AuthUserRecord>;
-  createEmailVerificationToken(input: CreateEmailVerificationTokenInput): Promise<void>;
-  createPasswordResetToken(input: CreatePasswordResetTokenInput): Promise<void>;
+  createEmailVerificationToken(input: CreateEmailVerificationTokenInput): Promise<boolean>;
+  createPasswordResetToken(input: CreatePasswordResetTokenInput): Promise<boolean>;
   createSession(input: CreateSessionInput): Promise<void>;
   deleteSessionByTokenHash(tokenHash: string): Promise<void>;
   findSessionByTokenHash(tokenHash: string): Promise<AuthSessionRecord | null>;

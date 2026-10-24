@@ -1,4 +1,4 @@
-import { DEFAULT_MODE, getModelForMode, normalizeModel } from "./constants";
+import { DEFAULT_MODE, getModelForMode, normalizeRecordedModel } from "./constants";
 import { createChat, createId } from "./chatStorage";
 import type { Chat, ChatAttachment, ChatMessage } from "./types";
 
@@ -71,9 +71,10 @@ function normalizeImportedMessage(message: Partial<ChatMessage>, defaultAttachme
     role: message.role === "assistant" ? "assistant" : "user",
     content: typeof message.content === "string" ? message.content : "",
     mode: getMode(message.mode),
-    model: normalizeModel(message.model),
+    model: normalizeRecordedModel(message.model),
     createdAt: isValidDate(message.createdAt) ? message.createdAt : new Date().toISOString(),
     ...(attachments.length > 0 ? { attachments } : {}),
+    ...(message.isError ? { isError: true } : {}),
   };
 }
 

@@ -18,6 +18,19 @@ import {
 import { EXPIRED_SESSION, createUserRecord, setupAuthService } from "./helpers/authService.ts";
 
 describe("auth service", () => {
+  it('invalidates a session even when browser/vault revocation fails closed',async()=>{
+    const {service,repository}=setupAuthService({users:[createUserRecord()],stopBrowsersOnLogout:async()=>{throw Error('Vault unavailable');}});
+    const result=await service.login({email:'person@example.com',password:'correct password',remember:false},{});
+    await assert.rejects(service.logout(result.sessionToken),/Vault unavailable/u);
+    assert.equal(await repository.findSessionByTokenHash('hashed-session:'+result.sessionToken),null);
+  });
+  it('requests browser termination for a current session before removing that session',async()=>{
+    const stopped:string[]=[];
+    const {service,repository}=setupAuthService({users:[createUserRecord()],stopBrowsersOnLogout:async id=>{stopped.push(id);}});
+    const result=await service.login({email:'person@example.com',password:'correct password',remember:false},{});
+    await service.logout(result.sessionToken);
+    assert.deepEqual(stopped,['user-1']);assert.equal(await repository.findSessionByTokenHash('hashed-session:'+result.sessionToken),null);
+  });
   it("keeps auth responses safe and emits sanitized events when email delivery fails", async () => {
     const events: SecurityEventPayload[] = [];
     const restoreLogger = setSecurityEventLoggerForTests((event) => events.push(event));
@@ -448,6 +461,7 @@ describe("auth service", () => {
     });
 
     const response = await service.verifyEmail({
+      newPassword: "Owner-selected activation passphrase",
       token: "valid-token",
     });
 
@@ -455,11 +469,13 @@ describe("auth service", () => {
       ok: true,
     });
     assert.equal(user.emailVerifiedAt?.toISOString(), "2026-05-19T00:00:00.000Z");
+    assert.equal(user.passwordHash, "hashed-password:Owner-selected activation passphrase");
     assert.equal(repository.emailVerificationTokens[0].usedAt?.toISOString(), "2026-05-19T00:00:00.000Z");
 
     await assert.rejects(
       () =>
         service.verifyEmail({
+          newPassword: "Owner-selected activation passphrase",
           token: "valid-token",
         }),
       {
@@ -494,6 +510,7 @@ describe("auth service", () => {
       await assert.rejects(
         () =>
           service.verifyEmail({
+            newPassword: "Owner-selected activation passphrase",
             token,
           }),
         {

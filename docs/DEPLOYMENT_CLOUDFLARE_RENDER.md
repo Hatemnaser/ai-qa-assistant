@@ -1,7 +1,18 @@
 # Oddpath Cloudflare + Render Deployment Runbook
 
-This runbook covers the selected small-beta deployment. It is intentionally
-specific to Oddpath and complements `PRODUCTION_READINESS.md`.
+2026-10-18: this is the retained provider-specific deployment example, not a
+fresh selection or provisioning instruction. Read
+[Phase 08A inventory](PHASE_08A_READINESS_INVENTORY.md) and the
+[accepted beta plan](ODDPATH_BETA_IMPLEMENTATION_PLAN.md) first. Public
+verified-email beta supersedes invite-only examples below; Phase 07 local GO
+does not authorize deployment. Current prices/regions/plan capabilities were
+not verified by documentation reconciliation. Confirm the total infrastructure
+budget and Docker/browser/durable-journal topology before choosing resources.
+
+The committed Blueprint currently covers API + PostgreSQL only; the runtime
+Compose does not add a public proxy or API vault durability. Reuse the smoke,
+safe-migration, restore and rollback procedures below after resolving those gaps.
+`PRODUCTION_READINESS.md` retains the operational release requirements.
 
 ## Resource Map
 
@@ -257,7 +268,7 @@ fail-closed 503 until the flag is deliberately enabled after staging tests of
 the 10 MB compressed/20 MB expanded limits, shared data quotas, advisory locks,
 and rate/concurrency behavior.
 
-Schedule `npm --prefix apps/api run cleanup:retention` at least daily with the
+Schedule `npm --prefix apps/api run cleanup:retention` at least hourly with the
 reviewed retention windows and `RETENTION_CLEANUP_BATCH_SIZE=100`. It uses a
 non-blocking try-lock and drains at most 20 bounded, repeat-safe transactions
 per invocation. It stops on no progress rather than spinning and aggregates
@@ -265,6 +276,10 @@ all batch counts in one event. Any remaining `mayHaveMore=true` backlog exits
 nonzero; alert on `retention_cleanup.status=failed`. Expired
 pending/processing auth-email jobs are cancelled with their encrypted payload
 removed; old terminal jobs are purged with the other auth records.
+
+The older daily retention schedule in the example YAML does not meet the
+current auth-abuse cleanup contract. Revise it in the selected deployment
+implementation before use; no scheduler/configuration changed in this review.
 
 The root Blueprint deliberately creates no cron services, because each cron
 service can add a separate charge. After verifying current Render support and

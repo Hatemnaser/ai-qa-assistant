@@ -56,6 +56,16 @@ services:
       # then change REGISTRATION_MODE to invite.
       - key: REGISTRATION_MODE
         value: disabled
+      - key: PUBLIC_REGISTRATION_RELEASE_CONFIRMED
+        value: "false"
+      - key: AUTH_ABUSE_STORE
+        value: postgres
+      - key: AUTH_GLOBAL_RATE_LIMIT_MAX
+        value: "120"
+      - key: AUTH_EMAIL_DAILY_MAX
+        value: "100"
+      - key: AUTH_RECIPIENT_DAILY_MAX
+        value: "5"
       - key: CURRENT_TERMS_VERSION
         sync: false
       - key: REGISTRATION_INVITE_CODE_HASHES

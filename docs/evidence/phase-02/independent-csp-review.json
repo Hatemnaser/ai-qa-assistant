@@ -1,0 +1,86 @@
+{
+  "date": "2026-10-12",
+  "verdict": "PASS_SCOPED_INDEPENDENT_CSP_REVIEW",
+  "actionableFindings": [],
+  "priorFinding": "P1 noVNC data-image CSP blockage: resolved within reviewed scope",
+  "freshTests": [
+    {
+      "log": "runtime.log",
+      "passed": 43,
+      "failed": 0,
+      "sha256": "7d07bcbe7a5ca01ddcc5df3550a04871a39a767427b904437fb4f115a69059c4"
+    },
+    {
+      "log": "docker.log",
+      "passed": 12,
+      "failed": 0,
+      "sha256": "73c1489669dda7f791964b92ae417bededecf8039e80428fd887b859524f646a"
+    }
+  ],
+  "independentBrowser": {
+    "date": "2026-10-11T22:25:50.775Z",
+    "sourceUnmodified": true,
+    "responseOverride": false,
+    "cases": [
+      {
+        "name": "Unmodified real viewer renders changing green/purple content and stays view-only",
+        "result": "PASS",
+        "greenPixels": 1044045,
+        "purplePixels": 1044105,
+        "runtimeErrors": [],
+        "sockets": {
+          "opened": 1,
+          "frames": 37,
+          "closed": 0
+        },
+        "inputMessages": []
+      },
+      {
+        "name": "CSP permits data images and blocks data scripts",
+        "result": "PASS",
+        "imageAllowed": true,
+        "scriptBlocked": true,
+        "scriptExecuted": false,
+        "violations": [
+          {
+            "directive": "script-src-elem",
+            "blocked": "data:"
+          }
+        ],
+        "policy": "default-src 'self'; img-src 'self' data:; script-src 'self' 'nonce-[omitted]'; style-src 'self' 'nonce-[omitted]'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+      },
+      {
+        "name": "Three repeated viewer cycles render real content and release VNC",
+        "result": "PASS",
+        "vncAfterClose": 0
+      },
+      {
+        "name": "Physical Stop disconnects rendered viewer and removes allocation",
+        "result": "PASS"
+      }
+    ],
+    "gatewayImageMatch": {
+      "image": "sha256:e98ae63521f6132d76345eaceddd13542ef0a43e172843e87f0e61684e25d719",
+      "sha256": "faaaa89f1422592745269a6963454f4ab0c31994a71ac20c0accb127a10dc824"
+    },
+    "completed": true,
+    "remainingContainers": "",
+    "remainingNetworks": ""
+  },
+  "cleanup": {
+    "checkedAtUtc": "2026-10-11T22:28:08.3144981Z",
+    "runtimeContainers": [],
+    "runtimeNetworks": [],
+    "controllers": [],
+    "maintainedTestControllers": [],
+    "fixtureImages": [],
+    "ownedNodeProcesses": [],
+    "applicationPostgresHealth": "healthy"
+  },
+  "unchangedSourceFiles": 104,
+  "handoffLedgerSha256": "90cda3a6c7378226467d6df06660b322fc8643d70e89ac266fc2b605d199d86d",
+  "priorNegativeRegression": "Verified existing log fingerprint: both stronger framebuffer cases fail on the original image. Not rerun during this review.",
+  "fullVerify": "1779-test implementation run retained; not rerun in this scoped independent review.",
+  "database": "No database suite rerun and no application database mutation.",
+  "scope": "Gateway image-only CSP change and real changing-framebuffer regression; standalone view-only viewer. Public deployment, product resource tabs, manual control and public beta gates remain outside this review."
+}

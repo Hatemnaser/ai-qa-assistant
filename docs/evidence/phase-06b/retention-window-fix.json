@@ -1,0 +1,423 @@
+{
+  "phase": "06B",
+  "repair": "Quota-window/usage-retention compatibility",
+  "date": "2026-10-15T21:53:58.100Z",
+  "status": "LOCAL_RETENTION_FIX_VALIDATED_AWAITING_FINAL_INDEPENDENT_REVIEW",
+  "phaseAccepted": false,
+  "publicRelease": "NO_GO; separate release gate",
+  "root": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01",
+  "report": "C:\\Users\\hatem\\Documents\\Codex\\2026-10-10\\new-chat\\outputs\\Oddpath_Phase_06B_Retention_Window_Repair.md",
+  "finding": {
+    "id": "Acceptance R1",
+    "severity": "P2",
+    "reproducedBeforeFix": true,
+    "originalAssertionsUnchanged": true,
+    "before": {
+      "windowDays": 40,
+      "retentionDays": 32,
+      "beforeCleanupHttp": 429,
+      "afterCleanupHttp": 200,
+      "providerCalls": 2
+    },
+    "after": {
+      "beforeCleanupHttp": 429,
+      "afterCleanupHttp": 429,
+      "providerCalls": 1
+    }
+  },
+  "implementation": {
+    "productionFiles": [
+      "apps/api/src/modules/retention/retention.repository.ts"
+    ],
+    "selectionAndDeleteGuard": true,
+    "windowBoundaryInclusive": true,
+    "boundarySources": [
+      "Configured global rolling window",
+      "Rolling 24 hours",
+      "UTC calendar month"
+    ],
+    "eventAndAttemptTimes": true,
+    "legacyCompatible": true,
+    "existing40And32ConfigurationAccepted": true,
+    "newMigration": false,
+    "newDependencies": false,
+    "accountDeletionUnchanged": true,
+    "storedAnonymousDeadlineNotRewritten": true,
+    "expiredOldAnonymousDeadlinesDeferredOnlyWhileQuotaActive": true
+  },
+  "tests": {
+    "red": {
+      "reviewLedger": {
+        "tests": 6,
+        "pass": 5,
+        "fail": 1,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "reviewHttp": {
+        "tests": 2,
+        "pass": 1,
+        "fail": 1,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "newRetention": {
+        "tests": 7,
+        "pass": 1,
+        "fail": 6,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    "green": {
+      "reviewLedger": {
+        "tests": 6,
+        "pass": 6,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "reviewHttp": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "retention": {
+        "tests": 7,
+        "pass": 7,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "postgres": {
+        "tests": 165,
+        "pass": 165,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "previousHttpSdk": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    "verify": [
+      {
+        "tests": 41,
+        "pass": 41,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      {
+        "tests": 1097,
+        "pass": 1096,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 1
+      },
+      {
+        "tests": 33,
+        "pass": 33,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      {
+        "tests": 666,
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      {
+        "tests": 91,
+        "pass": 91,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    ],
+    "verifyTotals": {
+      "pass": 1927,
+      "skipped": 1,
+      "fail": 0
+    },
+    "finalApiTypecheck": "pass after fixture edits",
+    "finalApiBuild": "pass after all DB tests",
+    "freshMigration": "pass",
+    "restore": {
+      "status": "pass",
+      "afterRestore": {
+        "exposure": 7,
+        "confirmed": 6,
+        "status": "partial"
+      },
+      "afterLateEvidence": {
+        "confirmed": 9,
+        "receipts": 3,
+        "status": "completed"
+      },
+      "providerCalls": 0
+    },
+    "schemaDrift": "No difference detected",
+    "diffCheck": "pass"
+  },
+  "intermediateFailures": [
+    {
+      "file": "postgres-final.log",
+      "pass": 163,
+      "fail": 2,
+      "reason": "Two inherited fixtures expected deletion by old parent createdAt despite active/future attempts; clock corrected and active-window assertion strengthened"
+    },
+    {
+      "file": "postgres-accepted.log",
+      "pass": 164,
+      "fail": 1,
+      "reason": "Prisma regeneration during API check raced a freshly spawned recovery worker, causing ERR_MODULE_NOT_FOUND; no worker assertion changed"
+    },
+    {
+      "file": "http-previous-four-fixes.log",
+      "reason": "HTTP overlapped the DB suite and its global fixture budget; owned child stopped after identification; final run sequential on a fresh database"
+    }
+  ],
+  "source": {
+    "baselineFiles": 1132,
+    "finalFilesExcludingNewLedger": 1135,
+    "changed": [
+      "apps/api/src/modules/retention/retention.repository.ts",
+      "apps/api/tests/quota-partial.postgres.integration.ts",
+      "apps/api/tests/quota-recovery.postgres.integration.ts",
+      "docs/AI_HANDOFF.md",
+      "docs/NEXT_STEPS.md",
+      "docs/PHASE_06B_CHECKPOINT.md",
+      "docs/QUOTA_OPERATIONS.md"
+    ],
+    "added": [
+      "apps/api/tests/fixtures/quota-retention-worker.mts",
+      "apps/api/tests/quota-retention.postgres.integration.ts",
+      "docs/PHASE_06B_RETENTION_WINDOW_FIX.md",
+      "docs/evidence/phase-06b/retention-window-fix.json"
+    ],
+    "snapshot": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\source-final.json",
+    "productionDelta": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\retention-product.patch"
+  },
+  "priorEvidencePreserved": {
+    "acceptanceEvidence": {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\2026-10-10\\new-chat\\outputs\\Oddpath_Phase_06B_Acceptance_Gate_Review_Evidence.json",
+      "sha256": "1ca2a71b09cc4ede45162eea030448247b9bef5f32f7e6897af5b68f456ff442",
+      "artifactsChecked": 35
+    },
+    "fourFixRepair": {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\docs\\evidence\\phase-06b\\final-review-fix.json",
+      "sha256": "f2f3234a11439c9e34fdd9ab65560fd1a96147b18612d55248af4c6ebb1e3786",
+      "artifactsChecked": 52
+    }
+  },
+  "delegation": {
+    "astraInvoked": false,
+    "subagents": 0,
+    "additionalModels": 0
+  },
+  "cleanup": {
+    "processes": [],
+    "ownedContainers": [],
+    "checkedAt": "2026-10-15T21:52:31.4138021Z"
+  },
+  "limitations": [
+    "Final independent acceptance still pending",
+    "No paid provider requests or invoice validation",
+    "No physical Chrome/noVNC or distributed failover rerun",
+    "No frontend changes, web build or new UI journeys",
+    "Already deleted historical usage cannot be recreated; missing history must not be guessed as zero",
+    "One pre-existing Windows vault-journal skip; not counted as pass",
+    "Cleanup/reconciliation supervision remains required"
+  ],
+  "artifacts": [
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\adversarial.mts",
+      "sha256": "b239851b3ae7b9307982cd44f8e27673b4490972b76cbda01ae96c594a8b7ebb"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\build-api-final.log",
+      "sha256": "57009b648043f5d794030334712878d518f68f56714f5fc3109d0ff6a0ef5660"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\check-api-final.log",
+      "sha256": "3ef8cdcb3dd83a6d479be9e9b7fb8f88694f2e24bd84235aafdf718f35807dd5"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\closeout.cjs",
+      "sha256": "cd167d7ba3f6c6c6819fe79bd0351a9336c3c870271fd1faf56a80cb1d4ccff3"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\db-state-before-fresh.json",
+      "sha256": "2995b532b88a71556b596ab0ab4e4c39d44ff38154fc5599049bd2dec94a57c4"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\db-state.json",
+      "sha256": "f492ef09857878135426a1f074c86bf149ee1af90c8d2c0c92a93a9513e7e1bf"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\diff-closeout.log",
+      "sha256": "4644b6e4835bb33730aa499728562a6c73ddd2e6fc9516818c3fa33467220740"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\diff-final.log",
+      "sha256": "4644b6e4835bb33730aa499728562a6c73ddd2e6fc9516818c3fa33467220740"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\fresh-migrate.log",
+      "sha256": "e290a1cb303a929abb44152e1d1f19a840a16a96c47b59f70ea164186f65d49b"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\green-http.log",
+      "sha256": "775b24f630eb0384ecbacb503ea3c99357951cf57a2859c071fdf77f3fa10a02"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\green-ledger.log",
+      "sha256": "6b69510a47968e48b3f504cdd13d57216acc5f1e2d256cd9de171ef63e849393"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\green-retention-initial.log",
+      "sha256": "807d5a03d501db9853927ad964b5e0dae1e322d62d8c0395261b2de8792d16a3"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\http-adversarial.mts",
+      "sha256": "d4470b2bfe56e8e11e195ee19690a0e2eca8b8e6fefbbaed291425823a750481"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\http-previous-four-clean.log",
+      "sha256": "58f30b1ac0ca525ba0646aee504d3cbd0ec7778bae858875deaed28b731f7c04"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\http-previous-four-fixes.log",
+      "sha256": "dda0c7e0f7a946eb84090d7d00a97a1f1789440925c6461279ba672681e7397d"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\integrity-cleanup.json",
+      "sha256": "c47eb257ee7ba5bf67a302a7916a580481d73ac98058c3f179ca6ad4254b181a"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\interrupted-http-processes.json",
+      "sha256": "6245833e6db9e1fbc65e33e7df92162750eb0348e7b0ea54bb828768fd1aecfe"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\migrate.log",
+      "sha256": "fb9eb01966a87dbe12a1954e9a7f545fc720e2f2f02be6bf763e42f0185586b8"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\postgres-accepted.log",
+      "sha256": "f3fcf6a3d770dbaf9007e67134bfbf14fe4778a39b49f44a6f22ad25079919e3"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\postgres-clean.log",
+      "sha256": "04500e67e741b25f7718a48594ceddfbcafa96db1c7809b8ec2104bd9cf1e7a0"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\postgres-final.log",
+      "sha256": "a85861a1754609de1aae85668ff5be9915eebef752b7e8e5bec8d858b48b31bb"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\process-cleanup.json",
+      "sha256": "1d2a0211257968d4bc0c3a122172f4375560e709471b3a8dcd4a141d241cc67f"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\quota-partial.before.ts",
+      "sha256": "4aab3bc92b45a689c6b4e67bed1071acb9533190604f42cfdb9bb6a6d1c52d18"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\quota-recovery.before.ts",
+      "sha256": "6daf9c0ccb86dbfd0f8a717ddefad6c6951dc5a71aeee695223a0b4e36aa9472"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\red-http.log",
+      "sha256": "1088bb4ba5b810456465c0c24303e475b17f41179796fbcdac78485e8aff1102"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\red-ledger.log",
+      "sha256": "6d80479079c7b2485dceb138dada1f459fd0916ca2210581c96e9b729922abc1"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\red-retention-regression.log",
+      "sha256": "ceb98d9d65776189f2f5066b66465fbc5fbb171e353630e86e627ab5bd889374"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\report.template.md",
+      "sha256": "ff95bfc00b815098e9aeae6594a0a8484aadb3d004ab207d41575b8a08700496"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\restore-fixture.json",
+      "sha256": "b4c93d7c0d33db077bf58260da3ef68f2a0f1f08bde72f3a541f355b3b2fdf50"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\restore-recover-0.log",
+      "sha256": "b4754cb030c2bafa4e8029e2ba3abf2d2a27fc9b12d54e0ae224120a77c0348c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\restore-recover-1.log",
+      "sha256": "b4754cb030c2bafa4e8029e2ba3abf2d2a27fc9b12d54e0ae224120a77c0348c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\restore-seed.log",
+      "sha256": "9b408e9f724fa468b6f3eb6185516450da676999e0a6632730ec5eb513d45be9"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\restore-verify.log",
+      "sha256": "9161b848ee7b37cd24204568ca836f18ab869455ea73a5772644929d80384c14"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\restore-worker.mts",
+      "sha256": "e366da5443907bc2e260c81b9734fd173a3d5e0cafe2d18009c77c643e6da90a"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\retention-final.log",
+      "sha256": "3114b672d83cb647891c515b004e897084ac3cf77afd875c356150d2007b931c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\retention-product.patch",
+      "sha256": "429e3efa3424f93c4e663b347d7dd6d56494cb238678bb4befc5f60eb8db243e"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\retention-regression.red-source.mts",
+      "sha256": "1f88a813a7c0967f963c213b31ede1229ede9926f87cfce05be46c551f917596"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\retention.repository.before.ts",
+      "sha256": "fcbe55ce9747e21bb9a8a361975e99f825af93bbd96e7439524d4e065900eba3"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\runner.cjs",
+      "sha256": "60632f680630c3b665161cc57626de09d6fda40ce393108df8eadfa7cde261a7"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\schema-drift.log",
+      "sha256": "3417e4b20617991171441c4df1e747f35643e27400e00ae586a79d59a91678c9"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\source-before.json",
+      "sha256": "01ebb03243e0174097daf7c5b6ccda9df32113c38832aef758262b85dbbdca77"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\source-final.json",
+      "sha256": "949a4f55218a8bfac9816eeb19d08d2c7cec9825898d85e6c9e7704b9d324490"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\verification.cjs",
+      "sha256": "c9e27021fa8aec6d30d47cca1388fccb49d7314dbd773e0744417107650fd5e6"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-retention-window-fix-20261015\\verify.log",
+      "sha256": "d68fbc589a018bb839e20516409ab051f3075bcace466cafc193a4b75ca1f43b"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\2026-10-10\\new-chat\\outputs\\Oddpath_Phase_06B_Retention_Window_Repair.md",
+      "sha256": "ff95bfc00b815098e9aeae6594a0a8484aadb3d004ab207d41575b8a08700496"
+    }
+  ]
+}

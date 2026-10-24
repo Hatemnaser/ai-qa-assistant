@@ -1,0 +1,137 @@
+# Opt-in, CLOSED single-VM rehearsal foundation; not a production deployment.
+# Requires Docker Compose >=2.30 (raw env files). No cloud resources are created.
+# Run with this file explicitly and an external --env-file; never use the root
+# development compose file. See self-hosted.env.example for prerequisites.
+#
+# Missing intentionally: TLS/reverse proxy, frontend, browser services, durable
+# vault/revocations, scheduled jobs/alerts, off-host backups and release approval.
+# Only a single trusted host reverse proxy may reach API loopback. It must replace
+# forwarded IP/proto headers; do not expose 5000 or add Cloudflare Proxy by default.
+name: oddpath-self-hosted-rehearsal
+
+x-api-closed-environment: &api-closed-environment
+  NODE_ENV: production
+  PORT: "5000"
+  TRUST_PROXY_HOPS: "1"
+  COOKIE_SECURE: "true"
+  COOKIE_SAME_SITE: lax
+  COOKIE_DOMAIN: ""
+  AUTH_ABUSE_STORE: postgres
+  REGISTRATION_MODE: disabled
+  LEGAL_DOCUMENTS_PUBLISHED_CONFIRMED: "false"
+  PUBLIC_REGISTRATION_RELEASE_CONFIRMED: "false"
+  AI_ENABLED: "false"
+  GUEST_AI_ENABLED: "false"
+  GEMINI_PAID_SERVICE_CONFIRMED: "false"
+  PROJECT_DOCUMENT_EMBEDDINGS_ENABLED: "false"
+  QA_PROCESSING_WORKER_ENABLED: "false"
+  QA_LEGACY_RUNNER_DISPATCH_ENABLED: "false"
+  QA_EXECUTION_V2_ENABLED: "false"
+  QA_BROWSER_RUNTIME_ENABLED: "false"
+  QA_MANUAL_LOGIN_ENABLED: "false"
+  QA_SAVED_LOGIN_ENABLED: "false"
+  PRIVATE_ASSETS_ENABLED: "false"
+  PORTABILITY_IMPORTS_ENABLED: "false"
+
+services:
+  postgres:
+    image: "${ODDPATH_POSTGRES_IMAGE:?Provide the reviewed PostgreSQL 16 image}"
+    restart: unless-stopped
+    environment:
+      # Bootstrap credential belongs ONLY to PostgreSQL, never API or migrations.
+      # The runtime/migration roles and oddpath DB must be provisioned separately.
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      PGDATA: /var/lib/postgresql/data/pgdata
+    command: ["postgres", "-c", "password_encryption=scram-sha-256"]
+    secrets: [postgres_admin_password]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    networks: [database]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    security_opt: ["no-new-privileges:true"]
+    shm_size: 128m
+    mem_limit: 1536m
+    cpus: 1
+    pids_limit: 128
+    stop_grace_period: 90s
+    logging: { driver: local, options: { max-size: "5m", max-file: "3" } }
+
+  api:
+    image: "${ODDPATH_API_IMAGE:?Provide the reviewed API runtime image tag or digest}"
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+      target: runtime
+    restart: unless-stopped
+    init: true
+    env_file:
+      - path: "${ODDPATH_API_ENV_FILE:?Provide an external private API env file}"
+        format: raw
+    environment: *api-closed-environment
+    ports: ["127.0.0.1:${ODDPATH_API_PORT:-5000}:5000"]
+    networks: [database, outbound]
+    depends_on:
+      postgres: { condition: service_healthy }
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1024m
+    cpus: 1
+    pids_limit: 128
+    stop_grace_period: 90s
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5000/api/health/ready',{signal:AbortSignal.timeout(2500)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    logging: { driver: local, options: { max-size: "5m", max-file: "3" } }
+
+  migrate:
+    profiles: [operations]
+    image: "${ODDPATH_MIGRATION_IMAGE:?Provide the matching reviewed API migration image}"
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+      target: migrations
+    restart: "no"
+    init: true
+    env_file:
+      - path: "${ODDPATH_MIGRATION_ENV_FILE:?Provide a separate private migration env file}"
+        format: raw
+    environment:
+      NODE_ENV: production
+    networks: [database]
+    depends_on:
+      postgres: { condition: service_healthy }
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=64m"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 768m
+    cpus: 1
+    pids_limit: 128
+    logging: { driver: local, options: { max-size: "5m", max-file: "3" } }
+
+networks:
+  database: { internal: true }
+  outbound: {}
+
+volumes:
+  # Deliberately external: app teardown cannot implicitly create/remove the DB.
+  # Provision a NEW dedicated volume first; never point a rehearsal at real data.
+  postgres-data:
+    external: true
+    name: "${ODDPATH_POSTGRES_VOLUME:?Provide a dedicated pre-provisioned PostgreSQL volume}"
+
+secrets:
+  postgres_admin_password:
+    file: "${ODDPATH_POSTGRES_PASSWORD_FILE:?Provide an external PostgreSQL admin password file}"

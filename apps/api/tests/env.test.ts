@@ -30,6 +30,29 @@ function safeProductionEnv(overrides: Record<string, string | undefined> = {}) {
 }
 
 describe("runtime env guards", () => {
+  it('keeps managed routing opt-in, separates host/project keys and preserves the production block',()=>{
+    assert.equal(loadEnv({NODE_ENV:'test'}).qaManagedRoutingEnabled,false);
+    const base={NODE_ENV:'test',QA_MANAGED_ROUTING_ENABLED:'true',QA_MANAGED_HOST_ID:'host-1',QA_MANAGED_ROUTING_KEY:'a'.repeat(64),QA_MANAGED_PROJECT_KEY:'b'.repeat(64),
+      QA_BROWSER_RUNTIME_ENABLED:'true',QA_EXECUTION_V2_ENABLED:'true',QA_LEGACY_RUNNER_DISPATCH_ENABLED:'false',QA_BROWSER_VIEWER_SIGNING_KEY:'c'.repeat(64),QA_BROWSER_VIEWER_ORIGIN:'https://viewer.example.com'};
+    assert.doesNotThrow(()=>loadEnv(base));
+    assert.throws(()=>loadEnv({...base,QA_MANAGED_PROJECT_KEY:base.QA_MANAGED_ROUTING_KEY}),/separate/);
+    assert.throws(()=>loadEnv({...base,QA_BROWSER_RUNTIME_ENABLED:'false'}),/Managed routing/);
+    assert.throws(()=>loadEnv({...base,NODE_ENV:'production'}),/must remain false/);
+  });
+  it('requires a drained legacy mode, v2, exact HTTPS viewer origin and a dedicated key for managed browsers', () => {
+    assert.equal(loadEnv({ NODE_ENV: 'test' }).qaBrowserRuntimeEnabled, false);
+    const runtime = { NODE_ENV: 'test', QA_BROWSER_RUNTIME_ENABLED: 'true', QA_EXECUTION_V2_ENABLED: 'true', QA_LEGACY_RUNNER_DISPATCH_ENABLED: 'false', QA_BROWSER_VIEWER_ORIGIN: 'https://viewer.example.com', QA_BROWSER_VIEWER_SIGNING_KEY: 'a'.repeat(64) };
+    assert.doesNotThrow(() => loadEnv(runtime));
+    assert.throws(() => loadEnv({ ...runtime, QA_LEGACY_RUNNER_DISPATCH_ENABLED: 'true' }), /draining/);
+    assert.throws(() => loadEnv({ ...runtime, QA_EXECUTION_V2_ENABLED: 'false' }), /requires v2/);
+    assert.throws(() => loadEnv({ ...runtime, QA_BROWSER_VIEWER_SIGNING_KEY: 'weak' }), /256-bit/);
+    assert.throws(() => loadEnv({ ...runtime, QA_BROWSER_VIEWER_ORIGIN: 'https://viewer.example.com/path' }), /exact HTTPS/);
+  });
+  it("keeps v2 off by default and blocks production activation before runtime gates", () => {
+    assert.equal(loadEnv({ NODE_ENV: "test" }).qaExecutionV2Enabled, false);
+    assert.equal(loadEnv({ NODE_ENV: "test", QA_EXECUTION_V2_ENABLED: "true" }).qaExecutionV2Enabled, true);
+    assert.throws(() => loadEnv(safeProductionEnv({ QA_EXECUTION_V2_ENABLED: "true" })), /QA_EXECUTION_V2_ENABLED must remain false/);
+  });
   it("rejects CORS_ORIGIN=* with credentialed requests in production", () => {
     assert.throws(
       () =>
@@ -293,7 +316,7 @@ describe("runtime env guards", () => {
     );
   });
 
-  it("fail-closes production registration and allows public registration only outside production", () => {
+  it("fail-closes production registration until an explicit public release acknowledgement", () => {
     const productionConfig = loadEnv(safeProductionEnv());
     const developmentConfig = loadEnv({ NODE_ENV: "development" });
 
@@ -310,8 +333,16 @@ describe("runtime env guards", () => {
             REGISTRATION_MODE: "public",
           })
         ),
-      /REGISTRATION_MODE may only be disabled or invite/
+      /PUBLIC_REGISTRATION_RELEASE_CONFIRMED=true/
     );
+  });
+
+  it('requires durable abuse protection and legal approval for the gated public production mode',()=>{
+    const publicConfig={CURRENT_TERMS_VERSION:'2026-10-16-v1',REGISTRATION_MODE:'public',PUBLIC_REGISTRATION_RELEASE_CONFIRMED:'true',LEGAL_DOCUMENTS_PUBLISHED_CONFIRMED:'true'};
+    const config=loadEnv(safeProductionEnv(publicConfig));assert.equal(config.registrationMode,'public');assert.equal(config.authAbuseStore,'postgres');
+    assert.throws(()=>loadEnv(safeProductionEnv({...publicConfig,AUTH_ABUSE_STORE:'memory'})),/AUTH_ABUSE_STORE/);
+    assert.throws(()=>loadEnv(safeProductionEnv({...publicConfig,LEGAL_DOCUMENTS_PUBLISHED_CONFIRMED:'false'})),/LEGAL_DOCUMENTS_PUBLISHED_CONFIRMED/);
+    for (const values of [{AUTH_ABUSE_STORE:'invalid'},{AUTH_EMAIL_DAILY_MAX:'1001'},{AUTH_RECIPIENT_DAILY_MAX:'21'},{AUTH_GLOBAL_RATE_LIMIT_MAX:'1001'}]) assert.throws(()=>loadEnv({NODE_ENV:'test',...values}));
   });
 
   it("requires a terms version and hashed codes for private-beta registration", () => {

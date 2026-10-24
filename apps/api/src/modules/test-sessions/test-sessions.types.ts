@@ -44,6 +44,7 @@ export interface TestSessionDetail extends TestSessionSummary {
     mode: string;
     createdAt: string;
     model: string | null;
+    isError?: boolean;
     attachments?: unknown[];
   }>;
   events?: Array<{ id: string; requestId: string; title: string; type: string; sequence: number; timelinePosition: number | null; createdAt: string; metadata: unknown }>;

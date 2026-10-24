@@ -1,4 +1,5 @@
 import { DATA_LIMITS } from "../../config/data-limits.js";
+import { env } from '../../config/env.js';
 import { prisma } from "../../db/prisma.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { ProjectRole } from "../../generated/prisma/enums.js";
@@ -6,6 +7,7 @@ import { AppError } from "../../lib/errors.js";
 import { enqueueAssetDeletionJobs } from "../assets/assets.deletion-outbox.js";
 import type { ProjectsRepository } from "./projects.types.js";
 import { lockTestProject } from "../test-sessions/test-sessions.guard.js";
+import { lockBrowserDeletion,revokeDeletedBrowserScope } from '../browser-auth/browser-auth.deletion.js';
 
 export function createPrismaProjectsRepository(database: typeof prisma = prisma): ProjectsRepository {
   return {
@@ -59,6 +61,10 @@ export function createPrismaProjectsRepository(database: typeof prisma = prisma)
         });
 
         if (!project) return 0;
+        const hasSavedTable=await lockBrowserDeletion(tx,userId,projectId);
+        if (env.qaBrowserRuntimeEnabled && await tx.qaBrowserRuntime.findFirst({ where: { state: { not: 'STOP_CONFIRMED' }, execution: { projectId } }, select: { runtimeId: true } })) {
+          throw new AppError('Browser Stop must be confirmed before deleting this project.', 409, 'BROWSER_STOP_REQUIRED');
+        }
 
         const testChats = await tx.chat.findMany({ where: { projectId, userId, testSession: { requests: { some: {} } } },
           include: { messages: { include: { attachments: { include: { asset: true } } } } },
@@ -87,6 +93,7 @@ export function createPrismaProjectsRepository(database: typeof prisma = prisma)
           await tx.qaRequest.deleteMany({ where: { projectId, testSessionId: { in: testChats.map(({ id }) => id) } } });
           await tx.chat.deleteMany({ where: { id: { in: testChats.map(({ id }) => id) }, userId, projectId } });
         }
+        if(hasSavedTable)await revokeDeletedBrowserScope(tx,userId,projectId);
         const result = await tx.project.deleteMany({
           where: {
             id: projectId,

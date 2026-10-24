@@ -1,6 +1,8 @@
-import type { ClaimedExecution } from "../src/http-client.js";
+import type { ClaimedExecution, ManagedClaimedExecution } from "../src/http-client.js";
+import { profileManifestV2Schema, executionTaskV2Schema, targetDefinitionSchema } from '@oddpath/qa-execution-contract';
 import {
   buildPublicManifest,
+  hashCanonicalJson,
   runnerConfigSchema,
   type RunnerConfig,
 } from "../src/config.js";
@@ -116,4 +118,24 @@ export function executionReceipt(
     runVersion,
     status,
   };
+}
+
+export function managedClaimedExecution(): ManagedClaimedExecution {
+  const legacy = claimedExecution();
+  const definition = targetDefinitionSchema.parse({ baseUrl: 'https://example.com', environmentKind: 'STAGING' });
+  const manifest = profileManifestV2Schema.parse({ schemaVersion: 2, profileKey: 'managed.staging', label: 'Managed staging', environmentKind: 'STAGING',
+    evidenceKinds: ['TEXT'], recipeSchemaVersions: [1], executorKey: 'playwright', valueReferences: [], authentication: { kind: 'NONE' },
+    executionLimits: { preparationTimeoutMs: 300000, executionTimeoutMs: 600000 },
+    target: { ...definition, revision: 1, revisionId: 'revision-1', targetId: 'target-1', targetHash: hashCanonicalJson(definition) } });
+  const profile = { ...manifest, manifestHash: hashCanonicalJson(manifest) };
+  const bundle = legacy.task.recipe.bundle;
+  bundle.items[0]!.steps = bundle.items[0]!.steps.filter(step => step.action !== 'fill');
+  const recipe = { ...legacy.task.recipe, bundle, hash: hashCanonicalJson(bundle) };
+  const approvedTime = Date.now(), approvedAt = new Date(approvedTime).toISOString(), expiresAt = new Date(approvedTime + 600000).toISOString();
+  const approval = { id: 'approval-1', approvedAt, expiresAt, artifactId: legacy.task.artifact.id, profileManifestHash: profile.manifestHash,
+    recipeHash: recipe.hash, recipeId: recipe.id, requestVersion: 1, targetRevisionId: profile.target.revisionId,
+    targetHash: profile.target.targetHash, verificationId: 'proof-1' };
+  const bindingHash = hashCanonicalJson({ ...approval, authentication: profile.authentication, executionLimits: profile.executionLimits, candidate: profile.target.candidate });
+  return { claim: { ...legacy.claim, recipeHash: recipe.hash }, task: executionTaskV2Schema.parse({ ...legacy.task, schemaVersion: 2,
+    profile, recipe, approval: { ...approval, bindingHash }, deadlineAt: expiresAt }) };
 }

@@ -1,4 +1,6 @@
 import { AppError } from "../../lib/errors.js";
+import { logOperationalEvent } from '../../lib/operational-events.js';
+import { accountingUnavailable } from './usage-receipts.js';
 import { env } from "../../config/env.js";
 import {
   logGlobalAiLimitReached,
@@ -12,8 +14,10 @@ import {
   AI_USAGE_ACTIONS,
   CHAT_MESSAGE_ACTION,
   type UsageIdentity,
+  type UsageAttemptDescriptor,
   type UsageRepository,
   type UsageReservation,
+  type UsageUpdateInput,
 } from "./usage.types.js";
 
 export interface UsageServiceDependencies {
@@ -99,7 +103,7 @@ export interface AiOperationUsageService {
     reservation: AiOperationReservation | undefined,
     failure?: AiOperationFailureInput
   ): Promise<void>;
-  recordAiOperationAttempt(reservation: { eventId?: string } | undefined): Promise<void>;
+  recordAiOperationAttempt(reservation: { eventId?: string } | undefined,attempt?:UsageAttemptDescriptor): Promise<void>;
   reserveAiOperation(input: AiOperationReservationInput): Promise<AiOperationReservation>;
 }
 
@@ -114,6 +118,21 @@ export function createUsageService({
     repository,
   });
 
+  async function completeAccounting(input:UsageUpdateInput){
+    try{await repository.updateUsage(input);}
+    catch(error){
+      if(error instanceof AppError&&error.code==='AI_USAGE_RECEIPT_CONFLICT')throw error;
+      let durable=false;
+      try{durable=(await repository.readUsageAccounting?.(input.id))?.receiptRecorded??false;}catch{}
+      logOperationalEvent('error',{event:'usage_accounting',stage:durable?'settlement':'capture',outcome:durable?'pending':'unconfirmed'});
+      if(!durable)throw accountingUnavailable();
+    }
+    if(repository.readUsageAccounting){
+      try{return await repository.readUsageAccounting(input.id);}catch{throw accountingUnavailable();}
+    }
+    return undefined;
+  }
+
   async function reserveChatCredits(
     identity: UsageIdentity,
     estimate: ChatCreditEstimate
@@ -126,6 +145,8 @@ export function createUsageService({
     const staleReservedCutoff = getStaleReservedCutoff(currentTime);
     await cleanupStaleReservedChatCreditsForScope(scope, staleReservedCutoff);
     const event = {
+      expiresAt: reservationExpiry(currentTime),
+      fixedCredits: estimate.fixedCredits,
       action,
       attachmentCount: estimate.attachmentCount,
       creditsReserved: requestedCredits,
@@ -231,13 +252,13 @@ export function createUsageService({
       totalTokens: completion.totalTokens,
     });
     const additionalAttemptCredits = getAdditionalGenerationAttemptCredits(reservation);
-    const creditsUsed = normalizeCredits(
+    let creditsUsed = normalizeCredits(
       generationCredits + (reservation.fixedCredits || 0) + additionalAttemptCredits
     );
     const reservedCredits = reservation.reserved || creditsUsed;
-    const usageDelta = creditsUsed - reservedCredits;
 
-    await repository.updateUsage({
+    const accounting=await completeAccounting({
+      usageConfirmed:Boolean((completion.totalTokens??0)>0||(completion.promptTokens??0)+(completion.outputTokens??0)>0),
       creditsUsed,
       id: reservation.eventId,
       mode: completion.mode,
@@ -253,9 +274,13 @@ export function createUsageService({
       workflowIntent: completion.workflowIntent,
       workflowSource: completion.workflowSource,
     });
+    if(accounting)creditsUsed=accounting.units;
+    else if(repository.readUsageCharge)creditsUsed=await repository.readUsageCharge(reservation.eventId);
+    const usageDelta=creditsUsed-reservedCredits;
 
     return {
       ...reservation,
+      ...(accounting&&accounting.status!=='settled'?{accountingStatus:accounting.status}:{}),
       remaining: Math.max(reservation.remaining - usageDelta, 0),
       reserved: creditsUsed,
       used: Math.max(reservation.used + usageDelta, 0),
@@ -279,7 +304,7 @@ export function createUsageService({
     const routerAttempts = normalizeAttemptCount(
       Math.max(reservation.routerAttempts || 0, failure.routerAttempted ? 1 : 0)
     );
-    const billedAttemptCredits = providerAttempts > 0
+    let billedAttemptCredits = providerAttempts > 0
       ? getConservativeFailedAttemptCredits(reservation, providerAttempts, routerAttempts)
       : 0;
 
@@ -292,6 +317,7 @@ export function createUsageService({
       status: providerAttempts > 0 ? "unknown" : "failed",
       units: billedAttemptCredits,
     });
+    if(repository.readUsageCharge)billedAttemptCredits=await repository.readUsageCharge(reservation.eventId);
 
     return {
       ...reservation,
@@ -312,6 +338,7 @@ export function createUsageService({
       input.credits ?? estimateOperationCredits(input)
     );
     const event = {
+      expiresAt: reservationExpiry(currentTime),
       action: input.action,
       creditsReserved: requestedCredits,
       estimatedOutputTokens: input.estimatedOutputTokens,
@@ -403,7 +430,8 @@ export function createUsageService({
         totalTokens: completion.totalTokens,
       });
 
-    await repository.updateUsage({
+    await completeAccounting({
+      usageConfirmed:completion.creditsUsed!==undefined||Boolean((completion.totalTokens??0)>0||(completion.promptTokens??0)+(completion.outputTokens??0)>0),
       creditsUsed,
       id: reservation.eventId,
       model: reservation.model,
@@ -438,11 +466,13 @@ export function createUsageService({
   }
 
   async function recordAiOperationAttempt(
-    reservation: { eventId?: string } | undefined
+    reservation: { eventId?: string } | undefined,
+    attempt?: UsageAttemptDescriptor
   ) {
     if (!reservation?.eventId) return;
 
-    await repository.recordUsageAttempt(reservation.eventId);
+    if(repository.beginUsageAttempt)await repository.beginUsageAttempt(reservation.eventId,attempt);
+    else await repository.recordUsageAttempt(reservation.eventId);
   }
 
   async function cleanupStaleReservedChatCredits(identity: UsageIdentity) {
@@ -567,11 +597,17 @@ export function isAiUsageLimitError(error: unknown) {
     "AI_IN_FLIGHT_LIMIT_REACHED",
     "AI_USAGE_LIMIT_REACHED",
     "USAGE_LIMIT_REACHED",
+    "AI_RESERVATION_EXPIRED",
   ]).has(String((error as { code?: unknown }).code || ""));
 }
 
 function getStaleReservedCutoff(now: Date) {
   return new Date(now.getTime() - env.usageStaleReservedMinutes * 60 * 1000);
+}
+
+function reservationExpiry(time:Date){
+  const midnight=new Date(time);midnight.setUTCHours(24,0,0,0);
+  return new Date(Math.min(midnight.getTime(),time.getTime()+env.usageStaleReservedMinutes*60_000));
 }
 
 function getGlobalUsageWindowStart(now: Date, windowMs: number) {

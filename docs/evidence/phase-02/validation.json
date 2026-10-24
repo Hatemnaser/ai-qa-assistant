@@ -1,0 +1,287 @@
+{
+  "date": "2026-10-11",
+  "recordedAtUtc": "2026-10-11T11:18:42.8271409Z",
+  "scope": "Oddpath authorized stages 0-2 accumulated local implementation; stage-2 managed browser foundation; synthetic isolated fixtures only",
+  "baseCommit": "08ae650",
+  "reviewStatus": "IMPLEMENTED_PENDING_INDEPENDENT_STAGE_2_REVIEW",
+  "hostNodeVersion": "24.19.0",
+  "platform": "Windows host; Docker Desktop Linux amd64; real PostgreSQL 16 disposable tmpfs database",
+  "verify": {
+    "command": "npm run verify",
+    "result": "PASS",
+    "contractTests": 33,
+    "apiTests": 1036,
+    "runnerTests": 27,
+    "webTests": 636,
+    "runtimeTests": 16,
+    "totalTests": 1748,
+    "failedTests": 0,
+    "architectureSourceFiles": 299,
+    "architectureTestFiles": 152,
+    "typesAndRuntimeSyntax": "PASS"
+  },
+  "databaseIntegration": {
+    "command": "npm run test:integration:db",
+    "acknowledgement": "ODDPATH_DB_INTEGRATION_TESTS=1 and exact disposable database guard",
+    "result": "PASS",
+    "passed": 81,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "coverage": [
+      "immutable runtime and exact claim binding",
+      "owner/project isolation",
+      "requested versus physically confirmed Stop",
+      "no reclaim after allocation/start",
+      "legacy dispatch drain and queued approval renewal",
+      "approval/proof expiry after real lock waits",
+      "lease expiry after request-lock waits",
+      "renewed lease preserved after stale reaper scan",
+      "additive migration and nonnull exit observation constraints"
+    ]
+  },
+  "dockerIntegration": {
+    "command": "npm run test:browser-runtime:docker",
+    "acknowledgement": "ODDPATH_BROWSER_DOCKER_TESTS=1",
+    "result": "PASS",
+    "passed": 10,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "durationMs": 173020.1051,
+    "fixtures": "Unique synthetic allocations; trusted test-controller Docker socket; temporary viewer published on host loopback only",
+    "sanitizedProof": {
+      "images": {
+        "chromeImage": "sha256:02bcf729f977fd28aba5c5cfdcc5515b557d03306b7d3f7a73f3ed033427b8c0",
+        "egressImage": "sha256:4c2a759133faf621757364ab08231ef161b2786a1fe38bb4f3a17cd752c682b2"
+      },
+      "supervisorDocker": "29.9.0 / 29.8.2",
+      "chrome": {
+        "version": "155.0.8059.39",
+        "sandbox": "Sandbox Status\nLayer 1 Sandbox\tNamespace\nPID namespaces\tYes\nNetwork namespaces\tYes\nSeccomp-BPF sandbox\tYes\nSeccomp-BPF sandbox supports TSYNC\tYes\nPtrace Protection with Yama LSM (Broker)\tNo\nPtrace Protection with Yama LSM (Non-broker)\tNo\n\nYou are adequately sandboxed."
+      },
+      "navigation": {
+        "url": "https://example.com/",
+        "screenshotBytes": 63862,
+        "noVNC": 200,
+        "rfb": "\u0002\fRFB 003.008\n",
+        "unauthorized": 403
+      },
+      "network": {
+        "internet": "BLOCKED",
+        "metadata": "BLOCKED",
+        "host": "BLOCKED",
+        "hostBridge": "BLOCKED"
+      },
+      "viewerFramebuffer": {
+        "width": 1440,
+        "height": 900,
+        "screenshotBytes": 5147,
+        "disconnectedAfterStop": true
+      },
+      "tenantIsolation": "PASS",
+      "stop": "CONFIRMED",
+      "leaseWatchdog": "PASS",
+      "hardDeadline": "PASS",
+      "chromeCrash": "STOPPED_WITHOUT_REPLAY",
+      "orphanNetwork": "REMOVED"
+    }
+  },
+  "productionBuilds": {
+    "api": "PASS",
+    "runner": "PASS",
+    "web": "PASS",
+    "webBuildOrigin": "https://api.oddpath.test",
+    "webOriginScope": "Synthetic validation origin; no deployment or host contact",
+    "advisory": "Existing web bundle chunk above 500 KiB"
+  },
+  "productionAudit": {
+    "command": "npm run audit:production",
+    "result": "PASS",
+    "vulnerabilities": 0
+  },
+  "images": {
+    "chrome": "sha256:02bcf729f977fd28aba5c5cfdcc5515b557d03306b7d3f7a73f3ed033427b8c0",
+    "egress": "sha256:4c2a759133faf621757364ab08231ef161b2786a1fe38bb4f3a17cd752c682b2",
+    "supervisor": "sha256:765a0dd49f574367b036066ca1f1c665457473048d7c09393c037b6d25f70a7a",
+    "source": "Built locally; final Docker suite used immutable IDs"
+  },
+  "compose": {
+    "command": "docker compose -f deploy/browser-runtime.compose.yml config --quiet",
+    "result": "PASS",
+    "scope": "Configuration parse only; synthetic secret-file paths; no services started"
+  },
+  "cleanup": {
+    "temporaryBrowserContainers": "REMOVED",
+    "temporaryPrivateNetworks": "REMOVED",
+    "disposableDatabase": "REMOVED_AFTER_VERIFIED_NAME_LABEL_AUTOREMOVE_TMPFS",
+    "workingPostgres": "PRESERVED_RUNNING_HEALTHY",
+    "builtImages": "RETAINED_FOR_REVIEW"
+  },
+  "preservation": {
+    "productSession": "Existing session preserved",
+    "qaController": "Existing QA controller/services reused",
+    "workingDatabase": "Not used for migrations or test mutations",
+    "ownerApprovedQaRecords": "Not used as fixtures",
+    "syncedProjectSources": "READ_ONLY",
+    "paidProviderCalls": 0,
+    "deployments": 0,
+    "gitPublication": "NONE"
+  },
+  "activation": {
+    "v2Default": "OFF",
+    "browserRuntimeDefault": "OFF",
+    "legacyRunnerDefault": "COMPATIBLE_ENABLED",
+    "productionV2Enablement": "REJECTED",
+    "publicBeta": "NO_GO_PENDING_STAGES_3_TO_8"
+  },
+  "limits": [
+    "Final proof is Docker Desktop Linux amd64, not a deployment-kernel/host qualification",
+    "One global slot per durable journal/host; distributed capacity and per-account queues/quotas remain pending",
+    "Operator-provisioned project catalog capped at 20; public onboarding/routing remains pending",
+    "Viewer is view-only; manual login/control, MFA and saved-login vault/revocation are stage 3",
+    "Product resources/tabs, evidence retention/export and release readiness remain later stages",
+    "IPv6-only transport fails closed; extra engines, APK/Firebase and iOS are later workstreams",
+    "EUR 10/month infrastructure feasibility has not been measured; domain/API costs separate",
+    "Stage-1 R1 repair closure does not constitute independent stage-2 approval",
+    "Historical i18n/restore results are not claimed as fresh stage-2 checks"
+  ],
+  "sourceHashesSha256": {
+    ".dockerignore": "3e91f84024e4b990f7879077cb986f739a8baa984efd5b699f5c24095ff6f307",
+    "apps/api/.env.example": "bfe9d38972c047c913656737634cdc2703c2b1168c067ca49efee7e532e85a3c",
+    "apps/api/package.json": "211c8b65cd98013452cd63c6dd65aa22377bf3606536a19c60149c5752e42cd9",
+    "apps/api/prisma/migrations/20261010000100_add_qa_target_approval_v2/migration.sql": "d1c750352f1f416aa1874462d5cabb096c7886cf2030403c4a3b0ddb7a644096",
+    "apps/api/prisma/migrations/20261011000100_add_browser_runtime_supervision/migration.sql": "ee98d813f090e4acc4471ca535c6604c7df382273ed5fb61e69ab0378506e1ea",
+    "apps/api/prisma/schema.prisma": "756263a9f19e6f307c7aa5428012dd87ac3a3f682ea3337d03b6671775955ea6",
+    "apps/api/src/config/env/loaders/core.ts": "7c18d95a9df109d743b5e724959ab00dd37b8a7732917de0c646f9ea8a0b838c",
+    "apps/api/src/config/env/validate.ts": "010342e98bb10548861c9496090d5eb31dadb7ed4fc9c9e7ad23f73281f29ba2",
+    "apps/api/src/lib/canonical-json.ts": "0d1a38d80f454096b7304da4b526e444825ec93393acdac81731be467df45db2",
+    "apps/api/src/modules/browser-runtime/browser-runtime.repository.ts": "e681addd0e7ec3ffbf8b0e3ac29894af2d42de78a92ad5bfcd7c14614305bb72",
+    "apps/api/src/modules/browser-runtime/browser-runtime.routes.ts": "08f625a4587685b76098ac2eaeef028f041c573cd1908655e7c1dcff4675b2e2",
+    "apps/api/src/modules/browser-runtime/browser-runtime.service.ts": "195d3b1908e5a948370a9457b47b76b90e6a880f6fb24da0c466f225f5d1b07f",
+    "apps/api/src/modules/browser-runtime/browser-runtime.types.ts": "326241aa205acf0fc3cc401c10b20d77b38915828a8ab25275837d298e9ccca6",
+    "apps/api/src/modules/projects/projects.routes.ts": "327e1e953a6d02f3398432f11ba89bc79389cfe45c5a859c15b46cce37b91c62",
+    "apps/api/src/modules/qa-requests/qa-agent.routes.ts": "0f3b8f151ee22ce119a209d4f8e867600d675718b9dbb774f2cf954a666f5af7",
+    "apps/api/src/modules/qa-requests/qa-execution-recipes.repository.ts": "00912512687d3f93ff8dfe95f6596629d9feeb78f5967a7c8b44f86d04861316",
+    "apps/api/src/modules/qa-requests/qa-execution-recipes.schema.ts": "3686315512f6c5f3b16e5ab9f01e4ebd19ac24094e4f283d1d5bd7c534975f19",
+    "apps/api/src/modules/qa-requests/qa-execution-recipes.types.ts": "ddebd617b80d50a8fd1b29d3998b061306c83f12e664a17adabbe77ba40d76f2",
+    "apps/api/src/modules/qa-requests/qa-execution.controller.ts": "896411481e15882d28518f46e5a0e37f73341de5aafec9c7240c4557141cf671",
+    "apps/api/src/modules/qa-requests/qa-execution.repository.ts": "ffee5933c7121f5a2a52b028aafa23fd4061bb9d5f01a7b985194f0a8b2a9062",
+    "apps/api/src/modules/qa-requests/qa-execution.service.ts": "74fd542f3a8d548c9d5d93958fefb12b684ff3312487cdfd7c68290f36c35e78",
+    "apps/api/src/modules/qa-requests/qa-execution.types.ts": "c8659334e9d6b37b54d3bea458e1ff7d83c92632d5c3cf749d3f5fd28b4051ca",
+    "apps/api/src/modules/qa-requests/qa-processing.handlers.ts": "77f9a46f4128c4c8a88ef71c7668c1e7530b889f67e0e2c17361b3361aebd06a",
+    "apps/api/src/modules/qa-requests/qa-runner.controller.ts": "cce4ea5bbb51999030fdae9cbe3b32b7048178bc5952889dfe4445e5f2d21873",
+    "apps/api/src/modules/qa-requests/qa-runner.repository.ts": "4541d3d1b9d7d7bf02e21c24554cc7426cd1755dd2a87674bebb8a2612ccf9c3",
+    "apps/api/src/modules/qa-requests/qa-runner.service.ts": "2b91f87af8bc5cb47aad128afe645a4038dc2cb6015a643b36d1da78befa9e6a",
+    "apps/api/src/modules/qa-requests/qa-runner.types.ts": "1adef311b9fb9988aca901ff3c0f6d78a5e820faebc54a34fdafc92567c5b573",
+    "apps/api/src/modules/qa-targets/qa-targets.binding.ts": "2f8a25c7698750fa3e45e1090598c1f47ef49c55a9197b37339af74b30d3c60b",
+    "apps/api/src/modules/qa-targets/qa-targets.execution.ts": "880b001871c0905aae65846dbfd4d6d7ebc51f2adda873c003da8c52f90c23fd",
+    "apps/api/src/modules/qa-targets/qa-targets.proof.ts": "2a887b2c8d622903a31017722b96d4b581207602201d0cd4441acedc05a89c41",
+    "apps/api/src/modules/qa-targets/qa-targets.repository.ts": "0c3bf15b7c03aeeecd048a0f887f17a64b7a9c8c45adcc49eb7a883624d3a3ae",
+    "apps/api/src/modules/qa-targets/qa-targets.routes.ts": "ddde7b445136bc992df59a679246ae7fd679f25caa01bac8b8626a564622eb41",
+    "apps/api/src/modules/qa-targets/qa-targets.schema.ts": "a72c239c1da29a0ef98e98ea12ac3ec3211c2387a46218c743abbf53f06ad20d",
+    "apps/api/src/modules/qa-targets/qa-targets.service.ts": "7de1cf7bf01956d368acf9122852f3e7aa71e975eb6cda3986859f85adf76b35",
+    "apps/api/src/modules/qa-targets/qa-targets.types.ts": "f0697dc1f30c816342a1d002dea399d970f56dfc2d98d19f6c71a9f76dfdcbf1",
+    "apps/api/src/modules/test-sessions/test-sessions.repository.ts": "d18de0dd60b4d7c5b6c89410332bf481e5d1870d72cd995e61999fa8333bdc4a",
+    "apps/api/src/modules/test-sessions/test-sessions.worker.ts": "bf2518cf78b16aa63443de599b46659e5f761f2b5b754aa08e22521f2825fb77",
+    "apps/api/src/scripts/browser-reaper.ts": "aca429557cbf2ed81733fa93717832c9101cb9e85712cce14b388efb92b61906",
+    "apps/api/src/scripts/browser-transition.ts": "ebf7e31a55e3aad71b38d252ff3ebadf643d19c9b5a4ed8b59e67659085cf627",
+    "apps/api/tests/browser-runtime.service.test.ts": "c73e4e7d591d99a5e878f40da7096c8df290c1f9e246c9462fe4ccb9a0f9b2e7",
+    "apps/api/tests/env.test.ts": "cd7a65cf47977906240c713b4b332139ef4ff8c045a85d9bccca1d21d066ce88",
+    "apps/api/tests/postgres.integration.ts": "63e09946cbf321ee96a4656b3818e7718220b9aed267fcdffaf52b3403904e6c",
+    "apps/api/tests/projects.routes.test.ts": "7ad08e16ad341f8fcfefd311ac80e4025e246750fbe3ed05d4f8a349ea99d0e1",
+    "apps/api/tests/qa-execution-expiry.test.ts": "35de2d1a17cc675347c10051f1f28e498dd46772f1b2626dfaaf519fc6d2285d",
+    "apps/api/tests/qa-runner.service.test.ts": "20871f2755e892ce8983287ff26c5893ab13f4ce4ac670a5dcb58b4808fb709e",
+    "apps/api/tests/qa-targets.postgres.integration.ts": "ebd5a2c9d77e0001b625d7ed4fedb6082718cb95b4508f5a7009f56ca74d0cd5",
+    "apps/api/tests/qa-targets.service.test.ts": "e3b0faa77c2f712f1ee3745c624835878944543ccc3b74d29ed2ddf8578c03fb",
+    "apps/browser-runtime/Dockerfile": "81c10ec8ff0ca7e3d0016e63c2a07f1115dbe3245f0883c3cee9b7e9c2a47865",
+    "apps/browser-runtime/Dockerfile.egress": "6ed3f48f2911512139df2ef1c7110a5a24385b031ab5a6bf6906e2ba58f45544",
+    "apps/browser-runtime/Dockerfile.supervisor": "54f311ab7a578d35d1644e1038b0456a39bf027c54bec891d514dcfe4a420249",
+    "apps/browser-runtime/package.json": "6ddd7f2eae749ac94273805310a3eccff175bb56e464bc7277e33b769457e0e0",
+    "apps/browser-runtime/scripts/check.mjs": "360ec4270d5c8475447193fb9a4cc558ee1f8751fcd3fae60924fe5722ff6e3c",
+    "apps/browser-runtime/seccomp.json": "17d0d3fd50b465f5fe12aad0ea68917492fed2798cdc38053fdd0d0d1984aeac",
+    "apps/browser-runtime/src/config.mjs": "d6708599e5c5f0ac87aa65dee9bbaeed41c22c937c29bba63f13204c9687db3a",
+    "apps/browser-runtime/src/docker-driver.mjs": "1bd31da99bf8374618ea06a464419f4c1ca663d73062e2d1c3e78deb9b4b43fe",
+    "apps/browser-runtime/src/egress-main.mjs": "233226f43681396bc8e8e3f6b0bcecfb32b0a922602d9632decadec2392aafb4",
+    "apps/browser-runtime/src/egress-policy.mjs": "d72eaf0e1ce965c74bc05438a164755c022777fa49990e26a5ad15f9a573cdd3",
+    "apps/browser-runtime/src/journal.mjs": "90e640bf0bde9eff7d8432c0a746e0136df4d56e7e3c82d53b136316078511bd",
+    "apps/browser-runtime/src/reaper-main.mjs": "de5a0c0e1b127d161a91fdac712874797a3f34d83201799a6dde1d731d72013b",
+    "apps/browser-runtime/src/runtime-main.mjs": "06b036eecf9e07e3994acab774f5da4f6afdf23ddd2798f7e844f26dd17a9279",
+    "apps/browser-runtime/src/supervisor-main.mjs": "eb44ed7b288248da03b3bc8c4c73ad71a506caf980f13c7d02997cd8baefac14",
+    "apps/browser-runtime/src/supervisor.mjs": "74b757989dcda0c69e81e166e00ec032b7a60d97b2f4de821756b54d1f91a9f4",
+    "apps/browser-runtime/src/viewer-gateway.mjs": "ff3c03d489b3c60d366a868bf03f0786e79e26757ff5827ea34b7e8ca7cedc0b",
+    "apps/browser-runtime/src/viewer-grants.mjs": "c8be2bd60e073e3a90ff15954f0a1620cfad891ed3b373bc18c8b561b104540b",
+    "apps/browser-runtime/tests/docker.integration.mjs": "817453d5d6252a150d98270c2b3cea1d0ccbb5d980997c5b7f4f52a19828a869",
+    "apps/browser-runtime/tests/egress-policy.test.mjs": "b8e57ce1d8c42c07da0ccd0d26ee3c5eee60cb4ad866f6a04d2e9516614095ac",
+    "apps/browser-runtime/tests/supervisor.test.mjs": "5f412d323ed0dd4b2e87c4c40d851de0e41b761266e5590ce00c51a4b141a38a",
+    "apps/browser-runtime/tests/viewer-gateway.test.mjs": "677cb0d7c976828cd638c6526c59e8b4d4a46717863f49df04cbeed82a6b0a12",
+    "apps/browser-runtime/tests/viewer-grants.test.mjs": "13002b2bf55a8fc1d53e9286322127c8d6278c4cd291d2011a9fcf0709de1ff2",
+    "apps/runner/package.json": "5451058b325f1c8f7df1ac369b01f1543e352140a1170d023433e56f5d5b3224",
+    "apps/runner/src/execution.ts": "4b1cd29197f831cec5e8056d7e7b0c0d2eec260715471a496b44970924e9f958",
+    "apps/runner/src/http-client.ts": "c1ae54b28890eb571f58ddc4157b504b59991a7ad1df7edf76b5e8b8c56425fd",
+    "apps/runner/src/index.ts": "5266284c5f323cfa005a9cc74d6b703712f4c400bcf99eb36705625940dc71c3",
+    "apps/runner/src/playwright-session.ts": "afb2f70ab782fba74b988729be0c9584f8c21251278e6dde7ea1e9132e9f349f",
+    "apps/runner/tests/execution.test.ts": "4a5c1f4040f83362cfc64f2b6bffc0a567ce7b8e56696eda72a8eeb873380693",
+    "apps/runner/tests/fixtures.ts": "70edc6a91fec5f9de131fe2b8e534b4178a336334b142e17fbdb74504ab5b700",
+    "apps/runner/tests/http-client.test.ts": "f95f7941610bf80ba8e355ea63686b887e5997cf0e9ca701b78b4ff2c0fb660d",
+    "apps/web/tests/accountSessionBoundaries.test.ts": "efa7953847b693e07320a33a778dba00054da272019fa1d976cc3df41d5e71a9",
+    "deploy/browser-runtime.compose.yml": "d2301202810bc1e57d141e7b4bcf1f63d1d659b34bea69b99fa2e5f1e2d442fe",
+    "package-lock.json": "e336e1e1ac4153687b8cd3a94fc46d37a60e56515a63274daefa1e19f7fb3221",
+    "package.json": "ac5f278b254e2c7e25000757765c3136f394d0a2f6172d0cbe489e95ede113be",
+    "packages/qa-execution-contract/src/index.ts": "9b28f456b3ee1d9d3f16a9dd6be4544ff59a14f1805fae43b21ab31699fdbbc5",
+    "packages/qa-execution-contract/src/runtime.ts": "287e50d56df1f288810727c710ba8478336c01d4b2ac13bb8d1a7354c131916e",
+    "packages/qa-execution-contract/src/target.ts": "16a887db6f60884c4c9dbf19d0c9e2c9f40dd924ae84aed386692e05c8620614",
+    "packages/qa-execution-contract/src/v2.ts": "79a76b0dd6d27ef45914ce40d0bc78eecf42894fb2489926099b98415e34c215",
+    "packages/qa-execution-contract/tests/v2.test.ts": "d2f4390191f12d5b8bae57e411b040a282142e15216b0548711ccc176b19aff7"
+  },
+  "localLogFingerprints": [
+    {
+      "path": "work/phase-02-accepted-verify.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "e7c1d5e51cfc750d40cd609df3c430a8cbeb41f7298625839a9ec71ee0c5e9a6",
+      "lastWriteUtc": "2026-10-11T01:22:34.6551783Z"
+    },
+    {
+      "path": "work/phase-02-final-db.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "74b9cd6e24279276d6218377e0ecf2d4e562f3ea6df43cc51b49a1365de374a8",
+      "lastWriteUtc": "2026-10-11T01:18:30.2598113Z"
+    },
+    {
+      "path": "work/phase-02-accepted-docker.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "58191cafeab70ecec3a6af6ffde8489aef8905620b82dddc3756c67ad83bdf5b",
+      "lastWriteUtc": "2026-10-11T01:22:57.1911301Z"
+    },
+    {
+      "path": "work/phase-02-accepted-api-build.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "d856f87f78ba8adec53c5381532b6f4c4e996f4f9bda5d5547e00048d11664f3",
+      "lastWriteUtc": "2026-10-11T01:22:43.3799557Z"
+    },
+    {
+      "path": "work/phase-02-builds.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "4520ed18cec6749cf7f43817678b076d89572f84efc7c9aae943e34d600e972b",
+      "lastWriteUtc": "2026-10-11T01:01:45.9221873Z"
+    },
+    {
+      "path": "work/phase-02-web-build.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "2b836da8c816d5c459a67d39291f3ee3664a6ae63939f091a861c16ee8a3589e",
+      "lastWriteUtc": "2026-10-11T01:03:23.7596367Z"
+    },
+    {
+      "path": "work/phase-02-audit.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "4b02d4a3c23d969c46bd2041360f80bfcb1fe760d9db864009acdd710f9de601",
+      "lastWriteUtc": "2026-10-11T01:00:01.5047338Z"
+    },
+    {
+      "path": "work/phase-02-image-verified.log",
+      "visibility": "IGNORED_LOCAL_ONLY_NOT_CUSTOMER_EVIDENCE",
+      "sha256": "2efca8d6820fd405a551cdfddc2c49cf8cce1e3f8c6ca981435cb3530966ecb1",
+      "lastWriteUtc": "2026-10-11T01:18:43.4370654Z"
+    }
+  ]
+}

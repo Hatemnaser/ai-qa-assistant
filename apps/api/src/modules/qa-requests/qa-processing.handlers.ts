@@ -1,7 +1,7 @@
 import { prisma } from "../../db/prisma.js";
 import { AppError } from "../../lib/errors.js";
 import {
-  profileManifestV1Schema,
+  profileManifestSchema,
   recipeBundleV1Schema,
 } from "@oddpath/qa-execution-contract";
 import { qaChecklistIntelligence } from "./qa-checklist.intelligence.js";
@@ -13,6 +13,7 @@ import type {
 } from "./qa-execution-recipes.types.js";
 import { qaRequestRepository } from "./qa-requests.repository.js";
 import { qaChecklistDraftSchema } from "./qa-requests.schema.js";
+import { publishQaResult,runQaProviderOnce } from './qa-processing.persistence.js';
 import type {
   QaActor,
   QaChecklistGenerator,
@@ -47,13 +48,13 @@ export function createQaProcessingHandlers({
     CHECKLIST_GENERATION: {
       async run(job, signal) {
         const context = await loadContext(database, job);
-        const generated = await generator.generate({
+        const generated = await runQaProviderOnce(database,job,signal,()=>generator.generate({
           requestId: job.requestId,
           signal,
           snapshot: context.snapshot,
           userId: context.userId,
-        });
-        await repository.submitChecklist({
+        }));
+        await publishQaResult(database,job,()=>repository.submitChecklist({
           actor: systemActor(),
           checklist: generated.checklist,
           model: generated.model,
@@ -62,7 +63,7 @@ export function createQaProcessingHandlers({
           projectId: context.projectId,
           provider: generated.provider,
           requestId: job.requestId,
-        });
+        }));
       },
       async fail(job, errorCode) {
         const request = await requireRequest(database, job.requestId);
@@ -77,29 +78,30 @@ export function createQaProcessingHandlers({
     },
     CHECKLIST_REVIEW: {
       async run(job, signal) {
-        if (!job.artifactId) {
+        const artifactId=job.artifactId;
+        if (!artifactId) {
           throw new AppError("Checklist review artifact is missing.", 409, "QA_ARTIFACT_MISSING");
         }
         const context = await loadContext(database, job);
         const artifact = await database.qaArtifact.findFirst({
           select: { canonicalJson: true },
-          where: { id: job.artifactId, requestId: job.requestId },
+          where: { id: artifactId, requestId: job.requestId },
         });
         if (!artifact) {
           throw new AppError("QA checklist was not found.", 404, "QA_ARTIFACT_NOT_FOUND");
         }
         const checklist = qaChecklistDraftSchema.parse(artifact.canonicalJson);
-        const assessment = await reviewer.review({
-          artifactId: job.artifactId,
+        const assessment = await runQaProviderOnce(database,job,signal,()=>reviewer.review({
+          artifactId,
           checklist,
           requestId: job.requestId,
           signal,
           snapshot: context.snapshot,
           userId: context.userId,
-        });
-        await repository.completeChecklistAssessment({
+        }));
+        await publishQaResult(database,job,()=>repository.completeChecklistAssessment({
           actor: systemActor(),
-          artifactId: job.artifactId,
+          artifactId,
           model: assessment.model,
           processing: processingLease(job),
           projectId: context.projectId,
@@ -108,7 +110,7 @@ export function createQaProcessingHandlers({
           status: assessment.status,
           suggestions: assessment.suggestions,
           summary: assessment.summary,
-        });
+        }));
       },
       async fail(job, errorCode) {
         if (!job.artifactId) {
@@ -128,15 +130,15 @@ export function createQaProcessingHandlers({
     EXECUTION_RECIPE_GENERATION: {
       async run(job, signal) {
         const context = await loadRecipeContext(database, job);
-        const generated = await recipeGenerator.generate({
+        const generated = await runQaProviderOnce(database,job,signal,()=>recipeGenerator.generate({
           artifact: context.artifact,
           profileManifest: context.profileManifest,
           requestId: job.requestId,
           signal,
           snapshot: context.snapshot,
           userId: context.userId,
-        });
-        await recipeRepository.submitRecipe({
+        }));
+        await publishQaResult(database,job,()=>recipeRepository.submitRecipe({
           actor: systemActor(),
           artifactId: context.artifact.id,
           bundle: generated.bundle,
@@ -148,7 +150,7 @@ export function createQaProcessingHandlers({
           provider: generated.provider,
           requestId: job.requestId,
           title: generated.title,
-        });
+        }));
       },
       async fail(job, errorCode) {
         const request = await requireRequest(database, job.requestId);
@@ -163,40 +165,41 @@ export function createQaProcessingHandlers({
     },
     EXECUTION_RECIPE_REVIEW: {
       async run(job, signal) {
-        if (!job.recipeId) {
+        const recipeId=job.recipeId;
+        if (!recipeId) {
           throw new AppError("Execution Recipe is missing.", 409, "QA_EXECUTION_RECIPE_NOT_FOUND");
         }
         const context = await loadRecipeContext(database, job);
         const recipe = await database.qaExecutionRecipe.findFirst({
           select: { canonicalJson: true },
-          where: { id: job.recipeId, requestId: job.requestId },
+          where: { id: recipeId, requestId: job.requestId },
         });
         if (!recipe) {
           throw new AppError("Execution Recipe was not found.", 404, "QA_EXECUTION_RECIPE_NOT_FOUND");
         }
         const bundle = recipeBundleV1Schema.parse(recipe.canonicalJson);
-        const assessment = await recipeReviewer.review({
+        const assessment = await runQaProviderOnce(database,job,signal,()=>recipeReviewer.review({
           artifact: context.artifact,
           bundle,
           profileManifest: context.profileManifest,
-          recipeId: job.recipeId,
+          recipeId,
           requestId: job.requestId,
           signal,
           snapshot: context.snapshot,
           userId: context.userId,
-        });
-        await recipeRepository.completeAssessment({
+        }));
+        await publishQaResult(database,job,()=>recipeRepository.completeAssessment({
           actor: systemActor(),
           model: assessment.model,
           processing: processingLease(job),
           projectId: context.projectId,
           provider: assessment.provider,
-          recipeId: job.recipeId,
+          recipeId,
           requestId: job.requestId,
           status: assessment.status,
           suggestions: assessment.suggestions,
           summary: assessment.summary,
-        });
+        }));
       },
       async fail(job, errorCode) {
         if (!job.recipeId) {
@@ -291,7 +294,7 @@ async function loadRecipeContext(database: typeof prisma, job: ClaimedQaProcessi
   return {
     ...context,
     artifact,
-    profileManifest: profileManifestV1Schema.parse(job.profileManifest),
+    profileManifest: profileManifestSchema.parse(job.profileManifest),
   };
 }
 

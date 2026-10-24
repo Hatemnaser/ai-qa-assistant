@@ -8,6 +8,8 @@ describe("account repository", () => {
   it("queues owned objects and removes identifying usage before the cascading user graph", async () => {
     const operations: string[] = [];
     const transaction = {
+      async $executeRaw(){operations.push('quota:lock');return 1;},
+      $queryRaw:async()=>[{saved:false,runtime:false}],
       storedAsset: {
         async findMany(input: { where: { ownerId: string } }) {
           operations.push(`storedAsset:${input.where.ownerId}`);
@@ -48,7 +50,7 @@ describe("account repository", () => {
         },
       },
       aiUsageLog: createDeleteModel("aiUsageLog", operations),
-      usageEvent: createDeleteModel("usageEvent", operations),
+      usageEvent: {async findMany(input:{where:{userId:string}}){operations.push(`usageEvent:anonymize:${input.where.userId}`);return [];}},
       user: createDeleteModel("user", operations),
     };
     let transactionOptions: unknown;
@@ -74,6 +76,8 @@ describe("account repository", () => {
 
     assert.deepEqual(operations, [
       "transaction:start",
+      "quota:lock",
+      "quota:lock",
       "storedAsset:user-1",
       "objectDeletionJob:assets/2026/08/12/asset-1,assets/2026/08/12/asset-2",
       "messageAttachment:user-1",
@@ -81,7 +85,7 @@ describe("account repository", () => {
       "projectDocument:user-1",
       "storedAsset:delete:user-1",
       "aiUsageLog:user-1",
-      "usageEvent:user-1",
+      "usageEvent:anonymize:user-1",
       "user:user-1",
       "transaction:commit",
     ]);

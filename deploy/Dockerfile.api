@@ -1,0 +1,61 @@
+# Closed Phase 08 deployment rehearsal. This image does not enable release gates.
+FROM node:24-bookworm-slim AS base
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base AS build
+WORKDIR /opt/oddpath
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY packages/qa-execution-contract/package.json packages/qa-execution-contract/package.json
+RUN npm ci --ignore-scripts --workspace=@ai-qa-assistant/api --workspace=@oddpath/qa-execution-contract --include-workspace-root
+COPY packages/qa-execution-contract packages/qa-execution-contract
+COPY apps/api/src apps/api/src
+COPY apps/api/prisma apps/api/prisma
+COPY apps/api/prisma.config.ts apps/api/prisma.config.ts
+COPY apps/api/tsconfig.json apps/api/tsconfig.json
+RUN npm --prefix apps/api run build
+
+# Migrations run explicitly with a distinct schema-owner credential. The API
+# runtime below omits the development-only Prisma CLI and cannot run migrations.
+FROM build AS migrations
+ENV NODE_ENV=production \
+    CHECKPOINT_DISABLE=1 \
+    PRISMA_HIDE_UPDATE_MESSAGE=true
+USER node:node
+CMD ["npm", "--prefix", "apps/api", "run", "db:migrate:deploy"]
+
+FROM base AS production-dependencies
+WORKDIR /opt/oddpath
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY packages/qa-execution-contract/package.json packages/qa-execution-contract/package.json
+# @prisma/client's optional peer makes the CLI devOptional in npm's lock graph.
+# Omit optional/peer tooling too; generated runtime code comes from build.
+RUN npm ci --omit=dev --omit=peer --omit=optional --ignore-scripts --workspace=@ai-qa-assistant/api --workspace=@oddpath/qa-execution-contract --include-workspace-root \
+    && test ! -e node_modules/prisma && test ! -e node_modules/.bin/prisma \
+    && test ! -e node_modules/typescript && test ! -e node_modules/tsx
+
+FROM base AS runtime
+WORKDIR /opt/oddpath
+ENV NODE_ENV=production
+COPY --from=production-dependencies /opt/oddpath /opt/oddpath
+COPY --from=build /opt/oddpath/apps/api/dist apps/api/dist
+COPY --from=build /opt/oddpath/packages/qa-execution-contract/dist packages/qa-execution-contract/dist
+USER node:node
+EXPOSE 5000
+CMD ["node", "apps/api/dist/server.js"]
+
+# Explicit operations target: PG16 tools plus the SAME built API commands.
+# It is never the API service's default image and never starts PostgreSQL.
+FROM postgres:16 AS operations
+ENV NODE_ENV=production
+COPY --from=runtime /usr/local/bin/node /usr/local/bin/node
+COPY --from=runtime /opt/oddpath /opt/oddpath
+WORKDIR /opt/oddpath
+COPY ops/lib ops/lib
+COPY ops/maintenance.mjs ops/backup.mjs ops/full-backup.mjs ops/sqlite-export.mjs ops/alerts.mjs ops/recovery.mjs ops/
+COPY apps/api/scripts/verify-release*.mjs apps/api/scripts/
+USER postgres:postgres
+ENTRYPOINT ["node", "ops/backup.mjs"]
+CMD []

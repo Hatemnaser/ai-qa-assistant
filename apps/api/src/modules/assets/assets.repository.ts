@@ -70,6 +70,7 @@ export function createPrismaAssetsRepository(database: typeof prisma = prisma): 
         return tx.storedAsset.create({
           data: {
             declaredMimeType: input.declaredMimeType,
+            ...(input.purpose === "QA_EVIDENCE" ? {evidenceExpiresAt: input.evidenceExpiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)} : {}),
             checksumSha256: input.checksumSha256,
             expectedSizeBytes: input.expectedSizeBytes,
             objectKey: input.objectKey,
@@ -112,7 +113,7 @@ export function createPrismaAssetsRepository(database: typeof prisma = prisma): 
         }
         const candidates = await tx.storedAsset.findMany({
           orderBy: { id: "asc" },
-          select: { id: true, objectKey: true, status: true, uploadExpiresAt: true },
+          select: { id: true, objectKey: true, status: true, uploadExpiresAt: true, purpose: true, evidenceExpiresAt: true },
           take: limit,
           where: {
             OR: [
@@ -122,6 +123,7 @@ export function createPrismaAssetsRepository(database: typeof prisma = prisma): 
                 validationStartedAt: { lte: new Date(now.getTime() - VALIDATION_LEASE_MS) },
               },
               { status: "FAILED" },
+              { status: "READY", purpose: "QA_EVIDENCE", evidenceExpiresAt: {lte: now} },
               {
                 status: "READY",
                 messageAttachment: null,
@@ -136,6 +138,14 @@ export function createPrismaAssetsRepository(database: typeof prisma = prisma): 
         let cleanupQueued = 0;
         for (const candidate of candidates) {
           await lockAsset(tx, candidate.id);
+          // Expiry preserves the evidence receipt but releases its live object
+          // relation before the existing deletion outbox can own the object.
+          const expired = candidate.purpose === "QA_EVIDENCE" && candidate.evidenceExpiresAt && candidate.evidenceExpiresAt <= now ? await tx.storedAsset.findFirst({
+            where: {id: candidate.id, status: "READY", purpose: "QA_EVIDENCE", evidenceExpiresAt: {lte: now}, messageAttachment: null, sourceDocument: null},
+          }) : null;
+          if (expired) {
+            await tx.qaEvidenceAsset.updateMany({where: {assetId: expired.id}, data: {assetId: null, unavailableReason: "EXPIRED"}});
+          }
           const claimed = await tx.storedAsset.updateMany({
             data: { status: "DELETE_PENDING" },
             where: {

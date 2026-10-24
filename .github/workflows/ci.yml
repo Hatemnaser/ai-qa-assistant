@@ -72,11 +72,35 @@ jobs:
         run: npm run verify
 
       - name: Run real PostgreSQL integration tests
+        id: release_db
+        # Owns an isolated loopback PostgreSQL container. Does not use the service
+        # DB above, inherited application credentials or real provider/mail APIs.
+        # The manifest includes core/readiness plus the standalone 06B/06C cases;
+        # each suite receives a fresh DB and upgrades start from an empty DB.
         env:
           NODE_ENV: test
-          ODDPATH_DB_INTEGRATION_DATABASE: oddpath_ci
-          ODDPATH_DB_INTEGRATION_TESTS: "1"
-        run: npm run test:integration:db
+          ODDPATH_RELEASE_LOCAL_TESTS: "1"
+        run: npm run test:release:local -- --output-dir work/ci-release-${{ github.run_id }}-${{ github.run_attempt }}
+
+      # Only explicit sanitized gate outputs; never upload work/ wholesale.
+      # Retain failed-run receipts too, without long-lived artifact storage.
+      - name: Preserve sanitized database verification evidence
+        if: always() && (steps.release_db.outcome == 'success' || steps.release_db.outcome == 'failure' || steps.release_db.outcome == 'cancelled')
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-db-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            work/ci-release-${{ github.run_id }}-${{ github.run_attempt }}/verification.json
+            work/ci-release-${{ github.run_id }}-${{ github.run_attempt }}/source-fingerprint.*.json
+            work/ci-release-${{ github.run_id }}-${{ github.run_attempt }}/*.log
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: false
+
+      - name: Verify release gate handles PostgreSQL disconnects
+        env:
+          ODDPATH_RELEASE_LOCAL_TESTS: "1"
+        run: npm run test:release:fault
 
       - name: Build API
         env:

@@ -38,6 +38,16 @@ after(async () => {
 });
 
 describe("/api/projects", () => {
+  it("requires a human session for target reads and authority/proof mutations", async () => {
+    const paths = ["/qa-targets", "/qa-targets/target-1/revisions", "/qa-targets/target-1/challenges", "/qa-targets/target-1/challenges/proof-1/verify"];
+    const response = await fetch(`${baseUrl}/api/projects/project-1/qa-targets`);
+    assert.equal(response.status, 401);
+    for (const path of paths) {
+      const mutation = await postJson(`/api/projects/project-1${path}`, {});
+      assert.equal(mutation.status, 401);
+      assert.equal((await mutation.json()).code, "SESSION_REQUIRED");
+    }
+  });
   it("requires an authenticated session to list projects", async () => {
     const response = await fetch(`${baseUrl}/api/projects`);
     const body = await response.json();

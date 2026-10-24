@@ -39,6 +39,11 @@ export function loadAuthSecurityEnv({ nodeEnv, source }: EnvLoadContext) {
       15 * 60 * 1000,
       "AUTH_RATE_LIMIT_WINDOW_MS"
     ),
+    authAbuseStore: source.AUTH_ABUSE_STORE?.trim() || (nodeEnv === "production" ? "postgres" : "memory"),
+    authGlobalRateLimitMax: parseStrictPositiveSafeInteger(source.AUTH_GLOBAL_RATE_LIMIT_MAX, 120, "AUTH_GLOBAL_RATE_LIMIT_MAX"),
+    authEmailDailyMax: parseStrictPositiveSafeInteger(source.AUTH_EMAIL_DAILY_MAX, 100, "AUTH_EMAIL_DAILY_MAX"),
+    authRecipientDailyMax: parseStrictPositiveSafeInteger(source.AUTH_RECIPIENT_DAILY_MAX, 5, "AUTH_RECIPIENT_DAILY_MAX"),
+    publicRegistrationReleaseConfirmed: parseStrictBoolean(source.PUBLIC_REGISTRATION_RELEASE_CONFIRMED, false, "PUBLIC_REGISTRATION_RELEASE_CONFIRMED"),
     accountDeleteRateLimitMax: parseStrictPositiveSafeInteger(
       source.ACCOUNT_DELETE_RATE_LIMIT_MAX,
       5,

@@ -1,4 +1,5 @@
-import { runnerRegistrationV1Schema } from "@oddpath/qa-execution-contract";
+import { runnerRegistrationSchema } from "@oddpath/qa-execution-contract";
+import { AppError } from "../../lib/errors.js";
 import type { NextFunction, Request, Response } from "express";
 
 import { qaProjectParamsSchema } from "./qa-requests.schema.js";
@@ -6,9 +7,11 @@ import { qaRunnerService } from "./qa-runner.service.js";
 
 export async function registerQaRunner(req: Request, res: Response, next: NextFunction) {
   try {
+    const registration = runnerRegistrationSchema.parse(req.body);
+    if (registration.schemaVersion !== (req.path.includes("/runner/v2/") ? 2 : 1)) throw new AppError("Runner protocol does not match this endpoint.", 409, "QA_RUNNER_PROTOCOL_MISMATCH");
     res.json(await qaRunnerService.register(
       req.qaIntegration!,
-      runnerRegistrationV1Schema.parse(req.body)
+      registration
     ));
   } catch (error) { next(error); }
 }

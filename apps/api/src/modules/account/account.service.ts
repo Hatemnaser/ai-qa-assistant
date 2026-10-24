@@ -1,4 +1,7 @@
 import { AppError } from "../../lib/errors.js";
+import { env } from '../../config/env.js';
+import { requestOwnerBrowserStop } from '../browser-runtime/browser-runtime.repository.js';
+import { revokeSavedOwner } from '../browser-auth/browser-auth.repository.js';
 import { verifyPassword } from "../auth/auth.security.js";
 import { accountRepository } from "./account.repository.js";
 import type { AccountRepository, DeleteAccountRequest } from "./account.types.js";
@@ -8,11 +11,13 @@ export interface AccountDeletionSecurity {
 }
 
 export interface AccountServiceDependencies {
+  requireBrowserStop?: (userId: string) => Promise<boolean>;
   repository: AccountRepository;
   security?: AccountDeletionSecurity;
 }
 
 export function createAccountService({
+  requireBrowserStop = async () => true,
   repository,
   security = { verifyPassword },
 }: AccountServiceDependencies) {
@@ -37,6 +42,7 @@ export function createAccountService({
       throw new AppError("Current password is incorrect.", 403, "CURRENT_PASSWORD_INVALID");
     }
 
+    if (!await requireBrowserStop(userId)) throw new AppError('Browser Stop must be confirmed before deleting this account. Retry after Stop.', 409, 'BROWSER_STOP_REQUIRED');
     await repository.deleteAccountData(userId);
 
     return { ok: true as const };
@@ -49,4 +55,5 @@ export function createAccountService({
 
 export const accountService = createAccountService({
   repository: accountRepository,
+  requireBrowserStop: async userId => {const confirmed=await requestOwnerBrowserStop(userId);await revokeSavedOwner(userId);return confirmed;},
 });

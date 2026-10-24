@@ -56,9 +56,9 @@ export function validateRegistrationEnv(config: AppEnv) {
     );
   }
 
-  if (config.nodeEnv === "production" && config.registrationMode === "public") {
+  if (config.nodeEnv === "production" && config.registrationMode === "public" && !config.publicRegistrationReleaseConfirmed) {
     throw new Error(
-      "Unsafe production registration configuration: REGISTRATION_MODE may only be disabled or invite."
+      "Unsafe production registration configuration: public registration requires PUBLIC_REGISTRATION_RELEASE_CONFIRMED=true after the independent release gates."
     );
   }
 
@@ -74,6 +74,12 @@ export function validateRegistrationEnv(config: AppEnv) {
 }
 
 export function validateAuthBounds(config: AppEnv) {
+  if (!['postgres','memory'].includes(config.authAbuseStore) || (config.nodeEnv === 'production' && config.authAbuseStore !== 'postgres')) {
+    throw new Error('AUTH_ABUSE_STORE must be postgres in production; memory is for local development/tests only.');
+  }
+  if (config.authGlobalRateLimitMax > 1000 || config.authEmailDailyMax > 1000 || config.authRecipientDailyMax > 20) {
+    throw new Error('Auth abuse budgets exceed safe bounds (global/email 1000, recipient 20).');
+  }
   if (
     config.passwordResetTokenTtlMinutes > 120 ||
     config.emailVerificationTokenTtlMinutes > 1_440

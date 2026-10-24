@@ -5,7 +5,7 @@ import PrivateAssetImage from "../../assets/PrivateAssetImage.vue";
 import { getMessageAttachments } from "../chatMessages";
 import { renderMarkdown } from "../../../ui/content/renderMarkdown";
 import { useI18n } from "../../../i18n/useI18n";
-import type { QuickAction } from "../constants";
+import { AUTO_MODEL, type QuickAction } from "../constants";
 import type { ChatAttachment, ChatMessage, ExportFormat } from "../types";
 
 const props = defineProps<{
@@ -55,6 +55,7 @@ function copyLabel(message: ChatMessage) {
     <div v-for="message in messages" :key="message.id" class="chat-message-turn" :data-message-id="message.id" tabindex="-1">
       <div v-if="message.role === 'assistant'" class="answer">
         <div class="message-content" v-html="renderMarkdown(message.content)" />
+        <small v-if="message.model && message.model !== AUTO_MODEL && !message.isError" class="d-block text-muted mt-2">{{ t('model.used', { model: message.model }) }}</small>
         <div class="message-actions d-flex justify-content-end gap-2">
           <button
             class="ui-icon-btn ui-icon-btn--sm message-action-btn"

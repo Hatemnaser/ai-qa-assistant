@@ -5,6 +5,12 @@ import type { AccountRepository } from "../src/modules/account/account.types.ts"
 import { createAccountService } from "../src/modules/account/account.service.ts";
 
 describe("account service", () => {
+  it('retains account data until requested browser termination is physically confirmed',async()=>{
+    const deleted:string[]=[];let confirmed=false;
+    const service=createAccountService({repository:createRepository(deleted),security:{verifyPassword:async()=>true},requireBrowserStop:async user=>{assert.equal(user,'user-1');return confirmed;}});
+    await assert.rejects(service.deleteAccount('user-1',{currentPassword:'correct password'}),(error:unknown)=>hasErrorCode(error,'BROWSER_STOP_REQUIRED'));
+    assert.deepEqual(deleted,[]);confirmed=true;await service.deleteAccount('user-1',{currentPassword:'correct password'});assert.deepEqual(deleted,['user-1']);
+  });
   it("requires the current password before deleting account data", async () => {
     const deletedUserIds: string[] = [];
     const service = createAccountService({

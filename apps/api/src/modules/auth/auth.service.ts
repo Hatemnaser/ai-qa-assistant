@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { env } from "../../config/env.js";
 import { AppError } from "../../lib/errors.js";
+import { requestOwnerBrowserStop } from '../browser-runtime/browser-runtime.repository.js';
+import { revokeSavedOwner } from '../browser-auth/browser-auth.repository.js';
 import { logAuthEmailDeliveryFailed } from "../../lib/security-events.js";
 import {
   authEmailService,
@@ -66,6 +68,7 @@ export interface AuthSecurity {
 }
 
 export interface AuthServiceDependencies {
+  stopBrowsersOnLogout?: (userId: string) => Promise<void>;
   authEmailResponseFloorMs?: number;
   emailDeliveryMode?: "direct" | "outbox";
   emailOutboxEncryptionSecret?: string;
@@ -81,6 +84,7 @@ export interface AuthServiceDependencies {
 }
 
 export function createAuthService({
+  stopBrowsersOnLogout = async () => {},
   authEmailResponseFloorMs = env.authEmailResponseFloorMs,
   emailDeliveryMode = env.emailProvider === "smtp" ? "outbox" : "direct",
   emailOutboxEncryptionSecret = env.emailOutboxEncryptionSecret,
@@ -114,8 +118,9 @@ export function createAuthService({
 
     if (existingUser) {
       // Keep the public response and expensive password work uniform. An
-      // eligible unverified account receives a fresh link; verified accounts
-      // are left unchanged.
+      // eligible unverified account receives a fresh ownership link. Its
+      // pre-verification password is never activated: the mailbox owner must
+      // select the active credential while consuming that link.
       await authSecurity.hashPassword(input.password);
       if (existingUser.passwordHash && !existingUser.emailVerifiedAt) {
         await sendEmailVerification(existingUser);
@@ -191,7 +196,8 @@ export function createAuthService({
         userId: user.id,
       });
 
-      await repository.createPasswordResetToken({
+      const issued = await repository.createPasswordResetToken({
+        expectedPasswordHash: user.passwordHash,
         emailJob: emailDeliveryMode === "outbox" ? emailJob : undefined,
         expiresAt,
         now: issuedAt,
@@ -199,7 +205,7 @@ export function createAuthService({
         userId: user.id,
       });
 
-      if (emailDeliveryMode === "direct") {
+      if (issued && emailDeliveryMode === "direct") {
         await safeSendPasswordResetEmail(emailService, {
           expiresAt,
           resetUrl,
@@ -217,7 +223,9 @@ export function createAuthService({
 
   async function verifyEmail(input: VerifyEmailRequest) {
     const tokenHash = authSecurity.hashEmailVerificationToken(input.token);
+    const newPasswordHash = await authSecurity.hashPassword(input.newPassword);
     const wasVerified = await repository.verifyEmailWithToken({
+      newPasswordHash,
       now: now(),
       tokenHash,
     });
@@ -298,7 +306,9 @@ export function createAuthService({
 
   async function logout(sessionToken: string | undefined) {
     if (sessionToken) {
-      await repository.deleteSessionByTokenHash(authSecurity.hashSessionToken(sessionToken));
+      const session = await repository.findSessionByTokenHash(authSecurity.hashSessionToken(sessionToken));
+      try{if (session && session.expiresAt > now()) await stopBrowsersOnLogout(session.userId);}
+      finally{await repository.deleteSessionByTokenHash(authSecurity.hashSessionToken(sessionToken));}
     }
 
     return {
@@ -322,7 +332,8 @@ export function createAuthService({
       userId: user.id,
     });
 
-    await repository.createEmailVerificationToken({
+    const issued = await repository.createEmailVerificationToken({
+      expectedPasswordHash: user.passwordHash,
       emailJob: emailDeliveryMode === "outbox" ? emailJob : undefined,
       expiresAt,
       now: issuedAt,
@@ -330,7 +341,7 @@ export function createAuthService({
       userId: user.id,
     });
 
-    if (emailDeliveryMode === "direct") {
+    if (issued && emailDeliveryMode === "direct") {
       await safeSendEmailVerificationEmail(emailService, {
         expiresAt,
         to: user.email,
@@ -378,6 +389,7 @@ export function createAuthService({
 
     await repository.createSession({
       ...context,
+      expectedPasswordHash: user.passwordHash!,
       expiresAt,
       tokenHash,
       userId: user.id,
@@ -496,4 +508,5 @@ function isUniqueEmailConflict(error: unknown) {
 
 export const authService = createAuthService({
   repository: authRepository,
+  stopBrowsersOnLogout: async userId => {await requestOwnerBrowserStop(userId);await revokeSavedOwner(userId);},
 });

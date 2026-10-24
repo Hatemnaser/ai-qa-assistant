@@ -7,6 +7,104 @@ Human Review boundary.
 The bounded Playwright Recipe/Runner extension is documented in
 `docs/QA_EXECUTION_HARNESS.md`.
 
+## Release readiness (Phase 07, 2026-10-17)
+
+Read `PHASE_07_CHECKPOINT.md` for the owner-only candidate/evaluation contract,
+well-known deployment document and acceptance boundary. Readiness uses existing
+QA artifacts/results/evidence without selecting requests, starting work, changing
+QA versions, approving runs or deploying. Freeze before testing; unsupported or
+missing target/build provenance produces NO_GO. V2 browser runs may have null
+legacy `commitSha`; exact build/target provenance is still required for each
+mandatory result and evidence, together with server-side deployment observations.
+QA/account/project JSON archives retain snapshots only as inert history.
+
+## Managed browser lifecycle (stage 2, 2026-10-11)
+
+The existing QA controller/run remains authoritative. A v2 claim can bind one
+`QaBrowserRuntime` before accept; a different allocation/claim cannot replace it.
+The authenticated Runner requires `execution:write` for runtime begin/status/
+Stop/exit under `/api/integrations/v1/runner/v2/executions/:executionId/runtime`.
+Owner cookie authentication and CSRF protect viewer-ticket issuance at
+`/api/projects/:projectId/browser-runtimes/:executionId/viewer`; GET on the
+execution path returns owner-scoped lifecycle status without lease/control
+tokens. These routes default off.
+
+Cancellation/deadline/lease loss requests physical Stop. Confirmed Stop needs a
+fresh executor observation after the Stop request that both Chrome and egress
+containers exited; a database cancellation, missed heartbeat or Docker outage
+does not provide that proof. Fifteen seconds without confirmation becomes
+STOP_UNCONFIRMED. An independent API reaper preserves interruption history;
+an independent runtime reaper and in-container watchdog enforce termination.
+View tickets expire in sixty seconds, are consumed once, and bind the exact
+owner/project/execution/runtime/approval. Ordinary VIEW grants expose no
+CDP/input authority; the separate LOGIN grant below is owner input only.
+Stage 3A now implements bounded manual login/control and logout/Stop. Encrypted
+saved-state revocation remains 3B; product resource views remain stage 4. See
+`PHASE_02_CLOSEOUT.md` and `PHASE_03A_CHECKPOINT.md` for proof and gates.
+
+## Manual browser input (stage 3A, 2026-10-12)
+
+Under the existing cookie-authenticated/CSRF project adapter,
+`/api/projects/:projectId/browser-runtimes/:executionId/login` adds:
+
+| Owner POST | Strict contract |
+| --- | --- |
+| `/begin` | `{ controlEpoch: UUID }`; request prepared human input |
+| `/viewer` | Mint one LOGIN fragment ticket for the current owner/epoch |
+| `/complete` | `{ controlEpoch: UUID, acknowledgeFinished: true }` |
+
+The existing owner status returns phase/epoch/preparation expiry and keeps
+requested/confirmed/unconfirmed Stop separate. No password/MFA/cookie/state
+belongs in these payloads. Ordinary VIEW access is paused during human input.
+The scoped v2 Runner runtime adapter adds POST `/login-state` with its existing
+claim/lease headers and shared `{runtimeId, controlEpoch, phase: LOGIN|READY}`
+contract. It cannot initiate human authority or skip the owner's handoff.
+
+MANUAL profile/approval hashes and overall timing are immutable. Prepare/login
+occurs while CLAIMED; result/evidence upload routes reject that status. A READY
+runtime is mandatory before accept. Fresh post-lock target/proof/approval,
+request/session/owner, lease, deadline and input epoch checks reject stale input.
+Logout requests owner allocation Stop; deletion requests Stop, waits for real
+confirmation, and preserves records until that confirmation. Frontend Stop
+reuses the current QA controller's cancellation service. No new controller,
+model access, storageState import/export or vault is introduced.
+
+## Project-owned targets (stage 1, 2026-10-10)
+
+Owner cookie authentication and CSRF protect these endpoints under
+`/api/projects/:projectId/qa-targets`:
+
+| Method/path | Contract |
+| --- | --- |
+| GET `/` | Current project-owned target snapshots |
+| POST `/` | `{ label, definition, acknowledgeAuthority: true }` creates revision 1 |
+| POST `/:targetId/revisions` | Same payload plus `expectedRevision`; appends a revision |
+| POST `/:targetId/challenges` | `{ expectedRevision, method: "DNS_TXT" | "HTTPS_FILE" }` |
+| POST `/:targetId/challenges/:verificationId/verify` | Bounded domain-control probe |
+
+The strict shared target definition includes HTTPS base URL, environment,
+resource/authentication origins and optional `{ reference, source: "DECLARED" }`
+candidate identity. URL credentials, query/fragment, IP literals, ambiguous
+hosts and non-default ports are rejected. Origin lists are exact, normalized,
+unique and bounded. No passwords, cookies or resolved profile values belong
+here. Domain control and acknowledgement of permission to test are distinct.
+Only the owner can acknowledge authority or request/confirm proof; bearer/MCP
+actors have no target mutation adapter.
+
+Challenges expose a random token once; the database stores only its SHA-256.
+Challenges last 10 minutes and verified proof lasts 24 hours without extension.
+HTTPS ownership files use a pinned public DNS address with normal TLS validation,
+no redirects, 5-second request timeout and 4 KiB maximum body. Mixed public/private
+answers and unsupported address ranges are blocked. These are ownership-probe
+safeguards; browser egress enforcement remains a separate stage-2 gate.
+
+Stage-1 caps are 50 targets/project, 100 revisions/target, 20 challenges/revision,
+one new challenge/minute/revision, two concurrent probes/process and ten target
+mutations/minute/account/process. Public-deployment edge and durable quotas are
+still stage 6. Revision and proof operations serialize on the target; optimistic
+conflicts require review. Historical QA artifacts and v1 approvals are not
+rewritten. V2 approval details and activation limits are in the harness document.
+
 Oddpath is not the agent that drives the browser or writes the application.
 Agents execute. Oddpath keeps the reviewable record: the request, locked
 context, checklist revision, results, evidence, status, history, and owner
@@ -485,3 +583,23 @@ npm run build:api
 Run the guarded disposable-PostgreSQL integration suite for lifecycle,
 locking, migration, and ownership changes. The exact safe setup is documented
 in the root `README.md` and `docs/DEVELOPMENT_GUIDE.md`.
+
+## Evidence and portable history — stage 5, 2026-10-14
+
+New result/evidence provenance is server-bound to the request, immutable checklist,
+run, declared target/build, executor and time. Optional Runner observation timing
+and step references are recipe-validated; they remain executor claims. AI
+interpretation and deployment verification do not overwrite observed results.
+
+New QA binaries expire after thirty days. Expired/missing screenshots cannot
+satisfy mandatory evidence at finish or review; retained historical approvals
+are not rewritten. The descriptor/checksum survives outbox cleanup. Downloads
+are signed against a fixed date and cannot extend the evidence lifetime.
+
+Cookie-authenticated POST /api/projects/:projectId/qa/requests/:requestId/export
+accepts {format: JSON|MARKDOWN|ZIP, runId?: string}. CSRF and the existing bounded
+portability admission apply. Project/account QA archives use format 3.0 and
+report schema 1, with file hashes and explicit binary gaps. Imports create only
+QaImportedArchive history, never executable QA records/approval. Original QA
+binaries stay in the ZIP; no active QA binary restore is claimed. Read
+PHASE_05_CHECKPOINT.md for limits and validation/activation boundaries.

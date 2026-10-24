@@ -1,0 +1,46 @@
+# Stage-2 runtime services. Publish only through the operator's HTTPS reverse
+# proxy. Chrome/CDP/VNC and allocation control ports have no host bindings.
+services:
+  browser-supervisor:
+    build:
+      context: ..
+      dockerfile: apps/browser-runtime/Dockerfile.supervisor
+    container_name: oddpath-browser-supervisor
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - browser-journal:/var/lib/oddpath
+    secrets: [supervisor_config, browser_viewer_key]
+    expose: ["8081"]
+    networks: [control]
+    mem_limit: 384m
+    cpus: 0.5
+    pids_limit: 128
+    logging: { driver: local, options: { max-size: "1m", max-file: "2" } }
+  browser-reaper:
+    build:
+      context: ..
+      dockerfile: apps/browser-runtime/Dockerfile.supervisor
+    entrypoint: ["/usr/bin/tini", "--", "node", "apps/browser-runtime/src/reaper-main.mjs"]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - browser-journal:/var/lib/oddpath
+    secrets: [supervisor_config, browser_viewer_key]
+    networks: [control]
+    mem_limit: 192m
+    cpus: 0.25
+    pids_limit: 64
+    logging: { driver: local, options: { max-size: "1m", max-file: "2" } }
+networks:
+  control: {}
+volumes:
+  browser-journal: {}
+secrets:
+  supervisor_config: { file: "${ODDPATH_SUPERVISOR_CONFIG_FILE:?Provide the operator-managed runtime config}" }
+  browser_viewer_key: { file: "${ODDPATH_VIEWER_KEY_FILE:?Provide the dedicated viewer signing key file}" }

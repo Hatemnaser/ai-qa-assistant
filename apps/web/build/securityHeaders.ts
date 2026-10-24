@@ -1,6 +1,7 @@
 export interface WebSecurityHeaderConfig {
   apiOrigin: string;
   r2Origin: string | null;
+  browserViewerOrigin: string | null;
 }
 
 type WebBuildEnvironment = Record<string, string | undefined>;
@@ -13,6 +14,9 @@ export function resolveWebSecurityHeaderConfig(
   return {
     apiOrigin: requireExactHttpsOrigin(environment.VITE_API_BASE_URL, "VITE_API_BASE_URL"),
     r2Origin: resolveOptionalR2Origin(environment.VITE_R2_ENDPOINT),
+    browserViewerOrigin: environment.VITE_BROWSER_VIEWER_ORIGIN?.trim()
+      ? requireExactHttpsOrigin(environment.VITE_BROWSER_VIEWER_ORIGIN, "VITE_BROWSER_VIEWER_ORIGIN")
+      : null,
   };
 }
 
@@ -33,9 +37,20 @@ export function buildWebSecurityHeaders(config: WebSecurityHeaderConfig) {
     "  Strict-Transport-Security: max-age=31536000",
     "  Permissions-Policy: camera=(), geolocation=(), microphone=(), payment=(), usb=()",
     "  Cross-Origin-Opener-Policy: same-origin",
-    `  Content-Security-Policy: default-src 'self'; base-uri 'self'; connect-src ${connectSources.join(" ")}; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; img-src ${imageSources.join(" ")}; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; upgrade-insecure-requests`,
+    `  Content-Security-Policy: default-src 'self'; base-uri 'self'; connect-src ${connectSources.join(" ")}; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; frame-src ${config.browserViewerOrigin || "'none'"}; img-src ${imageSources.join(" ")}; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; upgrade-insecure-requests`,
     "",
   ].join("\n");
+}
+
+// Self-hosted Nginx consumes the same policy as Cloudflare's _headers artifact.
+// Quote configuration metacharacters rather than interpreting origins as code.
+export function buildNginxSecurityHeaders(config: WebSecurityHeaderConfig) {
+  const quote = (value: string) => value.replace(/[\\"$]/g, "\\$&");
+  return buildWebSecurityHeaders(config).split("\n")
+    .flatMap(line => {
+      const match = /^  ([A-Za-z-]+): (.+)$/.exec(line);
+      return match ? [`add_header ${match[1]} "${quote(match[2])}" always;`] : [];
+    }).join("\n") + "\n";
 }
 
 function requireExactHttpsOrigin(value: string | undefined, variableName: string) {

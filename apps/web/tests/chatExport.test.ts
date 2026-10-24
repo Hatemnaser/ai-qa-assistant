@@ -3,7 +3,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { DEFAULT_MODE, DEFAULT_MODEL } from "../src/features/chat/constants";
 import { parseImportedChatJson } from "../src/features/chat/chatExport";
-import { escapeCsvCell } from "../src/features/chat/chatExportFormatters";
+import { escapeCsvCell, formatChatAsMarkdown, sanitizeChatForExport } from "../src/features/chat/chatExportFormatters";
 
 beforeEach(() => {
   Object.defineProperty(globalThis, "crypto", {
@@ -82,7 +82,26 @@ describe("chat export/import helpers", () => {
     assert.equal(chat.mode, DEFAULT_MODE);
     assert.equal(chat.model, DEFAULT_MODEL);
     assert.equal(chat.messages[0]?.mode, DEFAULT_MODE);
-    assert.equal(chat.messages[0]?.model, DEFAULT_MODEL);
+    assert.equal(chat.messages[0]?.model, "");
+  });
+
+  it("preserves unknown and known historical models through JSON export/import", () => {
+    const chat = parseImportedChatJson(JSON.stringify({
+      model: DEFAULT_MODEL,
+      messages: [
+        { role: "assistant", content: "Unknown model" },
+        { role: "assistant", content: "Null model", model: null },
+        { role: "assistant", content: "Known model", model: " retired-model " },
+        { role: "assistant", content: "Failed request", model: DEFAULT_MODEL, isError: true },
+      ],
+    }));
+    const exported = sanitizeChatForExport(chat);
+    const restored = parseImportedChatJson(JSON.stringify({ type: "qa-chat", chat: exported }));
+    assert.equal(restored.model, DEFAULT_MODEL);
+    assert.deepEqual(restored.messages.map(message => message.model), ["", "", "retired-model", DEFAULT_MODEL]);
+    assert.equal(restored.messages[3]?.isError, true);
+    const unknownSection = formatChatAsMarkdown(chat).split("## 3.")[0].split("## 1.")[1];
+    assert.doesNotMatch(unknownSection, /- Model:/u);
   });
 
   it("rejects invalid chat import files", () => {

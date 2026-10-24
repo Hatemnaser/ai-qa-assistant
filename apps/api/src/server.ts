@@ -7,7 +7,12 @@ import { closeDefaultReadinessProbe } from "./modules/health/health.routes.js";
 import { qaProcessingHandlers } from "./modules/qa-requests/qa-processing.handlers.js";
 import { startQaProcessingLoop } from "./modules/qa-requests/qa-processing.worker.js";
 import { startTestSessionsLoop } from "./modules/test-sessions/test-sessions.worker.js";
+import {loadBrowserAuthVault,closeBrowserAuthVault} from './modules/browser-auth/browser-auth.vault.js';
+import {requireOperationalDatabase} from './db/recovery-guard.js';
 
+try { await requireOperationalDatabase(); }
+catch (error) { await prisma.$disconnect(); throw error; }
+if(env.qaSavedLoginEnabled)loadBrowserAuthVault();
 const app = createApp();
 
 const server = app.listen(env.port, "0.0.0.0", () => {
@@ -37,6 +42,7 @@ const shutdown = createGracefulShutdown({
   disconnectDatabase: async () => {
     await Promise.all([requestAuthEmailOutboxStop(), requestQaProcessingStop()]);
     await Promise.all([prisma.$disconnect(), closeDefaultReadinessProbe()]);
+    closeBrowserAuthVault();
   },
   server,
 });

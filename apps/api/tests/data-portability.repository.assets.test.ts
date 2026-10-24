@@ -1,3 +1,4 @@
+import {emptyQaExport} from "./helpers/emptyQaExport.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -85,7 +86,7 @@ describe("project export asset repository boundary", () => {
     };
     const database = {
       async $transaction(callback: (transaction: typeof tx) => Promise<unknown>) {
-        return callback(tx);
+        return callback({...emptyQaExport,...tx});
       },
     } as unknown as typeof prisma;
 
@@ -182,7 +183,7 @@ describe("project export asset repository boundary", () => {
     };
     const database = {
       async $transaction(callback: (transaction: typeof tx) => Promise<unknown>) {
-        return callback(tx);
+        return callback({...emptyQaExport,...tx});
       },
     } as unknown as typeof prisma;
 
@@ -264,7 +265,7 @@ describe("project export asset repository boundary", () => {
     };
     const database = {
       async $transaction(callback: (transaction: typeof tx) => Promise<unknown>) {
-        return callback(tx);
+        return callback({...emptyQaExport,...tx});
       },
     } as unknown as typeof prisma;
 
@@ -333,7 +334,7 @@ describe("project export asset repository boundary", () => {
     };
     const database = {
       async $transaction(callback: (transaction: typeof tx) => Promise<unknown>) {
-        return callback(tx);
+        return callback({...emptyQaExport,...tx});
       },
     } as unknown as typeof prisma;
 
@@ -403,7 +404,7 @@ describe("account export asset repository boundary", () => {
     };
     const database = {
       async $transaction(callback: (transaction: typeof tx) => Promise<unknown>) {
-        return callback(tx);
+        return callback({...emptyQaExport,...tx});
       },
     } as unknown as typeof prisma;
 

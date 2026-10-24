@@ -4,10 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "usage:reconcile": "node dist/scripts/usage-reconcile.js",
+    "usage:reconcile:dev": "tsx src/scripts/usage-reconcile.ts",
+    "browser:transition": "node dist/scripts/browser-transition.js",
+    "browser:transition:dev": "tsx src/scripts/browser-transition.ts",
+    "browser:reaper": "node dist/scripts/browser-reaper.js",
+    "browser:reaper:dev": "tsx src/scripts/browser-reaper.ts",
     "predev": "npm --prefix ../../packages/qa-execution-contract run build",
     "dev": "tsx watch src/server.ts",
     "test": "tsx --test tests/**/*.test.ts",
     "test:integration:db": "tsx --test --test-timeout=30000 tests/postgres.integration.ts",
+    "test:integration:readiness": "tsx --test --test-concurrency=1 --test-timeout=60000 tests/readiness.postgres.integration.ts tests/readiness-consistency.postgres.integration.ts",
     "build": "npm --prefix ../../packages/qa-execution-contract run build && prisma generate --no-hints && tsc -p tsconfig.json",
     "check": "npm --prefix ../../packages/qa-execution-contract run build && npm run check:architecture && prisma generate --no-hints && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "check:architecture": "node scripts/check-architecture-boundaries.mjs",
@@ -42,9 +49,9 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "fflate": "^0.8.3",
-    "nodemailer": "10.0.16",
+    "nodemailer": "10.2.1",
     "pg": "^8.20.0",
-    "zod": "^3.25.76"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

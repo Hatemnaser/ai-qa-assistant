@@ -1,0 +1,1045 @@
+{
+  "phase": "06B final independent review repairs",
+  "date": "2026-10-15T17:04:39.175Z",
+  "status": "LOCAL_FIXES_VALIDATED_AWAITING_INDEPENDENT_ASTRA_REVIEW",
+  "publicActivation": "NO_GO",
+  "root": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01",
+  "report": "C:\\Users\\hatem\\Documents\\Codex\\2026-10-10\\new-chat\\outputs\\Oddpath_Phase_06B_Final_Review_Repair.md",
+  "findingsFixed": [
+    "F1 Global quota survives account deletion with finite ownerless exposure",
+    "F2 QA publication retries never regenerate; durable pre-provider/lease fence",
+    "F3 Initial accounting read participates in bounded retries",
+    "F4 Rejected summary output retains validated provider consumption"
+  ],
+  "tests": {
+    "verify": [
+      {
+        "tests": 41,
+        "pass": 41,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      {
+        "tests": 1097,
+        "pass": 1096,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 1
+      },
+      {
+        "tests": 33,
+        "pass": 33,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      {
+        "tests": 666,
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      {
+        "tests": 91,
+        "pass": 91,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    ],
+    "verifyTotals": {
+      "pass": 1927,
+      "skip": 1
+    },
+    "postgres": {
+      "tests": 165,
+      "pass": 165,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "http": {
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "upgrade": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "red": [
+      {
+        "log": "red-adversarial.log",
+        "tests": 7,
+        "pass": 3,
+        "fail": 4,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      {
+        "log": "red-reachable.log",
+        "tests": 3,
+        "pass": 0,
+        "fail": 3,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      {
+        "log": "red-qa-replay.log",
+        "tests": 1,
+        "pass": 0,
+        "fail": 1,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    ],
+    "processRecovery": "Q4 actual killed worker:1 provider call before kill,0 after restart; paid receipt2 retained",
+    "leaseRace": "Q5 lock wait observed; expired lease rejects before provider",
+    "restoration": "Two pending anonymous receipts plus one unknown restored, concurrent workers preserve partial6/exposure7, late evidence settles9 exactly once",
+    "schemaDrift": false,
+    "apiBuild": true,
+    "webBuild": true
+  },
+  "proofs": {
+    "red-adversarial.log": [
+      {
+        "name": "A1_PROOF",
+        "data": {
+          "cancelledQuery": "SELECT \"public\".\"UsageEvent\".\"id\", \"public\".\"UsageEvent\".\"userId\", \"public\".\"UsageEvent\".\"guestId\", \"public\".\"UsageEvent\".\"ipHash\", \"public\".\"UsageEvent\".\"action\", \"public\".\"UsageEvent\".\"units\", \"public\".\"UsageEvent\".\"status\", \"public\".\"UsageEvent\".\"provider\", \"public\".\"UsageEvent\".\"model\", \"public\".\"UsageEvent\".\"mode\", \"public\".\"UsageEvent\".\"workflowIntent\", \"public\".\"UsageEvent\".\"workflowSource\", \"public\".\"UsageEvent\".\"modelRoutingSource\", \"public\".\"UsageEvent\".\"creditsReserved\", \"public\".\"UsageEvent\".\"creditsUsed\", \"public\".\"UsageEvent\".\"estimatedPromptTokens\", \"public\".\"UsageEvent\".\"estimatedOutputTokens\", \"public\".\"UsageEvent\".\"estimatedTotalTokens\", \"public\".\"UsageEvent\".\"promptTokens\", \"public\".\"UsageEvent\".\"outputTokens\", \"public\".\"UsageEvent\".\"totalTokens\", \"public\".\"UsageEvent\".\"attachmentCount\", \"public\".\"UsageEvent\".\"imageCount\", \"public\".\"UsageEvent\".\"fileCount\", \"public\".\"UsageEvent\".\"providerAttempts\", \"public\".\"UsageEvent\".\"createdAt\", \"public\".\"UsageEvent\".\"fixedCredits\", \"public\".\"UsageEven",
+          "providerCalls": 1,
+          "response": "AI_USAGE_ACCOUNTING_UNAVAILABLE",
+          "status": "unknown",
+          "units": 1,
+          "creditsUsed": null,
+          "receipts": 0,
+          "tokens": null
+        }
+      },
+      {
+        "name": "A2_PROOF",
+        "data": {
+          "limit": 1,
+          "calls": 2,
+          "before": {
+            "unitsUsed": 1,
+            "requestCount": 1
+          },
+          "afterDeletion": {
+            "unitsUsed": 0,
+            "requestCount": 0
+          },
+          "second": "fulfilled"
+        }
+      },
+      {
+        "name": "A3_PROOF",
+        "data": {
+          "deleted": true,
+          "calls": 2,
+          "hold": {
+            "unitsUsed": 0,
+            "requestCount": 0
+          },
+          "originalEventExists": false,
+          "first": "AI_USAGE_ACCOUNTING_UNAVAILABLE",
+          "second": "fulfilled"
+        }
+      },
+      {
+        "name": "A4_PROOF",
+        "data": {
+          "result": "failed",
+          "calls": 1,
+          "model": "gemini-3.1-flash-lite",
+          "status": "unknown",
+          "units": 1,
+          "creditsUsed": null,
+          "tokens": null,
+          "receipts": 0,
+          "expectedCredits": 2
+        }
+      },
+      {
+        "name": "C1_PROOF",
+        "data": {
+          "winningCredits": 3,
+          "unknownExposure": 4,
+          "finalCredits": 3,
+          "receipts": 2
+        }
+      },
+      {
+        "name": "C2_PROOF",
+        "data": {
+          "calls": 1,
+          "captureAttempts": 2,
+          "credits": 2,
+          "receipts": 1
+        }
+      },
+      {
+        "name": "C3_PROOF",
+        "data": {
+          "currentMonthBeforeNext": {
+            "unitsUsed": 0,
+            "requestCount": 0
+          },
+          "oldAttemptCount": 1,
+          "newAttemptCount": 1
+        }
+      }
+    ],
+    "red-reachable.log": [
+      {
+        "name": "H1_PROOF",
+        "data": {
+          "calls": 3,
+          "limits": {
+            "hour": 1,
+            "day": 1,
+            "month": 1
+          },
+          "statuses": [
+            {
+              "chat": 200,
+              "delete": 200,
+              "global": {
+                "unitsUsed": 0,
+                "requestCount": 0
+              }
+            },
+            {
+              "chat": 200,
+              "delete": 200,
+              "global": {
+                "unitsUsed": 0,
+                "requestCount": 0
+              }
+            },
+            {
+              "chat": 200,
+              "delete": 200,
+              "global": {
+                "unitsUsed": 0,
+                "requestCount": 0
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "H2_PROOF",
+        "data": {
+          "calls": 2,
+          "blocked": 429,
+          "deleted": 200,
+          "second": 200,
+          "first": 503,
+          "firstError": "AI_USAGE_ACCOUNTING_UNAVAILABLE",
+          "lostRows": 0
+        }
+      },
+      {
+        "name": "H3_PROOF",
+        "data": {
+          "calls": 2,
+          "results": [
+            "failed",
+            "failed",
+            "skipped"
+          ],
+          "actualCredits": 4,
+          "quotaExposure": 2,
+          "verified": [
+            null,
+            null
+          ],
+          "receipts": 0
+        }
+      }
+    ],
+    "red-qa-replay.log": [
+      {
+        "name": "Q1_PROOF",
+        "data": {
+          "calls": 2,
+          "first": {
+            "failed": 0,
+            "processed": 0,
+            "retried": 1,
+            "pending": 1,
+            "processing": 0,
+            "stale": 0
+          },
+          "second": {
+            "failed": 0,
+            "processed": 1,
+            "retried": 0,
+            "pending": 0,
+            "processing": 0,
+            "stale": 0
+          },
+          "jobAttempts": 2,
+          "jobStatus": "SUCCEEDED",
+          "verifiedCredits": 4,
+          "eventCount": 2,
+          "artifacts": 1
+        }
+      }
+    ],
+    "postgres-clean.log": [
+      {
+        "name": "ROLLING_WINDOW_QUOTA_PROOF",
+        "data": {
+          "requestLimit": 1,
+          "windowMs": 60000,
+          "calls": [
+            {
+              "at": 2052475200000,
+              "model": "gemini-3.1-flash-lite"
+            },
+            {
+              "at": 2052475260001,
+              "model": "gemini-2.5-flash-lite"
+            }
+          ],
+          "events": [
+            {
+              "createdAt": "2035-01-15T12:00:00.000Z",
+              "units": 2,
+              "attempts": [
+                {
+                  "startedAt": "2035-01-15T12:00:00.000Z",
+                  "credits": null
+                },
+                {
+                  "startedAt": "2035-01-15T12:01:00.001Z",
+                  "credits": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "name": "DEFAULT_WINDOW_QUOTA_PROOF",
+        "data": {
+          "windowMs": 3600000,
+          "budget": "credits",
+          "calls": [
+            2052475200000,
+            2052475201000,
+            2052478800500
+          ],
+          "recentCalls": 2
+        }
+      },
+      {
+        "name": "DEFAULT_WINDOW_QUOTA_PROOF",
+        "data": {
+          "windowMs": 3600000,
+          "budget": "requests",
+          "calls": [
+            2052475200000,
+            2052475201000,
+            2052478800500
+          ],
+          "recentCalls": 2
+        }
+      },
+      {
+        "name": "RECEIPT_RECOVERY_PROOF",
+        "data": {
+          "actualTokens": 2000,
+          "actualCredits": 2,
+          "chargedCredits": 2,
+          "returnedUsage": {
+            "limit": 100,
+            "remaining": 98,
+            "unit": "credits",
+            "used": 2
+          },
+          "status": "completed",
+          "persistedTotalTokens": 2000,
+          "settlementAttempts": 2
+        }
+      },
+      {
+        "name": "HTTP_RESTART_RECEIPT_PROOF",
+        "data": {
+          "eventId": "cmv9scupj0000i4tyui0vzawc",
+          "providerCallsBeforeKill": 1,
+          "providerCallsAfterRestart": 0,
+          "actualCredits": 2,
+          "recoveredCredits": 2
+        }
+      },
+      {
+        "name": "F1_RESERVATION_PROOF",
+        "data": {
+          "calls": 0,
+          "results": [
+            "failed",
+            "failed",
+            "failed"
+          ],
+          "events": 0
+        }
+      },
+      {
+        "name": "F2_PARTIAL_PROOF",
+        "data": {
+          "calls": 2,
+          "eventStatus": "partial",
+          "creditsUsed": 2,
+          "units": 3,
+          "accounting": {
+            "units": 3,
+            "confirmedUnits": 2,
+            "unconfirmedUnits": 1,
+            "status": "unconfirmed",
+            "receiptRecorded": true
+          },
+          "responseUsage": {
+            "limit": 100,
+            "remaining": 97,
+            "unit": "credits",
+            "used": 3,
+            "accountingStatus": "unconfirmed"
+          }
+        }
+      },
+      {
+        "name": "LATE_ATTEMPT_EVIDENCE_PROOF",
+        "data": {
+          "providerCalls": 2,
+          "receipts": 2,
+          "confirmed": 6,
+          "quota": 6
+        }
+      },
+      {
+        "name": "A1_PROOF",
+        "data": {
+          "cancelledQuery": "SELECT \"public\".\"UsageEvent\".\"id\", \"public\".\"UsageEvent\".\"userId\", \"public\".\"UsageEvent\".\"guestId\", \"public\".\"UsageEvent\".\"ipHash\", \"public\".\"UsageEvent\".\"action\", \"public\".\"UsageEvent\".\"units\", \"public\".\"UsageEvent\".\"status\", \"public\".\"UsageEvent\".\"provider\", \"public\".\"UsageEvent\".\"model\", \"public\".\"UsageEvent\".\"mode\", \"public\".\"UsageEvent\".\"workflowIntent\", \"public\".\"UsageEvent\".\"workflowSource\", \"public\".\"UsageEvent\".\"modelRoutingSource\", \"public\".\"UsageEvent\".\"creditsReserved\", \"public\".\"UsageEvent\".\"creditsUsed\", \"public\".\"UsageEvent\".\"estimatedPromptTokens\", \"public\".\"UsageEvent\".\"estimatedOutputTokens\", \"public\".\"UsageEvent\".\"estimatedTotalTokens\", \"public\".\"UsageEvent\".\"promptTokens\", \"public\".\"UsageEvent\".\"outputTokens\", \"public\".\"UsageEvent\".\"totalTokens\", \"public\".\"UsageEvent\".\"attachmentCount\", \"public\".\"UsageEvent\".\"imageCount\", \"public\".\"UsageEvent\".\"fileCount\", \"public\".\"UsageEvent\".\"providerAttempts\", \"public\".\"UsageEvent\".\"createdAt\", \"public\".\"UsageEvent\".\"fixedCredits\", \"public\".\"UsageEven",
+          "providerCalls": 1,
+          "response": "fulfilled",
+          "status": "completed",
+          "units": 2,
+          "creditsUsed": 2,
+          "receipts": 1,
+          "tokens": 2000
+        }
+      },
+      {
+        "name": "A2_PROOF",
+        "data": {
+          "limit": 1,
+          "calls": 1,
+          "before": {
+            "unitsUsed": 1,
+            "requestCount": 1
+          },
+          "afterDeletion": {
+            "unitsUsed": 1,
+            "requestCount": 1
+          },
+          "second": "rejected"
+        }
+      },
+      {
+        "name": "A3_PROOF",
+        "data": {
+          "deleted": true,
+          "calls": 1,
+          "hold": {
+            "unitsUsed": 2,
+            "requestCount": 1
+          },
+          "originalEventExists": true,
+          "first": "success",
+          "second": "rejected"
+        }
+      },
+      {
+        "name": "C1_PROOF",
+        "data": {
+          "winningCredits": 2,
+          "unknownExposure": 3,
+          "finalCredits": 2,
+          "receipts": 2
+        }
+      },
+      {
+        "name": "C2_PROOF",
+        "data": {
+          "calls": 1,
+          "captureAttempts": 2,
+          "credits": 2,
+          "receipts": 1
+        }
+      },
+      {
+        "name": "C3_PROOF",
+        "data": {
+          "currentMonthBeforeNext": {
+            "unitsUsed": 0,
+            "requestCount": 0
+          },
+          "oldAttemptCount": 1,
+          "newAttemptCount": 1
+        }
+      },
+      {
+        "name": "Q1_PROOF",
+        "data": {
+          "calls": 1,
+          "first": {
+            "failed": 0,
+            "processed": 1,
+            "retried": 0,
+            "pending": 0,
+            "processing": 0,
+            "stale": 0
+          },
+          "second": {
+            "failed": 0,
+            "processed": 0,
+            "retried": 0,
+            "pending": 0,
+            "processing": 0,
+            "stale": 0
+          },
+          "jobAttempts": 1,
+          "jobStatus": "SUCCEEDED",
+          "verifiedCredits": 2,
+          "eventCount": 1,
+          "artifacts": 1
+        }
+      },
+      {
+        "name": "Q2_PUBLICATION_PROOF",
+        "data": {
+          "providerCalls": 1,
+          "publicationAttempts": 3,
+          "jobStatus": "FAILED",
+          "artifacts": 0,
+          "verifiedCredits": 2
+        }
+      },
+      {
+        "name": "Q3_PUBLICATION_PROOF",
+        "data": {
+          "providerCalls": 1,
+          "realCommittedPublications": 1,
+          "artifacts": 1,
+          "verifiedCredits": 2,
+          "jobStatus": "SUCCEEDED"
+        }
+      },
+      {
+        "name": "Q4_PROCESS_PUBLICATION_PROOF",
+        "data": {
+          "callsBeforeKill": 1,
+          "callsAfterRestart": 0,
+          "jobStatus": "FAILED",
+          "errorCode": "QA_PROVIDER_OUTCOME_UNKNOWN",
+          "artifacts": 0,
+          "verifiedCredits": 2
+        }
+      },
+      {
+        "name": "Q5_LEASE_LOCK_PROOF",
+        "data": {
+          "lockWaitObserved": true,
+          "providerCalls": 0,
+          "expiredLeaseRejected": true
+        }
+      }
+    ],
+    "http-clean.log": [
+      {
+        "name": "H1_PROOF",
+        "data": {
+          "calls": 1,
+          "limits": {
+            "hour": 1,
+            "day": 1,
+            "month": 1
+          },
+          "statuses": [
+            {
+              "chat": 200,
+              "delete": 200,
+              "global": {
+                "unitsUsed": 1,
+                "requestCount": 1
+              }
+            },
+            {
+              "chat": 429,
+              "delete": 200,
+              "global": {
+                "unitsUsed": 1,
+                "requestCount": 1
+              }
+            },
+            {
+              "chat": 429,
+              "delete": 200,
+              "global": {
+                "unitsUsed": 1,
+                "requestCount": 1
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "H2_PROOF",
+        "data": {
+          "calls": 1,
+          "blocked": 429,
+          "deleted": 200,
+          "second": 429,
+          "first": 200,
+          "lostRows": 0
+        }
+      },
+      {
+        "name": "H3_PROOF",
+        "data": {
+          "calls": 1,
+          "results": [
+            "failed",
+            "skipped",
+            "skipped"
+          ],
+          "actualCredits": 2,
+          "quotaExposure": 2,
+          "verified": [
+            2
+          ],
+          "receipts": 1
+        }
+      },
+      {
+        "name": "H3_PROOF",
+        "data": {
+          "calls": 1,
+          "results": [
+            "failed",
+            "skipped",
+            "skipped"
+          ],
+          "actualCredits": 2,
+          "quotaExposure": 2,
+          "verified": [
+            2
+          ],
+          "receipts": 1
+        }
+      }
+    ],
+    "restore-seed.log": [
+      {
+        "name": "RESTORE_SEED_PROOF",
+        "data": {
+          "status": "settlement_pending",
+          "exposure": 7,
+          "confirmedDebit": null,
+          "pendingReceipts": 2,
+          "unknownAttempts": 1
+        }
+      }
+    ],
+    "restore-verify.log": [
+      {
+        "name": "RESTORE_FINAL_PROOF",
+        "data": {
+          "afterRestore": {
+            "exposure": 7,
+            "verified": 6,
+            "status": "partial"
+          },
+          "afterLateEvidence": {
+            "credits": 9,
+            "receipts": 3,
+            "status": "completed"
+          },
+          "providerCalls": 0
+        }
+      }
+    ]
+  },
+  "retention": {
+    "defaultMs": 2764800000,
+    "basis": "Last exposure/hold expiry + max(32days, configured global rolling window+1day)",
+    "personalFieldsRemoved": [
+      "userId",
+      "guestId",
+      "ipHash",
+      "mode",
+      "workflowIntent",
+      "workflowSource",
+      "modelRoutingSource",
+      "reservationPolicy identity",
+      "receipt context"
+    ],
+    "noDeadlineExtension": true,
+    "expiryPurgeIncludesUnknown": true,
+    "requiresRetentionScheduler": true
+  },
+  "migration": "20261015000300_protect_deleted_usage_and_qa_generation",
+  "populatedUpgrade": {
+    "database": "oddpath_final_upgrade_test",
+    "previousMigrations": 28,
+    "newMigration": "20261014180000_durable_usage_browser_reservations",
+    "receiptMigration": "20261015000100_usage_settlement_receipts",
+    "partialMigration": "20261015000200_per_attempt_usage_receipts",
+    "queued": 1,
+    "occupied": 2,
+    "dailyCount": 3,
+    "unconfirmedBlocksGrant": true,
+    "legacyChargePreserved": 2,
+    "existingAttemptReconciled": 1,
+    "mixedEventUpgraded": {
+      "quotaUnits": 3,
+      "confirmedCredits": 2,
+      "status": "partial",
+      "receiptsPreserved": 1
+    },
+    "lateEvidenceReceipts": 2
+  },
+  "oldAmbiguousWorkFenced": true,
+  "source": {
+    "baselineFiles": 1121,
+    "finalFilesExcludingThisLedger": 1131,
+    "changed": [
+      "apps/api/src/modules/usage/usage-ledger.ts",
+      "apps/api/src/modules/usage/usage-receipts.ts",
+      "apps/api/tests/quota-migration.postgres.integration.ts",
+      "docs/PHASE_06B_CHECKPOINT.md",
+      "docs/QUOTA_OPERATIONS.md",
+      "apps/api/prisma/schema.prisma",
+      "apps/api/src/modules/account/account-data-deletion.ts",
+      "apps/api/src/modules/account/account.repository.ts",
+      "apps/api/src/modules/ai/summarization/gemini-conversation-summarizer.ts",
+      "apps/api/src/modules/conversation-summary/conversation-summary-refresh.service.ts",
+      "apps/api/src/modules/qa-requests/qa-processing.handlers.ts",
+      "apps/api/src/modules/qa-requests/qa-processing.repository.ts",
+      "apps/api/src/modules/qa-requests/qa-processing.types.ts",
+      "apps/api/src/modules/qa-requests/qa-processing.worker.ts",
+      "apps/api/src/modules/retention/retention.repository.ts",
+      "apps/api/tests/account.repository.test.ts",
+      "apps/api/tests/conversation-summarizer.test.ts",
+      "apps/api/tests/conversation-summary-refresh.service.test.ts",
+      "apps/api/tests/postgres.integration.ts",
+      "apps/api/tests/retention.repository.test.ts",
+      "docs/AI_HANDOFF.md",
+      "docs/NEXT_STEPS.md"
+    ],
+    "added": [
+      "apps/api/prisma/migrations/20261015000300_protect_deleted_usage_and_qa_generation/migration.sql",
+      "apps/api/src/modules/conversation-summary/conversation-summary.errors.ts",
+      "apps/api/src/modules/qa-requests/qa-processing.persistence.ts",
+      "apps/api/src/modules/usage/usage-privacy.ts",
+      "apps/api/tests/fixtures/qa-publication-recovery-worker.mts",
+      "apps/api/tests/quota-final-http.postgres.integration.ts",
+      "apps/api/tests/quota-final.postgres.integration.ts",
+      "apps/api/tests/quota-privacy.postgres.integration.ts",
+      "apps/api/tests/quota-qa-publication.postgres.integration.ts",
+      "docs/PHASE_06B_FINAL_REVIEW_FIX.md"
+    ],
+    "manifest": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\source-final.json",
+    "manifestSha256": "22738a41c2bc2536cbdb605fbabdb4b03a8c3ce54861447cfcb1d58199c0caa7",
+    "oldEvidenceChanges": [],
+    "priorReviewEvidenceSha256": "e91294e7c16ecb61cfbeb229b05c5cad133b4a1086bfdb997f84795d4e5554c6",
+    "priorChanges": []
+  },
+  "delegation": [
+    {
+      "task": "F4 typed usage-preserving validation error and focused unit tests; Q2/Q3/Q4 realPG test/fixture authoring",
+      "model": "Inherited from execution session; no model override",
+      "astraStarted": false,
+      "higherCostModelStarted": false,
+      "result": "Integrated by root; focused20/20 and full/root realPG gates pass",
+      "independentAcceptance": false
+    }
+  ],
+  "limitations": [
+    "No independent Astra acceptance performed; user authorization required to start it",
+    "Offline provider responses; no actual invoice verification",
+    "No physical Chrome/noVNC rerun or distributed failover/power-loss test",
+    "Provider fence is conservative: interrupted intelligence requires explicit retry; unpublished output can be lost",
+    "Accounting evidence truly lost before capture still requires trustworthy external evidence",
+    "Retention deletion requires supervised existing retention job",
+    "Existing >500KB web bundle advisory remains"
+  ],
+  "intermediateFailures": [
+    "TypeScript closure/fixture narrowing corrected",
+    "Old unit fakes aligned with transactional privacy boundary",
+    "SDK case moved to separate process to respect frozen environment configuration",
+    "Initial verification sandbox blocked localhost EACCES; isolated test and escalated full verification passed",
+    "First web build used development HTTP origin; final build passed explicit fixture HTTPS config",
+    "Post-restore budget fixture contaminated reused test DB; final suite ran on fresh separate disposable DB without weakening assertions"
+  ],
+  "cleanup": {
+    "sourceFiles": 1121,
+    "changed": [
+      "apps/api/src/modules/usage/usage-ledger.ts",
+      "apps/api/src/modules/usage/usage-receipts.ts",
+      "apps/api/tests/quota-migration.postgres.integration.ts",
+      "docs/PHASE_06B_CHECKPOINT.md",
+      "docs/QUOTA_OPERATIONS.md",
+      "apps/api/prisma/schema.prisma",
+      "apps/api/src/modules/account/account-data-deletion.ts",
+      "apps/api/src/modules/account/account.repository.ts",
+      "apps/api/src/modules/ai/summarization/gemini-conversation-summarizer.ts",
+      "apps/api/src/modules/conversation-summary/conversation-summary-refresh.service.ts",
+      "apps/api/src/modules/qa-requests/qa-processing.handlers.ts",
+      "apps/api/src/modules/qa-requests/qa-processing.repository.ts",
+      "apps/api/src/modules/qa-requests/qa-processing.types.ts",
+      "apps/api/src/modules/qa-requests/qa-processing.worker.ts",
+      "apps/api/src/modules/retention/retention.repository.ts",
+      "apps/api/tests/account.repository.test.ts",
+      "apps/api/tests/conversation-summarizer.test.ts",
+      "apps/api/tests/conversation-summary-refresh.service.test.ts",
+      "apps/api/tests/postgres.integration.ts",
+      "apps/api/tests/retention.repository.test.ts",
+      "docs/AI_HANDOFF.md",
+      "docs/NEXT_STEPS.md"
+    ],
+    "added": [
+      "apps/api/prisma/migrations/20261015000300_protect_deleted_usage_and_qa_generation/migration.sql",
+      "apps/api/src/modules/conversation-summary/conversation-summary.errors.ts",
+      "apps/api/src/modules/qa-requests/qa-processing.persistence.ts",
+      "apps/api/src/modules/usage/usage-privacy.ts",
+      "apps/api/tests/fixtures/qa-publication-recovery-worker.mts",
+      "apps/api/tests/quota-final-http.postgres.integration.ts",
+      "apps/api/tests/quota-final.postgres.integration.ts",
+      "apps/api/tests/quota-privacy.postgres.integration.ts",
+      "apps/api/tests/quota-qa-publication.postgres.integration.ts",
+      "docs/PHASE_06B_FINAL_REVIEW_FIX.md"
+    ],
+    "ownedContainers": "",
+    "reviewedAt": "2026-10-15T17:04:06.346Z"
+  },
+  "artifacts": [
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\adversarial.mts",
+      "sha256": "e5631b5fb641f5b2ab1d6508ad1a254afc73fc2924e43f178a2651274d728daf"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\body-limit-isolated.log",
+      "sha256": "a8671bbe2dfe85ad8dd766f22528af2e03ca05dac738b17d83e9e957c9dd580a"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\build-api-final.log",
+      "sha256": "0f12ee9120268064477e365daf9bde49a8bc439fc14498452bb9ed1d149f6f2c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\build-api.log",
+      "sha256": "ea66c3fd449853437ad7be3203df274d14aded172253598a9b9811c2fc55291f"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\build-web-final.log",
+      "sha256": "220e5439b835c097b7532f1632187ce95280bb5d37c84a951416f26e021af85d"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\build-web.log",
+      "sha256": "3551e6fbf71a4b85c3c9caccc8b40b0ccfb77d1380ade04645948b612908c74a"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\check-current.log",
+      "sha256": "fbd483464d163d8dd78cd6b7d329801f3728bb702ac39da7ca04d5dd026f181c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\closeout.cjs",
+      "sha256": "2180a9628f4c01289212a05ed3f4a529fbd0c15a71c5fe5c72f7971346a5981c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\compatibility-initial.log",
+      "sha256": "e978f4449ac29028a5fea1deb8639b7f616996e42ee03a2d42af3860fb9de6aa"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\diff-check.log",
+      "sha256": "4644b6e4835bb33730aa499728562a6c73ddd2e6fc9516818c3fa33467220740"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\diff-final.log",
+      "sha256": "4644b6e4835bb33730aa499728562a6c73ddd2e6fc9516818c3fa33467220740"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\fresh-migrate.log",
+      "sha256": "5865a66619f4f94d57fdc73956f5753c9217ffda9d7e63190af51d3c1e353e9d"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\green-http-initial.log",
+      "sha256": "5412de86b220ed95a6a84fff42ec89ab8b8befdaa42156c153468ab4139637cc"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\green-ledger-initial.log",
+      "sha256": "efaf86ea818a62c5754f4ca2f3e7c2bd581831150c08e49d3c8ab269bb068d66"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\green-qa-initial.log",
+      "sha256": "b39a0d1ab19b1108a564c1913010e79333d733d7e0a41909857597a58961f371"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\http-clean.log",
+      "sha256": "cd89f11b6f05dc6d47d6c492c6c82b5eb6834f3f03026cbdf47be6583bdf4d39"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\http-closeout.log",
+      "sha256": "9c1f13773db373ac08b4c4ec35583f32fc723f3dc43236aafac4c49976dbf67f"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\integrity-cleanup.json",
+      "sha256": "c9da6fef334421365237ef0102cce59e27b85a6a162342e3f5e3388d3d21eb4c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\interrupted-body-limit-process.json",
+      "sha256": "336ccad293883c033f4783669432a7a97834acb02192a73f5d0344d809127d99"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\migrate.log",
+      "sha256": "8f17848a584448e575f1346098e12f2b3393b5d3c36aaa0b0344db417393a300"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\postgres-accepted.log",
+      "sha256": "593106ec790786bb6f6fc604dc7a2ade870da1826b256acbedf2f063df9536f4"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\postgres-clean.log",
+      "sha256": "99957c9a12e9ff1e07163aba67add14561b4836550cf0df8845b0ce8ef1cb07c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\postgres-closeout.log",
+      "sha256": "b711c4d10849e0b5a9ee0fb571c7b41d627f224fe3cd19458acbe4397ac1f02a"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\postgres-final.log",
+      "sha256": "d94a614dfd4ef8914accf87aeb612f582582b87cce14bd4905d8906b37553578"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\postgres-initial.log",
+      "sha256": "e5450802a5ea5d27a96b4d63c53d19b15f6a1b225d03edec3fc3c4aae568bbc0"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\privacy-initial.log",
+      "sha256": "287f6624b74b21415a4336f35ee06af49a8c2f747eaafd6592c4646279d31cf7"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\qa-replay.mts",
+      "sha256": "7c6bb4be7721b823cf89841c3509d858e524da919120993dcbea6ef612f27aed"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\reachable.mts",
+      "sha256": "d88ce8bc3e44202164d6ff015e7440923289145662922f1079cf4331e4842bdf"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\red-adversarial.log",
+      "sha256": "2feccdaa3c1c348ffe89a1c787b24ea8f9d5247261b20c452dcd111098e1168d"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\red-qa-replay.log",
+      "sha256": "63c0c1e2c115aab524b96c8ade94a97eaa8bd1afe79072e09d3882bb1122926b"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\red-reachable.log",
+      "sha256": "c2b4eb17c392ba3d7155d9c590ceee67152fe4846be07bda34fb75a5855fb094"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\repair-migrate.log",
+      "sha256": "5a6f1288e0a37d5655c2fded5b47bfcf74d3a108179f31fcd7e7b35ff385afcd"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\report.template.md",
+      "sha256": "c267fa14eec3d71163c78db0c5d2258d49b2fa7daa0ecf97285217d39d1f6d42"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\restore-fixture.json",
+      "sha256": "712c4b8ea8fe889e5e04abf517f3532068e806fff8d92ba4a4cb6e21d1396e2a"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\restore-recover-0.log",
+      "sha256": "b4754cb030c2bafa4e8029e2ba3abf2d2a27fc9b12d54e0ae224120a77c0348c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\restore-recover-1.log",
+      "sha256": "b4754cb030c2bafa4e8029e2ba3abf2d2a27fc9b12d54e0ae224120a77c0348c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\restore-seed.log",
+      "sha256": "9b408e9f724fa468b6f3eb6185516450da676999e0a6632730ec5eb513d45be9"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\restore-verify.log",
+      "sha256": "9161b848ee7b37cd24204568ca836f18ab869455ea73a5772644929d80384c14"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\restore-worker.mts",
+      "sha256": "e366da5443907bc2e260c81b9734fd173a3d5e0cafe2d18009c77c643e6da90a"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\runner.cjs",
+      "sha256": "420f06e30e860213edba724cd2ca1689f1f9a341d5c00a6a8b5437fe5329c3d2"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\schema-drift.log",
+      "sha256": "3417e4b20617991171441c4df1e747f35643e27400e00ae586a79d59a91678c9"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\source-before.json",
+      "sha256": "5faba6b919842e7df42888a92987906cb29cfda9381a03b44cf8ebece8061e00"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\source-final.json",
+      "sha256": "22738a41c2bc2536cbdb605fbabdb4b03a8c3ce54861447cfcb1d58199c0caa7"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\upgrade-proof.json",
+      "sha256": "382adbd7bf06008db5d0ec80547cd17331c26d41821b3b51d1567f4fdef68348"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\upgrade.log",
+      "sha256": "93856820deafa2e1995535cbe750e0286f69176acc8121b29619adecd6eb43e9"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\verify-accepted.log",
+      "sha256": "269a9b76f3bb6c295c8753d119fb495f0f01c71fa32fc22aedc26d8c9c456779"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\verify-closeout.log",
+      "sha256": "2af49011ef89f4c80ea62d29971dd47f54026f26561627a6d26a76f6ab6e1ded"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\verify-final.log",
+      "sha256": "174513d70191b0d92c3219869f4988bc80d43ea7506507418e113f00a1464e7d"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\verify-initial.log",
+      "sha256": "ead1af6ecbc28c85bd103daa67995f01e0e8083a8323cc7af5c958a8ce75d554"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\verify-isolated.log",
+      "sha256": "e5bd33fdcb0fca5b6718e5071a0ac7f6c74ef37787f730bb1c5cee65e8472a6f"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-final-repair-20261015\\verify-second.log",
+      "sha256": "907f0f15ade2e2f27eea01d84003d89302aa6c7a77e464111c7511c7f1d3e3ca"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\2026-10-10\\new-chat\\outputs\\Oddpath_Phase_06B_Final_Review_Repair.md",
+      "sha256": "be6f86d0b04f71aa7638d67f540832e0cfb6b5d8dfde5dc72bfb64ce817d3dad"
+    }
+  ]
+}

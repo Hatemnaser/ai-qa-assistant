@@ -63,6 +63,7 @@ export interface ChatModelRoutingSummary {
 }
 
 export interface ChatUsageSummary {
+  accountingStatus?: 'pending' | 'unconfirmed';
   limit: number;
   remaining: number;
   unit?: "credits";

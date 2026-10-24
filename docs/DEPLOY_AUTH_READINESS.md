@@ -1,6 +1,22 @@
 # Deploy/Auth Readiness
 
-Last reviewed: 2026-08-12
+2026-10-18 reconciliation: Phase 06C and Phase 07 have bounded local GO. Use
+[Phase 08A inventory](PHASE_08A_READINESS_INVENTORY.md) for the remaining actual
+deployment work. The accepted rollout is public verified-email beta; invite
+examples below remain compatibility history. No live SMTP/DNS/HTTPS/proxy gate
+was completed by this documentation task, and no activation is authorized.
+
+2026-10-17: Phase 06C received local adversarial acceptance GO
+(`PHASE_06C_CLOSEOUT.md`). Live sender/DNS/HTTPS/proxy and public-registration
+activation gates below remain open. Phase 07 is a separate readiness feature,
+not an authorization to enable public registration.
+
+Phase 06C local implementation update: 2026-10-16. Read `AUTH_ABUSE_OPERATIONS.md`
+and `PHASE_06C_CHECKPOINT.md`. PostgreSQL abuse protection is required in
+production. Public registration now has a separate explicit release gate; this
+does not activate it. Earlier deployment-specific checks below remain open.
+
+Last original review: 2026-08-12
 
 Implementation-status reconciliation: 2026-09-20. The proxy configuration,
 reset-password web page, and retention cleanup command below are implemented;
@@ -120,11 +136,13 @@ Notes:
 - Full reset/verification URLs should appear only in the email body sent to the
   provider, not in application logs or security events.
 
-### Private-Beta Registration And Terms Audit
+### Public-Beta Registration And Terms Audit
 
 Production registration fails closed. With no explicit value,
-`REGISTRATION_MODE` resolves to `disabled` in production (`public` is only a
-development/test default), and production rejects `REGISTRATION_MODE=public`.
+`REGISTRATION_MODE` resolves to `disabled` in production. Public mode requires
+`PUBLIC_REGISTRATION_RELEASE_CONFIRMED=true`, reviewed legal publication and
+PostgreSQL abuse protection, after independent acceptance and launch gates.
+Development/test retain their public default. The committed Blueprint stays closed.
 
 Keep this configuration until the legal pages have final operator-approved
 content:
@@ -133,7 +151,20 @@ content:
 REGISTRATION_MODE=disabled
 ```
 
-To open the reviewed private beta:
+Only after independent acceptance and all public launch gates, the selected
+public deployment uses the separately acknowledged configuration below.
+These are documentation placeholders, not settings changed by this task:
+
+```text
+REGISTRATION_MODE=public
+PUBLIC_REGISTRATION_RELEASE_CONFIRMED=true
+AUTH_ABUSE_STORE=postgres
+CURRENT_TERMS_VERSION=<identifier-of-reviewed-published-text>
+LEGAL_DOCUMENTS_PUBLISHED_CONFIRMED=true
+```
+
+The older invite compatibility example remains available for a separately
+selected rollout; it is not the accepted public-beta activation recipe:
 
 ```text
 REGISTRATION_MODE=invite
@@ -215,9 +246,11 @@ currency limits. Keep provider billing alerts and a provider-side budget in
 place, and leave `AI_ENABLED=false` until the paid EEA-capable provider project
 has been verified.
 
-Current application rate limiters are in-memory. They are acceptable for a
-single API process baseline, but multi-instance deployments need Redis,
-Upstash, or another shared counter store.
+Auth mutation IP/account/global and mail-request budgets now use the existing
+PostgreSQL service in production (`AUTH_ABUSE_STORE=postgres`), plus the coarse
+in-memory limiter. They survive restart and share limits across API processes.
+Other process-local request gates still need measured ingress/edge protection
+and capacity gates before launch; the auth change does not certify all endpoints.
 
 ### AI Provider
 
@@ -405,13 +438,17 @@ Run these checks after staging or production deploy:
 - [ ] `GET /api/auth/csrf` returns a CSRF token and sets `qa_csrf`.
 - [ ] `GET /api/auth/registration-config` exposes no invite hash or secret.
 - [ ] Registration is blocked with `REGISTRATION_DISABLED` in closed mode.
-- [ ] Private-beta registration rejects missing/wrong codes and an outdated
-  terms version, then accepts a valid code with the current version.
+- [ ] Selected public mode requires its separate release acknowledgement,
+  shared PostgreSQL protection and current terms. Outdated terms fail.
+  Invite missing/wrong-code rejection remains a compatibility check.
 - [ ] The created `User` stores the expected terms version and acceptance time.
 - [ ] Register creates an unverified account and sends a verification email.
 - [ ] Register response does not set `qa_session`.
 - [ ] Verification email link opens the frontend route.
-- [ ] `POST /api/auth/verify-email` verifies the account.
+- [ ] The emailed link opens the activation page; `POST /api/auth/verify-email`
+  requires `{token, newPassword}`, sets the mailbox owner's chosen credential
+  atomically, and invalidates old proofs/sessions. A GET/token-only request
+  cannot activate the account. Drain old API versions before deployment.
 - [ ] Login before verification returns `EMAIL_NOT_VERIFIED`.
 - [ ] Login after verification succeeds and sets `qa_session`.
 - [ ] `GET /api/auth/me` returns the logged-in user.
@@ -451,8 +488,8 @@ Before real users:
 
 Should have soon:
 
-- Move in-memory app rate limit counters to Redis, Upstash, or another shared
-  store before multi-instance deployment.
+- Validate remaining process-local endpoint limits and actual ingress/edge
+  capacity before multi-instance deployment. Auth counters already share PostgreSQL.
 - Add monitoring and alerts for auth rate limits, chat abuse, SMTP failures,
   provider quota failures, and unusual usage spikes.
 - Schedule and monitor the implemented `npm run cleanup:retention` command

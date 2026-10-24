@@ -5,7 +5,7 @@ import { t } from "../../i18n/useI18n";
 
 export interface ProjectImportPreview {
   compatible: true;
-  formatVersion: "1.0" | "2.0";
+  formatVersion: "1.0" | "2.0" | "3.0";
   exportType: "project";
   packageDigest: string;
   suggestedProjectName: string;
@@ -171,17 +171,17 @@ function isImportCounts(
   return hasRequiredCounts && hasValidOptionalCounts;
 }
 
-function isProjectFormatVersion(value: unknown): value is "1.0" | "2.0" {
-  return value === "1.0" || value === "2.0";
+function isProjectFormatVersion(value: unknown): value is "1.0" | "2.0" | "3.0" {
+  return value === "1.0" || value === "2.0" || value === "3.0";
 }
 
 function isPreviewCounts(
-  formatVersion: "1.0" | "2.0",
+  formatVersion: "1.0" | "2.0" | "3.0",
   value: unknown
 ) {
   if (!isImportCounts(value)) return false;
 
-  if (formatVersion === "2.0") {
+  if (formatVersion !== "1.0") {
     return (
       isNonNegativeInteger(value.assets) &&
       isNonNegativeInteger(value.assetBytes)

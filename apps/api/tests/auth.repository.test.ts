@@ -9,7 +9,7 @@ const EXPIRES_AT = new Date("2026-08-19T10:30:00.000Z");
 describe("auth repository token serialization", () => {
   it("serializes concurrent password-reset issuance so only the newest token and job remain active", async () => {
     const fake = createAuthDatabase();
-    const repository = createPrismaAuthRepository(fake.database as never);
+    const repository = createPrismaAuthRepository(fake.database as never,()=>NOW);
 
     await Promise.all([
       repository.createPasswordResetToken({
@@ -48,7 +48,7 @@ describe("auth repository token serialization", () => {
         createToken("token-b", "hash-b"),
       ],
     });
-    const repository = createPrismaAuthRepository(fake.database as never);
+    const repository = createPrismaAuthRepository(fake.database as never,()=>NOW);
 
     const reset = await repository.resetPasswordWithToken({
       newPasswordHash: "new-password-hash",
@@ -125,6 +125,7 @@ function createAuthDatabase(initial: { jobs?: FakeJob[]; tokens?: FakeToken[] } 
     async $transaction<T>(callback: (tx: Record<string, unknown>) => Promise<T>) {
       let releaseLock: (() => void) | undefined;
       const tx = {
+        async $queryRaw() { return [{ passwordHash: state.passwordHash, emailVerifiedAt: null }]; },
         async $executeRaw() {
           const previousLock = lockTail;
           lockTail = new Promise<void>((resolve) => {

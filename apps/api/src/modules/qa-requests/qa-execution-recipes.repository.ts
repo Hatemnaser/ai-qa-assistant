@@ -1,9 +1,12 @@
-import { createHash } from "node:crypto";
+import { hashCanonicalJson } from "../../lib/canonical-json.js";
+export { hashCanonicalJson } from "../../lib/canonical-json.js";
 
 import {
-  profileManifestV1Schema,
+  profileManifestSchema,
   recipeBundleV1Schema,
+  type ProfileManifest,
   type ProfileManifestV1,
+  type ProfileManifestV2,
   type RecipeBundleV1,
 } from "@oddpath/qa-execution-contract";
 
@@ -141,7 +144,7 @@ export function createQaExecutionRecipeRepository(
           throw new AppError("A Recipe review is already active.", 409, "QA_RECIPE_REVIEW_IN_PROGRESS");
         }
         // A retry never accepts a replacement profile, Recipe, or approval from the caller.
-        const profile = resolveProfileManifest(profileManifestV1Schema.parse(recipe.profileManifest));
+        const profile = resolveProfileManifest(profileManifestSchema.parse(recipe.profileManifest));
         if (profile.manifestHash !== recipe.profileManifestHash) {
           throw new AppError("The stored Runner profile hash is invalid.", 409, "QA_PROFILE_MANIFEST_HASH_INVALID");
         }
@@ -415,8 +418,11 @@ export function createQaExecutionRecipeRepository(
 
 export const qaExecutionRecipeRepository = createQaExecutionRecipeRepository();
 
-export function resolveProfileManifest(input: ProfileManifestV1) {
-  const parsed = profileManifestV1Schema.parse(input);
+export function resolveProfileManifest(input: ProfileManifestV1): ProfileManifestV1 & { manifestHash: string };
+export function resolveProfileManifest(input: ProfileManifestV2): ProfileManifestV2 & { manifestHash: string };
+export function resolveProfileManifest(input: ProfileManifest): ProfileManifest & { manifestHash: string };
+export function resolveProfileManifest(input: ProfileManifest) {
+  const parsed = profileManifestSchema.parse(input);
   const { manifestHash: suppliedHash, ...publicManifest } = parsed;
   const manifestHash = hashCanonicalJson(publicManifest);
   if (suppliedHash && suppliedHash !== manifestHash) {
@@ -427,26 +433,6 @@ export function resolveProfileManifest(input: ProfileManifestV1) {
     );
   }
   return { ...publicManifest, manifestHash };
-}
-
-export function hashCanonicalJson(value: unknown) {
-  return createHash("sha256").update(canonicalJson(value)).digest("hex");
-}
-
-function canonicalJson(value: unknown): string {
-  return JSON.stringify(sortJson(value));
-}
-
-function sortJson(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortJson);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, child]) => [key, sortJson(child)])
-    );
-  }
-  return value;
 }
 
 async function loadArtifact(

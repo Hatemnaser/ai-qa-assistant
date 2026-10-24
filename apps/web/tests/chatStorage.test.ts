@@ -75,7 +75,7 @@ describe("chat storage", () => {
     assert.equal(chat?.messages[0]?.role, "assistant");
     assert.equal(chat?.messages[0]?.content, "hello");
     assert.equal(chat?.messages[0]?.mode, "edge_cases");
-    assert.equal(chat?.messages[0]?.model, "gemini-2.5-flash-lite");
+    assert.equal(chat?.messages[0]?.model, "");
     assert.equal(chat?.messages[0]?.attachments?.[0]?.name, "legacy.png");
     assert.equal(chat?.messages[0]?.attachments?.[0]?.previewUrl, undefined);
     assert.equal(chat?.messages[1]?.attachments?.length, 2);
@@ -87,6 +87,20 @@ describe("chat storage", () => {
     localStorage.setItem(STORAGE_KEYS.CHATS, "{not-json");
 
     assert.deepEqual(loadChats(), []);
+  });
+
+  it("keeps missing model metadata unknown after saving and reloading", () => {
+    localStorage.setItem(STORAGE_KEYS.CHATS, JSON.stringify([{
+      id: "models", model: "gemini-3.1-flash-lite", messages: [
+        { id: "missing", role: "assistant", content: "Unknown" },
+        { id: "known", role: "assistant", content: "Known", model: "retired-model" },
+        { id: "blank", role: "assistant", content: "Unknown", model: " " },
+      ],
+    }]));
+    const saved = loadChats();
+    saveChats(saved);
+    assert.equal(loadChats()[0].model, "gemini-3.1-flash-lite");
+    assert.deepEqual(loadChats()[0].messages.map(message => message.model), ["", "retired-model", ""]);
   });
 
   it("saves chats and tracks the active chat id", () => {

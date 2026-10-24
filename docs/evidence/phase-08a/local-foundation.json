@@ -1,0 +1,752 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-18T20:52:15.765Z",
+  "scope": "PHASE_08A_CLOSED_LOCAL_FOUNDATION",
+  "status": "IMPLEMENTED_LOCALLY_PENDING_INDEPENDENT_REVIEW",
+  "phaseAccepted": false,
+  "publicReleaseAuthorized": false,
+  "baseline": {
+    "maintainedFiles": 1184,
+    "priorWorkingTreeStatusEntries": 361,
+    "historicalEvidenceAndReviewFilesHashChecked": 73,
+    "historicalFilesChanged": 0,
+    "baselineFilesRemoved": 0
+  },
+  "delta": {
+    "maintainedFilesAfter": 1193,
+    "newMarkdownDocuments": 0,
+    "changes": [
+      {
+        "path": ".dockerignore",
+        "action": "MODIFIED",
+        "sha256": "18bd2651f4a3711b4d915dfb3e2f9b4b18c8d44004da0154501c52aa6bc5ff34"
+      },
+      {
+        "path": ".github/workflows/ci.yml",
+        "action": "MODIFIED",
+        "sha256": "2f68513990198049e976d63cd43104b9113ae3dd0324cb10be1600e25013296e"
+      },
+      {
+        "path": "apps/api/scripts/tests/verify-release.test.mjs",
+        "action": "ADDED",
+        "sha256": "18fd5ee3dc83eccbc544b8cad662ba3b0c4b10a2dab299e55d8f127a6a54cec5"
+      },
+      {
+        "path": "apps/api/scripts/verify-release-fingerprint.mjs",
+        "action": "ADDED",
+        "sha256": "40c4b2703770e1bb662c75e327d0f35bbbcdd685854e5a4daaa76483e3cd08f7"
+      },
+      {
+        "path": "apps/api/scripts/verify-release-manifest.mjs",
+        "action": "ADDED",
+        "sha256": "9facf9c31a490035f9fab6f17d27c38c68ee15a18314545765d0429945bcc90d"
+      },
+      {
+        "path": "apps/api/scripts/verify-release-network.mjs",
+        "action": "ADDED",
+        "sha256": "3570149f59c4d49127c904450696ace16974d9690ceb02e2e57070e7d2e8d087"
+      },
+      {
+        "path": "apps/api/scripts/verify-release.mjs",
+        "action": "ADDED",
+        "sha256": "b85eaf739bbeb34ee97222062d189965e445e12bcffb3ef098b193689fcb9ee3"
+      },
+      {
+        "path": "apps/browser-runtime/Dockerfile",
+        "action": "MODIFIED",
+        "sha256": "e29532c5e2b93cdc546ac12e69b571598619c01a85862b3e8203ca63ae4f50c8"
+      },
+      {
+        "path": "apps/browser-runtime/Dockerfile.supervisor",
+        "action": "MODIFIED",
+        "sha256": "55987b268d89e7f01a711d8ca02b25dad11085059c0748ae2197d6bc8cd39dfa"
+      },
+      {
+        "path": "deploy/Dockerfile.api",
+        "action": "ADDED",
+        "sha256": "16e7aa1ea1ec2261dc9a2b22d7bff0161ca1789f9aa63007db2d8ec02c41e27b"
+      },
+      {
+        "path": "deploy/self-hosted.compose.yml",
+        "action": "ADDED",
+        "sha256": "4a4080adaded565782ca1d80b811e1537792269cc95b697269b55b53c773d643"
+      },
+      {
+        "path": "deploy/self-hosted.env.example",
+        "action": "ADDED",
+        "sha256": "78f0d17f78ce0cca8b966077611033817a47f056d58580a8e34611f613383118"
+      },
+      {
+        "path": "docs/AI_HANDOFF.md",
+        "action": "MODIFIED",
+        "sha256": "51aa25fd308a6af96d48d0aa4753b3e83bf9ee71c21aeb698bea721e1563359d"
+      },
+      {
+        "path": "docs/NEXT_STEPS.md",
+        "action": "MODIFIED",
+        "sha256": "e50ef5a0ba922b8135136746d93ee7029fd111c5fe39339e215f3e72473e12d5"
+      },
+      {
+        "path": "docs/ODDPATH_BETA_IMPLEMENTATION_PLAN.md",
+        "action": "MODIFIED",
+        "sha256": "7e1141e2409c9c7ca82fb91698eb6e0a62555c1f74de6c9c0e09a26ee862b2ee"
+      },
+      {
+        "path": "docs/PHASE_08A_READINESS_INVENTORY.md",
+        "action": "MODIFIED",
+        "sha256": "20f3fceeff769e174eeaf6874effd73ed9ff44f42aba6cfe14cd8d53a1a65a6b"
+      },
+      {
+        "path": "ops/render-cron-services.example.yaml",
+        "action": "MODIFIED",
+        "sha256": "64db3556733ba7ad5d6e3f9ab1fa147630292f4933e68ee0ca7f8e5603047e8c"
+      },
+      {
+        "path": "package.json",
+        "action": "MODIFIED",
+        "sha256": "b3223577456f330f50383d24e2105b99ff54d18735a95430038949b2b3f61e83"
+      }
+    ],
+    "additionalEvidenceFile": "docs/evidence/phase-08a/local-foundation.json"
+  },
+  "implementation": [
+    "Closed nonroot API runtime and separate migration image; OpenSSL installed; CLI/build tooling excluded from runtime.",
+    "Opt-in private-PG/loopback-API Compose; read-only API, dropped capabilities, explicit external volume/secrets and distinct operator-provisioned runtime/migration roles.",
+    "Existing Chrome and supervisor Dockerfiles select whitelisted amd64/arm64 repositories via TARGETARCH; no browser execution/security code changed.",
+    "Sequential existing real PostgreSQL/HTTP/local SMTP/upgrade suites integrated into CI with exact TAP coverage and stable-input fingerprints.",
+    "Opt-in Render retention example corrected to hourly; no scheduler activated."
+  ],
+  "verification": {
+    "fullVerify": {
+      "command": "npm run verify",
+      "outcome": "PASS_WITH_ONE_WINDOWS_SKIP",
+      "groups": [
+        {
+          "id": "execution-contract",
+          "tests": 41,
+          "pass": 41,
+          "skipped": 0
+        },
+        {
+          "id": "api",
+          "tests": 1117,
+          "pass": 1116,
+          "skipped": 1
+        },
+        {
+          "id": "runner",
+          "tests": 33,
+          "pass": 33,
+          "skipped": 0
+        },
+        {
+          "id": "web",
+          "tests": 676,
+          "pass": 676,
+          "skipped": 0
+        },
+        {
+          "id": "browser-runtime",
+          "tests": 91,
+          "pass": 91,
+          "skipped": 0
+        }
+      ],
+      "failures": 0,
+      "note": "Started before the new tooling command was appended to verify; final tooling was run separately through its npm script."
+    },
+    "tooling": {
+      "command": "npm run test:release:tooling",
+      "tests": 12,
+      "pass": 12,
+      "skipped": 0
+    },
+    "deploymentConfiguration": {
+      "command": "node --import tsx --test apps/web/tests/deploymentConfiguration.test.ts",
+      "tests": 2,
+      "pass": 2,
+      "note": "Existing assertions unchanged."
+    },
+    "linuxJournal": {
+      "command": "docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --tmpfs /tmp:rw,noexec,nosuid,size=32m --env NODE_ENV=test --mount type=bind,source=<repository>/apps/api/tests/browser-auth.vault.test.ts,target=/opt/oddpath/apps/api/tests/browser-auth.vault.test.ts,readonly oddpath/phase08-api-migrations:local-20261018 node --import tsx --test apps/api/tests/browser-auth.vault.test.ts",
+      "tests": 5,
+      "pass": 5,
+      "skipped": 0,
+      "note": "Includes unchanged journal-file replacement assertion skipped on Windows; Linux amd64, not native Oracle ARM."
+    },
+    "databaseReleaseManifest": {
+      "command": "ODDPATH_RELEASE_LOCAL_TESTS=1 npm run test:release:local -- --output-dir work/<new-run>",
+      "nodeVersion": "24.19.0",
+      "postgresVersion": "160015",
+      "outcome": "PASS_LOCAL_SUITES",
+      "totalTests": 256,
+      "sourceBefore": "dda484230cf6cdd63b1d4406f3fdaca3506b0670721b335628e032ece078c78b",
+      "sourceAfter": "dda484230cf6cdd63b1d4406f3fdaca3506b0670721b335628e032ece078c78b",
+      "fingerprintedFiles": 1041,
+      "manifestHash": "5b3feb40ed7d1068c27a117795201c527118a29d5e543d14d52257c690c89151",
+      "evidenceHash": "13fe5e7d7a7fc345998c9be1dba85b50f4d207d854cbc2582f56505523352e02",
+      "suites": [
+        {
+          "id": "core-postgres",
+          "status": "PASS",
+          "summary": {
+            "tests": 165,
+            "pass": 165,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "952e79c01b68b6e3bedcbbd9082fd7c7266adf7c2707f3cbd23963b040ca79ed"
+        },
+        {
+          "id": "quota-retention",
+          "status": "PASS",
+          "summary": {
+            "tests": 7,
+            "pass": 7,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "87b6030a14d1c3f19a6db49dfdeb187b49175446fe793599b3da8acde75f72ef"
+        },
+        {
+          "id": "quota-identity-retention",
+          "status": "PASS",
+          "summary": {
+            "tests": 8,
+            "pass": 8,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "7760237edcba1821f93fadd7876c521b7489640e4ffc0443cd8f0caeeabb5003"
+        },
+        {
+          "id": "quota-http",
+          "status": "PASS",
+          "summary": {
+            "tests": 4,
+            "pass": 4,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "64c9553ff61509d6031c15158afb388d9b3e7ae58a4df23fb96e86922bfd0b35"
+        },
+        {
+          "id": "quota-identity-http",
+          "status": "PASS",
+          "summary": {
+            "tests": 1,
+            "pass": 1,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "db4ab3e3c1b357ca6038c0762ebb76f64cb38ccd0d54d6a9f4c3776069cd503b"
+        },
+        {
+          "id": "auth-postgres",
+          "status": "PASS",
+          "summary": {
+            "tests": 6,
+            "pass": 6,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "a981c616369ebb8ea5b3e6ab13449b154a650d2b76e440e3968f0965c4e43e14"
+        },
+        {
+          "id": "auth-http",
+          "status": "PASS",
+          "summary": {
+            "tests": 7,
+            "pass": 7,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "51afcba2af0e38407064c79dfe32e56f839aff796760159ade8813fdfb3ae2bd"
+        },
+        {
+          "id": "auth-activation",
+          "status": "PASS",
+          "summary": {
+            "tests": 8,
+            "pass": 8,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "f3610acaf977c27ed1e3d5260b96fb62752297ee463ff0e360a53aac4de0ed96"
+        },
+        {
+          "id": "auth-activation-races",
+          "status": "PASS",
+          "summary": {
+            "tests": 14,
+            "pass": 14,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "c3cd24a7ffde7ade046efaee81dcc84ad851fa1a93cd91d5201274235a7c2f76"
+        },
+        {
+          "id": "auth-smtp",
+          "status": "PASS",
+          "summary": {
+            "tests": 2,
+            "pass": 2,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "38c1307661299040af1f3d0e6e4daa703efc2edeabc19678ef7f1d423e5d4331"
+        },
+        {
+          "id": "readiness",
+          "status": "PASS",
+          "summary": {
+            "tests": 16,
+            "pass": 16,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "e573506546e45d3fa080a0860102bd0c945fc878238099a11beda44857ae420c"
+        },
+        {
+          "id": "readiness-consistency",
+          "status": "PASS",
+          "summary": {
+            "tests": 15,
+            "pass": 15,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "11edb88483f95e4533c745ea620c0d79a2580852757ee9aaf3ca0c015e0ed695"
+        },
+        {
+          "id": "quota-upgrade",
+          "status": "PASS",
+          "summary": {
+            "tests": 1,
+            "pass": 1,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "4cff6e9db5943f994303dfa02deefcb1f44490219f0904851768ff85af1cc8e6"
+        },
+        {
+          "id": "auth-upgrade",
+          "status": "PASS",
+          "summary": {
+            "tests": 1,
+            "pass": 1,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "4c3ac548421ebe53c7f7b98b33a331edecb7fb30c660d7970c3fab6d01899617"
+        },
+        {
+          "id": "readiness-upgrade",
+          "status": "PASS",
+          "summary": {
+            "tests": 1,
+            "pass": 1,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "logHash": "05f433061f1ae21f41a73fe6d7e079fda66399615f4697d9f48fc22e64cf8562"
+        }
+      ],
+      "cleanup": {
+        "ownedContainerRemoved": true
+      },
+      "scope": "Disposable local PostgreSQL16; fresh database per suite, real loopback HTTP/SMTP and schema upgrades; fake SDK responses, no live model/provider calls."
+    },
+    "deploymentRehearsal": {
+      "outcome": "PASS_WITH_EXPLICIT_LIMITS",
+      "evidenceHash": "094ca4151e86c52e9031af30c9246fd2957025dbd2b0f11b5ed65b1e55acce3a",
+      "isolatedFixtureHash": "64350d8f32d52092504a84b0443d7b85dc28934055fe0fbefbc6d2c40ea210e2",
+      "images": [
+        {
+          "localImageId": "sha256:00b4ba90e53492bcc3480b8fcf6a41ca5977c6be8af6cbccfccab002753b771c",
+          "tags": [
+            "oddpath/phase08-api:local-20261018"
+          ],
+          "architecture": "amd64",
+          "user": "node:node"
+        },
+        {
+          "localImageId": "sha256:44502a6e979453a5293c3c176adba3f8c95f980690c1e589e2d219575de7b9a5",
+          "tags": [
+            "oddpath/phase08-api-migrations:local-20261018"
+          ],
+          "architecture": "amd64",
+          "user": "node:node"
+        }
+      ],
+      "runningImages": {
+        "api": "sha256:00b4ba90e53492bcc3480b8fcf6a41ca5977c6be8af6cbccfccab002753b771c",
+        "postgres": "sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d"
+      },
+      "completedMigrations": 34,
+      "runtimePrivileges": {
+        "roleSuper": false,
+        "roleCreateDb": false,
+        "roleCreateRole": false,
+        "roleReplication": false,
+        "ownsDb": false,
+        "createDb": false,
+        "createSchema": false,
+        "isMigrator": false,
+        "migrationInsert": false,
+        "migrationUpdate": false,
+        "migrationDelete": false
+      },
+      "assertions": [
+        {
+          "name": "both-local-image-targets-exist",
+          "outcome": "PASS"
+        },
+        {
+          "name": "images-default-to-nonroot",
+          "outcome": "PASS"
+        },
+        {
+          "name": "compose-validates-without-resolving-secret-output",
+          "outcome": "PASS"
+        },
+        {
+          "name": "missing-secret-interpolation-is-rejected",
+          "outcome": "PASS"
+        },
+        {
+          "name": "dedicated-volume-name-was-unused",
+          "outcome": "PASS"
+        },
+        {
+          "name": "unique-postgres-id-present",
+          "outcome": "PASS"
+        },
+        {
+          "name": "migration-deploy-exited-zero",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-role-has-no-schema-owner-or-admin-privileges",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-connect-is-restricted-to-application-db-without-temp",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-cannot-create-schema",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-cannot-create-table",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-cannot-create-role",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-cannot-create-database",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-cannot-write-migration-metadata",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-dml-works-on-real-application-table",
+          "outcome": "PASS"
+        },
+        {
+          "name": "production-api-refuses-empty-csrf-secret",
+          "outcome": "PASS"
+        },
+        {
+          "name": "unique-api-id-present",
+          "outcome": "PASS"
+        },
+        {
+          "name": "api-runs-the-inspected-image-id",
+          "outcome": "PASS"
+        },
+        {
+          "name": "api-is-bound-only-to-host-loopback",
+          "outcome": "PASS"
+        },
+        {
+          "name": "pg-has-no-published-host-port",
+          "outcome": "PASS"
+        },
+        {
+          "name": "pg-connects-only-to-internal-database-network",
+          "outcome": "PASS"
+        },
+        {
+          "name": "api-nonroot-readonly-drops-capabilities",
+          "outcome": "PASS"
+        },
+        {
+          "name": "api-does-not-mount-docker-socket-or-host-files",
+          "outcome": "PASS"
+        },
+        {
+          "name": "api-no-new-privileges-enabled",
+          "outcome": "PASS"
+        },
+        {
+          "name": "all-product-feature-gates-remain-closed",
+          "outcome": "PASS"
+        },
+        {
+          "name": "smtp-target-is-synthetic-loopback-discard-only",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-does-not-receive-admin-or-migration-credentials",
+          "outcome": "PASS"
+        },
+        {
+          "name": "running-process-is-nonroot",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-contains-no-prisma-cli",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-contains-no-typescript-or-tsx-tooling",
+          "outcome": "PASS"
+        },
+        {
+          "name": "application-root-write-is-denied",
+          "outcome": "PASS"
+        },
+        {
+          "name": "http-ready-queries-real-pg",
+          "outcome": "PASS"
+        },
+        {
+          "name": "http-csrf-issued-secure-lax-cookie",
+          "outcome": "PASS"
+        },
+        {
+          "name": "http-post-without-csrf-rejected",
+          "outcome": "PASS"
+        },
+        {
+          "name": "http-post-with-valid-csrf-accepted",
+          "outcome": "PASS"
+        },
+        {
+          "name": "http-cross-origin-with-token-rejected",
+          "outcome": "PASS"
+        },
+        {
+          "name": "http-registration-config-remains-disabled",
+          "outcome": "PASS"
+        },
+        {
+          "name": "http-valid-registration-is-explicitly-rejected",
+          "outcome": "PASS"
+        },
+        {
+          "name": "synthetic-row-exists-before-restarts",
+          "outcome": "PASS"
+        },
+        {
+          "name": "restarted-api-stays-on-host-loopback",
+          "outcome": "PASS"
+        },
+        {
+          "name": "synthetic-row-survives-api-restart",
+          "outcome": "PASS"
+        },
+        {
+          "name": "synthetic-row-survives-postgres-restart",
+          "outcome": "PASS"
+        },
+        {
+          "name": "real-migration-history-is-present",
+          "outcome": "PASS"
+        },
+        {
+          "name": "synthetic-row-survives-idempotent-migration-rerun",
+          "outcome": "PASS"
+        },
+        {
+          "name": "idempotent-rerun-does-not-elevate-runtime",
+          "outcome": "PASS"
+        }
+      ],
+      "cleanup": {
+        "resources": "PASS",
+        "syntheticCredentialFiles": "REMOVED"
+      },
+      "limits": [
+        "No native ARM or Oracle test",
+        "No external SMTP, LLM or cloud call",
+        "Restart persistence only; NOT backup/restore",
+        "Direct loopback HTTP with simulated trusted proxy headers; NOT live TLS/proxy acceptance"
+      ]
+    },
+    "builds": {
+      "apiRuntime": "PASS_LINUX_AMD64",
+      "apiMigrations": "PASS_LINUX_AMD64",
+      "runner": "PASS",
+      "web": "PASS_SYNTHETIC_HTTPS_ORIGIN",
+      "webApiOrigin": "https://api.test.example",
+      "staticArm64BuildCheck": "PASS_NOT_EXECUTION",
+      "note": "Web retains existing >500kB chunk-size warning. No published build, native ARM image/runtime or deployed proxy proof."
+    },
+    "productionAudit": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "integrity": {
+      "gitDiffCheck": "PASS",
+      "localMarkdownLinks": {
+        "checkedLocalLinks": 4,
+        "brokenLinks": []
+      },
+      "ciYamlParser": "NOT_RUN_LOCAL_YAML_MODULE_UNAVAILABLE",
+      "ciConfiguration": "Existing deployment tests PASS; new artifact stanza manually reviewed against official action documentation; hosted execution unverified",
+      "existingProductSourceAndTestsChangedByThisTask": false,
+      "existingAcceptanceRecordsChanged": false,
+      "gitStageOrCommitPerformed": false
+    }
+  },
+  "diagnosticEvidence": [
+    {
+      "result": "Prior runtime image FAIL: optional Prisma peer survived omit-dev/peer. Fixed with omit-optional and build-time absence assertions; final running-image rehearsal PASS."
+    },
+    {
+      "result": "The third gate completed all256 tests but correctly rejected changed Dockerfile input during packaging repair; it did not emit PASS. Final run binds unchanged inputs.",
+      "evidenceHash": "fef5357a0f9100bebc868b2dd400eb6b6f51b6d8fd4cf90564d0b37e6ac1d893"
+    },
+    {
+      "result": "Initial postgres:16-alpine container creation timed out and own resources were cleaned; final rehearsal explicitly uses cached postgres:16."
+    },
+    {
+      "result": "Fixture initially reused an ephemeral host port after Docker reassigned it on API restart. Preserved healthy-app evidence; fixture now rediscovers and validates loopback binding after restart."
+    },
+    {
+      "result": "Web build rejected a local non-HTTPS API setting; final build supplied process-only synthetic HTTPS origin, without changing local env files or weakening validation."
+    }
+  ],
+  "preservedPriorEvidence": {
+    "armComponentsLog": "work/hosting-preflight-20261018/arm64/components-smoke.log",
+    "logHash": "d595f6d38f156e674809bb1ccb2bc4a62a82bbc5d9095c5484d037369d58c095",
+    "scope": "Earlier QEMU ARM component smoke only; not native Oracle Chrome sandbox, full browser session or capacity proof."
+  },
+  "delegation": [
+    {
+      "task": "Browser Dockerfile architecture selection and isolated deployment rehearsal",
+      "model": "INHERITED_SESSION_MODEL_NO_OVERRIDE",
+      "result": "45 real deployment assertions PASS; packaging defect found and rechecked after root fix."
+    },
+    {
+      "task": "Sequential release test manifest, safety controls and tooling tests",
+      "model": "INHERITED_SESSION_MODEL_NO_OVERRIDE",
+      "result": "Maintained gate implemented; root ran actual integration evidence and reviewed implementation."
+    },
+    {
+      "task": "Read-only operations assessment and closed self-hosted image/Compose skeleton",
+      "model": "INHERITED_SESSION_MODEL_NO_OVERRIDE",
+      "result": "Three deployment files implemented; root hardened/rebuilt and isolated rehearsal verified."
+    }
+  ],
+  "remainingGates": [
+    "Independent review of this local slice; Phase08 not accepted",
+    "Native ARM Oracle host, Chrome sandbox/egress/noVNC and combined capacity",
+    "Production activation contract and automatic owner-scoped public project routing",
+    "Full browser/vault/revocation/proxy topology and maintained supervision/alerts",
+    "Encrypted off-host backups plus restore/rollback and authoritative accounting recovery; restart persistence is not a backup",
+    "Real HTTPS/forwarded headers/cookies/WebSocket/SMTP/storage and unaided user UX",
+    "Operator privacy/legal publication and separately authorized public release",
+    "Hosted CI and artifact upload execution remain unverified; only local configuration and gate execution were tested",
+    "Free-tier capacity, availability, recovery durability and zero-invoice operation are not proven"
+  ],
+  "resourceBoundary": "Only uniquely owned local Docker test resources were created/removed. Existing working PostgreSQL, provider accounts, DNS and cloud resources were not modified. No paid service or real LLM call was activated.",
+  "rawEvidence": {
+    "location": "work/phase-08a-implementation-20261018/",
+    "retainedLocally": true,
+    "portable": false,
+    "logs": [
+      {
+        "file": "verify.log",
+        "sha256": "3e637af67ff1d665c3ded123b1f5ea46a7622ded7849f0fb7dd25ac4d360b781"
+      },
+      {
+        "file": "release-tooling-npm.log",
+        "sha256": "a6b00066b97ca2bbdc217a1ec0ea5fc08b57588e79ec6db1fe0e28d02ecaf1e3"
+      },
+      {
+        "file": "deployment-config-final.log",
+        "sha256": "02a49e6757a11270238c79e5a90b79d7b32816bf6555bfe3bbe59ba1af11e49f"
+      },
+      {
+        "file": "vault-linux.log",
+        "sha256": "29d68c27050e41e13e4b8b1fd8f037b8688e95fa852270971a527366522a2d54"
+      },
+      {
+        "file": "build-runner.log",
+        "sha256": "02c8bdf1749a7900544417a641fcd413f83eaa744d7470479f4a7f550ceaefa3"
+      },
+      {
+        "file": "build-web-final.log",
+        "sha256": "2a67a965fc1515bdbe0e0e2a8ffb2cf1dba77b72ca710f362be91b82b1c0859b"
+      },
+      {
+        "file": "api-image-migrations-r2.log",
+        "sha256": "67495bb061b96da97b50e455305a0a244e634d0ab919c3101c1d2da9e6ed61cd"
+      },
+      {
+        "file": "api-image-runtime-r4.log",
+        "sha256": "f2c0f90fb41d3066c33870cb41b7c3d08653051ee0df0b6fc3027a421315a368"
+      },
+      {
+        "file": "api-arm64-build-check.log",
+        "sha256": "e01349225dc5f635f2370d34a3ae58cf92428e2d2913f3ee8b1ead43a3a2c961"
+      },
+      {
+        "file": "audit.json",
+        "sha256": "40b9a172e714d6e7fd8929ff4bd348cb6845c3c591ee515e801f98fe9a04ecff"
+      }
+    ]
+  }
+}

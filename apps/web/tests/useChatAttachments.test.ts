@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import { effectScope, ref } from "vue";
 
 import { fileToSelectedAttachment } from "../src/features/chat/chatAttachments";
-import { DEFAULT_MODE, DEFAULT_MODEL, QUICK_ACTIONS, VISUAL_REVIEW_MODEL } from "../src/features/chat/constants";
+import { AUTO_MODEL, DEFAULT_MODE, DEFAULT_MODEL, QUICK_ACTIONS } from "../src/features/chat/constants";
 import { useChatAttachments, type ChatAttachmentDependencies } from "../src/features/chat/composables/useChatAttachments";
 import { useChatController } from "../src/features/chat/composables/useChatController";
 import { useStoredChats } from "../src/features/chat/composables/useStoredChats";
@@ -94,6 +94,19 @@ describe("draft-scoped attachments", () => {
 });
 
 describe("chat controller drafts", () => {
+  it("retains Auto and typed text when changing output preference or navigating drafts", () => {
+    const scope = effectScope();
+    const controller = scope.run(() => useChatController(ref<AuthUser | null>(null)))!;
+    controller.selectedModel.value = AUTO_MODEL;
+    controller.messageInput.value = "Keep the Auto draft";
+    controller.applyQuickAction(QUICK_ACTIONS[4]);
+    assert.equal(controller.selectedModel.value, AUTO_MODEL);
+    controller.prepareNewChatForProject("other");
+    controller.prepareNewChat();
+    assert.equal(controller.selectedModel.value, AUTO_MODEL);
+    assert.equal(controller.messageInput.value, "Keep the Auto draft");
+    scope.stop();
+  });
   it("seeds only future drafts from the account model default and preserves existing drafts", () => {
     const scope = effectScope();
     const controller = scope.run(() => useChatController(ref<AuthUser | null>(null)))!;
@@ -115,17 +128,17 @@ describe("chat controller drafts", () => {
     assert.equal(controller.messageInput.value, "Existing home draft");
     controller.prepareNewChatForProject("project-two");
     controller.applyQuickAction(QUICK_ACTIONS[4]);
-    assert.equal(controller.selectedModel.value, VISUAL_REVIEW_MODEL);
+    assert.equal(controller.selectedModel.value, "gemini-2.5-flash");
     scope.stop();
   });
 
-  it("normalizes new default models and clears the future-draft seed on identity changes", () => {
+  it("preserves removed choices and clears the future-draft seed on identity changes", () => {
     const scope = effectScope();
     const user = ref<AuthUser | null>(null);
     const controller = scope.run(() => useChatController(user))!;
     controller.setDefaultModel("unknown-model");
     controller.prepareNewChatForProject("normalized");
-    assert.equal(controller.selectedModel.value, DEFAULT_MODEL);
+    assert.equal(controller.selectedModel.value, "unknown-model");
     controller.setDefaultModel("gemini-2.5-flash-lite");
     user.value = { id: "u1", createdAt: "", email: "test@example.test", emailVerifiedAt: null, locale: "en", name: null };
     controller.prepareNewChatForProject("after-identity-change");
@@ -140,21 +153,21 @@ describe("chat controller drafts", () => {
     scope.stop();
   });
 
-  it("does not overwrite typed prompts with quick actions, and retains visual-model compatibility", () => {
+  it("does not overwrite prompts or explicit models with visual quick actions", () => {
     const scope = effectScope();
     const controller = scope.run(() => useChatController(ref<AuthUser | null>(null)))!;
     controller.messageInput.value = "My actual checkout problem";
     controller.applyQuickAction(QUICK_ACTIONS[4]);
     assert.equal(controller.messageInput.value, "My actual checkout problem");
     assert.equal(controller.selectedMode.value, "screenshot_review");
-    assert.equal(controller.selectedModel.value, VISUAL_REVIEW_MODEL);
+    assert.equal(controller.selectedModel.value, DEFAULT_MODEL);
     controller.prepareNewChatForProject("p1");
     assert.equal(controller.messageInput.value, "");
     controller.applyQuickAction(QUICK_ACTIONS[0]);
     assert.notEqual(controller.messageInput.value, "");
     controller.prepareNewChat();
     assert.equal(controller.messageInput.value, "My actual checkout problem");
-    assert.equal(controller.selectedModel.value, VISUAL_REVIEW_MODEL);
+    assert.equal(controller.selectedModel.value, DEFAULT_MODEL);
     scope.stop();
   });
 

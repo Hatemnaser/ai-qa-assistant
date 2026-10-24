@@ -10,6 +10,11 @@ import type {
 } from "../src/modules/settings/settings.types.ts";
 
 describe("settings service", () => {
+  it("stores Auto without replacing it with a concrete default model", async () => {
+    const service = createSettingsService({ repository: createMemorySettingsRepository() });
+    await service.updateUserSettings("auto-user", { defaultModel: " auto ", language: "en", theme: "light" });
+    assert.equal((await service.getUserSettings("auto-user")).defaultModel, "auto");
+  });
   it("returns safe defaults when the user has no saved settings", async () => {
     const service = createSettingsService({
       repository: createMemorySettingsRepository(),

@@ -108,7 +108,7 @@ export function createPrismaExternalChatImportRepository(
                       },
                     }),
                     mode: "general",
-                    model: localModel,
+                    model: message.originalModel,
                     role:
                       message.role === "assistant"
                         ? ChatRole.ASSISTANT
