@@ -1,5 +1,14 @@
 # Oddpath Next Steps
 
+Latest (2026-10-25): local pre-merge review and its two repairs passed within
+scope; see `work/merge-review-20261025/REVIEW.md` and its local checkpoint receipt.
+The branch remains unpublished under the owner's local-only decision. Obtain
+publication authorization before push/PR; check CI before the owner's main merge,
+and retain the branch/evidence until then. Final-image Oracle ARM/combined
+validation and the production-activation, hosted-workflow, real-service,
+off-host recovery, UX/legal and release gates below remain open. Local merge GO
+does not change Phase 08 NOT ACCEPTED or Public Release NO_GO.
+
 Latest (2026-10-24, Oracle refresh): native ARM64 browser, recovery fence/read-only
 assessment and dependency repair have bounded independent GO; see the latest
 `AI_HANDOFF.md` checkpoint for their local-only evidence. The closed combined

@@ -82,6 +82,16 @@ export async function runCommand(command, args, { env, cwd = root, timeoutMs = 3
   });
 }
 
+export async function waitForPostgresReady(execute, containerId) {
+  for (let i = 0; i < 60; i++) {
+    // The image's initdb server accepts Unix sockets before initialization
+    // completes. Only the final server exposes the TCP transport used below.
+    if ((await execute('docker', ['exec', containerId, 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres', '-d', 'postgres'], { timeoutMs: 5_000 })).code === 0) return;
+    await sleep(500);
+  }
+  throw new Error('Disposable PostgreSQL did not become ready');
+}
+
 export async function verifyRelease({ outputDir, acknowledgement = process.env.ODDPATH_RELEASE_LOCAL_TESTS, signal } = {}) {
   if (acknowledgement !== '1') throw new Error('Set ODDPATH_RELEASE_LOCAL_TESTS=1 to run owned disposable local release tests');
   const directory = await checkedOutputDirectory(outputDir);
@@ -164,12 +174,7 @@ export async function verifyRelease({ outputDir, acknowledgement = process.env.O
     if (bindings?.length !== 1 || bindings[0].HostIp !== '127.0.0.1' || !/^\d+$/.test(bindings[0].HostPort)) throw new Error('PostgreSQL must have exactly one loopback port binding');
     const port = Number(bindings[0].HostPort);
     if (port < 1 || port > 65535) throw new Error('Invalid disposable PostgreSQL port');
-    let ready = false;
-    for (let i = 0; i < 60; i++) {
-      if ((await execute('docker', ['exec', containerId, 'pg_isready', '-U', 'postgres', '-d', 'postgres'], { timeoutMs: 5_000 })).code === 0) { ready = true; break; }
-      await sleep(500);
-    }
-    if (!ready) throw new Error('Disposable PostgreSQL did not become ready');
+    await waitForPostgresReady(execute, containerId);
     const { Pool } = await import('pg');
     pool = new Pool({ connectionString: `postgresql://postgres:${password}@127.0.0.1:${port}/postgres`, connectionTimeoutMillis: 5_000, query_timeout: 15_000, statement_timeout: 15_000, max: 1 });
     pool.on('error', error => {

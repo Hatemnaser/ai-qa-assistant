@@ -58,37 +58,45 @@ export function createViewerGateway({ journal, driver, signingKey, publicOrigin,
     } catch { res.statusCode = 403; res.end('Browser unavailable'); }
   });
   server.on('upgrade', async (req, socket, head) => {
+    let upstream, remote;
+    const entry = { socket, remote: null, grant: null };
+    // Upgrade detaches the socket from HTTP's error handling. Own its lifetime
+    // before endpoint lookup or the upstream handshake can yield.
+    const close = () => { streams.delete(entry); upstream?.destroy(); remote?.destroy(); socket.destroy(); };
+    socket.on('error', close); socket.once('close', close); streams.add(entry);
     try {
       const match = /^\/r\/([a-f0-9-]{36})\/viewer\/websockify$/u.exec(req.url || '');
       if (!match || req.headers.origin !== publicOrigin) throw new Error('Unavailable.');
-      const { grant, row } = authorization(req, match[1]), endpoint = new URL(await driver.endpoint(row.runtime));
+      const { grant, row } = authorization(req, match[1]); entry.grant = grant;
+      const endpoint = new URL(await driver.endpoint(row.runtime));
+      if (socket.destroyed) return;
       requireLiveGrant(grant, journal);
-      const upstream = request({ hostname: endpoint.hostname, port: endpoint.port, path: '/viewer/websockify', headers: {
+      upstream = request({ hostname: endpoint.hostname, port: endpoint.port, path: '/viewer/websockify', headers: {
         connection: 'Upgrade', upgrade: 'websocket', 'sec-websocket-key': req.headers['sec-websocket-key'],
         'sec-websocket-version': '13', ...(req.headers['sec-websocket-protocol'] ? { 'sec-websocket-protocol': req.headers['sec-websocket-protocol'] } : {}),
         authorization: `Bearer ${row.token}`,
         'x-oddpath-viewer-mode': grant.mode,
         ...(grant.mode === 'LOGIN' ? { 'x-oddpath-login-epoch': grant.controlEpoch } : {}),
       }, timeout: 5_000 });
-      upstream.on('upgrade', (response, remote, remoteHead) => {
-        try { requireLiveGrant(grant, journal); } catch { socket.destroy(); remote.destroy(); return; }
+      upstream.on('upgrade', (response, peer, remoteHead) => {
+        remote = peer; entry.remote = peer;
+        remote.on('error', close); remote.once('close', close);
+        if (socket.destroyed) { close(); return; }
+        try { requireLiveGrant(grant, journal); } catch { close(); return; }
         socket.write(`HTTP/1.1 101 Switching Protocols\r\n${Object.entries(response.headers).map(([name, value]) => `${name}: ${value}`).join('\r\n')}\r\n\r\n`);
         if (head.length) remote.write(head); if (remoteHead.length) socket.write(remoteHead);
         socket.pipe(remote); remote.pipe(socket);
-        const entry = { socket, remote, grant }; streams.add(entry);
-        socket.on('close', () => { streams.delete(entry); remote.destroy(); }); remote.on('close', () => socket.destroy());
-        socket.on('error', () => remote.destroy()); remote.on('error', () => socket.destroy());
       });
-      upstream.on('response', response => { response.resume(); socket.destroy(); });
-      upstream.on('timeout', () => { upstream.destroy(); socket.destroy(); });
-      upstream.on('error', () => socket.destroy()); upstream.end();
-    } catch { socket.destroy(); }
+      upstream.on('response', response => { response.resume(); close(); });
+      upstream.on('timeout', close);
+      upstream.on('error', close); upstream.end();
+    } catch { close(); }
   });
   const guard = setInterval(() => {
     for (const entry of streams) try { if (entry.grant.expiresAt <= Date.now()) throw new Error(); requireLiveGrant(entry.grant, journal); }
-    catch { entry.socket.destroy(); entry.remote.destroy(); streams.delete(entry); }
+    catch { entry.socket.destroy(); entry.remote?.destroy(); streams.delete(entry); }
   }, 200);
-  server.closeViewerStreams = () => { clearInterval(guard); for (const entry of streams) { entry.socket.destroy(); entry.remote.destroy(); } streams.clear(); };
+  server.closeViewerStreams = () => { clearInterval(guard); for (const entry of streams) { entry.socket.destroy(); entry.remote?.destroy(); } streams.clear(); };
   server.on('close', server.closeViewerStreams);
   return server;
 }

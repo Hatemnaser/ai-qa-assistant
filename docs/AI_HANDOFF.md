@@ -1,5 +1,16 @@
 # AI Handoff
 
+Latest (2026-10-25): risk-focused pre-merge review of the foundation branch has
+**LOCAL_MERGE_REVIEW_GO** after fixing pending WebSocket disconnect handling and
+PostgreSQL TCP startup readiness. Read the local-only report
+`work/merge-review-20261025/REVIEW.md` for Red/Green proofs, coverage, skipped tests
+and the same-reviewer repair limitation. Current local checks include 268 real
+PostgreSQL cases, 25 Docker Chrome/noVNC cases and 51 real UI cases. The final
+runtime changes were not rerun on Oracle ARM; prior combined measurements remain
+historical, not acceptance of new images. Publication remains local-only, no
+merge performed. Phase 08 NOT ACCEPTED; Public Release NO_GO. Earlier dated
+entries below preserve their original states.
+
 Latest checkpoint (2026-10-24, Oracle refresh): recovery fencing/read-only
 assessment has bounded independent GO in
 `work/phase-08a-recovery-acceptance-20261024/REVIEW.md`. Native Oracle ARM64

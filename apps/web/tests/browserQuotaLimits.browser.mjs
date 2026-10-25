@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import {readFile,writeFile} from 'node:fs/promises';
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {before,after,test} from 'node:test';
 import {createServer} from 'vite';
@@ -37,5 +38,10 @@ for(const locale of ['en','de','ar'])for(const width of [1280,390])test(`${local
   assert.match(await note.textContent(),/UTC/);assert.ok(await note.isVisible());
   await page.evaluate(()=>window.fixture.props.profiles[0].protocolVersion=1);
   await note.waitFor({state:'detached'});assert.deepEqual(errors,[]);
- }catch(error){await writeFile(new URL('../../../work/phase-06b-20261014/ui-debug-'+locale+'-'+width+'.json',import.meta.url),JSON.stringify({errors,url:page.url(),html:await page.locator('#app').innerHTML(),message:error.message},null,2));throw error;}finally{await context.close();}
+ }catch(error){
+  // A rerun must never overwrite historical phase evidence.
+  const directory=new URL('../../../work/browser-ui-failures/',import.meta.url);await mkdir(directory,{recursive:true});
+  await writeFile(new URL('quota-'+locale+'-'+width+'-'+randomUUID()+'.json',directory),JSON.stringify({errors,url:page.url(),html:await page.locator('#app').innerHTML(),message:error.message},null,2),{flag:'wx'});
+  throw error;
+ }finally{await context.close();}
 });

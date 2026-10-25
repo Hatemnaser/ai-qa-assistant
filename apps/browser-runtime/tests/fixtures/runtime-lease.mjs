@@ -53,6 +53,7 @@ assert.equal(kills, accepted || scenario === 'invalid-proposal' ? 0 : 4);
 if (health.status === 'STOPPING') {
   assert.equal(call('GET', '/cdp/json/version').statusCode, 409);
   let destroyed = false;
-  upgrade({ url: '/cdp/devtools/browser/fixture', headers: { authorization: `Bearer ${token}` } }, { destroy() { destroyed = true; } }, Buffer.alloc(0));
+  const socket = Object.assign(new EventEmitter(), { destroy() { destroyed = true; } });
+  upgrade({ url: '/cdp/devtools/browser/fixture', headers: { authorization: `Bearer ${token}` } }, socket, Buffer.alloc(0));
   assert.equal(destroyed, true);
 }

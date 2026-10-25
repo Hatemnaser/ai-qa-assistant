@@ -21,7 +21,7 @@ if(manual&&saved)throw new Error('Ambiguous authentication mode.');
 const boundary = new LoginBoundary({ manual: manual||saved, deadline, preparationDeadline: Number(process.env.ODDPATH_PREPARATION_DEADLINE_MS), executionTimeoutMs: Number(process.env.ODDPATH_EXECUTION_TIMEOUT_MS) });
 const loginPolicy = manual||saved ? new LoginPolicy({ baseUrl: process.env.ODDPATH_LOGIN_TARGET_URL, authenticationOrigins: JSON.parse(process.env.ODDPATH_LOGIN_ORIGINS || '[]'), stop }) : null;
 let closing = false;
-function closeStreams() { for (const entry of streams) { entry.socket.destroy(); entry.remote.destroy(); } streams.clear(); }
+function closeStreams() { for (const entry of streams) { entry.socket.destroy(); entry.remote?.destroy(); } streams.clear(); }
 function stop() {
   if (closing) return;
   closing = true;
@@ -125,23 +125,28 @@ const server = createServer(async (req, res) => {
   upstream.on('error', () => { res.writeHead(502); res.end(); }); upstream.end();
 });
 server.on('upgrade', (req, socket, head) => {
+  let upstream, remote;
+  const entry = { socket, remote: null };
+  const close = () => { streams.delete(entry); upstream?.destroy(); remote?.destroy(); socket.destroy(); };
+  socket.on('error', close); socket.once('close', close); streams.add(entry);
   const permitted = () => live() && (req.url?.startsWith('/cdp/devtools/') ? boundary.allowsCdp()
     : req.url === '/viewer/websockify' && boundary.allowsViewer(req.headers['x-oddpath-viewer-mode'] || 'VIEW', req.headers['x-oddpath-login-epoch']));
   if (!authorized(req) || !permitted()) { socket.destroy(); return; }
   const cdp = req.url.startsWith('/cdp/');
   const headers = { ...req.headers, host: '127.0.0.1:9222' };
   delete headers.authorization;
-  const upstream = request({ hostname: '127.0.0.1', port: cdp ? 9222 : 6080,
-    path: req.url.replace(/^\/(cdp|viewer)/u, ''), headers });
-  upstream.on('upgrade', (response, remote, remoteHead) => {
-    if (!permitted()) { socket.destroy(); remote.destroy(); return; }
+  upstream = request({ hostname: '127.0.0.1', port: cdp ? 9222 : 6080,
+    path: req.url.replace(/^\/(cdp|viewer)/u, ''), headers, timeout: 5_000 });
+  upstream.on('upgrade', (response, peer, remoteHead) => {
+    remote = peer; entry.remote = peer;
+    remote.on('error', close); remote.once('close', close);
+    if (socket.destroyed || !permitted()) { close(); return; }
     socket.write(`HTTP/1.1 101 Switching Protocols\r\n${Object.entries(response.headers).map(([name, value]) => `${name}: ${value}`).join('\r\n')}\r\n\r\n`);
     if (head.length) remote.write(head); if (remoteHead.length) socket.write(remoteHead);
-    socket.pipe(remote); remote.pipe(socket); remote.on('error', () => socket.destroy()); socket.on('error', () => remote.destroy());
-    const entry = { socket, remote }; streams.add(entry);
-    socket.on('close', () => { streams.delete(entry); remote.destroy(); }); remote.on('close', () => socket.destroy());
+    socket.pipe(remote); remote.pipe(socket);
   });
-  upstream.on('error', () => socket.destroy()); upstream.end();
+  upstream.on('response', response => { response.resume(); close(); });
+  upstream.on('timeout', close); upstream.on('error', close); upstream.end();
 });
 server.listen(8080, '0.0.0.0');
 setInterval(live, 200);
