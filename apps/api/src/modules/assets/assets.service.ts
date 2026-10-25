@@ -68,6 +68,7 @@ export function createAssetsService({
     const uploadExpiresAt = new Date(createdAt.getTime() + config.assetUploadUrlTtlSeconds * 1000);
     const asset = await repository.createPendingAssetReservation({
       ...input,
+      evidenceExpiresAt: input.purpose === "QA_EVIDENCE" ? new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000) : null,
       maxPendingPerUser: config.assetMaxPendingPerUser,
       objectKey: createObjectKey(input.purpose, createdAt),
       ownerId: userId,
@@ -186,16 +187,22 @@ export function createAssetsService({
     assertEnabled();
     const asset = await repository.findOwnedAsset(userId, assetId);
 
-    if (!asset || asset.status !== "READY") {
+    if (!asset || asset.status !== "READY" || (asset.evidenceExpiresAt && asset.evidenceExpiresAt <= now())) {
       throw new AppError("Asset was not found.", 404, "ASSET_NOT_FOUND");
     }
 
-    const url = await storage.createDownloadUrl(asset.objectKey, config.assetDownloadUrlTtlSeconds);
+    const ttl = asset.evidenceExpiresAt
+      ? Math.min(config.assetDownloadUrlTtlSeconds, Math.floor((asset.evidenceExpiresAt.getTime() - now().getTime()) / 1000))
+      : config.assetDownloadUrlTtlSeconds;
+    if (ttl < 1) throw new AppError("Asset was not found.", 404, "ASSET_NOT_FOUND");
+    const mintedAt = now();
+    const url = await storage.createDownloadUrl(asset.objectKey, ttl, mintedAt);
+    if (asset.evidenceExpiresAt && asset.evidenceExpiresAt <= now()) throw new AppError("Asset was not found.", 404, "ASSET_NOT_FOUND");
 
     return {
       asset: toAssetDto(asset),
       download: {
-        expiresAt: new Date(now().getTime() + config.assetDownloadUrlTtlSeconds * 1000).toISOString(),
+        expiresAt: new Date(mintedAt.getTime() + ttl * 1000).toISOString(),
         url,
       },
     };
@@ -273,6 +280,7 @@ function toAssetDto(asset: Awaited<ReturnType<AssetsRepository["findOwnedAsset"]
     projectId: asset.projectId,
     purpose: asset.purpose,
     readyAt: asset.readyAt?.toISOString() || null,
+    evidenceExpiresAt: asset.evidenceExpiresAt?.toISOString() || null,
     sizeBytes: asset.sizeBytes,
     status: asset.status,
   };

@@ -23,6 +23,7 @@ import type {
   ValidatedProjectImportPackage,
 } from "./data-portability.types.js";
 import { PROJECT_EXPORT_LIMITS } from "./data-portability.types.js";
+import {readQaHistory,readQaBinarySources} from "../qa-requests/qa-report.reader.js";
 import { bindCompleteExportAssetRows } from "./export-asset-relations.js";
 import { resolveImportedProjectName } from "./imported-project-name.js";
 import {
@@ -98,6 +99,7 @@ export function createPrismaDataPortabilityRepository(
               userId,
             },
           });
+          if(packageData.project.qaHistory)await tx.qaImportedArchive.create({data:{projectId:project.id,sourceDigest:packageData.packageDigest,payload:toPrismaJson(packageData.project.qaHistory)}});
 
           if (packageData.project.instructions) {
             await tx.projectInstruction.create({
@@ -417,6 +419,8 @@ export function createPrismaDataPortabilityRepository(
 
       return {
         ...projectRecord,
+        qaHistory: await readQaHistory(tx,userId,projectId),
+        qaBinarySources: await readQaBinarySources(tx,userId,projectId),
         binaryAssets,
         chats,
         documents,

@@ -1,0 +1,15 @@
+{
+  "phase": "06C",
+  "decision": "GO_WITHIN_REVIEW_SCOPE",
+  "publicRelease": "NO_GO",
+  "reviewDate": "2026-10-16",
+  "recordedAt": "2026-10-17",
+  "report": "C:/Users/hatem/Documents/Codex/2026-10-10/new-chat/outputs/Oddpath_Phase_06C_Final_Adversarial_Acceptance_Review.md",
+  "evidence": "C:/Users/hatem/Documents/Codex/2026-10-10/new-chat/outputs/Oddpath_Phase_06C_Final_Adversarial_Acceptance_Review_Evidence.json",
+  "evidenceSha256": "2899b0a0d62bb74eb5781b641e71ce38768ad4b6ea27d9aaccc85001c1a374c0",
+  "postgresHttpSmtpPass": 241,
+  "newAdversarialPass": 9,
+  "verifyPass": 1931,
+  "verifyInheritedWindowsSkip": 1,
+  "nextAuthorizedLocalPhase": "07"
+}

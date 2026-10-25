@@ -1,0 +1,485 @@
+{
+  "phase": "06B",
+  "repair": "T4/P2 identity quota window / usage retention",
+  "date": "2026-10-15T23:17:50.157Z",
+  "status": "LOCAL_IDENTITY_RETENTION_FIX_VALIDATED_AWAITING_FINAL_INDEPENDENT_REVIEW",
+  "phaseAccepted": false,
+  "publicRelease": "Separate gate; remains NO_GO",
+  "root": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01",
+  "report": "C:\\Users\\hatem\\Documents\\Codex\\2026-10-10\\new-chat\\outputs\\Oddpath_Phase_06B_Identity_Retention_Repair.md",
+  "finding": {
+    "id": "T4",
+    "severity": "P2",
+    "reproducedBeforeFix": true,
+    "originalAssertionsUnchanged": true,
+    "before": {
+      "identityHours": 960,
+      "retentionDays": 32,
+      "beforeHttp": 429,
+      "purged": 1,
+      "afterHttp": 200,
+      "sdkCalls": 2
+    },
+    "after": {
+      "identityHours": 960,
+      "retentionDays": 32,
+      "beforeHttp": 429,
+      "purged": 0,
+      "afterHttp": 429,
+      "sdkCalls": 1
+    }
+  },
+  "implementation": {
+    "productionFiles": [
+      "apps/api/src/modules/retention/retention.repository.ts"
+    ],
+    "reusesAdmissionWindow": true,
+    "identityScope": [
+      "userId",
+      "guestId",
+      "ipHash"
+    ],
+    "eventAndAttemptTimes": true,
+    "inclusiveBoundary": true,
+    "selectionAndFinalDeleteGuard": true,
+    "globalGuardPreserved": true,
+    "anonymousIdentityExempt": true,
+    "anonymousDeadlineNotExtended": true,
+    "newMigration": false,
+    "newDependencies": false
+  },
+  "deletionAudit": [
+    "periodic/manual retention repository",
+    "account deletion/anonymization coordinator",
+    "automatic unverified-account deletion through coordinator",
+    "stale reservation/reconciliation update-only",
+    "AiUsageLog analytics not quota ledger",
+    "browser daily/capacity counters separate from Usage retention"
+  ],
+  "tests": {
+    "red": {
+      "originalHttp": {
+        "tests": 1,
+        "pass": 0,
+        "fail": 1,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "identityRegression": {
+        "tests": 8,
+        "pass": 2,
+        "fail": 6,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    "green": {
+      "originalHttp": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "identityInitial": {
+        "tests": 8,
+        "pass": 8,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "identityFinal": {
+        "tests": 8,
+        "pass": 8,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "maintainedHttp": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "globalRetention": {
+        "tests": 7,
+        "pass": 7,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "postgres": {
+        "tests": 165,
+        "pass": 165,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "previousHttp": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "previousLedger": {
+        "tests": 6,
+        "pass": 6,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "previousGlobalHttp": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "previousTargeted": {
+        "tests": 3,
+        "pass": 3,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    "fullVerify": [
+      {
+        "tests": 41,
+        "pass": 41,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      {
+        "tests": 1097,
+        "pass": 1096,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 1
+      },
+      {
+        "tests": 33,
+        "pass": 33,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      {
+        "tests": 666,
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      {
+        "tests": 91,
+        "pass": 91,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "checks": {
+    "verifyTotals": {
+      "pass": 1927,
+      "fail": 0,
+      "skipped": 1
+    },
+    "apiBuild": "PASS",
+    "freshMigration": "PASS",
+    "restore": {
+      "status": "PASS",
+      "afterRestore": {
+        "exposure": 7,
+        "confirmed": 6,
+        "status": "partial"
+      },
+      "afterLateEvidence": {
+        "confirmed": 9,
+        "receipts": 3,
+        "status": "completed"
+      },
+      "providerCalls": 0
+    },
+    "schemaDrift": "No difference detected",
+    "diffCheck": "PASS"
+  },
+  "intermediateFailures": [
+    {
+      "file": "postgres.log",
+      "pass": 152,
+      "fail": 12,
+      "cancelled": 1,
+      "cause": "One untracked guest usage row left by deliberate pre-fix I3 failure contaminated shared global test budget",
+      "proof": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\intermediate-db-proof.json",
+      "resolution": "Track guest fixture identities in teardown; all original assertions preserved; fresh empty DB, sequential 165/165 plus final regressions"
+    },
+    {
+      "file": "verify.log",
+      "apiPass": 1085,
+      "apiFail": 11,
+      "apiSkipped": 1,
+      "cause": "Verification harness forced AI_ENABLED=false/GUEST_AI_ENABLED=false, making route-contract tests receive 503 before validation",
+      "resolution": "Restore normal flags in harness only; blank provider key and unreachable unit-test DB retained; rerun full verify"
+    }
+  ],
+  "source": {
+    "baselineFiles": 1136,
+    "finalFilesExcludingNewLedger": 1139,
+    "changed": [
+      "apps/api/src/modules/retention/retention.repository.ts",
+      "docs/AI_HANDOFF.md",
+      "docs/NEXT_STEPS.md",
+      "docs/PHASE_06B_CHECKPOINT.md",
+      "docs/QUOTA_OPERATIONS.md"
+    ],
+    "added": [
+      "apps/api/tests/quota-identity-retention-http.postgres.integration.ts",
+      "apps/api/tests/quota-identity-retention.postgres.integration.ts",
+      "docs/PHASE_06B_IDENTITY_RETENTION_FIX.md",
+      "docs/evidence/phase-06b/identity-retention-fix.json"
+    ],
+    "allOtherBaselineFilesUnchanged": true
+  },
+  "priorEvidencePreserved": [
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\2026-10-10\\new-chat\\outputs\\Oddpath_Phase_06B_Targeted_Retention_Acceptance_Review_Evidence.json",
+      "sha256": "a8767b6ace70df2d93aad43e40a50b99bf08d74254c6148e3f6ece8e05589f3a",
+      "artifactsChecked": 44
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\docs\\evidence\\phase-06b\\retention-window-fix.json",
+      "sha256": "fdf015b83571a5402ab72aa12691ff266b21311f3ec541a6274c28b896b6fe9c",
+      "artifactsChecked": 45
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\2026-10-10\\new-chat\\outputs\\Oddpath_Phase_06B_Acceptance_Gate_Review_Evidence.json",
+      "sha256": "1ca2a71b09cc4ede45162eea030448247b9bef5f32f7e6897af5b68f456ff442",
+      "artifactsChecked": 35
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\docs\\evidence\\phase-06b\\final-review-fix.json",
+      "sha256": "f2f3234a11439c9e34fdd9ab65560fd1a96147b18612d55248af4c6ebb1e3786",
+      "artifactsChecked": 52
+    }
+  ],
+  "delegation": {
+    "astraInvoked": false,
+    "subagents": 0,
+    "additionalModels": 0,
+    "implementer": "Current session model"
+  },
+  "cleanup": {
+    "checkedAt": "2026-10-15T23:17:48.0802028Z",
+    "processes": [],
+    "ownedContainers": []
+  },
+  "limitations": [
+    "Final independent acceptance required",
+    "No paid provider call or invoice verification",
+    "Long-window clocks controlled; PostgreSQL/HTTP/SDK real",
+    "No physical Chrome/noVNC/distributed failover rerun",
+    "Existing erased history cannot be reconstructed",
+    "Use consistent policy settings and drain active work on policy changes; mixed policy deployments not certified",
+    "One inherited Windows journal replacement test skip, not pass",
+    "No working-DB migration/deployment/public activation"
+  ],
+  "artifacts": [
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\adversarial.mts",
+      "sha256": "b239851b3ae7b9307982cd44f8e27673b4490972b76cbda01ae96c594a8b7ebb"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\build-api.log",
+      "sha256": "a9412ba488a7c8522a6e4aa73667740955682371b05fd1cdde4b361eaa8345f7"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\closeout.cjs",
+      "sha256": "0369887a0759d2e6c33f28b6917c648d10aac0aaaba1557a04ed45dfa7e18d77"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\db-state-before-fresh.json",
+      "sha256": "49aa4d5db74165beb33acf6bccdc5ec798c7922eb54ddaa25135a17a495671de"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\db-state.json",
+      "sha256": "abc60caf0d97826f17c539bf222c2bf0c8af2cb8d38c1a0dc03f555aba9838af"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\diff-check.log",
+      "sha256": "b924dcd6848a7287dc58be1c18b5d162de07d8a0259999caf620f82520f16267"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\fresh-migrate.log",
+      "sha256": "1c15090d0e76b33de1a4949e90bbd55b0e3740283f0d64cb62b14f74c17bc85a"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\global-retention.log",
+      "sha256": "27447752084835ea6103500571575b6538b44eaac26c820a10510097b36fac94"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\green-identity-http.log",
+      "sha256": "24ffd448d599d82c4f74b447538f53c1219b382f842c51efc75e9ad93f1fd7db"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\green-identity-regression.log",
+      "sha256": "64d42f4c6fe631314cbf9e89be5a4c04ce42f7a278824d2782006e56f9f6f37e"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\http-adversarial.mts",
+      "sha256": "d4470b2bfe56e8e11e195ee19690a0e2eca8b8e6fefbbaed291425823a750481"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\identity-final.log",
+      "sha256": "88180f10a1cff35eecbee1f4cfc1cde6c4a983da363574902e3520c34353e294"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\identity-regression-fixture.patch",
+      "sha256": "88899c5a124f24ce54a8f559dc7e05c83d05ffe43fb8c70772e25df4cd2a03a8"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\identity-regression.red-source.mts",
+      "sha256": "752deed9717c0e417f3e6387efe7393ff60f6d8492c70f4a3b9afade60c2148a"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\identity-retention-product.patch",
+      "sha256": "8d60ac8d3d80aa6e69b25b615c157ddb916115528d7f7b1082e6a312800df96b"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\identity-window-http.mts",
+      "sha256": "110faab44af9259392e1f4de0eb88ec58f1bf4549d9baed8a5b075e4b1d2d275"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\inspect-test-db.mts",
+      "sha256": "e8b02519c27fa0dbeda0d8dfbd56ee2e397aeeecea0096b9039d930453aabf67"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\integrity-cleanup.json",
+      "sha256": "17670d710a526288e85e2a28d3b99ca77a3be69404bb5b2a3c3a71989644d456"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\intermediate-db-proof.json",
+      "sha256": "b77b0a0f222389693bfeea18f6d3e26ac94558a9f406ab0d4f33e93f983c04da"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\maintained-identity-http.log",
+      "sha256": "b0225b2d42dc44469f310f540de78d2ba8d0ccf42ebea4464b4274911cd95b9a"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\migrate.log",
+      "sha256": "38b154020077d27ec1f92f09759f0399e22552fed04b08f9b0f25d3e32d211d8"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\postgres-clean.log",
+      "sha256": "4dd5593456867f2889959b8da1c6e23f3b39e8d3d5e034f86a8853f683a90527"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\postgres.log",
+      "sha256": "4e8238990f537aa03c515df18cb94fc1d7e8676366ca82d29d3740c84dc8a4c3"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\previous-four-http.log",
+      "sha256": "9c7921d4c2cb28a1ce8ed97efe8697c1de1aca976b0a43a32b931b9706aef32d"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\previous-global-http.log",
+      "sha256": "c3823537342109e0c7d851453c1a46977d281b2665ce6d414872c25313a05ab6"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\previous-ledger.log",
+      "sha256": "0af5e4c103a628fbdaa57d805eb13134851ca8e865aca1588b8a847ab5cc4f00"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\previous-targeted.log",
+      "sha256": "f763794004601aaf17119439506bcdf6f3e9ac1c6cbbe2ccf0fefc42bc1636dd"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\process-cleanup.json",
+      "sha256": "3728a39d5c2a68901c042d9f379b4e48ab78053e782008dda365e84cee8ec739"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\red-identity-http.log",
+      "sha256": "48942ab75ab2a04c8924554af64e02a0cd36ca7c2a959fed3742268a8ae2b645"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\red-identity-regression.log",
+      "sha256": "921ea2b576aebab9c9d8cdfd3a4425ee4f6c7adb99db8aa0e94f7790e14b8889"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\report.template.md",
+      "sha256": "2a64f673db22ff7d6860782913667883a4e70625a56c328cd21598362054d252"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\restore-fixture.json",
+      "sha256": "4b156e14422d9f82fe505a709b3062d51cbbdf12a76b8a95ad9408bfc8985ee2"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\restore-recover-0.log",
+      "sha256": "b4754cb030c2bafa4e8029e2ba3abf2d2a27fc9b12d54e0ae224120a77c0348c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\restore-recover-1.log",
+      "sha256": "b4754cb030c2bafa4e8029e2ba3abf2d2a27fc9b12d54e0ae224120a77c0348c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\restore-seed.log",
+      "sha256": "9b408e9f724fa468b6f3eb6185516450da676999e0a6632730ec5eb513d45be9"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\restore-verify.log",
+      "sha256": "9161b848ee7b37cd24204568ca836f18ab869455ea73a5772644929d80384c14"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\restore-worker.mts",
+      "sha256": "e366da5443907bc2e260c81b9734fd173a3d5e0cafe2d18009c77c643e6da90a"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\retention.repository.before.ts",
+      "sha256": "a18ce09c9627bf36596599028fa2982d2880190730c1f61afc0479a645b877e4"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\runner.cjs",
+      "sha256": "28f9c039a792905f0eccbe94840b9a695f8eca79a4cd5491695c98b56a2b5c4f"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\schema-drift.log",
+      "sha256": "3417e4b20617991171441c4df1e747f35643e27400e00ae586a79d59a91678c9"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\source-before.json",
+      "sha256": "4da82a547e380f6a43536d588fdc2e2c6cd24b40695434d3872b71773eb15c28"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\source-final.json",
+      "sha256": "db40a8c2ca5058bcc9a88df7d074896b7377eb21a185fc052c7917fb4a6bb6bb"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\targeted.mts",
+      "sha256": "0694f14d8393431d7368928bf6b1f60657e8851462ea1fa96b3a6cbfd8f3fe92"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\verification.cjs",
+      "sha256": "ff8f757de914b53ffc08db35de30fbc7fd28dae2b3e2ab8253ca7516caae91f5"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\verification.initial.cjs",
+      "sha256": "d3b2e41d01115b965b587716b71e8854d94e12bcd6496f8d0b274e2b790748ac"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\verify-final.log",
+      "sha256": "9b455398fcd48e72b0a6f73a653e19bd5da9199f64bdf6c84afc83daa1b712bc"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06b-identity-retention-fix-20261016\\verify.log",
+      "sha256": "c83d2cb97cf9ce9c3ecc3373edfe9d7469ae71265d92e36437962486d908b78f"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\2026-10-10\\new-chat\\outputs\\Oddpath_Phase_06B_Identity_Retention_Repair.md",
+      "sha256": "2a64f673db22ff7d6860782913667883a4e70625a56c328cd21598362054d252"
+    }
+  ]
+}

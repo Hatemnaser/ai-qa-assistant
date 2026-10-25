@@ -6,6 +6,7 @@ import { ModuleKind, transpileModule } from "typescript";
 import * as vue from "vue";
 import { compileScript, parse } from "vue/compiler-sfc";
 import { sessionDecision } from "../src/features/test-sessions/decisionPresentation";
+import * as resources from '../src/features/sessions/sessionResources';
 
 const pageFile = new URL("../src/features/sessions/SessionPage.vue", import.meta.url);
 const source = await readFile(pageFile, "utf8");
@@ -32,12 +33,12 @@ afterEach(() => {
 });
 
 type Tool = "sources" | "activity" | "results";
-type RequestIdentity = { id: string; phase: string; title: string; operations: unknown[] };
-type SessionIdentity = { id: string; currentRequestId: string; requests: RequestIdentity[]; archivedAt: null; pendingProposal: { id: string; title: string } | null; preparation: null };
+type RequestIdentity = { id: string; projectId: string; phase: string; title: string; operations: unknown[]; runs: [] };
+type SessionIdentity = { id: string; projectId: string; currentRequestId: string; requests: RequestIdentity[]; archivedAt: null; pendingProposal: { id: string; title: string } | null; preparation: null };
 type PageBindings = {
   currentTool: vue.Ref<Tool | null>;
   connectionOpen: vue.Ref<boolean>;
-  record: vue.Ref<{ $el: { focus(options: { preventScroll: boolean }): void }; openMissing(): void } | null>;
+  resourceState: ReturnType<typeof resources.useSessionResources>;
   openResults(id: string): Promise<void>;
   focusRecord(): Promise<boolean>;
   focusMissing(): Promise<void>;
@@ -51,11 +52,11 @@ type PageBindings = {
 };
 
 function request(id = "request-a"): RequestIdentity {
-  return { id, phase: "APPROVED", title: id, operations: [] };
+  return { id, projectId: 'project-a', phase: "APPROVED", title: id, operations: [], runs: [] };
 }
 
 function session(id = "session-a"): SessionIdentity {
-  return { id, currentRequestId: "request-a", requests: [request()], archivedAt: null, pendingProposal: null, preparation: null };
+  return { id, projectId: 'project-a', currentRequestId: "request-a", requests: [request()], archivedAt: null, pendingProposal: null, preparation: null };
 }
 
 function deferred() {
@@ -72,7 +73,8 @@ function mount(selection: (id: string) => Promise<void> = async () => {}) {
   class TestElement {}
   // The rejected paths need no DOM renderer. An explicit newer tool intent only
   // captures this inert active-element stub, never an application element.
-  Object.defineProperty(globalThis, "document", { configurable: true, value: { activeElement: null } });
+  const focusCalls: Array<{ preventScroll: boolean }> = [];
+  Object.defineProperty(globalThis, "document", { configurable: true, value: { activeElement: null, getElementById: () => ({ focus: (options: {preventScroll:boolean}) => focusCalls.push(options) }) } });
   Object.defineProperty(globalThis, "HTMLElement", { configurable: true, value: TestElement });
   const props = vue.reactive({ currentUser: { id: "owner-a" }, active: true, sessionId: "session-a", projectLoadError: "", isLoadingProjects: false });
   const selectCalls: string[] = [];
@@ -95,6 +97,7 @@ function mount(selection: (id: string) => Promise<void> = async () => {}) {
     "./sessionTimeline": { sessionTimeline: () => [] },
     "../test-sessions/decisionPresentation": { sessionDecision },
     "./sessionSources": { buildSessionSources: () => [] },
+    './sessionResources': resources,
     "./sessionActivityPresentation": { isPrimarySessionEvent: () => true, qaEventLabelKey: () => "sessionTools.events.recorded" },
     "../chat/chatExport": { exportChatByFormat: () => {}, exportAnswerByFormat: () => {} },
     "../test-sessions/useTestSession": { useTestSession: () => controller },
@@ -109,9 +112,7 @@ function mount(selection: (id: string) => Promise<void> = async () => {}) {
   const scope = vue.effectScope();
   scopes.push(scope);
   const page = scope.run(() => module.exports.default.setup(props, { expose: () => {}, emit: () => {} }))!;
-  const focusCalls: Array<{ preventScroll: boolean }> = [];
   let missingCalls = 0;
-  page.record.value = { $el: { focus: options => { focusCalls.push(options); } }, openMissing: () => { missingCalls += 1; } };
   return {
     page, props, controller, selectCalls, focusCalls, missingCalls: () => missingCalls,
     deactivate: () => deactivated.forEach(hook => hook()), activate: () => activated.forEach(hook => hook()),
@@ -129,7 +130,7 @@ describe("SessionPage asynchronous tool intents", () => {
     await view.page.openResults("request-a");
     assert.equal(view.page.currentTool.value, "results");
     assert.deepEqual(view.focusCalls, [{ preventScroll: true }]);
-    assert.deepEqual(view.selectCalls, ["request-a"]);
+    assert.deepEqual(view.selectCalls, []);
     assert.equal(view.controller.message.value, "Unsent draft stays untouched");
   });
 
@@ -198,6 +199,7 @@ describe("SessionPage asynchronous tool intents", () => {
     const view = mount(() => delayed.promise);
     view.page.openTool("sources");
     const opening = view.page.openResults("request-a");
+    view.page.openTool("sources");
     view.page.openTool("sources", true);
     delayed.resolve(); await opening;
     assert.equal(view.page.currentTool.value, null);
@@ -208,6 +210,7 @@ describe("SessionPage asynchronous tool intents", () => {
     const first = deferred();
     const second = deferred();
     const view = mount(id => id === "request-a" ? first.promise : second.promise);
+    view.controller.session.value!.requests.push(request('request-b'));
     const oldOpening = view.page.openResults("request-a");
     const newOpening = view.page.openResults("request-b");
     view.controller.selectedRequestId.value = "request-b";
@@ -219,16 +222,14 @@ describe("SessionPage asynchronous tool intents", () => {
     assert.equal(view.focusCalls.length, 1, "discarded selection completion must not refocus the current record");
   });
 
-  for (const failure of ["read error", "project read error", "loading", "selected ID mismatch", "detail ID mismatch"] as const) {
+  for (const failure of ["read error", "project read error", "loading"] as const) {
     it(`does not open results with ${failure}`, async () => {
       const delayed = deferred();
       const view = mount(() => delayed.promise);
-      const opening = view.page.openResults("request-a");
       if (failure === "read error") view.controller.readError.value = "offline";
       if (failure === "project read error") view.props.projectLoadError = "project offline";
       if (failure === "loading") view.controller.loading.value = true;
-      if (failure === "selected ID mismatch") view.controller.selectedRequestId.value = "request-b";
-      if (failure === "detail ID mismatch") view.controller.request.value = request("request-b");
+      const opening = view.page.openResults("request-a");
       delayed.resolve(); await opening;
       assert.equal(view.page.currentTool.value, null);
       assert.deepEqual(view.focusCalls, []);

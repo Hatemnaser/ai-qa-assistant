@@ -1,5 +1,8 @@
 import { prisma } from "../../db/prisma.js";
 import { Prisma } from "../../generated/prisma/client.js";
+import { env } from "../../config/env.js";
+import { AI_USAGE_ACTIONS } from "../usage/usage.types.js";
+import { getUsageWindowStart } from "../usage/usage.scope.js";
 import {
   accountDataDeletionCoordinator,
   type AccountDataDeletionCoordinator,
@@ -44,6 +47,7 @@ export function createPrismaRetentionRepository(
             createdAt: { lte: cutoffs.unverifiedAccountsBefore },
             emailVerifiedAt: null,
             sessions: { none: {} },
+            usageEvents:{none:{OR:[{settlementReceipts:{some:{appliedAt:null}}},{expiresAt:{not:null},status:{in:['reserved','settlement_pending','partial','unknown']}}]}},
           },
         });
         let unverifiedAccounts = 0;
@@ -123,14 +127,21 @@ export function createPrismaRetentionRepository(
         const emailVerificationTokens = await tx.emailVerificationToken.deleteMany({
           where: { id: { in: emailVerificationTokenCandidates.map(({ id }) => id) } },
         });
+        const settledUsageWhere:Prisma.UsageEventWhereInput={
+          AND:[{OR:[{anonymousUntil:{lte:now}},
+            {anonymousUntil:null,createdAt:{lte:cutoffs.usageBefore},
+              settlementReceipts:{none:{appliedAt:null}},
+              OR:[{expiresAt:null},{status:{notIn:['reserved','settlement_pending','partial','unknown']}}]}]},
+            {NOT:activeQuotaUsageWhere(now)}],
+        };
         const usageEventCandidates = await tx.usageEvent.findMany({
           orderBy: [{ createdAt: "asc" }, { id: "asc" }],
           select: { id: true },
           take: batchSize,
-          where: { createdAt: { lte: cutoffs.usageBefore } },
+          where: settledUsageWhere,
         });
         const usageEvents = await tx.usageEvent.deleteMany({
-          where: { id: { in: usageEventCandidates.map(({ id }) => id) } },
+          where: { ...settledUsageWhere,id: { in: usageEventCandidates.map(({ id }) => id) } },
         });
         const aiUsageLogCandidates = await tx.aiUsageLog.findMany({
           orderBy: [{ createdAt: "asc" }, { id: "asc" }],
@@ -169,6 +180,28 @@ export function createPrismaRetentionRepository(
 }
 
 export const retentionRepository = createPrismaRetentionRepository();
+
+/** Retention age never grants headroom inside a still-active quota window. */
+function activeQuotaUsageWhere(now:Date):Prisma.UsageEventWhereInput {
+  const since=new Date(Math.min(
+    now.getTime()-env.aiGlobalUsageWindowMs,
+    now.getTime()-86_400_000,
+    Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1)
+  ));
+  const identitySince=getUsageWindowStart(now);
+  return {action:{in:[...AI_USAGE_ACTIONS]},OR:[
+    {createdAt:{gte:since}},
+    // Fallback/lock waits can place an attempt later than its parent event.
+    {attempts:{some:{startedAt:{gte:since}}}},
+    // User, guest and IP quotas share the configured identity window. Deleted
+    // accounts have no remaining identity, so this must not extend their term.
+    {AND:[
+      {OR:[{userId:{not:null}},{guestId:{not:null}},{ipHash:{not:null}}]},
+      {OR:[{createdAt:{gte:identitySince}},{attempts:{some:{startedAt:{gte:identitySince}}}}]},
+    ]},
+    {status:'reserved',expiresAt:{gt:now},reservationPolicy:{not:Prisma.DbNull}},
+  ]};
+}
 
 function emptyPurgeResult(lockAcquired: boolean): RetentionPurgeResult {
   return {

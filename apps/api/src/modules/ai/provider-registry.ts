@@ -22,6 +22,8 @@ export const AI_PROVIDERS = [geminiProvider] as const satisfies readonly AiProvi
 export const AI_MODEL_CATALOG = AI_PROVIDERS.flatMap((provider) => provider.models);
 export const FALLBACK_AI_PROVIDER = geminiProvider.id;
 export const FALLBACK_AI_MODEL = geminiProvider.defaultModel;
+/** Selection intent, never a provider model id. */
+export const AUTO_AI_MODEL = "auto";
 
 const providersById = new Map<AiProviderId, AiProviderAdapter>(
   AI_PROVIDERS.map((provider) => [provider.id, provider])
@@ -70,6 +72,12 @@ export function resolveAiModel(input: { model?: string; provider?: string } = {}
     model: modelConfig.value,
     provider: modelConfig.provider,
   };
+}
+
+export function resolveAiModelSelection(input: { model?: string; provider?: string } = {}) {
+  const selection = normalizeString(input.model);
+  const model = resolveAiModel({ ...input, model: selection === AUTO_AI_MODEL ? undefined : selection });
+  return { model, selection: selection === AUTO_AI_MODEL ? AUTO_AI_MODEL : model.model };
 }
 
 export async function chatWithAi(input: AiChatInput): Promise<AiChatResponse> {
@@ -150,6 +158,20 @@ export function getAiModelCatalog() {
     recommendedFor: model.recommendedFor,
     value: model.value,
   }));
+}
+
+export function getAiModelSelectionCatalog() {
+  return [{
+    capabilities: {
+      images: AI_MODEL_CATALOG.some(model => model.capabilities.images),
+      text: AI_MODEL_CATALOG.some(model => model.capabilities.text),
+      textAttachments: AI_MODEL_CATALOG.some(model => model.capabilities.textAttachments),
+    },
+    label: "Auto",
+    provider: FALLBACK_AI_PROVIDER,
+    recommendedFor: "Automatic model selection with compatible fallback",
+    value: AUTO_AI_MODEL,
+  }, ...getAiModelCatalog()];
 }
 
 export function assertAiModelCapabilities(

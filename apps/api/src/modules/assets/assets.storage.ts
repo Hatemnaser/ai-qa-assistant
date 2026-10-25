@@ -21,7 +21,7 @@ const IMMUTABLE_WRITE_TIMEOUT_MS = 2 * 60 * 1_000;
 const OBJECT_DELETE_TIMEOUT_MS = 2 * 60 * 1_000;
 
 export interface AssetStorage {
-  createDownloadUrl(objectKey: string, expiresInSeconds: number): Promise<string>;
+  createDownloadUrl(objectKey: string, expiresInSeconds: number, signingDate?: Date): Promise<string>;
   createUploadUrl(input: PresignedUploadRequest): Promise<{ headers: Record<string, string>; url: string }>;
   deleteObject(objectKey: string): Promise<void>;
   inspectObject(objectKey: string): Promise<StoredObjectMetadata>;
@@ -74,11 +74,11 @@ export function createR2AssetStorage(config: Pick<
       };
     },
 
-    async createDownloadUrl(objectKey, expiresInSeconds) {
+    async createDownloadUrl(objectKey, expiresInSeconds, signingDate) {
       return getSignedUrl(
         client,
         new GetObjectCommand({ Bucket: bucket, Key: objectKey }),
-        { expiresIn: expiresInSeconds }
+        { expiresIn: expiresInSeconds, ...(signingDate ? {signingDate} : {}) }
       );
     },
 

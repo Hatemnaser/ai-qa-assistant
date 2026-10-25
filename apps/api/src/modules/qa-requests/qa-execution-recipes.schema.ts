@@ -1,5 +1,5 @@
 import {
-  profileManifestV1Schema,
+  profileManifestSchema,
   recipeBundleV1Schema,
 } from "@oddpath/qa-execution-contract";
 import { z } from "zod";
@@ -15,13 +15,13 @@ export const qaRecipeParamsSchema = z.object({
 
 export const generateQaExecutionRecipeSchema = z.object({
   artifactId: shortId.optional(),
-  profileManifest: profileManifestV1Schema,
+  profileManifest: profileManifestSchema,
 }).strict();
 
 export const submitQaExecutionRecipeSchema = z.object({
   artifactId: shortId,
   bundle: recipeBundleV1Schema,
-  profileManifest: profileManifestV1Schema,
+  profileManifest: profileManifestSchema,
   supersedesRecipeId: shortId.optional(),
   title: z.string().trim().min(1).max(180),
 }).strict();

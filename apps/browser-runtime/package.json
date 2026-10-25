@@ -1,0 +1,21 @@
+{
+  "name": "@oddpath/browser-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated Chrome runtime and independent Oddpath supervisor",
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:docker": "node --test --test-timeout=240000 tests/docker.integration.mjs",
+    "start": "node src/supervisor-main.mjs",
+    "reaper": "node src/reaper-main.mjs",
+    "build:images": "docker build -f Dockerfile -t oddpath/chrome-runtime:phase-02 ../.. && docker build -f Dockerfile.egress -t oddpath/browser-egress:phase-02 ../.. && docker build -f Dockerfile.supervisor -t oddpath/browser-supervisor:phase-02 ../.."
+  },
+  "dependencies": {
+    "@oddpath/qa-execution-contract": "0.1.0",
+    "@oddpath/runner": "0.1.0",
+    "playwright": "1.62.1"
+  },
+  "engines": { "node": ">=24.19.0 <25" }
+}

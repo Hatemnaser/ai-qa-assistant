@@ -107,7 +107,7 @@ export async function logout(req: Request, res: Response, next: NextFunction) {
       ok: true,
     });
   } catch (error) {
-    next(error);
+    clearAuthCookie(res);next(error);
   }
 }
 

@@ -34,6 +34,8 @@ describe("external chat import repository", () => {
     assert.equal(database.chats[0]?.userId, "user-1");
     assert.equal(database.chats[0]?.projectId, undefined);
     assert.equal(database.messages.length, 2);
+    assert.equal(database.messages[0]?.model, null);
+    assert.equal(database.messages[1]?.model, "gpt-test");
     assert.equal(database.messages[0]?.id, undefined);
     assert.match(
       JSON.stringify(database.messages[0]?.metadata),

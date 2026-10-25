@@ -1,6 +1,8 @@
 export type OperationalLogLevel = "error" | "info" | "warn";
 
 export type OperationalEvent =
+  | {event:'auth_abuse_cleanup';removed:number;mayHaveMore:boolean}
+  | {event:'usage_accounting';stage:'capture'|'settlement'|'recovery';outcome:'pending'|'unconfirmed'}
   | {
       cacheHits: number;
       coalescedRequests: number;

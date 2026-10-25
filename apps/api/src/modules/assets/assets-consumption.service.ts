@@ -57,6 +57,7 @@ export function createAssetConsumptionService({
     if (
       !asset ||
       asset.status !== "READY" ||
+      (asset.evidenceExpiresAt && asset.evidenceExpiresAt <= new Date()) ||
       asset.purpose !== input.purpose ||
       asset.projectId !== input.projectId ||
       !asset.detectedMimeType ||
@@ -91,6 +92,7 @@ export function createAssetConsumptionService({
         (object.metadata.checksumSha256 !== null &&
           object.metadata.checksumSha256 !== asset.checksumSha256) ||
         checksum !== asset.checksumSha256
+        || (asset.evidenceExpiresAt && asset.evidenceExpiresAt <= new Date())
       ) {
         throw new Error("Stored object did not match its validated metadata.");
       }

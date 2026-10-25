@@ -89,6 +89,7 @@ const stepCount = computed(() => selectedRecipe.value?.bundle.items.reduce((coun
               </select>
             </label>
             <p v-if="selectedProfile">{{ selectedProfile.runnerName }} · {{ selectedProfile.runnerVersion }}</p>
+            <p v-if="selectedProfile?.protocolVersion === 2" class="workspace-note" data-testid="browser-quota-limits">{{ t('projects.qa.approval.browserLimits') }}</p>
             <p v-if="selectedProfile?.status === 'OFFLINE'">{{ t('projects.qa.runSetup.offlineNote') }}</p>
             <p v-else-if="selectedProfile?.status === 'INCOMPATIBLE'">{{ t('projects.qa.approval.profileIncompatible') }}</p>
           </template>

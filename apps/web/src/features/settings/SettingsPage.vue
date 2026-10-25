@@ -374,7 +374,7 @@ async function handleAccountImported(_result: AccountImportCommitResult) {
             <span class="form-label">{{ t("settings.defaultModel") }}</span>
             <select v-model="form.defaultModel" class="form-control">
               <option v-for="model in modelOptions" :key="model.value" :value="model.value">
-                {{ model.label }}
+                {{ model.value === 'auto' ? t('model.auto.label') : model.label }}
               </option>
             </select>
           </label>

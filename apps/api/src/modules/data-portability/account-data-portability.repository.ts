@@ -4,6 +4,7 @@ import { MemoryScope, MemorySource } from "../../generated/prisma/enums.js";
 import { BINARY_ASSET_PORTABILITY_LIMITS } from "./binary-assets.js";
 import { bindCompleteExportAssetRows } from "./export-asset-relations.js";
 import { PORTABILITY_SNAPSHOT_TRANSACTION_OPTIONS } from "./portability-transaction.js";
+import {readQaHistory,readQaBinarySources} from "../qa-requests/qa-report.reader.js";
 import {
   ACCOUNT_EXPORT_LIMITS,
   type AccountDataPortabilityRepository,
@@ -250,10 +251,12 @@ export function createPrismaAccountDataPortabilityRepository(
         messagesByChat.set(chatId, messages);
       }
 
-      const projects = account.ownedProjects.map((project) => ({
+      const projects = await Promise.all(account.ownedProjects.map(async (project) => ({
         ...project,
+        qaHistory: await readQaHistory(tx,userId,project.id),
+        qaBinarySources: await readQaBinarySources(tx,userId,project.id),
         documents: documentsByProject.get(project.id) || [],
-      }));
+      })));
       const chats = account.chats.map((chat) => ({
         ...chat,
         messages: messagesByChat.get(chat.id) || [],

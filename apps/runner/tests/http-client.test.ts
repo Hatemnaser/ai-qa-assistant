@@ -2,9 +2,32 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { OddpathClient, type EvidenceUploadInitiation } from "../src/http-client.js";
-import { executionReceipt } from "./fixtures.js";
+import { executionReceipt, claimedExecution, managedClaimedExecution } from "./fixtures.js";
 
 describe("Oddpath runner HTTP client", () => {
+  it('requires the strict v2 registration receipt and authenticated project binding', async () => {
+    const profile = managedClaimedExecution().task.profile;
+    const registration = { schemaVersion: 2 as const, displayName: 'Remote', executorKeys: ['playwright' as const],
+      instanceId: 'runner', profiles: [profile], protocolVersions: [2 as const], runnerVersion: 'test' };
+    const receipt = { schemaVersion: 2, heartbeatAfterMs: 20_000, profiles: [profile], projectId: 'project-1',
+      registeredAt: new Date().toISOString(), registrationId: 'registration' };
+    for (const input of [receipt, { ...receipt, schemaVersion: 1 }, { ...receipt, projectId: undefined }, { ...receipt, extra: true }]) {
+      const client = new OddpathClient({ protocolVersion: 2, serverUrl: 'https://api.example.test', token: 'fixture-only',
+        fetch: fakeFetch([], () => jsonResponse(input)) });
+      if (input === receipt) assert.equal((await client.registerV2(registration)).projectId, 'project-1');
+      else await assert.rejects(client.registerV2(registration), { code: 'ODDPATH_PROTOCOL_INVALID' });
+    }
+  });
+  it('keeps managed claims and receipts on v2 without falling back to a legacy task', async () => {
+    const requests: CapturedRequest[] = [], task = managedClaimedExecution();
+    const client = new OddpathClient({ protocolVersion: 2, serverUrl: 'http://127.0.0.1:5000', token: 'test-only',
+      fetch: fakeFetch(requests, () => jsonResponse(requests.length === 1 ? task : { receipt: executionReceipt(1) })) });
+    assert.equal((await client.claimV2({ instanceId: 'runner', registrationId: 'registration' }))?.task.schemaVersion, 2);
+    await client.accept(task.task.executionId, task.claim);
+    assert.ok(requests.every(value => value.url.includes('/runner/v2/')));
+    const invalid = new OddpathClient({ protocolVersion: 2, serverUrl: 'http://127.0.0.1:5000', token: 'test-only', fetch: fakeFetch([], () => jsonResponse(claimedExecution())) });
+    await assert.rejects(invalid.claimV2({ instanceId: 'runner', registrationId: 'registration' }));
+  });
   it("parses the clean no-work claim response and authenticates only to Oddpath", async () => {
     const requests: CapturedRequest[] = [];
     const client = new OddpathClient({

@@ -1,3 +1,6 @@
+import type { QaEvidenceProvenance } from "@oddpath/qa-execution-contract";
+import type { ProfileManifestV2, TargetSnapshotV2 } from '@oddpath/qa-execution-contract';
+
 export type QaRequestPhase =
   | "DRAFT"
   | "GENERATING"
@@ -115,7 +118,7 @@ export type QaRecipeStep = QaRecipeStepBase & (
   | { action: "expect"; expectation: QaRecipeExpectation }
 );
 
-export interface QaProfileManifest {
+export interface QaProfileManifestV1 {
   schemaVersion: 1;
   profileKey: string;
   label: string;
@@ -126,6 +129,7 @@ export interface QaProfileManifest {
   valueReferences: Array<{ key: string; secret: boolean }>;
   manifestHash?: string;
 }
+export type QaProfileManifest = QaProfileManifestV1 | ProfileManifestV2;
 
 export interface QaRecipeBundle {
   schemaVersion: 1;
@@ -190,6 +194,10 @@ export interface QaOperationReceipt {
 }
 
 export interface QaRunnerProfile {
+  protocolVersion?: 1 | 2;
+  target?: TargetSnapshotV2;
+  authentication?: ProfileManifestV2['authentication'];
+  executionLimits?: ProfileManifestV2['executionLimits'];
   id: string;
   runnerRegistrationId: string;
   runnerName: string;
@@ -223,6 +231,7 @@ export interface QaExecutionJob {
 }
 
 export interface QaCheckResult {
+  provenance?: QaEvidenceProvenance | null;
   id: string;
   runId: string;
   checklistItemId: string;
@@ -234,6 +243,7 @@ export interface QaCheckResult {
 }
 
 export interface QaEvidenceAsset {
+  availability?: string;
   id: string;
   ordinal: number;
   asset: {
@@ -244,10 +254,14 @@ export interface QaEvidenceAsset {
     sizeBytes: number | null;
     status: string;
     readyAt: string | null;
+    evidenceExpiresAt?: string | null;
+    checksumSha256?: string | null;
   };
 }
 
 export interface QaEvidence {
+  provenance?: QaEvidenceProvenance | null;
+  recordHash?: string;
   id: string;
   runId: string;
   checklistItemId: string | null;

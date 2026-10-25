@@ -5,6 +5,7 @@ import {
   type AccountDataDeletionCoordinator,
 } from "./account-data-deletion.js";
 import type { AccountRepository } from "./account.types.js";
+import { retryAccounting } from '../usage/usage-receipts.js';
 
 export const ACCOUNT_DELETION_TRANSACTION_OPTIONS = Object.freeze({
   isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
@@ -18,7 +19,7 @@ export function createPrismaAccountRepository(
 ): AccountRepository {
   return {
     async deleteAccountData(userId) {
-      await database.$transaction(
+      await retryAccounting(()=>database.$transaction(
         async (tx) => {
           const deleted = await dataDeletion.deleteInTransaction(tx, userId);
 
@@ -27,7 +28,7 @@ export function createPrismaAccountRepository(
           }
         },
         ACCOUNT_DELETION_TRANSACTION_OPTIONS
-      );
+      ));
     },
 
     async findAccountCredentials(userId) {

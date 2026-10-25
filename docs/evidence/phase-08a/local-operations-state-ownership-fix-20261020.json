@@ -1,0 +1,276 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-20T16:08:51.868Z",
+  "scope": "PHASE_08A_2_STATE_PUBLICATION_OWNERSHIP_AND_RECOVERY",
+  "status": "FIXED_LOCALLY_PENDING_INDEPENDENT_ACCEPTANCE",
+  "phase08Accepted": false,
+  "publicReleaseAuthorized": false,
+  "source": {
+    "digest": "a655502bfd76d8210390208bfc0f4c62567d4a71f47b599a2bbdce13c37c9666",
+    "fileCount": 1053,
+    "image": "sha256:c61a4bcba6e513460027d50c4d360c32c027b75c34af989691081d996df2759c",
+    "changedFiles": [
+      {
+        "path": "ops/maintenance.mjs",
+        "sha256": "314ba317496144cf2b0e28fc746fa39b51dd65b29cbe377d6ea282df997ba350"
+      },
+      {
+        "path": "ops/lib/private-files.mjs",
+        "sha256": "a43b13172462daac412d29f1d1701f4d08b225308cb23a2af8f6b05aab7a7ea0"
+      },
+      {
+        "path": "ops/tests/maintenance.test.mjs",
+        "sha256": "66c69918c4f7251d04e762b7c2c67362080f2acb3b42a0c3e5abc8cf155eecc6"
+      },
+      {
+        "path": "ops/tests/local-operations.integration.mjs",
+        "sha256": "c4a124407091cad9715356f5f0bec055ada8db5da6e7e92a95b69ebfbf305fd3"
+      },
+      {
+        "path": "docs/PHASE_08A_READINESS_INVENTORY.md",
+        "sha256": "dc778238977976f3d74d728ce96f8066ecf3416f6170e7a7c98dfb1156c10417"
+      }
+    ],
+    "unrelatedOriginalFilesUnchanged": 1205,
+    "imageSourceParity": {
+      "ops/maintenance.mjs": "314ba317496144cf2b0e28fc746fa39b51dd65b29cbe377d6ea282df997ba350",
+      "ops/backup.mjs": "a57a443278937e41013f605e0d77d2c4eaf8e03991a91fce79669dcce1a8bf23",
+      "ops/lib/backup-archive.mjs": "94a8e64e342eab8f25b24fb8d24a2824c16400ca05c5c326f677eb5c09f9aeff",
+      "ops/lib/private-files.mjs": "a43b13172462daac412d29f1d1701f4d08b225308cb23a2af8f6b05aab7a7ea0",
+      "ops/lib/local-lock.mjs": "423978f64b81b4b5f35c04f16c03af4fc8e731c640875c5935bf19b53812bd59",
+      "apps/api/scripts/verify-release.mjs": "b96c00e1cb77260e630959b8d32aac1ad052170f86716165616873c6d723faa2",
+      "apps/api/scripts/verify-release-fingerprint.mjs": "40c4b2703770e1bb662c75e327d0f35bbbcdd685854e5a4daaa76483e3cd08f7",
+      "apps/api/scripts/verify-release-manifest.mjs": "9facf9c31a490035f9fab6f17d27c38c68ee15a18314545765d0429945bcc90d",
+      "apps/api/scripts/verify-release-network.mjs": "3570149f59c4d49127c904450696ace16974d9690ceb02e2e57070e7d2e8d087",
+      "package.json": "a2d8fc5864f100edf7bb8e1bf7585e3e64d35fd65a03c54785d4282934f68d9e"
+    }
+  },
+  "fix": {
+    "bothRolesLocalPublicationFence": true,
+    "maintenancePgWorkLockRetained": true,
+    "writesDrainedBeforeFenceRelease": true,
+    "ordinaryPublicationRejectedAfterPgLoss": true,
+    "terminalFailureOnlyWhileLocalFenceHeld": true,
+    "preRenameGuard": true,
+    "uncleanRestartRequiresFreshSuccess": true,
+    "redHealth": [
+      1,
+      0,
+      0
+    ],
+    "greenHealth": [
+      1,
+      1,
+      1
+    ]
+  },
+  "verification": {
+    "unitRed": {
+      "pass": 25,
+      "expectedFailures": 6
+    },
+    "unitLinuxGreen": 31,
+    "existingAssertionsPreserved": true,
+    "pgTransitionGreen": 12,
+    "realIntegration": 48,
+    "fullVerify": {
+      "pass": 2000,
+      "skipped": 1,
+      "summaries": [
+        {
+          "tests": 41,
+          "suites": 4,
+          "pass": 41,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 1117,
+          "suites": 169,
+          "pass": 1116,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 1,
+          "todo": 0
+        },
+        {
+          "tests": 33,
+          "suites": 6,
+          "pass": 33,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 676,
+          "suites": 106,
+          "pass": 676,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 91,
+          "suites": 4,
+          "pass": 91,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 12,
+          "suites": 0,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "tests": 31,
+          "suites": 0,
+          "pass": 31,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        }
+      ]
+    },
+    "linuxVaultPass": 5,
+    "gitDiffCheck": "PASS",
+    "initialWindowsSandboxAttempt": "NOT_VALID_REGRESSION",
+    "extendedHarnessSetupFailuresRetained": 2
+  },
+  "cleanup": {
+    "allOwnedResourcesRemoved": true,
+    "syntheticSecretFilesRemoved": true,
+    "originalWorkingDatabaseUnchanged": true,
+    "originalWorkingDatabaseHealthy": true
+  },
+  "scopeLimits": {
+    "additionalModelsUsed": false,
+    "subagentsUsed": false,
+    "dbSchemaChanged": false,
+    "apiChanged": false,
+    "dependenciesChanged": false,
+    "deployed": false,
+    "stageOrCommit": false,
+    "requiresLocalSharedStateFilesystem": true
+  },
+  "priorIndependentReview": {
+    "path": "work/phase-08a-startup-lock-acceptance-20261020/FINAL_REVIEW.md",
+    "sha256": "8995aadef25877f7c3f3da82885fe27b7c000f63b08fa1397429bbeef6a62cb6"
+  },
+  "evidence": [
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/baseline.json",
+      "sha256": "682b1fe36b1bd921183e998718af92ac0c75973bfa490b68cb0ca0e65d56eaf1"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/before-maintenance.mjs",
+      "sha256": "aad2f151a2c9f2d1213ff22a88fd1595ba943b87f7ca7c26240b9a18cf7a97a3"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/before-private-files.mjs",
+      "sha256": "8c42d241895d1b0d3b521782fef443d88586d23760a68a4208df9d08e9db8222"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/before-maintenance.test.mjs",
+      "sha256": "fdf84565f5bbe6b0806d20a3101ca030ea7a8826eac5eaef30bd225c029d790f"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/unit-linux-red.log",
+      "sha256": "8aa63590bd4d29d4275eaa78e97c424e2395db896a999ea89315434959208652"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/unit-linux.log",
+      "sha256": "a324df58e374278b460fa6dd2257f65d1af7802d0664fb2c5d415a78211ad76d"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/unit-red.log",
+      "sha256": "fedb35bcae5927811a1a8077f23ed7f654d72193d4484fa96491e5cca3608d35"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/verify.log",
+      "sha256": "9c93c56f7ac212cee710fc036597930ecae2350e9800c03bb9095315b94cc3ee"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/vault-linux.log",
+      "sha256": "7167d087d16a8ab620226cebfec30bad06523486401a5f612fdaba899b298f48"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/integration-green/verification.json",
+      "sha256": "900052e00f6ae4a0009f37ba6cc0085bad869db43c5a1cd8f80307b8db16e547"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/postgres-red/adversarial-linux.mjs",
+      "sha256": "65ff623a213d8d24be9c3a137d1ce29bea4d24100dfb2ceb3ced7cdc0b3f5165"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/postgres-red/adversarial-meta.json",
+      "sha256": "f36e335348db129e055dc5f47341a6a2677975e6efdfae6d1cebbb9a68db961a"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/postgres-red/adversarial.log",
+      "sha256": "fecb62cbda977b93853c490ef02945bcd3d773c938c359ed13dcaddb9c2ae3af"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/postgres-regression/adversarial-linux.mjs",
+      "sha256": "61c09659a2332d8c8d8218ddb084ac87e043ea823b01cf1a1e546893bc05b71c"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/postgres-regression/run-adversarial.mjs",
+      "sha256": "1015c156807acd5cf47ffd0458101f5c2b50fd3e72143da73861909c8ddf0f94"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/postgres-regression/adversarial-repeat2-meta.json",
+      "sha256": "166e5f464230f3284d68ea254f6b8417474916252a3cc3ac766f89b2cda85812"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/postgres-regression/adversarial-repeat2.log",
+      "sha256": "13b83433836c17f98ead87b9833e5fe3fec5041cf5213bc3900545ff73f04c1d"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/postgres-regression/adversarial-repeat9-meta.json",
+      "sha256": "f28565bdf9ae9594dc9f24e436089558d510110faf99b41d31b17fad5cd10155"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/postgres-regression/adversarial-repeat9.log",
+      "sha256": "186b51b0bab448fecda0e698b7a4821baea473979b1cf8bf6e0cefc2c7feca4e"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/postgres-regression/adversarial-meta.json",
+      "sha256": "98416aaff50e820b9842fedb743d8add57ede428c0686a758a02f682bf7ddb2a"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/postgres-regression/adversarial-repeat1-meta.json",
+      "sha256": "624049cb6f4c7b5ba904a547e3772269987890cef8de57ac30d2f9b19fb00677"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/maintenance-change.patch",
+      "sha256": "f8787b3043ded23c1f86054e502331906f37ea893f2caac40029c67f2138cf0e"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/publication-change.patch",
+      "sha256": "d156001d67a89559ad2293329d4e194f67fb3a31ae3b13b39551ae856c3d66c8"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/tests-change.patch",
+      "sha256": "2bbfc65f8fcd6d8faddc9690404868372cc4dd8726bd9234eaf2eba418b97aad"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/diff-check.log",
+      "sha256": "db456496245738f6bc6940a967445b44a99e532985ff7f397c4a789c379d9024"
+    },
+    {
+      "path": "work/phase-08a-state-ownership-fix-20261020/IMPLEMENTATION_REPORT.md",
+      "sha256": "83658b22d53a81c319a07729c730de161de55c1e8fcc123b7908642ed4f3ca3b"
+    }
+  ]
+}

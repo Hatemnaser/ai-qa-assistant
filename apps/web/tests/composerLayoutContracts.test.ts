@@ -30,7 +30,8 @@ describe("focused composer layout contracts", () => {
     assert.match(toolbar, /:aria-controls="attachmentInputId"/);
     assert.match(toolbar, /@click="attachmentInput\?\.click\(\)"/);
     assert.match(toolbar, /v-for="option in QA_MODES"/);
-    assert.match(toolbar, /:disabled="isComposerDisabled \|\| mode === 'screenshot_review'"/);
+    // Model selection is exercised in the real browser suite, including Visual Review.
+    assert.doesNotMatch(toolbar, /:disabled="[^"]*mode === 'screenshot_review'/);
     assert.match(toolbar, /<Icon name="paperclip"/);
     assert.match(toolbar, /<Icon name="arrow-up"/);
     assert.match(toolbar, /type="submit"/);

@@ -25,6 +25,17 @@ describe("assets service", () => {
     );
   });
 
+  it("expires new QA binaries after thirty days without expiring chat attachments",async()=>{
+    await state.service.initiateUpload('user-1',{...createInitiateInput(),purpose:'QA_EVIDENCE'});
+    assert.equal(state.assets[0]?.evidenceExpiresAt?.getTime(),NOW.getTime()+30*24*60*60*1000);
+    await state.service.initiateUpload('user-1',createInitiateInput());assert.equal(state.assets[1]?.evidenceExpiresAt,null);
+  });
+  it("rejects an expired READY evidence asset before signing a download",async()=>{
+    await state.service.initiateUpload('user-1',{...createInitiateInput(),purpose:'QA_EVIDENCE'});
+    state.assets[0]!.status='READY';state.assets[0]!.evidenceExpiresAt=NOW;
+    await assert.rejects(()=>state.service.getDownloadUrl('user-1',state.assets[0]!.id),{code:'ASSET_NOT_FOUND'});
+  });
+
   it("creates an opaque server key and signs upload invariants", async () => {
     const response = await state.service.initiateUpload("user-1", createInitiateInput());
 
@@ -377,6 +388,7 @@ function createAsset(input: Record<string, unknown>): AssetRecord {
     projectId: input.projectId ? String(input.projectId) : null,
     purpose: input.purpose as AssetRecord["purpose"],
     readyAt: null,
+    evidenceExpiresAt: input.evidenceExpiresAt as Date | null,
     sizeBytes: null,
     status: "PENDING",
     updatedAt: NOW,

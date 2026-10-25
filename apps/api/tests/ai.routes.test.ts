@@ -41,6 +41,7 @@ describe("GET /api/ai/models", () => {
     assert.equal(body.defaultModel, "gemini-3.1-flash-lite");
     assert.deepEqual(body.providers, ["gemini"]);
     assert.ok(Array.isArray(body.models));
+    assert.ok(body.models.some((model: { value: string }) => model.value === "auto"));
     assert.ok(body.models.some((model: { value: string }) => model.value === "gemini-2.5-flash"));
     assert.deepEqual(body.models[0].capabilities, {
       images: true,

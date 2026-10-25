@@ -1,0 +1,568 @@
+{
+  "phase": "03A",
+  "repair": "Docker EOF settlement",
+  "validatedAt": "2026-10-12T17:45:26.773Z",
+  "status": "IMPLEMENTED_VERIFIED_INDEPENDENT_REVIEW_PENDING",
+  "branch": "codex/oddpath-foundation-phase-01",
+  "head": "08ae650a4120b510995ca1a69ada5d240d469dfc",
+  "sourceChanges": [
+    "apps/browser-runtime/src/docker-driver.mjs",
+    "apps/browser-runtime/tests/supervisor.test.mjs",
+    "apps/browser-runtime/tests/docker.integration.mjs"
+  ],
+  "sourceHashes": {
+    ".dockerignore": "3e91f84024e4b990f7879077cb986f739a8baa984efd5b699f5c24095ff6f307",
+    "apps/api/.env.example": "cee168ce5a95d24c7300a443c4daeaf99c657556354ba7b1d322a61b5b47c91a",
+    "apps/api/package.json": "211c8b65cd98013452cd63c6dd65aa22377bf3606536a19c60149c5752e42cd9",
+    "apps/api/prisma/migrations/20261010000100_add_qa_target_approval_v2/migration.sql": "d1c750352f1f416aa1874462d5cabb096c7886cf2030403c4a3b0ddb7a644096",
+    "apps/api/prisma/migrations/20261011000100_add_browser_runtime_supervision/migration.sql": "ee98d813f090e4acc4471ca535c6604c7df382273ed5fb61e69ab0378506e1ea",
+    "apps/api/prisma/migrations/20261012000100_add_manual_browser_login/migration.sql": "7de2ccc59a822594848a29824a7b4eb7f8ca3e1ca9d929bccf992d8e63550e8e",
+    "apps/api/prisma/schema.prisma": "22fbecd616953da3b93604c74d63c52fbac9a853d0d7032acae654bcb4f91757",
+    "apps/api/src/config/env/loaders/core.ts": "6425155bfc0adb1c32bc14c499c7466b6af3b25f3f7bea66791e45ddea3e6fcf",
+    "apps/api/src/config/env/validate.ts": "93353b2c35d529afe05c1650c62ff802d0ada2ca5b5961c11ea84ffa4c63a6f1",
+    "apps/api/src/lib/canonical-json.ts": "0d1a38d80f454096b7304da4b526e444825ec93393acdac81731be467df45db2",
+    "apps/api/src/modules/account/account-data-deletion.ts": "712cd6df9c8f330a0585983c9c48a128d7c35f71dadc736ff1b45f58bd981c65",
+    "apps/api/src/modules/account/account.service.ts": "d0e4fe9a32efd9ccddc3b19e3ed07fd0339899c23cae7621d092c5466b68ef23",
+    "apps/api/src/modules/auth/auth.service.ts": "4a6c6bbb3b24a6f3bb2fbd7937caa323e0c2c5ef4b5c227e95c628618f65e618",
+    "apps/api/src/modules/browser-runtime/browser-runtime.repository.ts": "0983d21f2781475f168d70e6a86052b08eadc5453062fe13e0f086f2be939203",
+    "apps/api/src/modules/browser-runtime/browser-runtime.routes.ts": "d6256495bc62c45a1e916fb9e5f0347a907574d1f8c7e1afd7cdd78850479b87",
+    "apps/api/src/modules/browser-runtime/browser-runtime.service.ts": "5eb92ca1f7cdf320d0b7ed8cc1d4a3272616ad95fbb65e2b025fb8db4058d5c8",
+    "apps/api/src/modules/browser-runtime/browser-runtime.types.ts": "a2036f9caeeabe8b223e4d133867b2a8f8a4e60018412c5324b1ba04ab649b23",
+    "apps/api/src/modules/projects/projects.repository.ts": "9ca95dfbc3817172c4fa5907456796838bf7fc538359eeb353f06f38362e1c2c",
+    "apps/api/src/modules/projects/projects.routes.ts": "327e1e953a6d02f3398432f11ba89bc79389cfe45c5a859c15b46cce37b91c62",
+    "apps/api/src/modules/projects/projects.service.ts": "4e8eaacaa72168a40dcd088bdcd293c02d7a1e0cef3fb75d0af980008832ff19",
+    "apps/api/src/modules/qa-requests/qa-agent.routes.ts": "0f3b8f151ee22ce119a209d4f8e867600d675718b9dbb774f2cf954a666f5af7",
+    "apps/api/src/modules/qa-requests/qa-execution-recipes.repository.ts": "00912512687d3f93ff8dfe95f6596629d9feeb78f5967a7c8b44f86d04861316",
+    "apps/api/src/modules/qa-requests/qa-execution-recipes.schema.ts": "3686315512f6c5f3b16e5ab9f01e4ebd19ac24094e4f283d1d5bd7c534975f19",
+    "apps/api/src/modules/qa-requests/qa-execution-recipes.types.ts": "ddebd617b80d50a8fd1b29d3998b061306c83f12e664a17adabbe77ba40d76f2",
+    "apps/api/src/modules/qa-requests/qa-execution.controller.ts": "896411481e15882d28518f46e5a0e37f73341de5aafec9c7240c4557141cf671",
+    "apps/api/src/modules/qa-requests/qa-execution.repository.ts": "fcb6130d2855c1b6d7533c10f8b5354827e2af90d26415e0ee9e7e9355e3c82c",
+    "apps/api/src/modules/qa-requests/qa-execution.service.ts": "74fd542f3a8d548c9d5d93958fefb12b684ff3312487cdfd7c68290f36c35e78",
+    "apps/api/src/modules/qa-requests/qa-execution.types.ts": "c8659334e9d6b37b54d3bea458e1ff7d83c92632d5c3cf749d3f5fd28b4051ca",
+    "apps/api/src/modules/qa-requests/qa-processing.handlers.ts": "77f9a46f4128c4c8a88ef71c7668c1e7530b889f67e0e2c17361b3361aebd06a",
+    "apps/api/src/modules/qa-requests/qa-runner.controller.ts": "cce4ea5bbb51999030fdae9cbe3b32b7048178bc5952889dfe4445e5f2d21873",
+    "apps/api/src/modules/qa-requests/qa-runner.repository.ts": "4541d3d1b9d7d7bf02e21c24554cc7426cd1755dd2a87674bebb8a2612ccf9c3",
+    "apps/api/src/modules/qa-requests/qa-runner.service.ts": "b6f06176ebf2df770739375c8f3105a53a4d2299497130d190b13b091bbd3d23",
+    "apps/api/src/modules/qa-requests/qa-runner.types.ts": "1adef311b9fb9988aca901ff3c0f6d78a5e820faebc54a34fdafc92567c5b573",
+    "apps/api/src/modules/qa-targets/qa-targets.binding.ts": "2f8a25c7698750fa3e45e1090598c1f47ef49c55a9197b37339af74b30d3c60b",
+    "apps/api/src/modules/qa-targets/qa-targets.execution.ts": "880b001871c0905aae65846dbfd4d6d7ebc51f2adda873c003da8c52f90c23fd",
+    "apps/api/src/modules/qa-targets/qa-targets.proof.ts": "2a887b2c8d622903a31017722b96d4b581207602201d0cd4441acedc05a89c41",
+    "apps/api/src/modules/qa-targets/qa-targets.repository.ts": "0c3bf15b7c03aeeecd048a0f887f17a64b7a9c8c45adcc49eb7a883624d3a3ae",
+    "apps/api/src/modules/qa-targets/qa-targets.routes.ts": "ddde7b445136bc992df59a679246ae7fd679f25caa01bac8b8626a564622eb41",
+    "apps/api/src/modules/qa-targets/qa-targets.schema.ts": "a72c239c1da29a0ef98e98ea12ac3ec3211c2387a46218c743abbf53f06ad20d",
+    "apps/api/src/modules/qa-targets/qa-targets.service.ts": "7de1cf7bf01956d368acf9122852f3e7aa71e975eb6cda3986859f85adf76b35",
+    "apps/api/src/modules/qa-targets/qa-targets.types.ts": "f0697dc1f30c816342a1d002dea399d970f56dfc2d98d19f6c71a9f76dfdcbf1",
+    "apps/api/src/modules/test-sessions/test-sessions.repository.ts": "d18de0dd60b4d7c5b6c89410332bf481e5d1870d72cd995e61999fa8333bdc4a",
+    "apps/api/src/modules/test-sessions/test-sessions.worker.ts": "bf2518cf78b16aa63443de599b46659e5f761f2b5b754aa08e22521f2825fb77",
+    "apps/api/src/scripts/browser-reaper.ts": "aca429557cbf2ed81733fa93717832c9101cb9e85712cce14b388efb92b61906",
+    "apps/api/src/scripts/browser-transition.ts": "ebf7e31a55e3aad71b38d252ff3ebadf643d19c9b5a4ed8b59e67659085cf627",
+    "apps/api/tests/account.service.test.ts": "cea0487d88be5f7445a8a660728e7589dcf670db4ae06e3037d83aa0ae68d263",
+    "apps/api/tests/auth.service.test.ts": "0fe4b29af1c833b01bda2be91ae62ce786e00d33f9f707791a69cc2f5e5a9ab1",
+    "apps/api/tests/browser-runtime.service.test.ts": "04feb887918d5f6ce319142d2efc31f57f2aa8aa25f7fad7bc047ff0b719aab3",
+    "apps/api/tests/env.test.ts": "cd7a65cf47977906240c713b4b332139ef4ff8c045a85d9bccca1d21d066ce88",
+    "apps/api/tests/helpers/authService.ts": "31d3cfad5db0e9bbf6804e73e7fdbe59b62f1256c1b8117088d60a3ec61131d1",
+    "apps/api/tests/postgres.integration.ts": "63e09946cbf321ee96a4656b3818e7718220b9aed267fcdffaf52b3403904e6c",
+    "apps/api/tests/projects.routes.test.ts": "7ad08e16ad341f8fcfefd311ac80e4025e246750fbe3ed05d4f8a349ea99d0e1",
+    "apps/api/tests/qa-execution-expiry.test.ts": "35de2d1a17cc675347c10051f1f28e498dd46772f1b2626dfaaf519fc6d2285d",
+    "apps/api/tests/qa-runner.service.test.ts": "de324b705e52424bee093ed6e8c97361128b011c3b5153c7a0929159a75e45e0",
+    "apps/api/tests/qa-targets.postgres.integration.ts": "74159621a687b121182b446c18ea8b8bf027f65c7b7cdc954ddd8a67ae60142e",
+    "apps/api/tests/qa-targets.service.test.ts": "e3b0faa77c2f712f1ee3745c624835878944543ccc3b74d29ed2ddf8578c03fb",
+    "apps/browser-runtime/Dockerfile": "768fb55521940e05044ba7c503732ddf1b6cee2ad8184dd0988de1ed69f52429",
+    "apps/browser-runtime/Dockerfile.egress": "6ed3f48f2911512139df2ef1c7110a5a24385b031ab5a6bf6906e2ba58f45544",
+    "apps/browser-runtime/Dockerfile.supervisor": "54f311ab7a578d35d1644e1038b0456a39bf027c54bec891d514dcfe4a420249",
+    "apps/browser-runtime/README.md": "0bb1e7d455b3c3773051de4e0d601b8af79c9bd185368739a7fa8754201105d3",
+    "apps/browser-runtime/package.json": "cb954bca56aa9f1b5773a5a2130f2dda553b6a0fb532b68d512295a8103835f5",
+    "apps/browser-runtime/scripts/check.mjs": "360ec4270d5c8475447193fb9a4cc558ee1f8751fcd3fae60924fe5722ff6e3c",
+    "apps/browser-runtime/seccomp.json": "17d0d3fd50b465f5fe12aad0ea68917492fed2798cdc38053fdd0d0d1984aeac",
+    "apps/browser-runtime/src/browser-readiness.mjs": "7ab6462a173aff57212ff1c2e02365100121b7b1de8f095f3840a10fc78a3cf0",
+    "apps/browser-runtime/src/config.mjs": "b8d9685e726536e33b2372bedc2ab6dbad31a955e6140bcce381317111d4d76c",
+    "apps/browser-runtime/src/docker-driver.mjs": "bbfca3e9ce3e8e36caaf2ca4cb7eeb14b018f3fc5f67b0e81d6965588b5072dd",
+    "apps/browser-runtime/src/egress-main.mjs": "233226f43681396bc8e8e3f6b0bcecfb32b0a922602d9632decadec2392aafb4",
+    "apps/browser-runtime/src/egress-policy.mjs": "d72eaf0e1ce965c74bc05438a164755c022777fa49990e26a5ad15f9a573cdd3",
+    "apps/browser-runtime/src/human-preparation.mjs": "673869760cd1894fe813c068d7866bab8f366199e71b052891103362ff1cc98b",
+    "apps/browser-runtime/src/journal.mjs": "8f71805ea4a5017d9d73feb2c1d6d9f2470ea05f2612d15e2447b0f860651d58",
+    "apps/browser-runtime/src/login-boundary.mjs": "81813ba1ca4b91082b444d71811c134186f8bf0b571f6a84f6b409b327eb6a76",
+    "apps/browser-runtime/src/login-policy.mjs": "e02edb76a3c06190300b6018d6f2e927a9cdebee7abd80d4230a9bb700e3a150",
+    "apps/browser-runtime/src/project-claim.mjs": "d01193b836d50eceb0ef946a892ff16b6a165283124855a994b5223a08d3aad2",
+    "apps/browser-runtime/src/reaper-main.mjs": "de5a0c0e1b127d161a91fdac712874797a3f34d83201799a6dde1d731d72013b",
+    "apps/browser-runtime/src/runtime-main.mjs": "4005669ddda75fcacae502867aba42058e86a17cd604837b72f0dfc47f4b6ad2",
+    "apps/browser-runtime/src/supervisor-main.mjs": "59f88db0db6ec79738083a3c522901db01acd925edf2d165c87258d1a9f8b8c4",
+    "apps/browser-runtime/src/supervisor.mjs": "ff52b7ad49bea7ea3e41da6a1a61bd1f417dafac806a25e4352268968a269031",
+    "apps/browser-runtime/src/viewer-gateway.mjs": "b8729cff24fab65c061f52f711057fd6206d347b500b4ee3997a88a863b26d0c",
+    "apps/browser-runtime/src/viewer-grants.mjs": "9144995f36619d249963ca2810a7c6928a4223c858093e6c788812fd1f5f5f2c",
+    "apps/browser-runtime/tests/browser-readiness.test.mjs": "e90c7d210c08ede9efa0edcad7cf68bf0d41429ad9b740d308cb5ebf13c98cd7",
+    "apps/browser-runtime/tests/docker.integration.mjs": "cdd6763c5a5bc1ab912f1da75e804449649f63201d6740f38eb3cf38119751f2",
+    "apps/browser-runtime/tests/egress-policy.test.mjs": "b8e57ce1d8c42c07da0ccd0d26ee3c5eee60cb4ad866f6a04d2e9516614095ac",
+    "apps/browser-runtime/tests/fixtures/registration-contract.mts": "6c0a9be0c961f0451e967421e4f04a7597e2666823aba8afb245e4557fc53599",
+    "apps/browser-runtime/tests/fixtures/runtime-lease.mjs": "eb0d73876255a398f9540775754b4b1b558766c462598900e3b8e7ffaac9cd7b",
+    "apps/browser-runtime/tests/fixtures/viewer-startup/Dockerfile": "406507b730c8e53d336b6a393366bc390b7d68cdc9cb81d455d003f23c10d509",
+    "apps/browser-runtime/tests/fixtures/viewer-startup/delayed-websockify": "4d926eb531a38c35cd0d59a2de9e25e4a65cc54628e90712b58be416c8509b37",
+    "apps/browser-runtime/tests/human-preparation.test.mjs": "ca593e11ef2570c1a6bb0589236090a448a0b85cac6c059b6e50e453e4a6c33c",
+    "apps/browser-runtime/tests/journal-lock.test.mjs": "48f9c791226e5fdeec4f9e75bc665dd7d070eaab651d2537f81195addbaf3c8f",
+    "apps/browser-runtime/tests/login-boundary.test.mjs": "f129dad1510f4a3e11799042d7aacf69aba8cb714d729635c49208ce08124dbe",
+    "apps/browser-runtime/tests/registration.test.mjs": "8353b3632047604432726ab99750f2d1a307ff5b8694b55569c6c9c6131cd4dd",
+    "apps/browser-runtime/tests/runtime-lease.test.mjs": "b0fec5cf46b68e75c641f9bed1c1e5117439502ff250db996e7eafd5f76a092d",
+    "apps/browser-runtime/tests/supervisor.test.mjs": "d907f7387a4c945ad7e2f5b703a3f9d2ca2b74056034a01cca578d1230da0658",
+    "apps/browser-runtime/tests/viewer-gateway.test.mjs": "677cb0d7c976828cd638c6526c59e8b4d4a46717863f49df04cbeed82a6b0a12",
+    "apps/browser-runtime/tests/viewer-grants.test.mjs": "13002b2bf55a8fc1d53e9286322127c8d6278c4cd291d2011a9fcf0709de1ff2",
+    "apps/runner/package.json": "5451058b325f1c8f7df1ac369b01f1543e352140a1170d023433e56f5d5b3224",
+    "apps/runner/src/execution.ts": "3d0eaaf9c6773f81cfc92b87b86798bb3ad0216d3df9214cce6715a489ce0158",
+    "apps/runner/src/http-client.ts": "2ebbe05e590e75db33f379e508e5671cead0f00d6132fd98474d1f812e33d94a",
+    "apps/runner/src/index.ts": "5266284c5f323cfa005a9cc74d6b703712f4c400bcf99eb36705625940dc71c3",
+    "apps/runner/src/interpreter.ts": "2849ffa43415bb030dec419efe72ef78aa6cb4ec636106856715381086eea00e",
+    "apps/runner/src/playwright-session.ts": "0cdfcb5d3de40054cdf47b2813985f0a67265e41ee1282de68d100088d804d2c",
+    "apps/runner/tests/execution.test.ts": "f3c7479ee89a8435689da7ebdc770c8febf3d88c70778492d4cce583fc2b1eb1",
+    "apps/runner/tests/fixtures.ts": "70edc6a91fec5f9de131fe2b8e534b4178a336334b142e17fbdb74504ab5b700",
+    "apps/runner/tests/http-client.test.ts": "1d5a3a15287118f03083c77171b185c7f5202ed3801a9aa69ec5dc7ebfb0a1ec",
+    "apps/web/package.json": "5f2831dde4b7308c7a8f3608183d5283bad2eec94a6c23fe1c0616c76e89ec5b",
+    "apps/web/src/features/qa/harnessPresentation.ts": "d0fc7a30c40275b03cbb8af1d7113d6f634b945bf89c2dba911db7b75b1fc0d3",
+    "apps/web/src/features/qa/types.ts": "950d974f331cf02efd64b13aab06d5dd23cc1ae24525e9bc0495310bd6fcbe28",
+    "apps/web/src/features/sessions/BrowserLoginControls.vue": "fac966e4e9e35998ebbea7d7c1a532da590d5e5adf433678ce7826abbb19a5c5",
+    "apps/web/src/features/sessions/SessionPage.vue": "9aa0c41201fbf690c02364a764d15800c1853209a847ad7dd69a293cec8508d0",
+    "apps/web/src/features/sessions/browserLoginApi.ts": "1a0e469397f6065d1774ee8378ede516575c9ad37845e0315af76824fda7f2d0",
+    "apps/web/src/i18n/messages/ar/projects.json": "223bb12a7e853ab02690665861863545d41287bc4f65a0e33c21330e4c55f8ad",
+    "apps/web/src/i18n/messages/de/projects.json": "d4d99ce8affe5d73fc028cfad3d74732af269935a4d05e6c483f2e695e4c4e7c",
+    "apps/web/src/i18n/messages/en/projects.json": "61e9bf04c2bbdee3b84621660d64ec8589890c0e1fadc61a87aec3e2bca8a9ea",
+    "apps/web/tests/accountSessionBoundaries.test.ts": "efa7953847b693e07320a33a778dba00054da272019fa1d976cc3df41d5e71a9",
+    "apps/web/tests/browserLoginControls.test.ts": "39bea4ea6b7baf558a5e8434e9abf0678a5d8ac960feef6ef7891efe530481c5",
+    "apps/web/tests/qaHarnessPresentation.test.ts": "3aabd20506607f81c42afaae2f2fb62891cd6bc05279b40908f62a78e2ebde7c",
+    "deploy/browser-runtime.compose.yml": "d2301202810bc1e57d141e7b4bcf1f63d1d659b34bea69b99fa2e5f1e2d442fe",
+    "docs/AI_HANDOFF.md": "66bdf68bc43360e85fbff7d212b1aa702e74c72a32e17c9a42d4e48a34d2c06d",
+    "docs/NEXT_STEPS.md": "b2b166839652d795ddb9eb5f7fd54303c5f3ec668589f8627766a1b49f754569",
+    "docs/ODDPATH_BETA_IMPLEMENTATION_PLAN.md": "4f6be7ababc719ff94057b18b93bf0e4d3eb967ef6938e2472428cbeb8abd665",
+    "docs/ODDPATH_LAUNCH_PLAN.md": "f1607d974550925b536dc06d3804884d0ac0fbcbfad2babccccdbb6e2755355e",
+    "docs/PHASE_02_CLOSEOUT.md": "2b2193307bba18618d122acb0df1c1bce136a1fbb1be3acaa532df10afc2fd6f",
+    "docs/PHASE_02_REVIEW_FIX.md": "d55ad25ba1c9c1c70aeb4d3f5b79095c7d390415c30987c8ea1a69ef11cc458f",
+    "docs/PHASE_02_SQLITE_LOCK_FIX.md": "75e8720286e5a4e36c7fe15d46f6ea7c413e4483dcf566a9fef4126d32983327",
+    "docs/PHASE_02_VIEWER_CSP_FIX.md": "70c8a524e56e8cc50f67728bc02eeb0e00153995547115e46cafba998ed19b13",
+    "docs/PHASE_02_VIEWER_STARTUP_FIX.md": "451b72be78bc7bae88ba3504909181ea86a1f1e2bb1b6cb685a8f19d196233d9",
+    "docs/PHASE_03A_CHECKPOINT.md": "1d1028fbc4fe5a521f53c7cb009266f037e6511604426614a343d1422ea23b65",
+    "docs/QA_CONTROL_PLANE.md": "f1c284d834ef0f7960e171a614a310f7c6b63ec0e62dc018e4c5ef35a082666a",
+    "docs/QA_EXECUTION_HARNESS.md": "ca93f588480ea3206657c847b3f3e6dca3920fdb3094a55d5a6672b54222f7a2",
+    "package-lock.json": "6678fa9da22093f179461a0e579edf014a2b1fd67ea32c0a5323bcfbc9ca742d",
+    "package.json": "ac5f278b254e2c7e25000757765c3136f394d0a2f6172d0cbe489e95ede113be",
+    "packages/qa-execution-contract/src/index.ts": "9b28f456b3ee1d9d3f16a9dd6be4544ff59a14f1805fae43b21ab31699fdbbc5",
+    "packages/qa-execution-contract/src/runtime.ts": "58bc740b9fbd7a643bda9b5e3110a7c6c1d38bb693aa3acab371139eacfb82bd",
+    "packages/qa-execution-contract/src/target.ts": "fd7c9417ae08fbdb65eeebac6513fe33f64ef515d394a42a1054771126d7ccdd",
+    "packages/qa-execution-contract/src/v2.ts": "e2892cda5cb5d7531cf9f8bde3110a13b88bd770bebd600ff4d2c472f67efc6e",
+    "packages/qa-execution-contract/tests/v2.test.ts": "b5a8cb73288dcf7af59d3e41db39980c9631e00c4f41d005770a67793b14a220",
+    "apps/browser-runtime/tests/login-policy.test.mjs": "0360e37b617d422a3176bdf8ceb400e992c88876c189c0b9c6fd7cece02fc241",
+    "docs/PHASE_03A_CREATION_STOP_FIX.md": "04fa205a9091eef5133f33884c51c84163acb756b0c558554ca857b223d5885d",
+    "docs/PHASE_03A_DOCKER_EOF_FIX.md": "0884822e0d8f084c209ca482166692bd343eabba347eff62a9390f764e633ed1"
+  },
+  "changedExistingFiles": [
+    "apps/browser-runtime/README.md",
+    "apps/browser-runtime/src/docker-driver.mjs",
+    "apps/browser-runtime/tests/docker.integration.mjs",
+    "apps/browser-runtime/tests/supervisor.test.mjs",
+    "docs/PHASE_03A_CHECKPOINT.md"
+  ],
+  "gates": {
+    "totals": {
+      "verify": 1818,
+      "runtime": 72,
+      "postgres": 90,
+      "combined": 2,
+      "docker": 22
+    },
+    "verifyBreakdown": {
+      "contract": 34,
+      "api": 1040,
+      "runner": 33,
+      "web": 639,
+      "runtime": 72
+    },
+    "migrations": 26,
+    "drift": "NONE",
+    "gitDiffCheck": "PASS",
+    "redUnitFailures": 4,
+    "redDockerFailures": 1
+  },
+  "firstDockerAttempt": {
+    "passed": 21,
+    "failed": 1,
+    "failure": "The first managed Chrome startup probe exceeded the test helper docker exec timeout of 30 seconds (code null, killed true, SIGTERM); stdout contained the returned ready endpoint and stderr was empty.",
+    "context": "Concurrent full verify and disposable DB checks were running. This is context, not proof of the timeout cause. Clean full suite rerun uses the same code, images and test timeouts with those checks finished."
+  },
+  "images": {
+    "chrome": {
+      "image": "sha256:d40d2e4f86eb6e4dc92cc9a95f5511e160d7883caa573c9f0bbd41f0858d7b3b",
+      "files": {
+        "apps/browser-runtime/src/runtime-main.mjs": "4005669ddda75fcacae502867aba42058e86a17cd604837b72f0dfc47f4b6ad2",
+        "apps/browser-runtime/src/login-boundary.mjs": "81813ba1ca4b91082b444d71811c134186f8bf0b571f6a84f6b409b327eb6a76",
+        "apps/browser-runtime/src/login-policy.mjs": "e02edb76a3c06190300b6018d6f2e927a9cdebee7abd80d4230a9bb700e3a150"
+      },
+      "count": 3
+    },
+    "egress": {
+      "image": "sha256:4c2a759133faf621757364ab08231ef161b2786a1fe38bb4f3a17cd752c682b2",
+      "files": {
+        "apps/browser-runtime/src/egress-main.mjs": "233226f43681396bc8e8e3f6b0bcecfb32b0a922602d9632decadec2392aafb4",
+        "apps/browser-runtime/src/egress-policy.mjs": "d72eaf0e1ce965c74bc05438a164755c022777fa49990e26a5ad15f9a573cdd3"
+      },
+      "count": 2
+    },
+    "supervisor": {
+      "image": "sha256:6829fd5ec931071fee087f72b261a2d914bd28b7fb0f06cdcb209ae217cdd69a",
+      "files": {
+        "apps/browser-runtime/src/browser-readiness.mjs": "7ab6462a173aff57212ff1c2e02365100121b7b1de8f095f3840a10fc78a3cf0",
+        "apps/browser-runtime/src/config.mjs": "b8d9685e726536e33b2372bedc2ab6dbad31a955e6140bcce381317111d4d76c",
+        "apps/browser-runtime/src/docker-driver.mjs": "bbfca3e9ce3e8e36caaf2ca4cb7eeb14b018f3fc5f67b0e81d6965588b5072dd",
+        "apps/browser-runtime/src/egress-main.mjs": "233226f43681396bc8e8e3f6b0bcecfb32b0a922602d9632decadec2392aafb4",
+        "apps/browser-runtime/src/egress-policy.mjs": "d72eaf0e1ce965c74bc05438a164755c022777fa49990e26a5ad15f9a573cdd3",
+        "apps/browser-runtime/src/human-preparation.mjs": "673869760cd1894fe813c068d7866bab8f366199e71b052891103362ff1cc98b",
+        "apps/browser-runtime/src/journal.mjs": "8f71805ea4a5017d9d73feb2c1d6d9f2470ea05f2612d15e2447b0f860651d58",
+        "apps/browser-runtime/src/login-boundary.mjs": "81813ba1ca4b91082b444d71811c134186f8bf0b571f6a84f6b409b327eb6a76",
+        "apps/browser-runtime/src/login-policy.mjs": "e02edb76a3c06190300b6018d6f2e927a9cdebee7abd80d4230a9bb700e3a150",
+        "apps/browser-runtime/src/project-claim.mjs": "d01193b836d50eceb0ef946a892ff16b6a165283124855a994b5223a08d3aad2",
+        "apps/browser-runtime/src/reaper-main.mjs": "de5a0c0e1b127d161a91fdac712874797a3f34d83201799a6dde1d731d72013b",
+        "apps/browser-runtime/src/runtime-main.mjs": "4005669ddda75fcacae502867aba42058e86a17cd604837b72f0dfc47f4b6ad2",
+        "apps/browser-runtime/src/supervisor-main.mjs": "59f88db0db6ec79738083a3c522901db01acd925edf2d165c87258d1a9f8b8c4",
+        "apps/browser-runtime/src/supervisor.mjs": "ff52b7ad49bea7ea3e41da6a1a61bd1f417dafac806a25e4352268968a269031",
+        "apps/browser-runtime/src/viewer-gateway.mjs": "b8729cff24fab65c061f52f711057fd6206d347b500b4ee3997a88a863b26d0c",
+        "apps/browser-runtime/src/viewer-grants.mjs": "9144995f36619d249963ca2810a7c6928a4223c858093e6c788812fd1f5f5f2c",
+        "apps/runner/src/cli-args.ts": "71635a1a36ca6634cca959c8eb84a92f0827ac06ac32cc0ce72b50d595f613a6",
+        "apps/runner/src/cli.ts": "e1f1fed143bd4cb4f2031fbc52f26afd49dae59d24f7ba98a9c832a5aa850941",
+        "apps/runner/src/config.ts": "a7510a8a7f1acf0d067826423292726e0643db7fc2b4f1a1c71a0f0d49f4a9f9",
+        "apps/runner/src/execution.ts": "3d0eaaf9c6773f81cfc92b87b86798bb3ad0216d3df9214cce6715a489ce0158",
+        "apps/runner/src/http-client.ts": "2ebbe05e590e75db33f379e508e5671cead0f00d6132fd98474d1f812e33d94a",
+        "apps/runner/src/index.ts": "5266284c5f323cfa005a9cc74d6b703712f4c400bcf99eb36705625940dc71c3",
+        "apps/runner/src/interpreter.ts": "2849ffa43415bb030dec419efe72ef78aa6cb4ec636106856715381086eea00e",
+        "apps/runner/src/playwright-session.ts": "0cdfcb5d3de40054cdf47b2813985f0a67265e41ee1282de68d100088d804d2c",
+        "apps/runner/src/runner.ts": "742f6eb31d5e89964480d2b791cdc49360be0061d75c487d0bad991269a8b1e5",
+        "packages/qa-execution-contract/src/common.ts": "b14711f1e9509283e05abbce2c6d7f02cb7a5dbf744a43e6db44a209db8cc492",
+        "packages/qa-execution-contract/src/execution.ts": "6118a494f501ae066693421393d8be15ab6e0e8389ee05b70c637c3b58e98590",
+        "packages/qa-execution-contract/src/index.ts": "9b28f456b3ee1d9d3f16a9dd6be4544ff59a14f1805fae43b21ab31699fdbbc5",
+        "packages/qa-execution-contract/src/profile.ts": "f1b46fcc15e1aad26923a3a1788a2d09a96e8ecc6206fb9aea949d9057dbd0dc",
+        "packages/qa-execution-contract/src/recipe.ts": "0c57fd77ab0603714025736282f61f8fdc215638b5d409afec5b888c0cba451a",
+        "packages/qa-execution-contract/src/runner.ts": "9046264f7adad23b5a5064455290c860617e432dad954eb91cf20dbb1bfe65ba",
+        "packages/qa-execution-contract/src/runtime.ts": "58bc740b9fbd7a643bda9b5e3110a7c6c1d38bb693aa3acab371139eacfb82bd",
+        "packages/qa-execution-contract/src/target.ts": "fd7c9417ae08fbdb65eeebac6513fe33f64ef515d394a42a1054771126d7ccdd",
+        "packages/qa-execution-contract/src/v2.ts": "e2892cda5cb5d7531cf9f8bde3110a13b88bd770bebd600ff4d2c472f67efc6e",
+        "apps/runner/dist/cli-args.js": "cfe3e8884c7c54907674d3ee9b74eba44b0755651ef4afb040388205004b0831",
+        "apps/runner/dist/cli.js": "e966d4371c69f7d792f4e9949c2e9c65ada38b1b5be18e0f0a26833c5646c05e",
+        "apps/runner/dist/config.js": "21b2163a077f6aa32af4b5a52c5dc4def79a4fbdd1bd9d8df28b53c2ed7924c5",
+        "apps/runner/dist/execution.js": "74165b4c8a15a2f0aab6f85fe0dfb359156fe78adafe3ecb40972a47a4b2406d",
+        "apps/runner/dist/http-client.js": "6f5e83ee75e2623474241a3449c17aac397316b18ee8b17cda069a89313c0862",
+        "apps/runner/dist/index.js": "5266284c5f323cfa005a9cc74d6b703712f4c400bcf99eb36705625940dc71c3",
+        "apps/runner/dist/interpreter.js": "60f3fc24c73807ff5646cb43e8728b6e664945f90e67246fcb8d2682fb8c63a9",
+        "apps/runner/dist/playwright-session.js": "dd10ba628f5eee405917ba78087d44cfccc2848b51e6472aaa0012cdfe67a5d9",
+        "apps/runner/dist/runner.js": "3986f9d5483db62a9e5be69b405c3dc58096926644f731aa01bf8d7e600dca7b",
+        "packages/qa-execution-contract/dist/common.js": "42ab40e153ae3d428878d65f406eb2e7dc7397ae3a87048b9b4e43f4abb160b9",
+        "packages/qa-execution-contract/dist/execution.js": "01fe6f5ed0114ba533aab4c0989b169746e1cf19896c17d8d96eec00a0cce625",
+        "packages/qa-execution-contract/dist/index.js": "b51b324983f06b8a91d151644a62bd3e5b075fcbaa78760df34acbfa1534d64e",
+        "packages/qa-execution-contract/dist/profile.js": "48fff61f0c5eb6b14e8375e87cb18c75088e3b7d26161c02c6a3091694b312da",
+        "packages/qa-execution-contract/dist/recipe.js": "cc51660d7b187601ef5b36e5158ee44076f7af6b307c0c2ecb68d05295385c64",
+        "packages/qa-execution-contract/dist/runner.js": "a378c0c98deb7406732945fb9f3eb2080f659caf27597fb1f652bd742546dc77",
+        "packages/qa-execution-contract/dist/runtime.js": "5789092a193df444fcccd823841ade5717505345dd800a4c67de84c0e71c1554",
+        "packages/qa-execution-contract/dist/target.js": "b4a3101078e783b4a0ed06ccb778c95e99fbe956c17b056367a18c52cd096e6c",
+        "packages/qa-execution-contract/dist/v2.js": "3054817531a74c73fee3e18786c979fb4efb13263c49876335836b1ca65895cc",
+        "apps/browser-runtime/seccomp.json": "17d0d3fd50b465f5fe12aad0ea68917492fed2798cdc38053fdd0d0d1984aeac",
+        "package-lock.json": "6678fa9da22093f179461a0e579edf014a2b1fd67ea32c0a5323bcfbc9ca742d"
+      },
+      "count": 54
+    },
+    "compiledComparison": "Compiled JS normalizes platform CRLF/LF only; all source comparisons use raw SHA256."
+  },
+  "docker": {
+    "images": {
+      "chromeImage": "sha256:d40d2e4f86eb6e4dc92cc9a95f5511e160d7883caa573c9f0bbd41f0858d7b3b",
+      "egressImage": "sha256:4c2a759133faf621757364ab08231ef161b2786a1fe38bb4f3a17cd752c682b2"
+    },
+    "supervisorDocker": "29.9.0 / 29.8.2",
+    "chrome": {
+      "version": "155.0.8059.39",
+      "sandbox": "Sandbox Status\nLayer 1 Sandbox\tNamespace\nPID namespaces\tYes\nNetwork namespaces\tYes\nSeccomp-BPF sandbox\tYes\nSeccomp-BPF sandbox supports TSYNC\tYes\nPtrace Protection with Yama LSM (Broker)\tNo\nPtrace Protection with Yama LSM (Non-broker)\tNo\n\nYou are adequately sandboxed."
+    },
+    "navigation": {
+      "url": "https://example.com/",
+      "screenshotBytes": 63862,
+      "noVNC": 200,
+      "rfb": "\u0002\fRFB 003.008\n",
+      "unauthorized": 403
+    },
+    "network": {
+      "internet": "BLOCKED",
+      "metadata": "BLOCKED",
+      "host": "BLOCKED",
+      "hostBridge": "BLOCKED"
+    },
+    "rendererCrash": {
+      "pageCrash": true,
+      "browserStillResponsive": true,
+      "passedBeforeCrash": true,
+      "recorded": [
+        {
+          "item": "item-1",
+          "status": "PASS",
+          "evidence": [
+            {
+              "kind": "TEXT",
+              "requirementId": "requirement-text-1",
+              "textContent": "Successful checkout: PASS. 2 step(s) completed. All declared steps completed."
+            }
+          ]
+        }
+      ],
+      "finished": false,
+      "failure": "BROWSER_SESSION_UNAVAILABLE",
+      "terminated": true
+    },
+    "viewerFramebuffer": {
+      "width": 1440,
+      "height": 900,
+      "redPixels": 1045957,
+      "bluePixels": 1045846,
+      "previousFrameReplaced": true,
+      "screenshotBytes": 44737,
+      "disconnectedAfterStop": true
+    },
+    "delayedViewerFramebuffer": {
+      "width": 1440,
+      "height": 900,
+      "redPixels": 1045957,
+      "bluePixels": 1045846,
+      "previousFrameReplaced": true,
+      "screenshotBytes": 44737,
+      "disconnectedAfterStop": true
+    },
+    "tenantIsolation": "PASS",
+    "stop": "CONFIRMED",
+    "pendingCreationStop": {
+      "network create": "UNCONFIRMED_UNTIL_SETTLED_AND_CLEANED",
+      "service readiness": "UNCONFIRMED_UNTIL_SETTLED_AND_CLEANED"
+    },
+    "mutationEof": "UNCONFIRMED_ACROSS_RESTART_LATE_NETWORK_CLEANED",
+    "leaseWatchdog": "PASS",
+    "hardDeadline": "PASS",
+    "chromeCrash": "STOPPED_WITHOUT_REPLAY",
+    "orphanNetwork": "REMOVED",
+    "humanLogin": {
+      "inputAndMfa": true,
+      "cdpDuringLogin": 403,
+      "viewAndWrongEpochBlocked": true,
+      "filledDomCleared": true,
+      "humanDisconnected": true,
+      "physicalStop": true
+    },
+    "loginOrigins": {
+      "approvedSso": true,
+      "resourceNotTarget": true
+    },
+    "inheritedChildFrames": {
+      "blank": true,
+      "srcdoc": true,
+      "nested": true,
+      "captureStillBlockedDuringLogin": true,
+      "managedHandoff": true
+    },
+    "topLevelBlank": "STOPPED",
+    "browserLocalLogin": "STOPPED",
+    "manualExecutionClock": {
+      "boundedSeparately": true,
+      "retryDidNotExtend": true,
+      "stopped": true
+    },
+    "preparationDeadline": "STOPPED_WITHOUT_INPUT_OR_REPLAY"
+  },
+  "combined": {
+    "original": {
+      "images": {
+        "chromeImage": "sha256:d40d2e4f86eb6e4dc92cc9a95f5511e160d7883caa573c9f0bbd41f0858d7b3b",
+        "egressImage": "sha256:4c2a759133faf621757364ab08231ef161b2786a1fe38bb4f3a17cd752c682b2",
+        "supervisorImage": "sha256:6829fd5ec931071fee087f72b261a2d914bd28b7fb0f06cdcb209ae217cdd69a"
+      },
+      "gate": "Before first network create; all later Docker operations are real",
+      "events": [
+        {
+          "event": "real API registration and status completed",
+          "at": "2026-10-12T17:34:15.445Z",
+          "localState": "STARTING",
+          "apiState": "LIVE"
+        },
+        {
+          "event": "driver start suspended",
+          "at": "2026-10-12T17:34:15.676Z"
+        },
+        {
+          "event": "owner Stop cancelled real PostgreSQL job",
+          "at": "2026-10-12T17:34:15.775Z",
+          "jobState": "CANCELLED"
+        },
+        {
+          "event": "Stop correctly remains unconfirmed while creation is pending",
+          "at": "2026-10-12T17:34:16.955Z",
+          "localState": "STOPPING",
+          "proof": null,
+          "apiState": "STOP_REQUESTED"
+        },
+        {
+          "event": "late allocation rejected and cleaned",
+          "at": "2026-10-12T17:34:20.335Z",
+          "localState": "STOPPED",
+          "physicalAllocations": []
+        },
+        {
+          "event": "API confirms only after creator settled and all physical resources are absent",
+          "at": "2026-10-12T17:34:22.570Z",
+          "apiState": "STOP_CONFIRMED",
+          "physicalAllocations": []
+        }
+      ],
+      "fixed": true,
+      "cleanup": {
+        "allocations": []
+      }
+    },
+    "eof": {
+      "kind": "Actual Docker CLI receives EOF from a controlled loopback API after the full network-create request is received; the queued command is subsequently applied to the real Docker daemon",
+      "events": [
+        {
+          "event": "Network create request received by fixture",
+          "at": "2026-10-12T17:34:26.379Z",
+          "name": "oddpath-private-4c586471-d7d9-4616-939e-8c4fd2333ce3"
+        },
+        {
+          "event": "Actual Docker CLI error",
+          "at": "2026-10-12T17:34:26.384Z",
+          "code": 1,
+          "killed": false,
+          "signal": null,
+          "stderr": "error during connect: Post \"http://127.0.0.1:56576/v1.53/networks/create\": EOF"
+        },
+        {
+          "event": "Allocation failure classified",
+          "at": "2026-10-12T17:34:28.948Z",
+          "settlementUnknown": true,
+          "state": "STOPPING",
+          "allocationOwner": "42d3fbed-ec60-418d-931d-e1efde8f4286",
+          "proof": null,
+          "physicalResources": []
+        },
+        {
+          "event": "Real API correctly remains unconfirmed while accepted request is unsettled",
+          "at": "2026-10-12T17:34:30.023Z",
+          "apiState": "STOP_REQUESTED",
+          "ownerStopConfirmed": false,
+          "reportableEntries": 0
+        },
+        {
+          "event": "Previously received command completes on real Docker",
+          "at": "2026-10-12T17:34:30.454Z",
+          "networkExists": true,
+          "localState": "STOPPING",
+          "apiState": "STOP_REQUESTED"
+        },
+        {
+          "event": "Late network cleaned but no unsupported settlement proof is reported",
+          "at": "2026-10-12T17:34:33.113Z",
+          "localState": "STOPPING",
+          "apiState": "STOP_REQUESTED",
+          "ownerStopConfirmed": false,
+          "remaining": []
+        }
+      ],
+      "fixed": true,
+      "cleanup": {
+        "remaining": []
+      }
+    }
+  },
+  "cleanup": {
+    "runtimeContainers": [],
+    "runtimeNetworks": [],
+    "controllers": [],
+    "combinedControllers": [],
+    "disposableDatabase": [],
+    "imageAuditContainers": [],
+    "workingPostgres": "true healthy",
+    "preservedUnrelatedContainer": "oddpath-ui-review-20261004 exited"
+  },
+  "limits": [
+    "All failed mutations are conservatively unsettled; capacity can remain blocked until operator investigation. No automatic fence release/reset is certified.",
+    "EOF and late completion are injected by a controlled loopback HTTP fixture, not by pausing Docker daemon internals. CLI error, network creation, SQLite and PostgreSQL are real.",
+    "No deployment, production activation, working database migration, real provider call, commit/push or Phase03B implementation."
+  ],
+  "logs": {
+    "red-unit.log": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\red-unit.log",
+      "sha256": "fb133918135b6ff6ad6e71b291195b237704a7a7a3ff90af24f4f98d6d954684"
+    },
+    "red-docker.log": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\red-docker.log",
+      "sha256": "8f32a14b18085f0b72fde0ff433415c1a2fbaee771dbf6c8202e026efece184d"
+    },
+    "runtime.log": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\runtime.log",
+      "sha256": "062da4fbd8d2e89dbef4b345f404a56d3efa5d1a05d2e0eebdc7d73a8af729c9"
+    },
+    "verify.log": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\verify.log",
+      "sha256": "e55512416ef2b04adbe0a4cfeb63d73e08dc200f17988bdc5a245e33b480f71d"
+    },
+    "db.log": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\db.log",
+      "sha256": "b71181b2c4386fd5f6ce3d1605a80f46512eacf7cf187dba63ca4894f3d4894b"
+    },
+    "migration.log": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\migration.log",
+      "sha256": "b67b2d66b940e6c4b7825fbb2576dc942b761f95fab2fd2c52788794f2f512fd"
+    },
+    "drift.log": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\drift.log",
+      "sha256": "0019cbec94b75beca51558d03e4ef6e94db80cbcd2ede64bef1bbe29824483ed"
+    },
+    "combined-db.log": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\combined-db.log",
+      "sha256": "94a1aa158dc0a4b50245b8036287bb2c756808e1d71266b0902982945e85ea65"
+    },
+    "docker.log": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\docker.log",
+      "sha256": "77c7ee18cdca11ea28684207ac5c27be223ff9de20df07d3abdf33b0dab28d11"
+    },
+    "docker-clean.log": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\docker-clean.log",
+      "sha256": "8d16ef823d1fb71eae203c04fd18b579f3e9beabee0f365158fbb11f40f2753c"
+    },
+    "clean-preflight.log": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\clean-preflight.log",
+      "sha256": "eb20bce74a4212eeddbf6d5c2bf7052a4bc2ed039369b5434c5796eb32309476"
+    },
+    "build-supervisor.log": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\build-supervisor.log",
+      "sha256": "61217d2f0ee3192da1ee2fd436fcb05601509ca623845f50f3acbe21d4dd3586"
+    },
+    "image-audit.log": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\image-audit.log",
+      "sha256": "f331dd1b876874271ce0eaf56a5cb706596b2dabf2448a39248f54241e088b76"
+    },
+    "image-audit.json": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\image-audit.json",
+      "sha256": "910627627d4fafc75e72b608ed023468e41cc52f65c91b5e6c7358897daddc8f"
+    },
+    "source-before.json": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\source-before.json",
+      "sha256": "7643d1da924d0eb586f45273ef2fa2cb0789eb059a1aacb1a9b6280416885889"
+    },
+    "db-test.ps1": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\db-test.ps1",
+      "sha256": "4822daeb0763d80df1e990caf06dd37f269559f8241463096bec0eae4f2065d9"
+    },
+    "db-cleanup.log": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\db-cleanup.log",
+      "sha256": "22b620887fc05b39c60dc7826606a66a3bd6823a7029d8b46e78482b4689d0c1"
+    },
+    "combined-fixed.mts": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\combined-fixed.mts",
+      "sha256": "905738d51a2dfba80d1972df78709af61c3c92324f244173abd1b52a448ab9fa"
+    },
+    "eof-postgres-docker-cli.json": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\eof-postgres-docker-cli.json",
+      "sha256": "6c9590a76a21f44ccdfc1fc3bb979d04f9ad8ef7563d273edca4363c9e09f6ee"
+    },
+    "stop-fix-postgres-docker.json": {
+      "path": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-03a-eof-fix\\stop-fix-postgres-docker.json",
+      "sha256": "b74d9670eaeeab1f46d0f17108aa652b6ba93890738d7f56e638ddbe7e4ca64f"
+    }
+  }
+}

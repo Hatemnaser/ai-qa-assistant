@@ -8,6 +8,7 @@ import {
   type OperationalEventRecord,
 } from "../src/lib/operational-events.ts";
 import type { StoredMessageRecord } from "../src/modules/chat-history/chat-history.types.ts";
+import { ConversationSummaryGenerationError } from "../src/modules/conversation-summary/conversation-summary.errors.ts";
 import type {
   ConversationSummaryGenerationState,
   ConversationSummaryRecord,
@@ -26,7 +27,10 @@ import type {
   ConversationSummaryGenerationInput,
   ConversationSummaryGenerationResult,
 } from "../src/modules/conversation-summary/conversation-summary.types.ts";
-import type { ConversationSummaryUsageTracker } from "../src/modules/usage/conversation-summary-usage.service.ts";
+import type {
+  ConversationSummaryUsageCompletionInput,
+  ConversationSummaryUsageTracker,
+} from "../src/modules/usage/conversation-summary-usage.service.ts";
 
 const NOW = new Date("2026-06-14T12:00:00.000Z");
 
@@ -199,6 +203,69 @@ describe("conversation summary refresh service", () => {
     );
   });
 
+  it("settles actual usage when summary content fails without saving or retrying generation", async () => {
+    const actualUsage = {
+      inputTokens: 1000,
+      outputTokens: 1000,
+      totalTokens: 2000,
+    };
+    const context = setupRefreshService({
+      generateError: new ConversationSummaryGenerationError(
+        new AppError("Invalid summary", 502, "SUMMARY_RESPONSE_INVALID"),
+        actualUsage
+      ),
+      messages: createCompleteTurns(6),
+      ownerId: "user-1",
+    });
+
+    assert.equal(await context.refresh.requestRefresh("user-1", "chat-1"), "failed");
+    assert.equal(context.repository.summaries.size, 0);
+    assert.equal(context.summarizer.inputs.length, 1);
+    assert.equal(context.usage.recorded, 1);
+    assert.equal(context.usage.failed, 0);
+    assert.deepEqual(context.usage.completions, [actualUsage]);
+  });
+
+  it("does not replay generation or downgrade known consumption after an accounting failure", async () => {
+    const context = setupRefreshService({
+      generateError: new ConversationSummaryGenerationError(
+        new AppError("Invalid summary", 502, "SUMMARY_RESPONSE_INVALID"),
+        { totalTokens: 2000 }
+      ),
+      messages: createCompleteTurns(6),
+      ownerId: "user-1",
+    });
+    context.usage.complete = async () => {
+      context.usage.completed += 1;
+      throw new AppError("Accounting pending", 503, "AI_USAGE_SETTLEMENT_PENDING");
+    };
+
+    assert.equal(await context.refresh.requestRefresh("user-1", "chat-1"), "failed");
+    assert.equal(context.repository.summaries.size, 0);
+    assert.equal(context.summarizer.inputs.length, 1);
+    assert.equal(context.usage.completed, 1);
+    assert.equal(context.usage.failed, 0);
+  });
+
+  it("keeps unavailable or invalid summary consumption on the failure boundary", async () => {
+    for (const tokenUsage of [undefined, {}, { totalTokens: 0 }, { totalTokens: -1 }, { totalTokens: 1.5 }]) {
+      const context = setupRefreshService({
+        generateError: new ConversationSummaryGenerationError(
+          new AppError("Invalid summary", 502, "SUMMARY_RESPONSE_INVALID"),
+          tokenUsage
+        ),
+        messages: createCompleteTurns(6),
+        ownerId: "user-1",
+      });
+
+      assert.equal(await context.refresh.requestRefresh("user-1", "chat-1"), "failed");
+      assert.equal(context.repository.summaries.size, 0);
+      assert.equal(context.summarizer.inputs.length, 1);
+      assert.equal(context.usage.completed, 0);
+      assert.equal(context.usage.failed, 1);
+    }
+  });
+
   it("skips summary generation when the global AI operation guard rejects it", async () => {
     const context = setupRefreshService({
       messages: createCompleteTurns(6),
@@ -218,6 +285,22 @@ describe("conversation summary refresh service", () => {
     assert.equal(context.usage.started, 1);
     assert.equal(context.usage.completed, 0);
     assert.equal(context.usage.failed, 0);
+  });
+
+  it("does not generate when usage reservation storage fails", async () => {
+    const context = setupRefreshService({messages:createCompleteTurns(6),ownerId:"user-1",usageStartError:new Error("storage unavailable")});
+    assert.equal(await context.refresh.requestRefresh("user-1","chat-1"),"failed");
+    assert.equal(context.summarizer.inputs.length,0);
+    assert.equal(context.repository.summaries.size,0);
+    assert.equal(context.usage.recorded,0);
+  });
+
+  it("does not generate without a reservation identifier", async () => {
+    const context = setupRefreshService({messages:createCompleteTurns(6),ownerId:"user-1"});
+    context.usage.start=async()=>undefined;
+    assert.equal(await context.refresh.requestRefresh("user-1","chat-1"),"failed");
+    assert.equal(context.summarizer.inputs.length,0);
+    assert.equal(context.usage.recorded,0);
   });
 
   it("drops stale generated results when the stored cursor changes", async () => {
@@ -306,6 +389,7 @@ interface FakeSummarizer extends ConversationSummarizer {
 
 interface FakeUsageTracker extends ConversationSummaryUsageTracker {
   completed: number;
+  completions: Array<ConversationSummaryUsageCompletionInput | undefined>;
   failed: number;
   recorded: number;
   started: number;
@@ -349,12 +433,14 @@ function setupRefreshService(options: {
   };
   const usage: FakeUsageTracker = {
     completed: 0,
+    completions: [],
     failed: 0,
     recorded: 0,
     started: 0,
 
-    async complete() {
+    async complete(_reservation, input) {
       usage.completed += 1;
+      usage.completions.push(input);
     },
 
     async fail() {

@@ -22,6 +22,8 @@ import {
   retryQaExecutionRecipeReview,
 } from "./qa-execution-recipes.controller.js";
 import { listQaRunnerProfiles } from "./qa-runner.controller.js";
+import {exportQaReport} from "./qa-report.controller.js";
+import {portabilityConcurrencyLimit,projectExportRateLimit} from "../data-portability/portability.guard.js";
 
 export const qaRequestsRouter = Router({ mergeParams: true });
 
@@ -31,6 +33,7 @@ qaRequestsRouter.get("/requests", listQaRequests);
 qaRequestsRouter.post("/requests", createQaRequest);
 qaRequestsRouter.get("/operations/:operationId", getQaOperation);
 qaRequestsRouter.get("/requests/:requestId", getQaRequest);
+qaRequestsRouter.post("/requests/:requestId/export",projectExportRateLimit,portabilityConcurrencyLimit,exportQaReport);
 qaRequestsRouter.get("/requests/:requestId/execution-recipes", listQaExecutionRecipes);
 qaRequestsRouter.post(
   "/requests/:requestId/execution-recipes/generate",

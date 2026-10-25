@@ -13,7 +13,31 @@ import {
 } from "playwright";
 
 import type { RunnerConfig, RunnerProfileConfig } from "./config.js";
-import type { SemanticBrowserSession } from "./interpreter.js";
+import { BrowserSessionUnavailableError, type SemanticBrowserSession } from "./interpreter.js";
+
+export async function createManagedPlaywrightSession(endpoint: string, token: string, baseUrl: string): Promise<SemanticBrowserSession> {
+  // CDP stays on the private allocation network. The token grants control of
+  // this runtime only and is never sent to page requests.
+  const response = await fetch(`${endpoint}/cdp/json/version`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(3_000) });
+  if (!response.ok) throw new Error("Managed Chrome is unavailable.");
+  const data = await response.json() as { webSocketDebuggerUrl?: string };
+  const debuggerPath = new URL(data.webSocketDebuggerUrl || "").pathname;
+  if (!debuggerPath.startsWith('/devtools/browser/')) throw new Error("Invalid managed CDP endpoint.");
+  const browser = await chromium.connectOverCDP(`${endpoint.replace(/^http/u, 'ws')}/cdp${debuggerPath}`, { headers: { authorization: `Bearer ${token}` }, timeout: 5_000 });
+  try {
+    const context = browser.contexts()[0];
+    if (!context) throw new Error("Managed browser context is missing.");
+    const page = context.pages()[0] || await context.newPage();
+    const session = new PlaywrightSemanticSession(browser, context, page, true);
+    await context.clearPermissions();
+    const control = await browser.newBrowserCDPSession();
+    await control.send('Browser.setDownloadBehavior', { behavior: 'deny' });
+    context.on('page', popup => { if (popup !== page) void popup.close(); });
+    await blockCrossOriginTopLevelNavigation(context, page, baseUrl);
+    session.assertHealthy();
+    return session;
+  } catch (error) { await browser.close(); throw error; }
+}
 
 type Expectation = Extract<RecipeStepV1, { action: "expect" }>["expectation"];
 
@@ -41,11 +65,25 @@ export function createPlaywrightSessionFactory(options: PlaywrightSessionFactory
 }
 
 class PlaywrightSemanticSession implements SemanticBrowserSession {
+  private unavailable = false;
   constructor(
     private readonly browser: Browser,
     private readonly context: BrowserContext,
-    private readonly page: Page
-  ) {}
+    private readonly page: Page,
+    private readonly managed = false
+  ) {
+    if (managed) {
+      const unavailable = () => { this.unavailable = true; };
+      page.on('crash', unavailable);
+      page.on('close', unavailable);
+      context.on('close', unavailable);
+      browser.on('disconnected', unavailable);
+    }
+  }
+
+  assertHealthy() {
+    if (this.managed && (this.unavailable || this.page.isClosed() || !this.browser.isConnected())) throw new BrowserSessionUnavailableError();
+  }
 
   async check(locator: RecipeLocatorV1, checked: boolean, timeoutMs: number) {
     const target = this.locator(locator);
@@ -67,6 +105,7 @@ class PlaywrightSemanticSession implements SemanticBrowserSession {
   }
 
   async expect(expectation: Expectation, timeoutMs: number) {
+    const wait = (predicate: () => Promise<boolean>) => waitForCondition(predicate, timeoutMs, () => this.assertHealthy());
     switch (expectation.kind) {
       case "visible":
         await this.locator(expectation.locator).waitFor({ state: "visible", timeout: timeoutMs });
@@ -75,52 +114,34 @@ class PlaywrightSemanticSession implements SemanticBrowserSession {
         await this.locator(expectation.locator).waitFor({ state: "hidden", timeout: timeoutMs });
         return;
       case "enabled":
-        await waitForCondition(
-          () => this.locator(expectation.locator).isEnabled(),
-          timeoutMs
-        );
+        await wait(() => this.locator(expectation.locator).isEnabled());
         return;
       case "disabled":
-        await waitForCondition(
-          () => this.locator(expectation.locator).isDisabled(),
-          timeoutMs
-        );
+        await wait(() => this.locator(expectation.locator).isDisabled());
         return;
       case "checked":
-        await waitForCondition(
-          () => this.locator(expectation.locator).isChecked(),
-          timeoutMs
-        );
+        await wait(() => this.locator(expectation.locator).isChecked());
         return;
       case "unchecked":
-        await waitForCondition(
-          async () => !(await this.locator(expectation.locator).isChecked()),
-          timeoutMs
-        );
+        await wait(async () => !(await this.locator(expectation.locator).isChecked()));
         return;
       case "textEquals":
-        await waitForCondition(async () => {
+        await wait(async () => {
           const text = await this.locator(expectation.locator).textContent();
           return normalizeText(text) === normalizeText(expectation.expected);
-        }, timeoutMs);
+        });
         return;
       case "textContains":
-        await waitForCondition(async () => {
+        await wait(async () => {
           const text = await this.locator(expectation.locator).textContent();
           return normalizeText(text).includes(normalizeText(expectation.expected));
-        }, timeoutMs);
+        });
         return;
       case "valueEquals":
-        await waitForCondition(
-          async () => await this.locator(expectation.locator).inputValue() === expectation.expected,
-          timeoutMs
-        );
+        await wait(async () => await this.locator(expectation.locator).inputValue() === expectation.expected);
         return;
       case "countEquals":
-        await waitForCondition(
-          async () => await this.locator(expectation.locator).count() === expectation.expected,
-          timeoutMs
-        );
+        await wait(async () => await this.locator(expectation.locator).count() === expectation.expected);
         return;
       case "urlPathEquals":
         await this.page.waitForURL(
@@ -234,14 +255,17 @@ function browserType(engine: RunnerConfig["browser"]["engine"]) {
 
 async function waitForCondition(
   predicate: () => Promise<boolean>,
-  timeoutMs: number
+  timeoutMs: number,
+  assertHealthy: () => void
 ) {
   const deadline = Date.now() + timeoutMs;
   let lastError: unknown;
   do {
+    assertHealthy();
     try {
       if (await predicate()) return;
     } catch (error) {
+      assertHealthy();
       lastError = error;
     }
     await delay(Math.min(100, Math.max(1, deadline - Date.now())));

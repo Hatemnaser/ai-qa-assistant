@@ -21,7 +21,8 @@ services:
     plan: starter
     region: frankfurt
     autoDeployTrigger: checksPass
-    schedule: "17 3 * * *"
+    # Auth abuse/token retention requires at least hourly cleanup.
+    schedule: "17 * * * *"
     buildCommand: npm ci --include=dev && npm run build:api
     startCommand: npm --prefix apps/api run cleanup:retention
     envVars:

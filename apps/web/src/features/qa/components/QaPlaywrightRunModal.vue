@@ -95,6 +95,9 @@ const { dialogRef, onDialogKeydown } = useDialogAccessibility({
             <p class="qa-run-intro">
               Oddpath sends one immutable Recipe to your local Runner. The Runner keeps profile values local and returns only results and required evidence.
             </p>
+            <p v-if="selectedProfile?.protocolVersion === 2" class="workspace-note" data-testid="browser-quota-limits">
+              {{ t('projects.qa.approval.browserLimits') }}
+            </p>
 
             <section class="qa-run-step">
               <div class="qa-run-step__heading">

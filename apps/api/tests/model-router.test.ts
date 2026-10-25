@@ -11,6 +11,7 @@ describe("AI model router", () => {
       hasImage: false,
       hasTextAttachment: false,
       requestedModel: resolveAiModel({ model: "gemini-2.5-flash" }),
+      requestedSelection: "auto",
       resolveModel: resolveAiModel,
       workflow: analyzeQaWorkflow({
         message: "write test cases for login",
@@ -27,6 +28,7 @@ describe("AI model router", () => {
       hasImage: true,
       hasTextAttachment: false,
       requestedModel: resolveAiModel({ model: "gemini-3.1-flash-lite" }),
+      requestedSelection: "auto",
       resolveModel: resolveAiModel,
       workflow: analyzeQaWorkflow({
         hasImage: true,
@@ -39,11 +41,11 @@ describe("AI model router", () => {
     assert.equal(result.routing.reason, "Visual/image workflow uses the configured visual model.");
   });
 
-  it("keeps the requested model when it already matches the policy", () => {
+  it("keeps an explicit requested model regardless of workflow policy", () => {
     const result = routeAiModel({
       hasImage: false,
       hasTextAttachment: false,
-      requestedModel: resolveAiModel({ model: "gemini-3.1-flash-lite" }),
+      requestedModel: resolveAiModel({ model: "gemini-2.5-flash-lite" }),
       resolveModel: resolveAiModel,
       workflow: analyzeQaWorkflow({
         message: "thanks",
@@ -51,7 +53,7 @@ describe("AI model router", () => {
       }),
     });
 
-    assert.equal(result.model.model, "gemini-3.1-flash-lite");
+    assert.equal(result.model.model, "gemini-2.5-flash-lite");
     assert.equal(result.routing.source, "requested");
   });
 });

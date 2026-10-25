@@ -1,3 +1,4 @@
+import { executionObservationSchema } from "./evidence.js";
 import { z } from "zod";
 
 import { boundedIdSchema, isoDateTimeSchema, profileKeySchema, sha256HexSchema } from "./common.js";
@@ -124,6 +125,7 @@ export const executionItemSubmissionV1Schema = z.object({
   expectedRunVersion: z.number().int().positive(),
   notes: z.string().trim().max(10_000).optional(),
   observedResult: z.string().trim().min(1).max(10_000),
+  observation: executionObservationSchema.optional(),
   status: z.enum(["PASS", "FAIL", "BLOCKED"]),
 }).strict();
 

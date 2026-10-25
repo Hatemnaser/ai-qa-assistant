@@ -28,7 +28,8 @@ const chatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
   content: z.string().max(DATA_LIMITS.chatMessageContentChars),
   mode: z.string().min(1).max(64).default("general"),
-  model: z.string().min(1).max(120).default("gemini-2.5-flash"),
+  // Message metadata is distinct from the chat's selection/default.
+  model: z.string().trim().max(120).default(""),
   attachment: chatAttachmentSchema.optional(),
   attachments: z.array(chatAttachmentSchema).max(CHAT_ATTACHMENT_LIMITS.maxAttachments).optional(),
   createdAt: z.string().datetime().optional(),

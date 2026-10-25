@@ -18,11 +18,13 @@ export interface AssetRecord {
   uploadExpiresAt: Date | null;
   validationStartedAt: Date | null;
   readyAt: Date | null;
+  evidenceExpiresAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface CreatePendingAssetInput extends InitiateAssetInput {
+  evidenceExpiresAt?: Date | null;
   maxPendingPerUser: number;
   objectKey: string;
   ownerId: string;

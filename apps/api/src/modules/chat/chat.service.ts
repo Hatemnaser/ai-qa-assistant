@@ -13,6 +13,7 @@ import {
   chatWithAi,
   routeWorkflowWithAi,
   resolveAiModel,
+  resolveAiModelSelection,
 } from "../ai/provider-registry.js";
 import { analyzeQaWorkflowWithRouter } from "../ai/routing/workflow-router.js";
 import { shouldUseAiWorkflowRouter, type WorkflowRouter } from "../ai/routing/workflow-router.js";
@@ -35,7 +36,7 @@ import {
   type ChatUsageCompletionInput,
   type ChatUsageFailureInput,
 } from "../usage/usage.service.js";
-import type { UsageIdentity, UsageReservation } from "../usage/usage.types.js";
+import type { UsageAttemptDescriptor, UsageIdentity, UsageReservation } from "../usage/usage.types.js";
 import type { ChatRequest, ChatRequestContext } from "./chat.types.js";
 import { buildSessionBehaviorPrompt } from "../ai/session-response.js";
 import {
@@ -57,7 +58,8 @@ type ChatUsageFailureHandler = (
   failure?: ChatUsageFailureInput
 ) => Promise<UsageReservation>;
 type ChatUsageAttemptRecorder = (
-  reservation: UsageReservation
+  reservation: UsageReservation,
+  attempt?: UsageAttemptDescriptor
 ) => Promise<void>;
 type ChatMemoryContextPreparer = (input: {
   projectId?: string | null;
@@ -123,10 +125,11 @@ export function createChatService({
     const requestedModel = typeof input.model === "string" ? input.model.trim() : undefined;
     const requestedProvider = typeof input.provider === "string" ? input.provider.trim() : undefined;
 
-    const resolvedModel = resolveAiModel({
+    const modelSelection = resolveAiModelSelection({
       model: requestedModel,
       provider: requestedProvider,
     });
+    const resolvedModel = modelSelection.model;
     const providerAttachmentPlan = await prepareProviderAttachments(
       input,
       context,
@@ -159,6 +162,7 @@ export function createChatService({
       hasImage: providerAttachmentPlan.images.length > 0,
       hasTextAttachment: providerAttachmentPlan.attachments.length > 0,
       requestedModel: resolvedModel,
+      requestedSelection: modelSelection.selection,
       resolveModel: resolveAiModel,
       workflow: preflightWorkflow,
     });
@@ -200,10 +204,10 @@ export function createChatService({
       },
       creditEstimate
     );
-    const recordProviderAttempt = async (kind: "generation" | "router") => {
+    const recordProviderAttempt = async (kind: "generation" | "router",attempt:UsageAttemptDescriptor={}) => {
       if (!usage) return;
 
-      await recordUsageAttempt?.(usage);
+      await recordUsageAttempt?.(usage,{...attempt,kind});
       usage.providerAttempts = (usage.providerAttempts || 0) + 1;
 
       if (kind === "router") {
@@ -248,7 +252,7 @@ export function createChatService({
       minConfidence: env.aiWorkflowRouterMinConfidence,
       router: routeWorkflow
         ? async (routerInput) => {
-            await recordProviderAttempt("router");
+            await recordProviderAttempt("router",{model:env.aiWorkflowRouterModel,provider:'gemini'});
 
             return routeWorkflow(routerInput);
           }
@@ -258,11 +262,13 @@ export function createChatService({
       hasImage: providerAttachments.images.length > 0,
       hasTextAttachment: providerAttachments.attachments.length > 0,
       requestedModel: resolvedModel,
+      requestedSelection: modelSelection.selection,
       resolveModel: resolveAiModel,
       workflow,
     });
 
     let response: AiChatResponse;
+    let lastGenerationAttempt: { model?: string; provider?: string } | undefined;
 
     try {
       assertAiModelCapabilities(modelRouting.model.config, {
@@ -294,16 +300,19 @@ export function createChatService({
           hasImages: providerAttachments.images.length > 0,
           hasTextAttachments: providerAttachments.attachments.length > 0,
           modelRouting: modelRouting.routing,
-          onProviderAttempt: () => recordProviderAttempt("generation"),
+          onProviderAttempt: async (attempt) => {
+            await recordProviderAttempt("generation",{model:attempt.model,provider:attempt.provider});
+            lastGenerationAttempt = { model: attempt.model, provider: attempt.provider };
+          },
         }
       );
     } catch (error) {
       if (usage && failUsage) {
         try {
           await failUsage(usage, {
-            model: modelRouting.model.model,
+            model: lastGenerationAttempt?.model || modelRouting.model.model,
             providerAttempts: usage.providerAttempts,
-            provider: modelRouting.model.provider,
+            provider: lastGenerationAttempt?.provider || modelRouting.model.provider,
             routerAttempted: Boolean(usage.routerAttempts),
           });
         } catch {
@@ -379,7 +388,8 @@ async function completeUsageAfterAiResponse(input: {
       workflowIntent: (input.response.workflow || input.workflow).intent,
       workflowSource: (input.response.workflow || input.workflow).source,
     });
-  } catch {
+  } catch (error) {
+    if(error instanceof AppError&&['AI_USAGE_ACCOUNTING_UNAVAILABLE','AI_USAGE_SETTLEMENT_PENDING','AI_USAGE_RECEIPT_CONFLICT'].includes(error.code))throw error;
     return input.fallbackUsage;
   }
 }
@@ -390,6 +400,7 @@ function toPublicUsageSummary(usage: UsageReservation) {
     remaining: usage.remaining,
     unit: usage.unit,
     used: usage.used,
+    ...(usage.accountingStatus?{accountingStatus:usage.accountingStatus}:{}),
   };
 }
 

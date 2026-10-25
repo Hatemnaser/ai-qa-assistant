@@ -22,6 +22,7 @@ export interface TestSessionMessage {
   mode?: string;
   createdAt: string;
   model: string | null;
+  isError?: boolean;
   attachments?: ChatAttachment[];
 }
 

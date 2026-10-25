@@ -101,7 +101,7 @@ const RECIPE_SYSTEM_INSTRUCTION = [
 ].join(" ");
 
 function parseRecipeResponse<T>(
-  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  schema: z.ZodType<T, unknown>,
   text: string,
   stage: "generation" | "review"
 ): T {

@@ -2,6 +2,16 @@
 
 Last reconciled: 2026-10-05 (original vision discussion: 2026-09-20)
 
+2026-10-18 scope reconciliation: the accepted
+[public-beta plan](ODDPATH_BETA_IMPLEMENTATION_PLAN.md) and
+[Phase 08A inventory](PHASE_08A_READINESS_INVENTORY.md) supersede dated rollout
+and capability statements below. Browser/resources/saved login/evidence/model
+quotas/auth/readiness have local implementations and bounded closeouts through
+[Phase 07](PHASE_07_CLOSEOUT.md); production activation and the unaided public
+browser journey are not yet proven. General independent cross-provider review,
+native mobile and broad multi-agent orchestration remain deferred. No historical
+invite-only or local-Runner statement silently narrows the accepted public beta.
+
 Status: product direction and local delivery are recorded separately below.
 Future capabilities remain proposals; this document does not authorize building
 every roadmap item or deploying the application.

@@ -1,12 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { z } from "zod";
-import { profileManifestV1Schema } from "@oddpath/qa-execution-contract";
+import { profileManifestSchema } from "@oddpath/qa-execution-contract";
 import { DATA_LIMITS } from "../../config/data-limits.js";
 import { prisma } from "../../db/prisma.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { AppError } from "../../lib/errors.js";
 import { enqueueAssetDeletionJobs } from "../assets/assets.deletion-outbox.js";
 import { nextTimelinePosition } from "../chat-history/chat-timeline.js";
+import { recordedMessageMetadata } from "../chat-history/chat-message-metadata.js";
 import { createQaRequestInTransaction } from "../qa-requests/qa-requests.repository.js";
 import { resolveProfileManifest } from "../qa-requests/qa-execution-recipes.repository.js";
 import type { QaContextSnapshotInput } from "../qa-requests/qa-requests.types.js";
@@ -296,7 +297,7 @@ export function createTestSessionsRepository(database: typeof prisma = prisma) {
         if (!["PROCESSING_FAILED", "READY_TO_RUN", "CHANGES_REQUESTED"].includes(request.phase)) throw conflict("The current request cannot be prepared now.", "QA_PHASE_INVALID");
         await assertNoSessionWork(tx, session.id);
         const profile = await selectProfile(tx, scope.projectId, input);
-        const existing = preparation.profileManifest ? profileManifestV1Schema.parse(preparation.profileManifest) : null;
+        const existing = preparation.profileManifest ? profileManifestSchema.parse(preparation.profileManifest) : null;
         const changed = profile && existing?.manifestHash !== profile.profile.manifestHash;
         if (input.action === "retry" && preparation.status !== "FAILED") throw conflict("Only failed preparation can be retried.", "TEST_PREPARATION_RETRY_INVALID");
         if (request.phase === "PROCESSING_FAILED") {
@@ -351,7 +352,7 @@ export async function selectProfile(tx: Prisma.TransactionClient, projectId: str
   } });
   if (!runner) throw new AppError("Runner was not found.", 404, "QA_RUNNER_NOT_FOUND");
   if (!runner.protocolVersions.includes(1) || !runner.executorKeys.includes("playwright")) throw conflict("Runner is incompatible.", "QA_RUNNER_INCOMPATIBLE");
-  const profile = profileManifestV1Schema.array().parse(runner.publicProfiles).find(({ profileKey }) => profileKey === input.profileKey);
+  const profile = profileManifestSchema.array().parse(runner.publicProfiles).find(({ profileKey }) => profileKey === input.profileKey);
   if (!profile) throw conflict("Runner profile was not found.", "QA_PROFILE_NOT_FOUND");
   return { runnerRegistrationId: runner.id, profile: resolveProfileManifest(profile) };
 }
@@ -374,7 +375,7 @@ export function toDetail(row: SessionRow): TestSessionDetail {
   const preparation = state.preparations.find(({ requestId }) => requestId === state.currentRequestId);
   return { ...toSummary(row),
     messages: row.messages.map((message) => ({ id: message.id, timelinePosition: message.timelinePosition, role: message.role.toLowerCase() as "user" | "assistant" | "system", content: message.content, mode: message.mode || "general",
-      createdAt: message.createdAt.toISOString(), model: message.model,
+      createdAt: message.createdAt.toISOString(), ...recordedMessageMetadata(message),
       attachments: [...(Array.isArray(message.attachment) ? message.attachment : []), ...message.attachments.map(({ asset }) => ({
         assetId: asset.id, type: (asset.detectedMimeType || asset.declaredMimeType).startsWith("image/") ? "image" : "file",
         name: asset.originalName, mimeType: asset.detectedMimeType || asset.declaredMimeType,

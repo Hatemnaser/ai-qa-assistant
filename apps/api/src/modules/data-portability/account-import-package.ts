@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import {importPortableQaHistory,QA_HISTORY_IMPORT_WARNING} from "./qa-history-portable.js";
+import {qaHistoryReferenceSchema} from "../qa-requests/qa-report.types.js";
 
 import { z } from "zod";
 
@@ -121,6 +123,7 @@ const manifestV2Schema = manifestV1Schema
 const manifestSchema = z.discriminatedUnion("formatVersion", [
   manifestV1Schema,
   manifestV2Schema,
+  manifestV2Schema.extend({formatVersion:z.literal('3.0')}),
 ]);
 
 const accountMemorySchema = z
@@ -205,6 +208,7 @@ const accountDocumentV2Schema = accountDocumentV1Schema
 const accountDocumentSchema = z.discriminatedUnion("formatVersion", [
   accountDocumentV1Schema,
   accountDocumentV2Schema,
+  accountDocumentV2Schema.extend({formatVersion:z.literal('3.0')}),
 ]);
 
 const documentSchema = z
@@ -228,7 +232,7 @@ const documentSchema = z
 
 const projectDocumentSchema = z
   .object({
-    formatVersion: z.enum(["1.0", "2.0"]),
+    formatVersion: z.enum(["1.0", "2.0", "3.0"]),
     exportType: z.literal("account_project"),
     project: z
       .object({
@@ -263,6 +267,7 @@ const projectDocumentSchema = z
           .array(documentSchema)
           .max(DATA_LIMITS.documentsPerProject),
         chatSourceIds: z.array(traceIdSchema).max(ACCOUNT_IMPORT_LIMITS.maxChats),
+        qaHistory: qaHistoryReferenceSchema.optional(),
       })
       .strict(),
   })
@@ -294,7 +299,7 @@ const messageSchema = z
 
 const chatDocumentSchema = z
   .object({
-    formatVersion: z.enum(["1.0", "2.0"]),
+    formatVersion: z.enum(["1.0", "2.0", "3.0"]),
     exportType: z.literal("account_chat"),
     chat: z
       .object({
@@ -373,8 +378,9 @@ function validateNativeAccountArchive(
   assertUnique(accountDocument.chats.map((chat) => chat.sourceId));
   assertUnique(accountDocument.chats.map((chat) => chat.dataPath));
 
+  const qaFilePaths = new Set<string>();
   const projects = accountDocument.projects.map((reference) =>
-    parseProject(entries, reference, manifest.formatVersion)
+    parseProject(entries, reference, manifest.formatVersion, qaFilePaths)
   );
   const chats = accountDocument.chats.map((reference) =>
     parseChat(entries, reference, manifest.formatVersion)
@@ -388,7 +394,8 @@ function validateNativeAccountArchive(
     manifest,
     accountDocument,
     projects,
-    chats
+    chats,
+    qaFilePaths.size > 0
   );
 
   const counts = getNativeCounts(
@@ -419,6 +426,7 @@ function validateNativeAccountArchive(
         ...manifest.warnings,
         PROFILE_WARNING,
         REPEAT_IMPORT_WARNING,
+        ...(projects.some(project=>project.qaHistory)?[QA_HISTORY_IMPORT_WARNING]:[]),
         ...(binaryAssets.length > 0 ? [BINARY_ASSET_WARNING] : []),
       ])
     ),
@@ -428,12 +436,14 @@ function validateNativeAccountArchive(
 function parseProject(
   entries: Record<string, Uint8Array>,
   reference: z.infer<typeof projectReferenceSchema>,
-  formatVersion: "1.0" | "2.0"
+  formatVersion: "1.0" | "2.0" | "3.0",
+  qaFilePaths: Set<string>
 ): NativeAccountImportProject {
   const entry = entries[reference.dataPath];
   if (!entry || !entries[reference.readablePath]) throwInvalidPackage();
   const document = parseSchema(projectDocumentSchema, parseJson(entry));
   const project = document.project;
+  if(project.qaHistory && formatVersion !== '3.0')throwInvalidPackage();
 
   if (
     document.formatVersion !== formatVersion ||
@@ -477,13 +487,14 @@ function parseProject(
       };
     }),
     chatSourceIds: project.chatSourceIds,
+    ...(project.qaHistory?{qaHistory:importPortableQaHistory(project.qaHistory,entries,project.sourceId,qaFilePaths)}:{}),
   };
 }
 
 function parseChat(
   entries: Record<string, Uint8Array>,
   reference: z.infer<typeof chatReferenceSchema>,
-  formatVersion: "1.0" | "2.0"
+  formatVersion: "1.0" | "2.0" | "3.0"
 ): NativeAccountImportChat {
   const entry = entries[reference.dataPath];
   if (!entry || !entries[reference.readablePath]) throwInvalidPackage();
@@ -564,7 +575,8 @@ function validateArchiveBinaryAssets(
   manifest: z.infer<typeof manifestSchema>,
   accountDocument: z.infer<typeof accountDocumentSchema>,
   projects: NativeAccountImportProject[],
-  chats: NativeAccountImportChat[]
+  chats: NativeAccountImportChat[],
+  hasQaFiles: boolean
 ): ValidatedPortableBinaryAsset[] {
   const assetEntryPaths = Object.keys(entries).filter(
     (path) => path.startsWith("assets/") && !path.endsWith("/")
@@ -579,7 +591,7 @@ function validateArchiveBinaryAssets(
     }
     return [];
   }
-  if (accountDocument.formatVersion !== "2.0") throwInvalidPackage();
+  if (accountDocument.formatVersion !== manifest.formatVersion) throwInvalidPackage();
 
   const assetEntries = Object.fromEntries(
     assetEntryPaths.map((path) => [path, entries[path]!])
@@ -603,7 +615,7 @@ function validateArchiveBinaryAssets(
     actualAssetEntryPaths.length !== descriptorPaths.size ||
     actualAssetEntryPaths.some((path) => !descriptorPaths.has(path)) ||
     manifest.counts.binaryAssets !== binaryAssets.length ||
-    manifest.contains.privateAssetFiles !== (binaryAssets.length > 0) ||
+    manifest.contains.privateAssetFiles !== (binaryAssets.length > 0 || (manifest.formatVersion === "3.0" && hasQaFiles)) ||
     manifest.contains.attachmentFiles !==
       binaryAssets.some((asset) => asset.binding.kind === "message_attachment")
   ) {

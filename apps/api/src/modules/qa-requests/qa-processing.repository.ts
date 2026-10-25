@@ -3,6 +3,7 @@ import type { QaProcessingOperationDto, QaProcessingRepository } from "./qa-proc
 
 export function createQaProcessingRepository(database: typeof prisma = prisma): QaProcessingRepository {
   return {
+    async hasProviderStarted(id){return Boolean(await database.qaGenerationExecution.count({where:{id,providerStartedAt:{not:null}}}));},
     async claimNext(input) {
       for (let attempt = 0; attempt < 4; attempt += 1) {
         const candidate = await database.qaGenerationExecution.findFirst({

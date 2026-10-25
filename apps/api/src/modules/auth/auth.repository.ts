@@ -1,8 +1,9 @@
 import { prisma } from "../../db/prisma.js";
 import { Prisma } from "../../generated/prisma/client.js";
+import { AppError } from '../../lib/errors.js';
 import type { AuthRepository } from "./auth.types.js";
 
-export function createPrismaAuthRepository(database: typeof prisma = prisma): AuthRepository {
+export function createPrismaAuthRepository(database: typeof prisma = prisma, now:()=>Date=()=>new Date()): AuthRepository {
   return {
     async createPasswordUser(input) {
       return database.user.create({
@@ -23,8 +24,11 @@ export function createPrismaAuthRepository(database: typeof prisma = prisma): Au
     },
 
     async createEmailVerificationToken(input) {
-      await database.$transaction(async (tx) => {
+      return database.$transaction(async (tx) => {
         await lockAuthTokenState(tx, input.userId);
+        const user = await lockAuthUser(tx, input.userId);
+        if (!user || user.emailVerifiedAt || input.expiresAt <= now() ||
+          (input.expectedPasswordHash !== undefined && user.passwordHash !== input.expectedPasswordHash)) return false;
 
         await tx.emailVerificationToken.updateMany({
           data: {
@@ -71,12 +75,16 @@ export function createPrismaAuthRepository(database: typeof prisma = prisma): Au
             },
           });
         }
+        return true;
       });
     },
 
     async createPasswordResetToken(input) {
-      await database.$transaction(async (tx) => {
+      return database.$transaction(async (tx) => {
         await lockAuthTokenState(tx, input.userId);
+        const user = await lockAuthUser(tx, input.userId);
+        if (!user || input.expiresAt <= now() ||
+          (input.expectedPasswordHash !== undefined && user.passwordHash !== input.expectedPasswordHash)) return false;
 
         await tx.passwordResetToken.updateMany({
           data: {
@@ -123,11 +131,12 @@ export function createPrismaAuthRepository(database: typeof prisma = prisma): Au
             },
           });
         }
+        return true;
       });
     },
 
     async createSession(input) {
-      await database.session.create({
+      const write = (tx:Prisma.TransactionClient)=>tx.session.create({
         data: {
           expiresAt: input.expiresAt,
           ipAddress: input.ipAddress,
@@ -135,6 +144,15 @@ export function createPrismaAuthRepository(database: typeof prisma = prisma): Au
           userAgent: input.userAgent,
           userId: input.userId,
         },
+      });
+      if (input.expectedPasswordHash === undefined) {await write(database);return;}
+      await database.$transaction(async tx=>{
+        // Reset and login share this fence: a password verified before reset
+        // cannot create a new session after reset invalidated older sessions.
+        await lockAuthTokenState(tx,input.userId);
+        const credential=await tx.user.findFirst({where:{id:input.userId,passwordHash:input.expectedPasswordHash,emailVerifiedAt:{not:null}},select:{id:true}});
+        if (!credential || input.expiresAt<=now()) throw new AppError('Invalid email or password.',401,'INVALID_CREDENTIALS');
+        await write(tx);
       });
     },
 
@@ -184,14 +202,18 @@ export function createPrismaAuthRepository(database: typeof prisma = prisma): Au
         }
 
         await lockAuthTokenState(tx, resetToken.userId);
+        if (!await lockAuthUser(tx, resetToken.userId)) return false;
+        await tx.$queryRaw`SELECT id FROM "PasswordResetToken" WHERE id=${resetToken.id} FOR UPDATE`;
+
+        const decisionAt=new Date(Math.max(input.now.getTime(),now().getTime()));
 
         const consumed = await tx.passwordResetToken.updateMany({
           data: {
-            usedAt: input.now,
+            usedAt: decisionAt,
           },
           where: {
             expiresAt: {
-              gt: input.now,
+              gt: decisionAt,
             },
             id: resetToken.id,
             usedAt: null,
@@ -223,6 +245,12 @@ export function createPrismaAuthRepository(database: typeof prisma = prisma): Au
           },
         });
 
+        // A previously issued activation link must not replace this password.
+        await tx.emailVerificationToken.updateMany({
+          data: { usedAt: decisionAt },
+          where: { userId: resetToken.userId, usedAt: null },
+        });
+
         await tx.authEmailJob.updateMany({
           data: {
             encryptedPayload: null,
@@ -230,7 +258,6 @@ export function createPrismaAuthRepository(database: typeof prisma = prisma): Au
             status: "CANCELLED",
           },
           where: {
-            kind: "PASSWORD_RESET",
             status: {
               in: ["PENDING", "PROCESSING"],
             },
@@ -249,17 +276,15 @@ export function createPrismaAuthRepository(database: typeof prisma = prisma): Au
     },
 
     async verifyEmailWithToken(input) {
+      // Also fail closed for trusted adapters which have not adopted the new
+      // activation contract. Token-only activation must never survive a rollout.
+      if (!input.newPasswordHash) return false;
       return database.$transaction(async (tx) => {
         const verificationToken = await tx.emailVerificationToken.findUnique({
           select: {
             expiresAt: true,
             id: true,
             usedAt: true,
-            user: {
-              select: {
-                emailVerifiedAt: true,
-              },
-            },
             userId: true,
           },
           where: {
@@ -272,14 +297,19 @@ export function createPrismaAuthRepository(database: typeof prisma = prisma): Au
         }
 
         await lockAuthTokenState(tx, verificationToken.userId);
+        const user = await lockAuthUser(tx, verificationToken.userId);
+        if (!user || user.emailVerifiedAt) return false;
+        await tx.$queryRaw`SELECT id FROM "EmailVerificationToken" WHERE id=${verificationToken.id} FOR UPDATE`;
+
+        const decisionAt=new Date(Math.max(input.now.getTime(),now().getTime()));
 
         const consumed = await tx.emailVerificationToken.updateMany({
           data: {
-            usedAt: input.now,
+            usedAt: decisionAt,
           },
           where: {
             expiresAt: {
-              gt: input.now,
+              gt: decisionAt,
             },
             id: verificationToken.id,
             usedAt: null,
@@ -290,20 +320,21 @@ export function createPrismaAuthRepository(database: typeof prisma = prisma): Au
           return false;
         }
 
-        if (!verificationToken.user.emailVerifiedAt) {
-          await tx.user.update({
-            data: {
-              emailVerifiedAt: input.now,
-            },
-            where: {
-              id: verificationToken.userId,
-            },
-          });
-        }
+        // Ownership and the owner-selected credential become effective in the
+        // same transaction. No pre-registration password is ever activated.
+        await tx.user.update({
+          data: { emailVerifiedAt: decisionAt, passwordHash: input.newPasswordHash },
+          where: { id: verificationToken.userId },
+        });
+        await tx.session.deleteMany({ where: { userId: verificationToken.userId } });
+        await tx.passwordResetToken.updateMany({
+          data: { usedAt: decisionAt },
+          where: { userId: verificationToken.userId, usedAt: null },
+        });
 
         await tx.emailVerificationToken.updateMany({
           data: {
-            usedAt: input.now,
+            usedAt: decisionAt,
           },
           where: {
             id: {
@@ -321,7 +352,6 @@ export function createPrismaAuthRepository(database: typeof prisma = prisma): Au
             status: "CANCELLED",
           },
           where: {
-            kind: "EMAIL_VERIFICATION",
             status: {
               in: ["PENDING", "PROCESSING"],
             },
@@ -343,4 +373,11 @@ async function lockAuthTokenState(tx: Prisma.TransactionClient, userId: string) 
       hashtextextended(${`oddpath:auth-token-state:${userId}`}, 0)
     )
   `;
+}
+
+async function lockAuthUser(tx: Prisma.TransactionClient, userId: string) {
+  const [user] = await tx.$queryRaw<Array<{ passwordHash: string | null; emailVerifiedAt: Date | null }>>`
+    SELECT "passwordHash", "emailVerifiedAt" FROM "User" WHERE id=${userId} FOR UPDATE
+  `;
+  return user;
 }

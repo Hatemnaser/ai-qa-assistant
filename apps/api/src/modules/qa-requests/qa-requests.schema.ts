@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { QA_ENVIRONMENT_MAX_CHARS, isQaExternalEvidenceReference } from "@oddpath/qa-execution-contract";
 
 import { DATA_LIMITS } from "../../config/data-limits.js";
 
 const shortId = z.string().trim().min(1).max(120);
 const boundedText = (maximum: number) => z.string().trim().min(1).max(maximum);
 const optionalBoundedText = (maximum: number) =>
-  z.string().trim().max(maximum).optional().transform((value) => value || undefined);
+  z.string().trim().max(maximum).transform((value) => value || undefined).optional();
 
 export const qaProjectParamsSchema = z.object({ projectId: shortId }).strict();
 export const qaRequestParamsSchema = z.object({ projectId: shortId, requestId: shortId }).strict();
@@ -31,7 +32,7 @@ export const createQaRequestSchema = z.object({
   title: boundedText(180),
   objective: boundedText(DATA_LIMITS.qaRequestTextChars),
   target: optionalBoundedText(500),
-  environment: optionalBoundedText(500),
+  environment: optionalBoundedText(QA_ENVIRONMENT_MAX_CHARS),
   acceptanceNotes: optionalBoundedText(5_000),
   checklistMode: z.enum(["ODDPATH_GENERATED", "AGENT_PROVIDED"]).default("ODDPATH_GENERATED"),
 }).strict();
@@ -134,7 +135,7 @@ export const addQaEvidenceSchema = z.object({
   textContent: optionalBoundedText(50_000),
   externalReference: optionalBoundedText(2_000),
   assetIds: z.array(shortId).max(4).default([]),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 }).strict().superRefine((value, context) => {
   if (value.metadata && JSON.stringify(value.metadata).length > 20_000) {
     context.addIssue({
@@ -161,12 +162,7 @@ export const addQaEvidenceSchema = z.object({
     });
   }
   if (["SCREENSHOT", "FILE"].includes(value.kind) && value.externalReference) {
-    try {
-      const reference = new URL(value.externalReference);
-      if (reference.protocol !== "https:" || reference.username || reference.password) {
-        throw new Error();
-      }
-    } catch {
+    if (!isQaExternalEvidenceReference(value.externalReference)) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: "External file evidence must use an HTTPS URL without credentials.",

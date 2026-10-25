@@ -1,5 +1,73 @@
 # Oddpath Execution Harness
 
+## Current manual-login slice (stage 3A, 2026-10-12)
+
+Stage 2 is accepted locally in `PHASE_02_CLOSEOUT.md`. The owner selected
+manual login/MFA before saved login. `PHASE_03A_CHECKPOINT.md` records the
+implemented local slice and independent review gate. A MANUAL v2 approval
+binds the same exact profile, target/proof, recipe and limits; it allows up to
+five minutes of human preparation plus ten minutes of execution (fifteen total).
+NONE keeps its earlier execution-only bound. The Runner remains CLAIMED during
+sign-in, with no result/evidence capture. Owner input and ordinary CDP are
+mutually exclusive; accept requires READY after the physical handoff. Execution
+then starts its own unextendable clock. Existing partial-result/Stop/no-replay
+rules remain. SAVED_STATE remains rejected until 3B is implemented and reviewed.
+
+`QA_MANUAL_LOGIN_ENABLED=false` remains the default, production v2 enablement
+is rejected, and only disposable tests received the additive migration. The
+existing CLI v1 default and current SessionPage/QA controller remain. Product
+resource tabs, broad account SSO compatibility and public deployment still need
+their later gates. The sections below retain their dated implementation scope.
+
+## Managed runtime foundation (stage 2, 2026-10-11)
+
+`apps/browser-runtime/README.md` describes the implemented Chrome Stable,
+Playwright CDP, view-only noVNC, private CONNECT egress, durable supervisor
+journal and separately running reapers. `PHASE_02_CHECKPOINT.md` records actual
+Docker/PostgreSQL proofs and remaining gates. The existing CLI remains v1 by
+default; the new supervisor uses explicit v2 client methods and the same recipe
+interpreter. V2 validates canonical profile/target/recipe/approval hashes, fences
+start durably, and never reclaims or replays an allocated attempt after lease
+loss. Runtime failure is checked before submitting interpreted results.
+
+Managed activation requires `QA_LEGACY_RUNNER_DISPATCH_ENABLED=false`, no active
+legacy runs and no queued legacy approvals. An operator-only transition retires
+queued approvals in bounded batches while preserving authorizations/history;
+new managed execution needs a reviewed recipe and fresh owner approval.
+`QA_BROWSER_RUNTIME_ENABLED=false` remains the default. API production startup
+still rejects v2; bypassing this guard is not a deployment path. Login/MFA/saved
+state and manual input are not part of stage 2. Public project routing, durable
+account quotas and product viewing/Stop journeys remain later gates.
+
+## Protocol v2 foundation (2026-10-10)
+
+The accepted direction is `ODDPATH_BETA_IMPLEMENTATION_PLAN.md`. Stage 1 adds
+project-owned immutable HTTPS target revisions, bounded owner-only DNS TXT or
+HTTPS-file challenges, and protocol-v2 profile/task/approval contracts. The v1
+local Runner and its historical records remain compatible during transition.
+The API receives normalized target URLs in v2; the URL-private description below
+applies to v1. Dependency origins are metadata, not additional test authority.
+
+V2 approval binds the pre-start request version, selected artifact, recipe/hash,
+profile/hash, target revision/hash, exact ownership proof, authentication
+identity, declared candidate and execution limits. Dispatch and accept recheck
+these bindings; failed approval validation commits a terminal failure before
+returning an error. New domain proof cannot silently renew an approved proof.
+
+`QA_EXECUTION_V2_ENABLED=false` is the default. Production rejects `true` in this
+stage. V2 registration/claim adapters use the existing services, but the current
+CLI remains v1. Remote runtime was added later in stage 2 above. Controlled tests inject
+v2 enablement; this is not a production activation mechanism. Saved-state
+execution is blocked. V2 production recipes permit navigation/assertions only,
+with explicit owner confirmation; this cannot guarantee a read has no effects.
+
+Stop receipts separately represent requested, confirmed and unconfirmed Stop.
+Only runtime exit proof can confirm it. Current cancellation/lease expiry is
+not that proof. Supervisor, isolation/egress enforcement, reaper, no replay of a
+started recipe, protocol activation/drain and remote Chrome/noVNC ship in stage
+2. Human login/vault ships in stage 3; targets/approval UI and tabs remain later
+work. Do not enable browser production execution from this foundation alone.
+
 This document describes the first Playwright execution path built on top of
 the QA Control Plane. The harness is deliberately agent-neutral: Codex,
 Claude, another MCP client, or Oddpath's provider-neutral AI layer may propose
@@ -31,7 +99,7 @@ the approval, execution, proof, and audit contract stable.
   public Runner profiles, RecipeV1, claims, tasks, results, and receipts.
 - The API stores immutable Recipes, assessments, exact approvals, execution
   jobs, lease hashes, progress, evidence-upload reservations, and history.
-- `apps/runner` is a local CLI. It is the only component that receives profile
+- `apps/runner` is the v1 local CLI. It is the only v1 component that receives profile
   `baseUrl` values and local test values or secrets.
 - The web UI discovers public Runner profiles, shows Recipe steps and hashes,
   requires explicit approval, and polls operation/job progress.
@@ -39,7 +107,7 @@ the approval, execution, proof, and audit contract stable.
   but cannot select a checklist, approve a Playwright execution, or record the
   final Human Review.
 
-Oddpath never receives a profile's `baseUrl` or resolved values. Registration
+In protocol v1, Oddpath never receives a profile's `baseUrl` or resolved values. Registration
 contains only a profile key, label, environment classification, evidence
 capabilities, value-reference names with `secret` flags, supported schema
 versions, and a canonical manifest hash.

@@ -1,7 +1,7 @@
 import { env } from "../../config/env.js";
 import { AppError } from "../../lib/errors.js";
 import type { AiChatInput, AiChatResponse, AiModelRouting, AiProviderAdapter } from "./ai.types.js";
-import { assertAiModelCapabilities, getAiModelCatalog, resolveAiModel } from "./provider-registry.js";
+import { AUTO_AI_MODEL, assertAiModelCapabilities, getAiModelCatalog, resolveAiModel } from "./provider-registry.js";
 
 type ChatAiProvider = AiProviderAdapter["chat"];
 
@@ -24,10 +24,9 @@ export async function chatWithAiFallback({
   routing,
 }: AiFallbackInput): Promise<AiChatResponse> {
   try {
-    await onProviderAttempt?.(input);
-    return await chatWithAi(input);
+    return await callModel(chatWithAi, input, routing, onProviderAttempt);
   } catch (error) {
-    if (!shouldFallbackToAnotherModel(error)) throw error;
+    if (routing.requestedModel !== AUTO_AI_MODEL || !shouldFallbackToAnotherModel(error)) throw error;
 
     return sendWithFallbackCandidates({
       chatWithAi,
@@ -44,43 +43,28 @@ async function sendWithFallbackCandidates(input: AiFallbackInput & { firstError:
   let lastError = input.firstError;
 
   for (const model of getFallbackModelCandidates(input.input.model)) {
-    const resolved = resolveAiModel({
-      model,
-    });
-
+    let resolved;
     try {
+      resolved = resolveAiModel({ model, provider: input.input.provider });
       assertAiModelCapabilities(resolved.config, {
         images: input.requiredCapabilities.hasImages,
         textAttachments: input.requiredCapabilities.hasTextAttachments,
       });
     } catch (error) {
-      lastError = error;
       continue;
     }
 
     try {
-      await input.onProviderAttempt?.({
+      return await callModel(input.chatWithAi, {
         ...input.input,
         model: resolved.model,
         provider: resolved.provider,
-      });
-      const response = await input.chatWithAi({
-        ...input.input,
-        model: resolved.model,
-        provider: resolved.provider,
-      });
-
-      return {
-        ...response,
-        model: response.model || resolved.model,
-        modelRouting: {
+      }, {
           reason: `Primary model ${input.input.model} was unavailable or over quota; using ${resolved.model}.`,
           requestedModel: input.routing.requestedModel,
-          selectedModel: response.model || resolved.model,
+          selectedModel: resolved.model,
           source: "fallback" as const,
-        },
-        provider: response.provider || resolved.provider,
-      };
+      }, input.onProviderAttempt);
     } catch (error) {
       if (!shouldFallbackToAnotherModel(error)) throw error;
 
@@ -89,6 +73,17 @@ async function sendWithFallbackCandidates(input: AiFallbackInput & { firstError:
   }
 
   throw lastError;
+}
+
+async function callModel(provider: ChatAiProvider, input: AiChatInput, routing: AiModelRouting,
+  onProviderAttempt?: AiFallbackInput["onProviderAttempt"]): Promise<AiChatResponse> {
+  await onProviderAttempt?.(input);
+  const response = await provider(input);
+  if ((response.model && response.model !== input.model) || (response.provider && response.provider !== input.provider)) {
+    throw new AppError("The AI provider returned an unexpected model. Retry or choose another model.", 502, "AI_MODEL_MISMATCH");
+  }
+  return { ...response, model: response.model || input.model!, provider: response.provider || input.provider,
+    modelRouting: { ...routing, selectedModel: response.model || input.model! } };
 }
 
 function getFallbackModelCandidates(currentModel: string | undefined) {

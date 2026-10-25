@@ -1,0 +1,478 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-19T11:19:07.533Z",
+  "scope": "PHASE_08A_CLOSED_LOCAL_COMPOSE_REHEARSAL_CONTINUATION",
+  "status": "LOCAL_REHEARSAL_COMPLETED_PENDING_INDEPENDENT_ACCEPTANCE",
+  "phaseAccepted": false,
+  "publicReleaseAuthorized": false,
+  "source": {
+    "digest": "64cf0650abcc777b6c04f9b496b1d594cb39bd04d28d19df02ef7db8077d9acf",
+    "fileCount": 1042,
+    "productCodeChanged": false,
+    "composeChanged": false,
+    "dockerfileChanged": false
+  },
+  "diagnosis": {
+    "previous": "Two independent-review attempts stopped during PostgreSQL container creation at 120 seconds, before application checks.",
+    "current": "The identical review fixture completed without timeout changes or altered assertions; PostgreSQL Compose creation completed in 10810 ms.",
+    "cause": "NOT_CONFIRMED: the historical host-side startup stall was not reproducible in this Compose run; no product defect or production workaround is asserted.",
+    "additionalWindowsBindAttempt": "A separate optional Linux fixture stalled before container creation when binding a Windows directory. Its exact Docker client was stopped; Docker Desktop and existing services were not restarted. The same current source and assertions passed via stdin/tmpfs transport."
+  },
+  "verification": {
+    "compose": {
+      "outcome": "PASS_WITH_EXPLICIT_LIMITS",
+      "assertions": 53,
+      "pass": 53,
+      "fail": 0,
+      "migrations": 34,
+      "fixtureUnchanged": true,
+      "fixtureSha256": "ef35ff807852040ff7118935c047bdba8fddfcae7c30f683b93cfa5950ca3a01",
+      "images": [
+        {
+          "id": "sha256:00b4ba90e53492bcc3480b8fcf6a41ca5977c6be8af6cbccfccab002753b771c",
+          "tags": [
+            "oddpath/phase08-api:local-20261018"
+          ],
+          "architecture": "amd64",
+          "user": "node:node"
+        },
+        {
+          "id": "sha256:44502a6e979453a5293c3c176adba3f8c95f980690c1e589e2d219575de7b9a5",
+          "tags": [
+            "oddpath/phase08-api-migrations:local-20261018"
+          ],
+          "architecture": "amd64",
+          "user": "node:node"
+        }
+      ],
+      "runtimeDatabasePrivileges": {
+        "roleSuper": false,
+        "roleCreateDb": false,
+        "roleCreateRole": false,
+        "roleReplication": false,
+        "ownsDb": false,
+        "createDb": false,
+        "createSchema": false,
+        "isMigrator": false,
+        "migrationInsert": false,
+        "migrationUpdate": false,
+        "migrationDelete": false
+      },
+      "checks": [
+        {
+          "name": "both-local-image-targets-exist",
+          "outcome": "PASS"
+        },
+        {
+          "name": "images-default-to-nonroot",
+          "outcome": "PASS"
+        },
+        {
+          "name": "compose-validates-without-resolving-secret-output",
+          "outcome": "PASS"
+        },
+        {
+          "name": "missing-secret-interpolation-is-rejected",
+          "outcome": "PASS"
+        },
+        {
+          "name": "dedicated-volume-name-was-unused",
+          "outcome": "PASS"
+        },
+        {
+          "name": "unique-postgres-id-present",
+          "outcome": "PASS"
+        },
+        {
+          "name": "migration-deploy-exited-zero",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-role-has-no-schema-owner-or-admin-privileges",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-connect-is-restricted-to-application-db-without-temp",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-cannot-create-schema",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-cannot-create-table",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-cannot-create-role",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-cannot-create-database",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-cannot-write-migration-metadata",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-dml-works-on-real-application-table",
+          "outcome": "PASS"
+        },
+        {
+          "name": "production-api-refuses-empty-csrf-secret",
+          "outcome": "PASS"
+        },
+        {
+          "name": "unique-api-id-present",
+          "outcome": "PASS"
+        },
+        {
+          "name": "api-runs-the-inspected-image-id",
+          "outcome": "PASS"
+        },
+        {
+          "name": "api-is-bound-only-to-host-loopback",
+          "outcome": "PASS"
+        },
+        {
+          "name": "pg-has-no-published-host-port",
+          "outcome": "PASS"
+        },
+        {
+          "name": "pg-connects-only-to-internal-database-network",
+          "outcome": "PASS"
+        },
+        {
+          "name": "api-nonroot-readonly-drops-capabilities",
+          "outcome": "PASS"
+        },
+        {
+          "name": "api-does-not-mount-docker-socket-or-host-files",
+          "outcome": "PASS"
+        },
+        {
+          "name": "api-no-new-privileges-enabled",
+          "outcome": "PASS"
+        },
+        {
+          "name": "all-product-feature-gates-remain-closed",
+          "outcome": "PASS"
+        },
+        {
+          "name": "smtp-target-is-synthetic-loopback-discard-only",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-does-not-receive-admin-or-migration-credentials",
+          "outcome": "PASS"
+        },
+        {
+          "name": "running-process-is-nonroot",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-contains-no-prisma-cli",
+          "outcome": "PASS"
+        },
+        {
+          "name": "runtime-contains-no-typescript-or-tsx-tooling",
+          "outcome": "PASS"
+        },
+        {
+          "name": "application-root-write-is-denied",
+          "outcome": "PASS"
+        },
+        {
+          "name": "http-ready-queries-real-pg",
+          "outcome": "PASS"
+        },
+        {
+          "name": "http-csrf-issued-secure-lax-cookie",
+          "outcome": "PASS"
+        },
+        {
+          "name": "http-post-without-csrf-rejected",
+          "outcome": "PASS"
+        },
+        {
+          "name": "http-post-with-valid-csrf-accepted",
+          "outcome": "PASS"
+        },
+        {
+          "name": "http-cross-origin-with-token-rejected",
+          "outcome": "PASS"
+        },
+        {
+          "name": "http-registration-config-remains-disabled",
+          "outcome": "PASS"
+        },
+        {
+          "name": "http-valid-registration-is-explicitly-rejected",
+          "outcome": "PASS"
+        },
+        {
+          "name": "synthetic-row-exists-before-restarts",
+          "outcome": "PASS"
+        },
+        {
+          "name": "restarted-api-stays-on-host-loopback",
+          "outcome": "PASS"
+        },
+        {
+          "name": "synthetic-row-survives-api-restart",
+          "outcome": "PASS"
+        },
+        {
+          "name": "synthetic-row-survives-postgres-restart",
+          "outcome": "PASS"
+        },
+        {
+          "name": "real-migration-history-is-present",
+          "outcome": "PASS"
+        },
+        {
+          "name": "synthetic-row-survives-idempotent-migration-rerun",
+          "outcome": "PASS"
+        },
+        {
+          "name": "idempotent-rerun-does-not-elevate-runtime",
+          "outcome": "PASS"
+        },
+        {
+          "name": "A5-runtime-cannot-assume-migrator",
+          "outcome": "PASS"
+        },
+        {
+          "name": "A6-runtime-cannot-read-server-secret",
+          "outcome": "PASS"
+        },
+        {
+          "name": "A7-runtime-cannot-drop-user-table",
+          "outcome": "PASS"
+        },
+        {
+          "name": "A8-HTTP-readiness-fails-during-real-database-outage",
+          "outcome": "PASS"
+        },
+        {
+          "name": "A9-outage-response-does-not-disclose-secrets",
+          "outcome": "PASS"
+        },
+        {
+          "name": "A10-database-outage-recovery-preserves-synthetic-row",
+          "outcome": "PASS"
+        },
+        {
+          "name": "A11-runtime-does-not-migrate-empty-database",
+          "outcome": "PASS"
+        },
+        {
+          "name": "A12-connectivity-readiness-is-not-a-schema-acceptance-gate",
+          "outcome": "PASS"
+        }
+      ],
+      "cleanup": {
+        "resources": "PASS",
+        "syntheticCredentialFiles": "REMOVED"
+      }
+    },
+    "currentBuild": {
+      "command": "npm --prefix apps/api run build",
+      "outcome": "PASS",
+      "database": "An inert synthetic loopback DATABASE_URL was supplied; generation/build did not use the working database.",
+      "imageComparison": [
+        {
+          "image": "oddpath/phase08-api:local-20261018",
+          "imageJsFiles": 412,
+          "currentJsFiles": 412,
+          "normalization": "CRLF_TO_LF_ONLY",
+          "differences": []
+        },
+        {
+          "image": "oddpath/phase08-api-migrations:local-20261018",
+          "imageJsFiles": 412,
+          "currentJsFiles": 412,
+          "normalization": "CRLF_TO_LF_ONLY",
+          "differences": []
+        }
+      ]
+    },
+    "linuxProcessCleanup": {
+      "outcome": "PASS",
+      "transport": "Exact file bytes copied through stdin into disposable tmpfs; no host bind or Docker socket",
+      "uid": 1000,
+      "sourceHashes": [
+        {
+          "path": "apps/api/scripts/verify-release.mjs",
+          "sha256": "b96c00e1cb77260e630959b8d32aac1ad052170f86716165616873c6d723faa2"
+        },
+        {
+          "path": "apps/api/scripts/verify-release-manifest.mjs",
+          "sha256": "9facf9c31a490035f9fab6f17d27c38c68ee15a18314545765d0429945bcc90d"
+        },
+        {
+          "path": "apps/api/scripts/verify-release-fingerprint.mjs",
+          "sha256": "40c4b2703770e1bb662c75e327d0f35bbbcdd685854e5a4daaa76483e3cd08f7"
+        },
+        {
+          "path": "apps/api/scripts/verify-release-network.mjs",
+          "sha256": "3570149f59c4d49127c904450696ace16974d9690ceb02e2e57070e7d2e8d087"
+        },
+        {
+          "path": "linux-process-cleanup.mjs",
+          "sha256": "472880ea09f2f051c757acc5f90b35d48f905436c1fc7c8780a1c04dce32c101"
+        }
+      ],
+      "checks": [
+        {
+          "mode": "abort",
+          "outcome": "PASS",
+          "ownedPids": [
+            19,
+            26
+          ],
+          "survivors": 0
+        },
+        {
+          "mode": "timeout",
+          "outcome": "PASS",
+          "ownedPids": [
+            33,
+            40
+          ],
+          "survivors": 0
+        },
+        {
+          "mode": "pre-abort",
+          "outcome": "PASS",
+          "sideEffect": false
+        }
+      ]
+    },
+    "fileMountProbes": {
+      "outcome": "PASS",
+      "cases": [
+        {
+          "kind": "windows-temp",
+          "created": true,
+          "createMs": 7635,
+          "timeout": false,
+          "readSuccess": true
+        },
+        {
+          "kind": "outside-checkout-documents",
+          "created": true,
+          "createMs": 2818,
+          "timeout": false,
+          "readSuccess": true
+        }
+      ]
+    },
+    "priorDatabaseRegressions": {
+      "freshThisTurn": false,
+      "evidence": "work/phase-08a-r1-acceptance-20261019/full-gate/verification.json",
+      "status": "PASS_LOCAL_SUITES",
+      "suites": 15,
+      "tests": 256,
+      "reasonForReuse": "Exact maintained release-input digest still matches the freshly completed independent R1 acceptance run; no product or maintained execution code changed."
+    },
+    "resources": {
+      "residual": {
+        "composeContainers": "",
+        "composeNetworks": "",
+        "composeVolumes": "",
+        "mountProbeContainers": "",
+        "linuxStreamContainers": "",
+        "stalledMigrationImageContainers": ""
+      },
+      "anonymousProbeVolumes": [
+        {
+          "name": "2fc809faf94486d0db9859466e2813e83234b6f0e28c258b260b2f6d915d88dc",
+          "remaining": false
+        },
+        {
+          "name": "c04765bcd59c17e1b437c3fa8ada800aebdad96121ee0049699a5403c285d26b",
+          "remaining": false
+        }
+      ],
+      "syntheticCredentialsRemoved": true,
+      "workingDatabase": {
+        "id": "a225c71ad5c538cbfb7f37a1b16083d1d6919227fe4c64a01318f30daf68c187",
+        "startedAt": "2026-10-17T17:32:47.439736996Z",
+        "state": "running",
+        "unchangedSincePriorReview": true
+      }
+    }
+  },
+  "limits": [
+    "Closed API/PostgreSQL foundation only: registration, AI, browser/v2 and private-asset feature gates remain off.",
+    "HTTP with simulated trusted proxy headers; no live HTTPS, ingress proxy, DNS, public email, LLM, object storage or cloud call was performed.",
+    "API/PG restart and outage recovery preserve the existing volume; this is not an encrypted off-host backup/restore or rollback proof.",
+    "The connectivity readiness SELECT 1 check can succeed on an empty schema; controlled migration history and role checks are separately mandatory.",
+    "The Windows host-bind startup intermittency is not diagnosed or claimed fixed; the original full Compose path passed without weakening it.",
+    "Native Oracle ARM64/browser sandbox, automatic owner-scoped project routing, production activation, full vault/proxy topology, job supervision, resource budgets and hosted CI remain open.",
+    "This completion is implementation/verification evidence prepared for independent review; it does not accept Phase 08 or authorize Public Release."
+  ],
+  "diagnostics": [
+    {
+      "file": "work/phase-08a-compose-20261019/build-api.log",
+      "description": "Initial host npm CLI path was absent; corrected only the command path, then the complete build passed."
+    },
+    {
+      "file": "work/phase-08a-compose-20261019/linux-bind-startup-diagnostic.json",
+      "description": "Windows directory-bind fixture stopped before assertions; not counted as a product test failure or PASS."
+    }
+  ],
+  "changes": "Only the existing Phase 08A inventory is updated and this sanitized evidence file is added; detailed fixtures/logs remain in ignored work/. No product, schema, contracts, CI, infrastructure configuration, historical evidence or old tests are modified.",
+  "independentReviewRequired": true,
+  "additionalModelsOrSubagentsInvoked": false,
+  "next": "Independent review of the completed local Compose slice, then the remaining bounded Phase 08 product/topology/staging gates; no new cloud resource was provisioned.",
+  "rawEvidence": {
+    "directory": "work/phase-08a-compose-20261019/",
+    "retainedLocally": true,
+    "portable": false,
+    "files": [
+      {
+        "file": "ops/result.json",
+        "sha256": "913412035c075e4656ea94f5cf954ada770737442bf32268e3e1a68b59046095"
+      },
+      {
+        "file": "ops/rehearsal.mjs",
+        "sha256": "ef35ff807852040ff7118935c047bdba8fddfcae7c30f683b93cfa5950ca3a01"
+      },
+      {
+        "file": "ops/console.log",
+        "sha256": "27718eaeb114aa690f15ed0e10a19184b65237b67678e763b2cbd2de94d9f7d4"
+      },
+      {
+        "file": "mount-diagnostics.json",
+        "sha256": "7f947b858a4950418f7a04b62fade1f70f4399d62ead10a8e28becd7342e1ea9"
+      },
+      {
+        "file": "build-api-success.log",
+        "sha256": "cd9438209b1016e27435a0d0c2a971423cfe6b098f3c620af59a41014812d7eb"
+      },
+      {
+        "file": "image-build-comparison.json",
+        "sha256": "416a010e81a3f0176cddf53441542e66be7f5322e267c1198e2c0c788f1e247e"
+      },
+      {
+        "file": "linux-process-stream.json",
+        "sha256": "db2516ddfab48785dd72db9685ef18238a77f0815958129f446a47fc2f370578"
+      },
+      {
+        "file": "linux-process-stream.log",
+        "sha256": "30aaf6e06bb30793022cf5e98b72e3bbd697968c15594f98d91ebe4d059b4fbc"
+      },
+      {
+        "file": "linux-bind-startup-diagnostic.json",
+        "sha256": "b8d4c34976288aef9c04e4d2c62300b82cf6afa2f7c2a25b676388cde91563ef"
+      },
+      {
+        "file": "resources.json",
+        "sha256": "22bb3b68551dca87c0df7b791641776e1bc5a27c08623f77ce333e692a399aca"
+      }
+    ]
+  }
+}

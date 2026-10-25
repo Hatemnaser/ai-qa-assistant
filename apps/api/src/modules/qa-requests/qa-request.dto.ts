@@ -12,6 +12,7 @@ export function toPublicQaRequest(value: unknown): unknown {
     const results = Array.isArray(run.results) ? run.results : [];
     return {
       ...run,
+      evidence: arrayOfRecords(run.evidence).map(publicEvidence),
       executionMode: rawJob ? "PLAYWRIGHT" : "CONNECTED_AGENT",
       executionJob: rawJob
         ? {
@@ -68,6 +69,19 @@ export function toPublicQaRequest(value: unknown): unknown {
     })),
     runs,
   };
+}
+
+function publicEvidence(evidence: Record<string, unknown>) {
+  const assets = arrayOfRecords(evidence.assets).map(entry => {
+    const snapshot = asRecord(entry.snapshot), raw = asRecord(entry.asset);
+    const expired = raw?.evidenceExpiresAt && Date.parse(String(raw.evidenceExpiresAt)) <= Date.now();
+    const status = expired ? "EXPIRED" : raw?.status || entry.unavailableReason || "MISSING";
+    return {...entry, availability: status, asset: raw
+      ? {...raw, status}
+      : {id: `unavailable:${entry.id}`, originalName: snapshot?.originalName || "", declaredMimeType: snapshot?.declaredMimeType || "", detectedMimeType: snapshot?.detectedMimeType || null,
+        checksumSha256: snapshot?.checksumSha256 || null, sizeBytes: snapshot?.sizeBytes || null, evidenceExpiresAt: snapshot?.evidenceExpiresAt || null, status, readyAt: null}};
+  });
+  return {...evidence, assets};
 }
 
 function arrayOfRecords(value: unknown) {

@@ -1,0 +1,94 @@
+# Explicit fourth overlay, after base + operations + stack. Data recovery stays
+# quarantined. Do not select the old database-only backup profile for this data.
+services:
+  full-backup:
+    extends: {file: self-hosted.operations.compose.yml, service: backup}
+    profiles: [full-backup]
+    user: "0:0"
+    env_file: !override
+      - path: "${ODDPATH_FULL_BACKUP_ENV_FILE:?Provide separate SELECT-only PG and GET-only object credentials}"
+        format: raw
+    environment:
+      ODDPATH_BACKUP_SCOPE: FULL_SYSTEM
+      ODDPATH_FULL_VAULT_KEYRING_FILE: /run/secrets/browser_vault_keyring
+      ODDPATH_FULL_ESCROW_KEY_FILE: /run/secrets/full_escrow_key
+      ODDPATH_FULL_RUNTIME_SOCKET: /export-runtime/sqlite.sock
+      ODDPATH_FULL_REVOCATIONS_SOCKET: /export-vault/sqlite.sock
+    # Only private export sockets and key material; no live journal mount.
+    # Read/search reaches UID1000 private paths, group1000 connects its socket.
+    # No Docker socket, writable source mount, DAC_OVERRIDE or host port.
+    cap_drop: [ALL]
+    cap_add: [DAC_READ_SEARCH]
+    group_add: ["1000"]
+    secrets: !override [backup_key, backup_pgpass, full_escrow_key, browser_vault_keyring]
+    volumes: !override
+      - full-backup-state:/var/lib/oddpath-backup-state
+      - full-encrypted-backups:/var/lib/oddpath-backups
+      - vault-export-socket:/export-vault:ro
+      - runtime-export-socket:/export-runtime:ro
+    networks: [database, outbound]
+    depends_on:
+      postgres: {condition: service_healthy}
+      vault-exporter: {condition: service_healthy}
+      runtime-exporter: {condition: service_healthy}
+    mem_limit: 1024m
+
+  vault-exporter:
+    profiles: [full-backup]
+    image: "${ODDPATH_OPERATIONS_IMAGE:?Provide the reviewed operations image}"
+    entrypoint: [node, ops/sqlite-export.mjs]
+    command: []
+    user: "1000:1000"
+    network_mode: none
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      ODDPATH_SQLITE_EXPORT_KIND: revocations
+      ODDPATH_SQLITE_SOURCE_FILE: /source/revocations.sqlite
+      ODDPATH_SQLITE_SOCKET_DIRECTORY: /var/lib/sqlite-export
+    # Native owner permits SQLite WAL/SHM bookkeeping. The export code opens
+    # the source readOnly and never updates its application tables.
+    volumes:
+      - vault-revocations:/source
+      - vault-export-socket:/var/lib/sqlite-export
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=256m,uid=1000,gid=1000", "/var/lib/postgresql/data:rw,noexec,nosuid,size=1m,uid=1000,gid=1000"]
+    mem_limit: 384m
+    cpus: 0.25
+    pids_limit: 32
+    healthcheck:
+      test: [CMD, node, ops/sqlite-export.mjs, health]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    logging: {driver: local, options: {max-size: "1m", max-file: "2"}}
+
+  runtime-exporter:
+    extends: {service: vault-exporter}
+    user: "0:0"
+    environment:
+      ODDPATH_SQLITE_EXPORT_KIND: runtime
+      ODDPATH_SQLITE_SOURCE_FILE: /source/runtime.sqlite
+    volumes: !override
+      - browser-journal:/source
+      - runtime-export-socket:/var/lib/sqlite-export
+    tmpfs: !override ["/tmp:rw,noexec,nosuid,size=256m", "/var/lib/postgresql/data:rw,noexec,nosuid,size=1m"]
+
+volumes:
+  full-backup-state:
+    external: true
+    name: "${ODDPATH_FULL_BACKUP_STATE_VOLUME:?Provision NEW UID0 private full backup supervisor state}"
+  full-encrypted-backups:
+    external: true
+    name: "${ODDPATH_FULL_BACKUP_ARCHIVE_VOLUME:?Provision NEW UID0 private full encrypted archive storage}"
+  vault-export-socket:
+    external: true
+    name: "${ODDPATH_FULL_VAULT_EXPORT_VOLUME:?Provision private UID1000 export socket directory}"
+  runtime-export-socket:
+    external: true
+    name: "${ODDPATH_FULL_RUNTIME_EXPORT_VOLUME:?Provision private UID0 export socket directory}"
+secrets:
+  full_escrow_key:
+    file: "${ODDPATH_FULL_ESCROW_KEY_FILE:?Provide independent private escrow key, separate from all other keys}"

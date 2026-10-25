@@ -2,6 +2,7 @@ import { ChatRole } from "../../generated/prisma/enums.js";
 import { AppError } from "../../lib/errors.js";
 import { env } from "../../config/env.js";
 import { chatHistoryRepository } from "./chat-history.repository.js";
+import { recordedMessageMetadata } from "./chat-message-metadata.js";
 import {
   projectAccessService,
   type ProjectAccessService,
@@ -138,10 +139,9 @@ function toStoredMessageDto(message: StoredMessageRecord): StoredChatMessageDto 
     role: message.role === ChatRole.ASSISTANT ? "assistant" : "user",
     content: message.content,
     mode: message.mode,
-    model: message.model || "gemini-2.5-flash",
+    ...recordedMessageMetadata(message),
     ...(attachments.length > 0 ? { attachments } : {}),
     createdAt: message.createdAt.toISOString(),
-    ...(hasErrorFlag(message.metadata) ? { isError: true } : {}),
   };
 }
 
@@ -220,16 +220,6 @@ function isAttachmentRecord(value: unknown): value is Record<string, unknown> {
 
 function toPrismaChatRole(role: "user" | "assistant") {
   return role === "assistant" ? ChatRole.ASSISTANT : ChatRole.USER;
-}
-
-function hasErrorFlag(metadata: unknown) {
-  return Boolean(
-    metadata &&
-      typeof metadata === "object" &&
-      !Array.isArray(metadata) &&
-      "isError" in metadata &&
-      (metadata as { isError?: unknown }).isError
-  );
 }
 
 function toDate(value: string | undefined, fallback: Date) {

@@ -8,10 +8,21 @@ import {
   getAllowedModelValues,
   getAllowedProviderIds,
   resolveAiModel,
+  resolveAiModelSelection,
+  getAiModelSelectionCatalog,
 } from "../src/modules/ai/provider-registry.ts";
 import type { AiModelConfig } from "../src/modules/ai/ai.types.ts";
 
 describe("AI provider registry", () => {
+  it("keeps Auto as selection intent outside the physical model registry", () => {
+    const selected = resolveAiModelSelection({ model: " auto " });
+    assert.equal(selected.selection, "auto");
+    assert.equal(selected.model.model, FALLBACK_AI_MODEL);
+    assert.notEqual(selected.model.model, "auto");
+    assert.equal(getAiModelSelectionCatalog()[0]?.value, "auto");
+    assert.throws(() => resolveAiModel({ model: "auto" }), { code: "UNSUPPORTED_MODEL" });
+    assert.throws(() => resolveAiModelSelection({ model: "auto", provider: "unknown-provider" }), { code: "UNSUPPORTED_AI_PROVIDER" });
+  });
   it("resolves the default provider and model", () => {
     const resolved = resolveAiModel();
 

@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "../../db/prisma.js";
 import { DATA_LIMITS } from "../../config/data-limits.js";
 import { AppError } from "../../lib/errors.js";
+import {currentManagedBinding} from '../browser-runtime/managed-project-identity.js';
 import {
   projectAccessService,
   type ProjectAccessService,
@@ -99,6 +100,10 @@ export function createProjectConnectionsService({
       });
       if (!existing) throw new AppError("Connection was not found.", 404, "CONNECTION_NOT_FOUND");
     }
+    if(connectionId.startsWith('mb-')) {
+      const {requestOwnerBrowserStop}=await import('../browser-runtime/browser-runtime.repository.js');
+      await requestOwnerBrowserStop(userId,projectId);
+    }
     return { ok: true as const };
   }
 
@@ -106,7 +111,7 @@ export function createProjectConnectionsService({
     const connection = await database.projectConnectionToken.findUnique({
       where: { tokenHash: hashConnectionToken(token) },
     });
-    if (!connection || connection.revokedAt || (connection.expiresAt && connection.expiresAt <= now())) {
+    if (!connection || connection.revokedAt || (connection.expiresAt && connection.expiresAt <= now()) || !currentManagedBinding(connection)) {
       throw new AppError("Connection token is invalid or expired.", 401, "CONNECTION_TOKEN_INVALID");
     }
     await database.projectConnectionToken.update({

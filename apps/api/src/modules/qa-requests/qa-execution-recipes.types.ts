@@ -1,5 +1,5 @@
 import type {
-  ProfileManifestV1,
+  ProfileManifest,
   RecipeBundleV1,
 } from "@oddpath/qa-execution-contract";
 
@@ -7,7 +7,7 @@ import type { QaActor, QaContextSnapshotInput, QaProcessingLease } from "./qa-re
 
 export interface QaRecipeGenerationInput {
   artifact: QaRecipePlanningArtifact;
-  profileManifest: ProfileManifestV1;
+  profileManifest: ProfileManifest;
   requestId: string;
   signal?: AbortSignal;
   snapshot: QaContextSnapshotInput;
@@ -66,7 +66,7 @@ export interface SubmitQaExecutionRecipeCommand {
   model?: string;
   origin: "ODDPATH_GENERATED" | "AGENT_PROVIDED";
   processing?: QaProcessingLease;
-  profileManifest: ProfileManifestV1;
+  profileManifest: ProfileManifest;
   projectId: string;
   provider?: string;
   requestId: string;
@@ -107,7 +107,7 @@ export interface QaExecutionRecipeRepository {
   queueGeneration(input: {
     actor: QaActor;
     artifactId?: string;
-    profileManifest: ProfileManifestV1;
+    profileManifest: ProfileManifest;
     projectId: string;
     requestId: string;
     idempotencyKeyHash?: string;

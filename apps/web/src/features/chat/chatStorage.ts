@@ -1,4 +1,4 @@
-import { DEFAULT_MODE, STORAGE_KEYS, getModelForMode, normalizeModel } from "./constants";
+import { DEFAULT_MODE, STORAGE_KEYS, getModelForMode, normalizeRecordedModel } from "./constants";
 import type { Chat, ChatAttachment } from "./types";
 import {
   getLocalStorageItem,
@@ -238,7 +238,7 @@ function normalizeChat(chat: Partial<Chat>): Chat {
             role: message.role === "assistant" ? "assistant" : "user",
             content: typeof message.content === "string" ? message.content : "",
             mode: message.mode || chat.mode || DEFAULT_MODE,
-            model: normalizeModel(message.model || chat.model),
+            model: normalizeRecordedModel(message.model),
             ...(attachments.length > 0 ? { attachments } : {}),
             createdAt: message.createdAt || new Date().toISOString(),
             ...(message.isError ? { isError: true } : {}),

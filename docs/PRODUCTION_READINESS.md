@@ -14,12 +14,47 @@ It separates three different states:
 Do not call a release production-ready while any item in **Production
 Blockers** remains open.
 
-Product sequencing and the future release-readiness feature are documented in
+Product sequencing and the release-readiness feature are documented in
 `PRODUCT_VISION_AND_LAUNCH_PLAN.md`. That roadmap does not mark any operational
 gate here complete, authorize deployment, or equate QA-record approval with
 real-user release approval.
 
 ## Current Release Status
+
+2026-10-18: Phase 07 received bounded acceptance GO after the R1 adversarial
+review ([PHASE_07_CLOSEOUT.md](PHASE_07_CLOSEOUT.md)). The owner requested a
+documentation inventory before Phase 08 implementation. Read
+[PHASE_08A_READINESS_INVENTORY.md](PHASE_08A_READINESS_INVENTORY.md) for the
+existing smoke/cleanup/recovery tools and verified remaining gaps. Runtime v2
+and private assets still have production guards; automatic public browser
+project binding and full proxy/journal/job deployment are not supplied by the
+old Blueprint. Documentation reconciliation is not new live evidence.
+
+Current launch policy is public verified-email beta, not invite-only. The later
+beta plan supersedes historical provider/rollout examples here without waiving
+their data-safety requirements. Infrastructure is capped at EUR 10/month with
+domain and AI/API charges separate; no provider pricing/capacity was verified
+by this task. Current scope/operating requirements below take precedence over
+dated status paragraphs and old provider instructions. Public release stays NO_GO.
+
+2026-10-17: Phase 06C received bounded local acceptance GO
+(`PHASE_06C_CLOSEOUT.md`). Phase 07 readiness implementation is authorized,
+pending independent review (`PHASE_07_CHECKPOINT.md`). This supersedes the older
+pending-06C note below. Public activation remains NO_GO; live SMTP, HTTPS,
+infrastructure, backup/restore, privacy/legal and stage 8 gates remain open.
+
+2026-10-16: Phase 06B received local independent GO (`PHASE_06B_CLOSEOUT.md`).
+Phase 06C auth/email/abuse is locally implemented, awaiting independent review.
+Read `AUTH_ABUSE_OPERATIONS.md`. The public release acknowledgement remains false;
+the historical invite-only instructions below do not supersede the selected public
+verified-email beta or close live infrastructure/legal/operating gates.
+
+Current product scope (2026-10-13): ODDPATH_BETA_IMPLEMENTATION_PLAN.md supersedes
+the earlier invite-only/provider-specific rollout described below. The selected
+beta is public verified-email registration with a bounded browser queue/quotas;
+that public activation remains stage6–8 work. Existing invite-mode code and
+historical deployment settings are not evidence that public activation is ready.
+Stages0–3B are local foundations; use their individual checkpoint/review ledgers.
 
 The application architecture can be deployed as:
 
@@ -115,23 +150,28 @@ audit, Prisma validation/generation, and the full build/test gates green.
   bounded and pre-body, but process-local.
 - [ ] Configure and smoke-test a production SMTP provider for auth email,
   including sender domain DNS, SPF, DKIM, and DMARC.
-- [x] Keep and harden the owned auth boundary for the initial private beta;
+- [x] Keep and harden the owned auth boundary for the initial public beta;
   revisit a maintained platform when OAuth, MFA/passkeys, or organizations
   enter scope.
 - [x] Implement password account recovery end to end, including SMTP delivery,
   token validation, and the reset-password web route.
-- [x] Decide that the first real-user release is an invite-only beta with
-  verified accounts and guest AI disabled by default.
+- [x] Complete the local public-auth/verified-email, durable queue/quota and
+  accounting slices through their 06B/06C closeouts. This is local acceptance.
+- [ ] Complete deployment activation and automatic public managed-browser
+  project binding; prove the actual public user journey and limits in staging.
+  Guest AI/browser execution stays disabled. Invite-only is historical.
 - [x] Implement the fail-closed registration gate, hashed invite-code check,
   public non-secret registration config, and versioned acceptance audit fields.
 - [ ] Publish reviewed Oddpath-specific Terms/Privacy pages at
   `/oddpath/terms` and `/oddpath/privacy` with German counterparts under
   `/de/oddpath/*`, assign their reviewed `CURRENT_TERMS_VERSION`, and only then
-  switch `REGISTRATION_MODE` from `disabled` to `invite`. The umbrella
+  set the separate public release acknowledgement and switch `REGISTRATION_MODE`
+  from `disabled` to `public` only after all public launch gates pass. The umbrella
   Eluthira legal drafts do not satisfy this product notice.
 - [x] Implement password-confirmed relational account deletion, transactional
-  object-deletion outbox enqueueing, usage-row deletion, session-cookie
-  clearing, and local account-cache cleanup.
+  object-deletion outbox enqueueing, removal of identifying usage/context data
+  while preserving finite ownerless financial/quota exposure under the 06B
+  policy, session-cookie clearing, and local account-cache cleanup.
 - [ ] Complete the privacy/data-retention policy and deploy/monitor the external
   object-deletion worker.
 - [x] Implement private R2 asset lifecycle endpoints, atomic quota/validation
@@ -151,9 +191,12 @@ audit, Prisma validation/generation, and the full build/test gates green.
 - [x] Wire bounded private files into Account/Project archive v2 while retaining
   v1 import compatibility; add exact owner-scoped relation completeness,
   staged assets/deletion jobs, and atomic canonical relation finalization.
-- [ ] Extend Account and Project portability to QA Requests, artifacts, runs,
-  evidence, reviews, and their asset bindings before treating the export as a
-  complete real-user QA data export.
+- [x] Add bounded QA history reports and file descriptors to Account/Project
+  archive v3, preserving older imports. Original QA files stay in the ZIP;
+  imported history is inert and does not restore active evidence files.
+- [x] Independently review the local Phase 05 scope (`PHASE_05_CLOSEOUT.md`).
+- [ ] Retain actual EU R2 activation/restore proof before treating this as
+  complete real-user binary recovery.
 - [x] Keep `PRIVATE_ASSETS_ENABLED=false` in production; startup rejects an
   attempted production enablement.
 - [ ] Complete the activation proof: guarded real-PostgreSQL restore/cleanup
@@ -171,8 +214,8 @@ audit, Prisma validation/generation, and the full build/test gates green.
   Render cron examples that cannot create paid services from the root Blueprint.
   Asset cleanup exits nonzero when object deletions fail so a scheduler can
   alert instead of treating a partial run as successful.
-- [ ] Schedule and monitor `npm run cleanup:retention` with the final reviewed
-  retention periods (`AUTH_TOKEN_RETENTION_DAYS`,
+- [ ] Schedule at least hourly and monitor `npm run cleanup:retention` with
+  the final reviewed retention periods (`AUTH_TOKEN_RETENTION_DAYS`,
   `UNVERIFIED_ACCOUNT_RETENTION_DAYS`, and `USAGE_RECORD_RETENTION_DAYS`).
 
 ### Required Migration Script
@@ -204,7 +247,10 @@ Run migrations from a controlled release step against the production
 
 ## Target Deployment Shape
 
-The deployment decision is now fixed for the first beta:
+The retained provider-specific example is below. It is not a fresh hosting
+decision: the accepted budget and managed-browser requirements must be proved
+for the full topology before provisioning. Use the Phase 08A inventory to map
+missing Docker host/proxy/API vault storage/reaper/backup services:
 
 - Web: Cloudflare Pages at `https://oddpath.eluthira.com`.
 - API: Render Starter in Frankfurt at
@@ -216,10 +262,11 @@ The deployment decision is now fixed for the first beta:
 - AI: paid Gemini service; production starts with AI disabled until the paid
   key, cost gate, and staging checks are complete.
 
-The API hostname remains Cloudflare DNS-only for the initial privacy boundary;
-prompts and documents go directly to Render. The committed `render.yaml` and
-`docs/DEPLOYMENT_CLOUDFLARE_RENDER.md` are the provider-specific sources of
-truth.
+In that example the API hostname is Cloudflare DNS-only; prompts and documents
+go directly to Render. The committed `render.yaml` and
+`docs/DEPLOYMENT_CLOUDFLARE_RENDER.md` describe that example, with capabilities
+disabled. A different ingress topology needs a reviewed data-flow, exact-origin,
+cookie and trusted-proxy configuration; do not copy hop counts blindly.
 
 Avoid:
 
@@ -252,10 +299,13 @@ Before accepting real user data:
 - Enable automatic daily backups at minimum.
 - Prefer point-in-time recovery for production.
 - Keep backups outside the API container lifecycle.
-- Define retention appropriate to the release; 7-30 days is a practical MVP
-  starting range.
+- Follow the accepted beta policy: daily encrypted off-host backups retained
+  seven days. Any future retention change needs explicit policy reconciliation.
 - Take or confirm a fresh backup before a risky schema migration.
 - Protect backup access with the same care as the live database.
+- Include the runtime journal and separately protected key material. Follow
+  `BROWSER_VAULT_OPERATIONS.md` for supported SQLite backup and independently
+  current revocations; never roll back the revocation journal with PostgreSQL.
 
 ### Restore Drill
 
@@ -265,9 +315,16 @@ The restore drill must:
 
 1. Restore a backup into a separate temporary database.
 2. Run `prisma migrate status` against the restored database.
-3. Start the API against the restored database.
-4. Verify users, projects, chats, messages, documents, and memory records.
-5. Run representative login, project, chat, and document smoke tests.
+3. Keep the restored DB quarantined; run `node ops/recovery.mjs assess` with
+   dedicated credentials. Exit2 / `RECOVERY_BLOCKED` is expected without current
+   independent continuity. API/routine jobs refuse its persistent marker or
+   legacy restore name; database rename is not a promotion mechanism.
+4. Verify users, projects, chats, messages, documents, and memory records using
+   isolated read-only checks; never expose historical deleted data to users.
+5. Before API/login/project/chat/document smoke or any promotion, independently
+   establish post-snapshot accounting/deletion/revocation continuity, physical
+   Stop and reviewed migration/grants. Follow `BROWSER_VAULT_OPERATIONS.md`.
+   This local recovery slice supplies no promotion command or flag bypass.
 6. Record the restore date, duration, operator, and result.
 7. Delete the temporary restored environment after verification.
 
@@ -515,13 +572,24 @@ Build the frontend with:
 VITE_API_BASE_URL=https://your-api-origin.example
 # Optional only after direct private-asset transfers are enabled:
 VITE_R2_ENDPOINT=https://<32-character-account-id>.eu.r2.cloudflarestorage.com
+# Optional only when the managed browser viewer is configured:
+VITE_BROWSER_VIEWER_ORIGIN=https://browser.your-app-origin.example
 ```
 
 The values are embedded at build time. The Vite build generates
 `apps/web/dist/_headers` with those exact origins and fails when the API origin,
-or a configured R2 origin, is unsafe. Never use a wildcard. Rebuild the web app
-when either value changes, and use separate exact values for staging and
+or a configured R2/viewer origin, is unsafe. Never use a wildcard. Rebuild the web app
+when any value changes, and use separate exact values for staging and
 production.
+
+Without `VITE_BROWSER_VIEWER_ORIGIN`, `frame-src 'none'` keeps browser framing
+disabled. When configured, only that exact HTTPS origin may be framed; it is
+not added to the application's script or API connection permissions. Match it
+to the API's `QA_BROWSER_VIEWER_ORIGIN` and the supervisor's `publicOrigin`.
+Configure the supervisor's `viewerFrameOrigin` with the separate application
+origin. The application and viewer must be on the same site for the retained
+SameSite=Strict viewer cookie. These are configuration requirements, not feature
+activation or deployment authorization.
 
 ## Release Preparation
 
@@ -539,7 +607,8 @@ production.
 ### Verification Gate
 
 Load the reviewed `VITE_API_BASE_URL` (and optional exact EU
-`VITE_R2_ENDPOINT`) into the build environment before running this gate.
+`VITE_R2_ENDPOINT` / exact HTTPS `VITE_BROWSER_VIEWER_ORIGIN`) into the build
+environment before running this gate.
 
 Run:
 
@@ -675,14 +744,18 @@ tests.
 
 - [ ] Health endpoint returns success.
 - [ ] Registration creates a user.
-- [ ] Closed mode rejects registration; invite mode rejects wrong codes and
-  records the current `acceptedTermsVersion` and `acceptedTermsAt` for a valid
-  registration.
+- [ ] Closed mode rejects registration. Once explicitly authorized, public mode
+  requires the current reviewed terms and verification; wrong/outdated terms
+  fail. Invite-code checks remain compatibility tests, not the selected rollout.
+- [ ] Mail activation requires the owner's new password, revokes old proofs/
+  sessions, and cannot activate a pre-registrant password. Deploy current API/web
+  together, draining insecure older API instances.
 - [ ] Login succeeds and survives refresh.
 - [ ] Logout clears the session.
 - [ ] Account deletion rejects a wrong current password, accepts the correct
   password, clears the session, and removes the user's database graph.
-- [ ] Guest chat works within its configured credit limit.
+- [ ] Guest AI/browser execution is disabled; signed-in usage respects the
+  selected global/identity quotas and durable browser reservations.
 - [ ] Signed-in chat is saved and reopens after refresh.
 - [ ] Project create/edit/delete works.
 - [ ] Project chat assignment and project access work.
@@ -722,6 +795,23 @@ Do not log:
 The current API uses normal process logging and does not yet provide a complete
 production observability stack. Select host logging, retention, and alerting
 before real-user launch.
+
+For basic status/email supervision the optional self-hosted alerts overlay reuses
+maintenance/backup health and optional API readiness. Follow
+[its private configuration and delivery contract](../deploy/self-hosted.alerts.env.example)
+and the latest [08A inventory](PHASE_08A_READINESS_INVENTORY.md). Confirm the actual
+backup scope and assets manifest; mount source state read-only. Do not send raw
+application logs/content to notifications. Test delivery explicitly and confirm
+inbox receipt; an SMTP acceptance is not that proof. Missing/failed/stale checks
+and unconfirmed notices keep its health failed. Its local state deduplicates
+normal polls and retains bounded retries across restart; ambiguous SMTP ACKs can
+duplicate a notice. Sentry/APM is optional and deferred.
+
+This local monitor cannot report a dead host or disconnected network. Before
+launch, separately prove an external availability/dead-man check and live
+notification routing. Select remaining error-rate/disk/reaper/provider-budget
+coverage; do not infer those guarantees from this basic status reader. An
+unhealthy Docker healthcheck does not itself restart a container or notify anyone.
 
 ## Rollback Plan
 
@@ -780,7 +870,7 @@ A portfolio demo may show a deliberately limited product, for example:
 
 This is not an exception to production runtime guards: the deployed production
 API still requires its validated SMTP configuration and other environment
-checks. The selected real-user beta requires verified invite-only accounts and
+checks. The selected real-user beta requires verified public accounts and
 guest AI disabled initially; a demo label cannot waive those decisions or open
 public signup. Password reset is implemented, but live email/browser proof
 remains a release gate for accounts offered to real users.
@@ -812,6 +902,7 @@ Provider plans and limits change. Before deployment, verify current:
 - Logging and alerting.
 - Pricing and quota limits.
 
-The selected providers are Cloudflare Pages/R2, Render, Brevo, and paid Gemini.
-Re-verify their current limits, contracts, regions, and prices at provisioning
-time; this document does not freeze external provider behavior.
+The retained provider example uses Cloudflare Pages/R2, Render, Brevo, and paid
+Gemini. Re-verify the selected topology's current limits, contracts, regions,
+full infrastructure cost and prices before provisioning; this document does
+not freeze external provider behavior or authorize purchases.

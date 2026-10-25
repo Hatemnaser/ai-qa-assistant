@@ -140,7 +140,7 @@ export function useChatController(currentUser: Ref<AuthUser | null>) {
 
   function setDefaultModel(model: string) {
     // Changing account preferences seeds future drafts only; existing drafts keep
-    // their own model selection and Visual Review still enforces compatibility.
+    // their own model selection, including when the output preference changes.
     drafts.setDefaultModel(getModelForMode(DEFAULT_MODE, model, modelOptions.value));
   }
 

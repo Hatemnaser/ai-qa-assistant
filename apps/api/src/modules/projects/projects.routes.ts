@@ -17,6 +17,10 @@ import {
   saveProjectMemory,
 } from "../project-memory/project-memory.controller.js";
 import { qaRequestsRouter } from "../qa-requests/qa-requests.routes.js";
+import { qaTargetsRouter } from "../qa-targets/qa-targets.routes.js";
+import { readinessRouter } from '../readiness/readiness.routes.js';
+import { browserRuntimeRouter } from "../browser-runtime/browser-runtime.routes.js";
+import { browserAuthRouter } from "../browser-auth/browser-auth.routes.js";
 import { testSessionsRouter } from "../test-sessions/test-sessions.routes.js";
 import { projectConnectionsRouter } from "../project-connections/project-connections.routes.js";
 import { createProject, deleteProject, listProjects, updateProject } from "./projects.controller.js";
@@ -27,6 +31,10 @@ projectsRouter.use(requireAuth);
 projectsRouter.get("/", listProjects);
 projectsRouter.post("/", createProject);
 projectsRouter.use("/:projectId/qa", qaRequestsRouter);
+projectsRouter.use('/:projectId/qa/requests/:requestId/readiness', readinessRouter);
+projectsRouter.use("/:projectId/qa-targets", qaTargetsRouter);
+projectsRouter.use("/:projectId/browser-runtimes", browserRuntimeRouter);
+projectsRouter.use("/:projectId/saved-browser-logins", browserAuthRouter);
 projectsRouter.use("/:projectId/test-sessions", testSessionsRouter);
 projectsRouter.use("/:projectId/connections", projectConnectionsRouter);
 projectsRouter.get("/:projectId/instructions", getProjectInstruction);

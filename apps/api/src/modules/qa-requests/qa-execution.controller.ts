@@ -1,6 +1,6 @@
 import {
   executionClaimRequestV1Schema,
-  executionClaimResponseV1Schema,
+  executionClaimResponseSchema,
   executionFailureV1Schema,
   executionFinishV1Schema,
   executionItemSubmissionV1Schema,
@@ -30,9 +30,10 @@ export async function claimQaExecution(req: Request, res: Response, next: NextFu
   try {
     const claim = await qaExecutionService.claim(
       req.qaIntegration!,
-      executionClaimRequestV1Schema.parse(req.body)
+      executionClaimRequestV1Schema.parse(req.body),
+      req.path.includes("/runner/v2/") ? 2 : 1
     );
-    res.json(executionClaimResponseV1Schema.parse(claim === null ? { claim: null } : claim));
+    res.json(executionClaimResponseSchema.parse(claim === null ? { claim: null } : claim));
   } catch (error) { next(error); }
 }
 

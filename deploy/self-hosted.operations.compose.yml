@@ -1,0 +1,93 @@
+# Opt-in overlay: use WITH self-hosted.compose.yml and private interpolation env.
+# Closed API features stay closed. No cloud service, uploader or paid job created.
+services:
+  maintenance:
+    extends:
+      file: self-hosted.compose.yml
+      service: api
+    profiles: [maintenance]
+    image: "${ODDPATH_OPERATIONS_IMAGE:?Provide the reviewed operations image}"
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+      target: operations
+    user: postgres:postgres
+    entrypoint: ["node", "ops/maintenance.mjs"]
+    command: [run]
+    ports: !reset []
+    environment:
+      ODDPATH_OPS_ROLE: maintenance
+      ODDPATH_OPS_STATE_DIRECTORY: /var/lib/oddpath-ops
+    volumes: ["maintenance-state:/var/lib/oddpath-ops"]
+    # postgres base image declares this path as a volume; keep it disposable.
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m", "/var/lib/postgresql/data:rw,noexec,nosuid,size=1m"]
+    healthcheck:
+      test: ["CMD", "node", "ops/maintenance.mjs", "health"]
+      interval: 15s
+      timeout: 5s
+      retries: 2
+      start_period: 30s
+    mem_limit: 512m
+    cpus: 0.5
+
+  backup:
+    profiles: [backup]
+    image: "${ODDPATH_OPERATIONS_IMAGE:?Provide the reviewed operations image}"
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+      target: operations
+    user: postgres:postgres
+    entrypoint: ["node", "ops/maintenance.mjs"]
+    command: [run]
+    restart: unless-stopped
+    init: true
+    env_file:
+      - path: "${ODDPATH_BACKUP_ENV_FILE:?Provide separate read-only backup credentials}"
+        format: raw
+    environment:
+      ODDPATH_OPS_ROLE: backup
+      ODDPATH_OPS_STATE_DIRECTORY: /var/lib/oddpath-backup-state
+      ODDPATH_BACKUP_DIRECTORY: /var/lib/oddpath-backups
+      ODDPATH_BACKUP_KEY_FILE: /run/secrets/backup_key
+      PGPASSFILE: /run/secrets/backup_pgpass
+    secrets: [backup_key, backup_pgpass]
+    volumes:
+      - backup-state:/var/lib/oddpath-backup-state
+      - encrypted-backups:/var/lib/oddpath-backups
+    networks: [database]
+    depends_on:
+      postgres: { condition: service_healthy }
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=256m", "/var/lib/postgresql/data:rw,noexec,nosuid,size=1m"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 768m
+    cpus: 0.5
+    pids_limit: 64
+    stop_grace_period: 90s
+    healthcheck:
+      test: ["CMD", "node", "ops/maintenance.mjs", "health"]
+      interval: 15s
+      timeout: 5s
+      retries: 2
+      start_period: 90s
+    logging: { driver: local, options: { max-size: "5m", max-file: "3" } }
+
+volumes:
+  # Explicit NEW private directories/volumes, mode0700, owned by image postgres UID.
+  maintenance-state:
+    external: true
+    name: "${ODDPATH_MAINTENANCE_STATE_VOLUME:?Provide provisioned maintenance state}"
+  backup-state:
+    external: true
+    name: "${ODDPATH_BACKUP_STATE_VOLUME:?Provide provisioned backup supervisor state}"
+  encrypted-backups:
+    external: true
+    name: "${ODDPATH_ENCRYPTED_BACKUP_VOLUME:?Provide provisioned encrypted archive storage}"
+
+secrets:
+  backup_key:
+    file: "${ODDPATH_BACKUP_KEY_FILE:?Provide independent private 256-bit backup key}"
+  backup_pgpass:
+    file: "${ODDPATH_BACKUP_PGPASS_FILE:?Provide a private libpq password file}"

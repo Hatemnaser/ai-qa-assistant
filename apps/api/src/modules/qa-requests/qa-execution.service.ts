@@ -71,7 +71,7 @@ export function createQaExecutionService({
     });
   }
 
-  async function claim(auth: QaIntegrationAuth, input: ExecutionClaimRequestV1) {
+  async function claim(auth: QaIntegrationAuth, input: ExecutionClaimRequestV1, protocolVersion: 1 | 2 = 1) {
     const claimedAt = now();
     return repository.claim({
       actor: integrationActor(auth),
@@ -79,6 +79,7 @@ export function createQaExecutionService({
       leaseExpiresAt: new Date(claimedAt.getTime() + EXECUTION_LEASE_MS),
       leaseToken: randomLeaseToken(),
       request: input,
+      ...(protocolVersion === 2 ? { protocolVersion } : {}),
     });
   }
 

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { profileManifestV1Schema } from "@oddpath/qa-execution-contract";
+import { profileManifestSchema } from "@oddpath/qa-execution-contract";
 import { env } from "../../config/env.js";
 import { prisma } from "../../db/prisma.js";
 import { Prisma } from "../../generated/prisma/client.js";
@@ -162,7 +162,7 @@ export function createTestSessionsWorker(deps: { database: typeof prisma; intell
             await setState({ recipeId: operation.recipeId, status: "REVIEW", errorCode: null });
             return null;
           }
-          return { kind: "recipe" as const, requestId: request.id, artifactId: request.selectedArtifactId!, profileManifest: profileManifestV1Schema.parse(preparation.profileManifest),
+          return { kind: "recipe" as const, requestId: request.id, artifactId: request.selectedArtifactId!, profileManifest: profileManifestSchema.parse(preparation.profileManifest),
             preparation: { id, attempt: preparation.attempt },
             idempotencyKeyHash: hash({ preparationId: id, attempt: preparation.attempt, artifactId: request.selectedArtifactId }) };
         }

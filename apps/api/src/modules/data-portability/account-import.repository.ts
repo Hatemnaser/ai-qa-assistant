@@ -143,6 +143,7 @@ export function createPrismaAccountImportRepository(
             });
             usedProjectNames.push(projectName);
             projectIdBySourceId.set(sourceProject.sourceId, project.id);
+            if(sourceProject.qaHistory)await tx.qaImportedArchive.create({data:{projectId:project.id,sourceDigest:packageData.packageDigest,payload:JSON.parse(JSON.stringify(sourceProject.qaHistory))}});
 
             await tx.projectMember.create({
               data: {

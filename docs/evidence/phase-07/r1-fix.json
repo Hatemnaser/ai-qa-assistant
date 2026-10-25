@@ -1,0 +1,23 @@
+{
+  "phase": "07",
+  "finding": "R1",
+  "date": "2026-10-18",
+  "status": "FIX_IMPLEMENTED_AWAITING_INDEPENDENT_ACCEPTANCE",
+  "phaseAccepted": false,
+  "publicReleaseAuthorized": false,
+  "report": "C:/Users/hatem/Documents/Codex/2026-10-10/new-chat/outputs/Oddpath_Phase_07_R1_Fix.md",
+  "evidence": "C:/Users/hatem/Documents/Codex/2026-10-10/new-chat/outputs/Oddpath_Phase_07_R1_Fix_Evidence.json",
+  "work": "work/phase-07-r1-fix-20261018",
+  "red": "r1-red.log: actual HTTP 201 GO, expected NO_GO",
+  "green": "readiness-current.log: actual HTTP 201 NO_GO; version request sees RESULTS_SUBMITTED",
+  "guardedDatabase": { "pass": 215, "fail": 0, "skip": 0 },
+  "readiness": { "previous": 16, "new": 15, "pass": 31 },
+  "verify": { "pass": 1957, "fail": 0, "skip": 1 },
+  "buildApi": "PASS",
+  "buildWeb": "PASS",
+  "schemaDrift": "NONE",
+  "browser": "PASS: actual Vue/Chromium/HTTP/PostgreSQL; synthetic version document and QA observations",
+  "restore": "PASS: historical GO and hashes preserved; unavailable new probe yields NO_GO",
+  "migrationAdded": false,
+  "delegation": { "subagents": [], "additionalModels": [] }
+}

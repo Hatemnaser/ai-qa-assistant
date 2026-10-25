@@ -114,12 +114,13 @@ describe("auth api", () => {
     assert.equal(response.legalUrls.de.privacy, "https://eluthira.com/de/oddpath/privacy");
   });
 
-  it("sends verify-email requests with the token in the body", async () => {
+  it("sends verify-email requests with the token and owner-selected password in the body", async () => {
     mockFetch(async (input, init) => {
       assert.equal(input, "/api/auth/verify-email");
       assert.equal(init?.method, "POST");
       assert.equal(init?.credentials, "include");
       assert.deepEqual(JSON.parse(String(init?.body)), {
+        newPassword: "Owner-selected activation passphrase",
         token: "verification-token",
       });
 
@@ -128,7 +129,7 @@ describe("auth api", () => {
       });
     });
 
-    const response = await verifyEmail("verification-token");
+    const response = await verifyEmail("verification-token", "Owner-selected activation passphrase");
 
     assert.equal(response.ok, true);
   });

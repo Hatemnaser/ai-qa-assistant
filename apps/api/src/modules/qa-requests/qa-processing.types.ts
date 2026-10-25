@@ -34,6 +34,7 @@ export interface QaProcessingHandler {
 export type QaProcessingHandlers = Partial<Record<QaGenerationKind, QaProcessingHandler>>;
 
 export interface QaProcessingRepository {
+  hasProviderStarted?(id:string):Promise<boolean>;
   claimNext(input: {
     kinds: QaGenerationKind[];
     leaseExpiresAt: Date;

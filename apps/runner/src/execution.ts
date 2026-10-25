@@ -2,21 +2,26 @@ import { createHash } from "node:crypto";
 
 import {
   executionTaskV1Schema,
+  executionTaskV2Schema,
+  type ExecutionTaskV2,
   type ExecutionFailureV1,
   type ExecutionItemSubmissionV1,
 } from "@oddpath/qa-execution-contract";
 
 import {
   buildPublicManifest,
+  hashCanonicalJson,
   type RunnerProfileConfig,
 } from "./config.js";
 import {
   OddpathApiError,
   type ClaimedExecution,
+  type ManagedClaimedExecution,
   type ExecutionLease,
   type OddpathClient,
 } from "./http-client.js";
 import {
+  BrowserSessionUnavailableError,
   executeRecipeItem,
   type RecipeItemExecutionResult,
   type SemanticBrowserSession,
@@ -48,10 +53,18 @@ export interface ExecuteClaimOptions {
   logger?: ExecutionLogger;
   now?: () => Date;
   profiles: RunnerProfileConfig[];
+  managedV2?: {
+    profileHashes: string[];
+    humanPreparationCompleted?: boolean;
+    savedPreparationCompleted?: boolean;
+    beforeSteps(task: ExecutionTaskV2): Promise<void>;
+    assertRuntimeLive(): Promise<void>;
+    terminate(): Promise<void>;
+  };
 }
 
 export async function executeClaim(
-  claimed: ClaimedExecution,
+  claimed: ClaimedExecution | ManagedClaimedExecution,
   {
     allowProduction,
     client,
@@ -60,6 +73,7 @@ export async function executeClaim(
     logger = console,
     now = () => new Date(),
     profiles,
+    managedV2,
   }: ExecuteClaimOptions
 ) {
   const lease: ExecutionLease = {
@@ -70,8 +84,8 @@ export async function executeClaim(
   let session: SemanticBrowserSession | undefined;
 
   try {
-    const task = validateClaim(claimed, profiles, now());
-    const profile = requireProfile(profiles, task.profile.profileKey);
+    const task = validateClaim(claimed, profiles, now(), managedV2);
+    const profile = task.schemaVersion === 2 ? managedProfile(task) : requireProfile(profiles, task.profile.profileKey);
     if (profile.environmentKind === "PRODUCTION" && !allowProduction) {
       throw new RunnerExecutionError(
         "PRODUCTION_NOT_ALLOWED",
@@ -80,6 +94,7 @@ export async function executeClaim(
     }
 
     const accepted = await client.accept(task.executionId, lease);
+    if (task.schemaVersion === 2) await managedV2!.beforeSteps(task);
     let runVersion = accepted.runVersion;
     heartbeat = new LeaseHeartbeat({
       client,
@@ -88,15 +103,19 @@ export async function executeClaim(
       intervalMs: heartbeatIntervalMs,
       lease,
       now,
+      onLeaseLost: managedV2?.terminate,
     });
     heartbeat.start();
     session = await createSession(profile);
+    session.assertHealthy?.();
     logger.info(`Executing Oddpath run ${task.runId} with profile ${profile.key}.`);
 
     const recipeItems = new Map(
       task.recipe.bundle.items.map((item) => [item.checklistItemId, item])
     );
     for (const checklistItem of task.artifact.items) {
+      await managedV2?.assertRuntimeLive();
+      session.assertHealthy?.();
       heartbeat.assertActive();
       assertBeforeDeadline(task.deadlineAt, now());
       const recipeItem = recipeItems.get(checklistItem.id);
@@ -106,6 +125,7 @@ export async function executeClaim(
           "The execution recipe does not cover the selected checklist."
         );
       }
+      const observationStartedAt = now();
       const result = await executeRecipeItem({
         assertActive: () => {
           heartbeat?.assertActive();
@@ -115,6 +135,10 @@ export async function executeClaim(
         profile,
         session,
       });
+      // A closed/crashed runtime is execution infrastructure failure, never
+      // an assertion FAIL inferred from a broken browser connection.
+      await managedV2?.assertRuntimeLive();
+      session.assertHealthy?.();
       const evidence = await buildEvidence({
         checklistItem,
         claimed,
@@ -125,11 +149,13 @@ export async function executeClaim(
         session,
       });
       heartbeat.assertActive();
+      session.assertHealthy?.();
       const submission: ExecutionItemSubmissionV1 = {
         evidence,
         expectedRunVersion: runVersion,
         notes: result.notes,
         observedResult: result.observedResult,
+        observation: {startedAt: observationStartedAt.toISOString(), finishedAt: now().toISOString(), completedStepRefs: result.completedStepRefs, failedStepRef: result.failedStepRef},
         status: result.status,
       };
       const receipt = await client.recordItem(
@@ -144,6 +170,8 @@ export async function executeClaim(
     }
 
     heartbeat.assertActive();
+    await managedV2?.assertRuntimeLive();
+    session.assertHealthy?.();
     const receipt = await client.finish(
       task.executionId,
       lease,
@@ -176,12 +204,13 @@ export async function executeClaim(
   } finally {
     await session?.close().catch(() => {});
     await heartbeat?.stop();
+    await managedV2?.terminate();
   }
 }
 
 async function buildEvidence(input: {
   checklistItem: ClaimedExecution["task"]["artifact"]["items"][number];
-  claimed: ClaimedExecution;
+  claimed: ClaimedExecution | ManagedClaimedExecution;
   client: ExecutionClient;
   lease: ExecutionLease;
   profile: RunnerProfileConfig;
@@ -235,7 +264,7 @@ async function buildEvidence(input: {
 async function uploadScreenshot(input: {
   bytes: Uint8Array;
   checklistItemId: string;
-  claimed: ClaimedExecution;
+  claimed: ClaimedExecution | ManagedClaimedExecution;
   client: ExecutionClient;
   lease: ExecutionLease;
   requirementId: string;
@@ -267,11 +296,12 @@ async function uploadScreenshot(input: {
 }
 
 function validateClaim(
-  claimed: ClaimedExecution,
+  claimed: ClaimedExecution | ManagedClaimedExecution,
   profiles: RunnerProfileConfig[],
-  now: Date
+  now: Date,
+  managedV2?: ExecuteClaimOptions['managedV2']
 ) {
-  const task = executionTaskV1Schema.parse(claimed.task);
+  const task = claimed.task.schemaVersion === 2 ? executionTaskV2Schema.parse(claimed.task) : executionTaskV1Schema.parse(claimed.task);
   if (
     claimed.claim.executionId !== task.executionId
     || claimed.claim.artifactId !== task.artifact.id
@@ -283,6 +313,21 @@ function validateClaim(
       "The execution claim does not match its immutable task."
     );
   }
+  if (task.schemaVersion === 2) {
+    if (!managedV2 || !managedV2.profileHashes.includes(task.profile.manifestHash!)
+      || (task.profile.authentication.kind !== 'NONE' && !(task.profile.authentication.kind === 'MANUAL' && managedV2.humanPreparationCompleted === true) && !(task.profile.authentication.kind==='SAVED_STATE'&&managedV2.savedPreparationCompleted===true))
+      || task.profile.valueReferences.length || hashCanonicalJson(task.recipe.bundle) !== task.recipe.hash
+      || new Date(task.approval.expiresAt) <= now) throw new RunnerExecutionError('RUNNER_TASK_INVALID', 'Managed task authority is invalid.');
+    const { manifestHash, ...manifest } = task.profile;
+    if (hashCanonicalJson(manifest) !== manifestHash) throw new RunnerExecutionError('RUNNER_TASK_INVALID', 'Managed profile hash is invalid.');
+    const { bindingHash, ...approval } = task.approval;
+    if (hashCanonicalJson({ ...approval, authentication: task.profile.authentication, executionLimits: task.profile.executionLimits, candidate: task.profile.target.candidate }) !== bindingHash) throw new RunnerExecutionError('RUNNER_TASK_INVALID', 'Managed approval binding is invalid.');
+    const { revision, revisionId, targetId, targetHash, ...definition } = task.profile.target;
+    if (hashCanonicalJson(definition) !== targetHash) throw new RunnerExecutionError('RUNNER_TASK_INVALID', 'Managed target hash is invalid.');
+    if (task.profile.environmentKind === 'PRODUCTION' && task.recipe.bundle.items.some(item => item.steps.some(step => !['navigate','expect'].includes(step.action)))) throw new RunnerExecutionError('PRODUCTION_NOT_ALLOWED', 'Production recipes permit navigation and assertions only.');
+    assertBeforeDeadline(task.deadlineAt, now);
+    return task;
+  }
   const profile = requireProfile(profiles, task.profile.profileKey);
   const localManifest = buildPublicManifest(profile);
   if (localManifest.manifestHash !== task.profile.manifestHash) {
@@ -293,6 +338,11 @@ function validateClaim(
   }
   assertBeforeDeadline(task.deadlineAt, now);
   return task;
+}
+
+function managedProfile(task: ExecutionTaskV2): RunnerProfileConfig {
+  return { key: task.profile.profileKey, label: task.profile.label, environmentKind: task.profile.environmentKind,
+    baseUrl: task.profile.target.baseUrl, evidenceKinds: task.profile.evidenceKinds, values: {} };
 }
 
 function requireProfile(profiles: RunnerProfileConfig[], profileKey: string) {
@@ -362,6 +412,7 @@ class LeaseHeartbeat {
   #failure: Error | null = null;
   #leaseExpiresAt: number;
   #loop: Promise<void> | null = null;
+  readonly #onLeaseLost?: () => Promise<void>;
 
   constructor(input: {
     client: Pick<OddpathClient, "heartbeat">;
@@ -370,6 +421,7 @@ class LeaseHeartbeat {
     intervalMs: number;
     lease: ExecutionLease;
     now: () => Date;
+    onLeaseLost?: () => Promise<void>;
   }) {
     this.#client = input.client;
     this.#executionId = input.executionId;
@@ -377,6 +429,7 @@ class LeaseHeartbeat {
     this.#lease = input.lease;
     this.#leaseExpiresAt = new Date(input.initialLeaseExpiresAt).getTime();
     this.#now = input.now;
+    this.#onLeaseLost = input.onLeaseLost;
   }
 
   start() {
@@ -404,6 +457,7 @@ class LeaseHeartbeat {
       } catch (error) {
         if (isLeaseLost(error) || this.#now().getTime() >= this.#leaseExpiresAt) {
           this.#failure = new LeaseLostError();
+          await this.#onLeaseLost?.();
           return;
         }
         // A transient heartbeat failure is retried quickly while the known lease remains valid.
@@ -421,6 +475,9 @@ function isLeaseLost(error: unknown) {
 }
 
 function toExecutionFailure(error: unknown): ExecutionFailureV1 {
+  if (error instanceof BrowserSessionUnavailableError) {
+    return { code: "BROWSER_SESSION_UNAVAILABLE", message: error.message };
+  }
   if (error instanceof RunnerExecutionError) {
     return { code: error.code, message: error.message };
   }

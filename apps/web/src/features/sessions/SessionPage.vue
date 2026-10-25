@@ -7,8 +7,8 @@ import { sessionTimeline } from "./sessionTimeline";
 import ChatComposer from "../chat/components/ChatComposer.vue";
 import SessionComposerDock from "../chat/components/SessionComposerDock.vue";
 import { sessionDecision, type SessionDecision } from "../test-sessions/decisionPresentation";
-import SessionToolsPanel from "./SessionToolsPanel.vue";
-import SessionActivityPanel from "./SessionActivityPanel.vue";
+import SessionResourcePanel from "./SessionResourcePanel.vue";
+import { buildSessionResources, useSessionResources, type SessionResourceKind } from './sessionResources';
 import { buildSessionSources, type SessionSource } from "./sessionSources";
 import { isPrimarySessionEvent, qaEventLabelKey } from "./sessionActivityPresentation";
 import Icon from "../../ui/Icon.vue";
@@ -19,7 +19,7 @@ import { useTestSession, type TestSessionPageProps } from "../test-sessions/useT
 import { testSessionTranscript } from "../test-sessions/sessionPresentation";
 import type { TestScope, TestSessionMessage } from "../test-sessions/types";
 import type { ChatMessage, ChatAttachment, ChatUsageSummary, AiModelOption, ExportFormat } from "../chat/types";
-import TestRequestRecord from "../test-sessions/TestRequestRecord.vue";
+import BrowserLoginControls from './BrowserLoginControls.vue';
 
 const props = defineProps<TestSessionPageProps & { composerTarget?: HTMLElement | null; usageSummary?: ChatUsageSummary | null; modelOptions?: AiModelOption[] }>();
 const emit = defineEmits<{
@@ -36,22 +36,24 @@ const {
   profilesLoading, loading, busy, readError, error, message, model, selectedAttachments, turnBusy, blocked,
   canStart, canSelect, canReview, canPrepare, viewingPast, nextAction,
 } = state;
-const record = ref<InstanceType<typeof TestRequestRecord> | null>(null);
-const currentTool = ref<'sources' | 'activity' | 'results' | null>(null);
 const selectedSourceId = ref<string | null>(null);
 const toolOpener = ref<HTMLElement | null>(null);
 let toolRevision = 0;
 const toolsScopeKey = computed(() => `${props.currentUser?.id || 'guest'}:${projectId.value}:${session.value?.id || props.sessionId || 'new'}`);
 const sources = computed(() => buildSessionSources(session.value?.messages || [], selectedAttachments.value));
-watch(toolsScopeKey, closeTransientTools);
-watch(request, value => { if (!value && currentTool.value === 'results') currentTool.value = null; });
-function openTool(tool: 'sources' | 'activity' | 'results', toggle = false) {
+const resourceCatalog = computed(() => buildSessionResources(toolsScopeKey.value, projectId.value, session.value, request.value));
+const resourceState = useSessionResources(toolsScopeKey, resourceCatalog);
+const currentTool = computed(() => resourceState.hidden.value ? null : resourceState.selected.value?.kind || null);
+watch(toolsScopeKey, () => { closeTransientTools(); selectedSourceId.value = null; toolOpener.value = null; }, { flush: 'sync' });
+function openTool(tool: SessionResourceKind, toggle = false) {
   toolRevision += 1;
-  if (toggle && currentTool.value === tool) { currentTool.value = null; return; }
+  if (toggle && currentTool.value === tool) { resourceState.hide(); return; }
+  if (!viewActive.value || props.active === false) return;
   if (document.activeElement instanceof HTMLElement) toolOpener.value = document.activeElement;
-  currentTool.value = tool;
+  const item = resourceCatalog.value.find(item => item.kind === tool && (!item.requestId || item.requestId === request.value?.id));
+  if (item) resourceState.open(item.id);
 }
-function closeTool() { toolRevision += 1; currentTool.value = null; }
+function closeTool() { toolRevision += 1; resourceState.hide(); }
 function openSource(source: SessionSource | undefined) {
   if (!source) return;
   selectedSourceId.value = source.id;
@@ -83,8 +85,6 @@ let transientRevision = 0;
 function closeTransientTools() {
   transientRevision += 1;
   closeTool();
-  selectedSourceId.value = null;
-  toolOpener.value = null;
   connectionOpen.value = false;
 }
 // KeepAlive retains drafts/controllers, not body-teleported dialogs or locks.
@@ -175,11 +175,16 @@ function chatMessage(entry: TestSessionMessage): ChatMessage { return { ...entry
 async function openResults(id: string) {
   const scope = toolsScopeKey.value;
   const revision = ++toolRevision;
-  await state.selectRequest(id);
-  if (!viewActive.value || props.active === false || scope !== toolsScopeKey.value || revision !== toolRevision
-    || selectedRequestId.value !== id || request.value?.id !== id || loading.value || readError.value || props.projectLoadError) return;
-  await focusRecord();
+  const item = resourceCatalog.value.find(item => item.kind === 'results' && item.requestId === id);
+  if (!item || !viewActive.value || props.active === false || loading.value || readError.value || props.projectLoadError) return;
+  if (document.activeElement instanceof HTMLElement) toolOpener.value = document.activeElement;
+  if (!resourceState.open(item.id)) return;
+  await nextTick();
+  if (!isActiveView() || scope !== toolsScopeKey.value || revision !== toolRevision
+    || resourceState.selected.value?.id !== item.id || resourceState.hidden.value) return;
+  document.getElementById('session-resources-panel')?.focus({ preventScroll: true });
 }
+function isActiveView() { return viewActive.value && props.active !== false; }
 async function focusRecord() {
   const scope = toolsScopeKey.value;
   const id = request.value?.id;
@@ -188,10 +193,14 @@ async function focusRecord() {
   const revision = toolRevision;
   await nextTick();
   if (scope !== toolsScopeKey.value || request.value?.id !== id || revision !== toolRevision || !viewActive.value) return false;
-  record.value?.$el?.focus({ preventScroll: true });
+  document.getElementById('session-resources-panel')?.focus({ preventScroll: true });
   return true;
 }
-async function focusMissing() { if (await focusRecord()) record.value?.openMissing(); }
+async function focusMissing() { openTool('evidence'); }
+function stopBrowser(executionId: string) {
+  if (viewActive.value && props.active !== false && !blocked.value && !viewingPast.value
+    && (!session.value || request.value?.id === session.value.currentRequestId) && run.value?.executionJob?.id === executionId) void state.cancel();
+}
 async function showReviewNote() { noteOpen.value = true; await nextTick(); reviewNoteInput.value?.focus(); reviewNoteInput.value?.scrollIntoView({ block: 'center' }); }
 async function showProposal() { proposalOpen.value = !proposalOpen.value; await nextTick(); if (proposalOpen.value) { proposalDetails.value?.focus(); proposalDetails.value?.scrollIntoView({ block: 'start' }); } }
 </script>
@@ -202,8 +211,10 @@ async function showProposal() { proposalOpen.value = !proposalOpen.value; await 
       <ChatTopbar :chat-title="session?.title || request?.title || t('sessionTools.start.title')" :project-id="projectId" :projects="projects" :is-loading-projects="isLoadingProjects" :project-error="projectLoadError" :locked-project="Boolean(session?.requests.length || requestId)" @update:project-id="state.chooseProject($event || '')" @open-project="emit('open-project', $event)" @open-projects="emit('open-projects')">
         <template #actions><div class="test-session__header-actions">
           <div class="session-tools-buttons" role="group" :aria-label="t('sessionTools.activity.title')">
-            <button v-for="tool in (['sources', 'activity'] as const)" :key="tool" type="button" class="ui-icon-btn" :title="t(`sessionTools.${tool}`)" :aria-label="t(`sessionTools.${tool}`)" :aria-expanded="currentTool === tool" aria-controls="session-tools-panel" @click="openTool(tool, true)"><Icon :name="tool" /></button>
-            <button v-if="request" type="button" class="ui-icon-btn" :title="t('sessionTools.results')" :aria-label="t('sessionTools.results')" :aria-expanded="currentTool === 'results'" aria-controls="session-tools-panel" @click="openTool('results', true)"><Icon name="results" /></button>
+            <button v-for="tool in (['sources', 'activity'] as const)" :key="tool" type="button" class="ui-icon-btn" :title="t(`sessionTools.${tool}`)" :aria-label="t(`sessionTools.${tool}`)" :aria-expanded="currentTool === tool" aria-controls="session-resources-panel" @click="openTool(tool, true)"><Icon :name="tool" /></button>
+            <button v-if="request" type="button" class="ui-icon-btn" :title="t('sessionTools.results')" :aria-label="t('sessionTools.results')" :aria-expanded="currentTool === 'results'" aria-controls="session-resources-panel" @click="openTool('results', true)"><Icon name="results" /></button>
+            <button v-if="run?.executionJob && !viewingPast" type="button" class="btn btn-sm btn-control" :aria-expanded="currentTool === 'browser'" aria-controls="session-resources-panel" @click="openTool('browser', true)">{{ t('sessionResources.browser') }}</button>
+            <button v-if="resourceState.openIds.value.length" type="button" class="btn btn-sm btn-control" :aria-expanded="!resourceState.hidden.value" aria-controls="session-resources-panel" @click="resourceState.hidden.value ? resourceState.show() : closeTool()">{{ t(resourceState.hidden.value ? 'sessionResources.show' : 'sessionResources.hide') }}</button>
           </div>
           <details v-if="session" ref="menu" class="test-session__menu" @keydown.esc.stop.prevent="closeMenu"><summary :aria-label="t('testSessions.details')">⋯</summary><div>
             <button type="button" @click="rename">{{ t('testSessions.rename') }}</button>
@@ -318,20 +329,15 @@ async function showProposal() { proposalOpen.value = !proposalOpen.value; await 
           </section>
           <Teleport :to="approvalDetailsHost || 'body'" :disabled="!approvalDetailsHost"><details v-if="decision === 'approval'" class="test-session__external"><summary>{{ t('testSessions.externalRun') }}</summary><p>{{ t('testSessions.externalConfirm') }}</p><button type="button" class="btn btn-secondary" :disabled="!canStart" @click="state.startExternal(false)">{{ t('testSessions.externalRun') }}</button></details></Teleport>
           <p v-if="error && decision !== 'none'" class="workspace-feedback workspace-feedback--error" role="alert">{{ error }}</p>
+          <BrowserLoginControls v-if="hasCancelableRun && !viewingPast && projectId && run?.executionJob" :key="`${currentUser?.id}:${projectId}:${run.executionJob.id}`"
+            :project-id="projectId" :execution-id="run.executionJob.id" :scope-key="toolsScopeKey" :active="viewActive && !state.readBlocked.value" @stop="state.cancel()" />
         </template>
         <Teleport :to="composerTarget || 'body'" :disabled="!composerTarget"><ChatComposer :message="message" :mode="state.mode.value" :model="model" :model-options="modelOptions" :show-starters="!session?.messages.length" :selected-attachments="selectedAttachments" :is-sending="busy || turnBusy" :disabled="blocked || turnBusy || state.draftLoading.value || Boolean(projectLoadError)"
           @update:message="message = $event" @update:mode="state.mode.value = $event" @update:model="model = $event" @quick-action="action => { state.mode.value = action.mode; if (!message.trim()) message = t(action.promptKey) || action.prompt; }" @submit="state.send" @attachments-selected="state.handleAttachmentsSelected" @remove-selected-attachment="state.removeSelectedAttachment" @open-selected-attachment="openDraftAttachment" /></Teleport>
         <small v-if="session?.pendingProposal || session?.requests.length" class="test-session__model-note">{{ t('testSessions.modelNote') }}</small>
       </SessionComposerDock>
     </section>
-    <SessionToolsPanel :scope-key="toolsScopeKey" :current-tool="currentTool" :force-drawer="Boolean(composerTarget)" :sources="sources" :selected-source-id="selectedSourceId" :opener-element="toolOpener" @close="closeTool" @select-source="selectedSourceId = $event" @focus-message="locateMessage">
-      <template #activity><SessionActivityPanel :session="session" :request="request" :loading="loading" :read-error="readError || projectLoadError" :disabled="blocked" :retry-disabled="busy || loading || isLoadingProjects" @select-request="state.selectRequest" @retry="projectLoadError ? emit('reload-projects') : state.refresh()" /><div class="session-tools-actions"><button v-if="projectId" class="btn btn-secondary" type="button" @click="openConnections">{{ t('testSessions.connect') }}</button><button v-if="session || request" class="btn btn-secondary" type="button" :disabled="busy || loading" @click="state.refresh()">{{ t('testSessions.refresh') }}</button></div></template>
-      <template #results>
-        <p v-if="loading" role="status">{{ t('sessionTools.activity.loading') }}</p>
-        <div v-if="readError || projectLoadError" class="workspace-feedback workspace-feedback--error" role="alert"><p>{{ readError || projectLoadError }}</p><button type="button" class="btn btn-secondary" :disabled="busy || loading || isLoadingProjects" @click="projectLoadError ? emit('reload-projects') : state.refresh()">{{ t('sessionTools.activity.retry') }}</button></div>
-        <TestRequestRecord v-if="request" ref="record" :key="`${currentUser?.id}:${request.id}`" :request="request" :disabled="blocked" @open-asset="state.openAsset" />
-      </template>
-    </SessionToolsPanel>
+    <SessionResourcePanel :state="resourceState" :scope-key="toolsScopeKey" :project-id="projectId" :active="viewActive && active !== false" :force-drawer="Boolean(composerTarget)" :sources="sources" :selected-source-id="selectedSourceId" :opener-element="toolOpener" :session="session" :request="request" :loading="loading" :read-error="readError || projectLoadError" :retry-disabled="busy || loading || isLoadingProjects" :can-stop="!blocked && !viewingPast && !session?.archivedAt && hasCancelableRun" @select-source="selectedSourceId = $event" @focus-message="locateMessage" @open-results="openResults" @retry="projectLoadError ? emit('reload-projects') : state.refresh()" @stop="stopBrowser" @connections="openConnections" />
     <QaConnectionModal v-if="viewActive && connectionOpen && project" :key="`${currentUser?.id}:${project.id}`" :project-id="project.id" :project-name="project.name" :known-runner-profile="profiles.length > 0" initial-preset="RUNNER" appearance="tests" @close="connectionOpen = false; state.loadProfiles()" @changed="state.loadProfiles()" />
   </section>
 </template>

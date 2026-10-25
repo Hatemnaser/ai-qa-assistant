@@ -2,6 +2,8 @@ import "dotenv/config";
 
 import { env } from "../config/env.js";
 import { prisma } from "../db/prisma.js";
+import {requireOperationalDatabase} from '../db/recovery-guard.js';
+import { authAbuseRepository } from '../modules/auth/auth-abuse.repository.js';
 import { logOperationalEvent } from "../lib/operational-events.js";
 import { getRetentionCleanupOutcome } from "../modules/retention/retention.cleanup-outcome.js";
 import {
@@ -12,6 +14,7 @@ import {
 const startedAt = Date.now();
 
 async function main() {
+  await requireOperationalDatabase();
   const policy = getConfiguredRetentionPolicy();
   const batchSize = env.retentionCleanupBatchSize;
   const result = await retentionService.drain(new Date(), policy, batchSize);
@@ -33,6 +36,12 @@ async function main() {
   // A max-batch or no-progress stop means eligible rows remain. Surface that
   // to Render/cron instead of reporting a false success.
   if (outcome.exitCode !== 0) process.exitCode = outcome.exitCode;
+  if (env.authAbuseStore==='postgres') {
+    let removed=0,last=0;
+    for (let batch=0;batch<20;batch++) {last=await authAbuseRepository.cleanup();removed+=last;if(last<100)break;}
+    logOperationalEvent(last===100?'warn':'info',{event:'auth_abuse_cleanup',removed,mayHaveMore:last===100});
+    if (last===100) process.exitCode=1;
+  }
 }
 
 main()

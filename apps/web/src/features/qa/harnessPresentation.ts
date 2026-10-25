@@ -67,6 +67,13 @@ export function qaRecipeCoverage(recipe: QaExecutionRecipe) {
 }
 
 export function qaRunnerProfileManifest(profile: QaRunnerProfile): QaProfileManifest {
+  if (profile.protocolVersion === 2) {
+    if (!profile.target || !profile.authentication || !profile.executionLimits) throw new Error(useI18n().t('projects.qa.approval.recordUnavailable'));
+    return { schemaVersion: 2, environmentKind: profile.environmentKind, evidenceKinds: profile.evidenceKinds, executorKey: 'playwright',
+      label: profile.label, ...(profile.manifestHash ? {manifestHash: profile.manifestHash} : {}), profileKey: profile.key,
+      recipeSchemaVersions: [1], valueReferences: profile.valueRefs.map(({name,secret}) => ({key:name,secret})),
+      target: profile.target, authentication: profile.authentication, executionLimits: profile.executionLimits };
+  }
   return {
     environmentKind: profile.environmentKind,
     evidenceKinds: profile.evidenceKinds,

@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { ref } from "vue";
 
 import { useI18n } from "../../../i18n/useI18n";
 import { verifyEmail } from "../authApi";
 import { consumeAuthTokenFromLocation } from "../authToken";
 import AuthLayout from "../components/AuthLayout.vue";
+import TextField from "../../../ui/TextField.vue";
+import { useAuthRequest } from "../useAuthRequest";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "../passwordPolicy";
 
 defineProps<{
   themeToggleLabel: string;
@@ -16,32 +19,29 @@ const emit = defineEmits<{
   "toggle-theme": [];
 }>();
 
-const errorMessage = ref("");
-const isVerifying = ref(true);
-const successMessage = ref("");
 const { t } = useI18n();
-
-onMounted(() => {
-  void submitVerification();
-});
+const token = consumeAuthTokenFromLocation();
+const newPassword = ref("");
+const confirmPassword = ref("");
+const verified = ref(false);
+const { errorMessage, isSubmitting, submit } = useAuthRequest(t("errors.auth.verifyFailed"));
+if (!token) errorMessage.value = t("errors.auth.verifyMissingToken");
 
 async function submitVerification() {
-const token = consumeAuthTokenFromLocation();
-
   if (!token) {
     errorMessage.value = t("errors.auth.verifyMissingToken");
-    isVerifying.value = false;
     return;
   }
-
-  try {
-    await verifyEmail(token);
-    successMessage.value = t("auth.verify.success");
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : t("errors.auth.verifyFailed");
-  } finally {
-    isVerifying.value = false;
+  if (newPassword.value !== confirmPassword.value) {
+    errorMessage.value = t("errors.auth.resetMismatch");
+    return;
   }
+  await submit(async () => {
+    await verifyEmail(token, newPassword.value);
+    newPassword.value = "";
+    confirmPassword.value = "";
+    verified.value = true;
+  });
 }
 </script>
 
@@ -57,11 +57,20 @@ const token = consumeAuthTokenFromLocation();
       <p>{{ t("auth.verify.subtitle") }}</p>
     </div>
 
-    <div class="vstack gap-3">
-      <p v-if="isVerifying" class="auth-feedback" role="status">{{ t("auth.verify.loading") }}</p>
+    <form v-if="!verified" class="vstack gap-3" @submit.prevent="submitVerification">
+      <TextField id="verify-password" v-model="newPassword" :label="t('auth.reset.newPassword')"
+        type="password" autocomplete="new-password" :placeholder="t('auth.reset.passwordPlaceholder')"
+        :disabled="isSubmitting || !token" :max-length="PASSWORD_MAX_LENGTH" :min-length="PASSWORD_MIN_LENGTH" required />
+      <TextField id="verify-password-confirmation" v-model="confirmPassword" :label="t('auth.reset.confirmPassword')"
+        type="password" autocomplete="new-password" :placeholder="t('auth.reset.confirmPasswordPlaceholder')"
+        :disabled="isSubmitting || !token" :max-length="PASSWORD_MAX_LENGTH" :min-length="PASSWORD_MIN_LENGTH" required />
       <p v-if="errorMessage" class="auth-feedback auth-feedback-error" role="alert">{{ errorMessage }}</p>
-      <p v-if="successMessage" class="auth-feedback auth-feedback-success" role="status">{{ successMessage }}</p>
-
+      <button class="btn btn-primary btn-control w-100" type="submit" :disabled="isSubmitting || !token">
+        {{ isSubmitting ? t("auth.verify.loading") : t("auth.verify.submit") }}
+      </button>
+    </form>
+    <div v-else class="vstack gap-3">
+      <p class="auth-feedback auth-feedback-success" role="status">{{ t("auth.verify.success") }}</p>
       <button class="btn btn-primary btn-control w-100" type="button" @click="emit('navigate', 'login')">
         {{ t("app.actions.signIn") }}
       </button>

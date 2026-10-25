@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-19T18:12:02.520Z",
+  "scope": "PHASE_08A_2_LOCAL_OPERATIONS_SECURITY_FIXES",
+  "status": "FIXED_LOCALLY_PENDING_INDEPENDENT_ACCEPTANCE",
+  "phase08Accepted": false,
+  "publicReleaseAuthorized": false,
+  "source": {
+    "digest": "08905c8f1580031cacb1861efd7772128159d1dbd7e8e5cb7676da41e36bc38b",
+    "fileCount": 1053,
+    "operationsImage": "sha256:ab07980dc16692cc233c4d97900d8fc3aa84aa9f75c78f918eac4f00ae221731",
+    "imageSourceParityFiles": 10,
+    "changedFiles": [
+      {
+        "path": "ops/backup.mjs",
+        "sha256": "a57a443278937e41013f605e0d77d2c4eaf8e03991a91fce79669dcce1a8bf23"
+      },
+      {
+        "path": "ops/maintenance.mjs",
+        "sha256": "f5438baa78a78e60769e42173532612601d19a767f1d2c4af250b569d30e1f39"
+      },
+      {
+        "path": "ops/tests/maintenance.test.mjs",
+        "sha256": "9fc34776b90aca484772e6b0b6231d634e83417de181dea79602a52b4d3f2f58"
+      },
+      {
+        "path": "ops/tests/local-operations.integration.mjs",
+        "sha256": "cb9cd5cf1490d0d7aa898c460d6cd65e452e754c992a65864b3eb9430e9882c7"
+      },
+      {
+        "path": "docs/PHASE_08A_READINESS_INVENTORY.md",
+        "sha256": "e2b72541ff8010f32d1479f63cd47f5bc3e5b7d1e9502d9f08616fe6d15dd3b6"
+      }
+    ],
+    "unrelatedOriginalFilesUnchanged": 1202
+  },
+  "fixes": {
+    "R1": {
+      "status": "FIXED_LOCALLY",
+      "contract": "Existing direct ACL/owner/empty/client checks plus effective CONNECT and exclusive non-superuser owner membership. MEMBER covers direct, transitive, SET-only and mixed paths; superusers remain trusted administrators.",
+      "regressions": [
+        "quarantine-rejects-inherited-access-before-writing",
+        "quarantine-rejects-transitive-access-before-writing",
+        "quarantine-rejects-set_only-access-before-writing",
+        "quarantine-rejects-mixed_path-access-before-writing"
+      ]
+    },
+    "R2": {
+      "status": "FIXED_LOCALLY",
+      "contract": "Any unsuccessful backup creation is terminal, including resolved signal/nonzero results and arbitrary execution errors. Compose restarts the container, clears private tmpfs, retains failed health until fresh successful verification and preserves60-second backoff.",
+      "childOnlyFault": {
+        "path": "/tmp/oddpath-restore-rr1RgP/verified.dump",
+        "bytes": 196608,
+        "at": 1792433207138,
+        "containerRestarted": true,
+        "plaintextGoneBeforeRetry": true,
+        "healthFailedBeforeRetry": true,
+        "healthyOnlyAfterNewVerifiedBackup": true,
+        "priorEncryptedArchiveHashUnchanged": true
+      }
+    }
+  },
+  "tests": {
+    "red": {
+      "realIssuesReproduced": 2,
+      "unitPass": 15,
+      "unitExpectedFailures": 3,
+      "integrationExpectedFailure": "quarantine-rejects-inherited-access-before-writing"
+    },
+    "green": {
+      "windowsOperations": 18,
+      "linuxOperations": 18,
+      "sameCases": true,
+      "realPostgresDockerHttpChecks": 46,
+      "previousChecksRetained": 38,
+      "migrations": 34,
+      "connectionFaults": [
+        {
+          "id": "A0-real-encrypted-backup",
+          "status": "PASS",
+          "details": {
+            "rows": 1000,
+            "bytes": 16384000,
+            "status": "ENCRYPTED_BACKUP_VERIFIED",
+            "scope": "CLOSED_DATABASE_ONLY"
+          }
+        },
+        {
+          "id": "A1-exporter-connection-loss",
+          "status": "PASS",
+          "details": {
+            "exit": 1,
+            "priorArchiveIntact": true,
+            "noPartialArchive": true
+          }
+        },
+        {
+          "id": "A2-restore-connection-loss-rollback-and-retry",
+          "status": "PASS",
+          "details": {
+            "failedExit": 1,
+            "objectsAfterFailure": 0,
+            "retryExit": 0,
+            "contentsMatch": true
+          }
+        }
+      ],
+      "priorPhasePass": 256,
+      "priorPhaseSuites": 15,
+      "priorPhaseSkipped": 0,
+      "fullVerify": {
+        "status": "PASS",
+        "summaries": [
+          {
+            "tests": 41,
+            "suites": 4,
+            "pass": 41,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          {
+            "tests": 1117,
+            "suites": 169,
+            "pass": 1116,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 1,
+            "todo": 0
+          },
+          {
+            "tests": 33,
+            "suites": 6,
+            "pass": 33,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          {
+            "tests": 676,
+            "suites": 106,
+            "pass": 676,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          {
+            "tests": 91,
+            "suites": 4,
+            "pass": 91,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          {
+            "tests": 12,
+            "suites": 0,
+            "pass": 12,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          {
+            "tests": 18,
+            "suites": 0,
+            "pass": 18,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          }
+        ],
+        "existingWindowsSkipCoveredByLinuxVault": 5
+      },
+      "diffCheck": "PASS"
+    }
+  },
+  "safety": {
+    "unrelatedFilesPreserved": true,
+    "workingDatabaseIdentityAndStartUnchanged": true,
+    "workingDatabaseHealthy": true,
+    "ownedTestResourcesRemoved": true,
+    "productionSchemaChanged": false,
+    "apiContractsChanged": false,
+    "existingAssertionsWeakened": false,
+    "additionalModelsUsed": false,
+    "subagentsUsed": false,
+    "deployed": false,
+    "cloudSpending": false
+  },
+  "limits": [
+    "Independent acceptance remains pending; this is implementation evidence, not Phase08/public GO",
+    "Quarantine trusts PostgreSQL superusers and the operator controlling role/ACL changes; the recovery owner is deliberately not shareable even via inert membership",
+    "Abnormal backup cleanup requires the reviewed disposable container tmpfs boundary and restart policy; a bare host process restarter is not a substitute",
+    "Actual kernel OOM was not induced; real child SIGKILL exercised abrupt child death, container restart, tmpfs removal and subsequent successful retry",
+    "Off-host copy/key escrow/external alerts/native ARM/full browser-vault-object recovery remain separate unverified gates",
+    "No dependency changes or fresh production audit in this fix; previous audit evidence retained"
+  ],
+  "evidence": [
+    {
+      "path": "work/phase-08a-ops-fix-20261019/baseline.json",
+      "sha256": "077130f5e277c05d70a4ecfa40f8d23e6dd9528389de702fbbbd20fc432af7e2"
+    },
+    {
+      "path": "work/phase-08a-ops-fix-20261019/adversarial-meta.json",
+      "sha256": "412bbea4fffc44da08c29c44631d8de062ca7cc9a1549c605cf28ae02c11b767"
+    },
+    {
+      "path": "work/phase-08a-ops-fix-20261019/adversarial.log",
+      "sha256": "0fa4f69e638995e9583ff9e8121d3958b7658ab7a3c04c6362281f3f353011d5"
+    },
+    {
+      "path": "work/phase-08a-ops-fix-20261019/unit-red.log",
+      "sha256": "b000d27bbd854b6717608c4faa1e30782e2d8a1f867c18a2e46349af7498c5f9"
+    },
+    {
+      "path": "work/phase-08a-ops-fix-20261019/unit-green.log",
+      "sha256": "d1c100a0ea0020d3de25510c929161d6cc6f92736ef873efe32542c2e94a1aa3"
+    },
+    {
+      "path": "work/phase-08a-ops-fix-20261019/unit-linux.log",
+      "sha256": "03c91e56bf7fd1ffcf40afb4d80daf01e6c2ddff17d8ec62984ac9b79d03542b"
+    },
+    {
+      "path": "work/phase-08a-ops-fix-20261019/integration-red/verification.json",
+      "sha256": "c51988eb350983fa5664fc71914f2038b50be56e1a6f1d97d0a56b969dd513f4"
+    },
+    {
+      "path": "work/phase-08a-ops-fix-20261019/integration-green/verification.json",
+      "sha256": "a900a2fc5f0a8a06c5e05ab99a3b58ba4864880a5d8584c2239cb8ea7b35e0f6"
+    },
+    {
+      "path": "work/phase-08a-ops-fix-20261019/connections-green/adversarial-meta.json",
+      "sha256": "2d6838ef84334139756fb51db6f8e8a120adf11e63909166cb4bc0d1ef424fe3"
+    },
+    {
+      "path": "work/phase-08a-ops-fix-20261019/connections-green/adversarial.log",
+      "sha256": "377530433abd9f3682403f106a95de43b4ff7cce81d7b3993339bac8619a3719"
+    },
+    {
+      "path": "work/phase-08a-ops-fix-20261019/prior-phase-regressions/verification.json",
+      "sha256": "2685ffcd96a05e23e4df7335d58cdc67cc7173e6206815b271545fe3dee7e094"
+    },
+    {
+      "path": "work/phase-08a-ops-fix-20261019/verify.log",
+      "sha256": "77af82db84e7c0e50baa45971af0e6e7812de842c13bea46eadfb86ef0bd7c80"
+    },
+    {
+      "path": "work/phase-08a-ops-fix-20261019/vault-linux.log",
+      "sha256": "c24b9d05a5b352f41d2bba228a0b04b68d57c2df3a8f4be0a84d83406c7f271c"
+    },
+    {
+      "path": "work/phase-08a-ops-fix-20261019/build-operations.log",
+      "sha256": "a3afecf9bf0d94d89723330a43f4cebada5faca5bffaf51864aa062bc3a3ded5"
+    }
+  ],
+  "technicalReference": {
+    "title": "PostgreSQL16 role privilege functions",
+    "url": "https://www.postgresql.org/docs/16/functions-info.html"
+  }
+}

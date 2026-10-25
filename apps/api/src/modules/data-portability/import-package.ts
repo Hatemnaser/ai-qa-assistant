@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import {importPortableQaHistory,QA_HISTORY_IMPORT_WARNING} from "./qa-history-portable.js";
 
 import { z } from "zod";
 
@@ -58,7 +59,7 @@ export function previewProjectImportPackage(archive: Buffer): ProjectImportPrevi
         (total, chat) => total + chat.messages.length,
         0
       ),
-      ...(packageData.formatVersion === PROJECT_EXPORT_FORMAT_VERSION
+      ...(packageData.formatVersion !== PROJECT_EXPORT_LEGACY_FORMAT_VERSION
         ? {
             assets: packageData.project.binaryAssets.length,
             assetBytes: packageData.project.binaryAssets.reduce(
@@ -93,6 +94,7 @@ export function validateProjectImportPackage(
 
   const parsedManifest = manifestResult.data;
   const parsedProject = projectResult.data;
+  if(parsedProject.project.qaHistory && parsedProject.formatVersion !== '3.0')throwInvalidPackage();
 
   validatePackageIdentity(parsedManifest, parsedProject);
   const declaredPaths = validateManifestFiles(parsedManifest.files, entries);
@@ -165,8 +167,9 @@ export function validateProjectImportPackage(
       documents,
       chats,
       binaryAssets,
+      ...(parsedProject.project.qaHistory?{qaHistory:importPortableQaHistory(parsedProject.project.qaHistory,entries,parsedProject.project.sourceId)}:{}),
     },
-    warnings: [...parsedManifest.warnings],
+    warnings: [...parsedManifest.warnings,...(parsedProject.project.qaHistory?[QA_HISTORY_IMPORT_WARNING]:[])],
     unsupported,
   };
 }

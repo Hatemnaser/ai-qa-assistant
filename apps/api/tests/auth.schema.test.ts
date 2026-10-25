@@ -75,7 +75,7 @@ describe("auth password schemas", () => {
     assertValidationError(
       registerRequestSchema.safeParse(registerPayload({ termsVersion: "" })),
       "termsVersion",
-      "String must contain at least 1 character(s)"
+      "Too small: expected string to have >=1 characters"
     );
   });
 
@@ -141,11 +141,13 @@ describe("auth password schemas", () => {
 
   it("verify-email requires a plausible token", () => {
     assertValidationError(
-      verifyEmailRequestSchema.safeParse({ token: "short" }),
+      verifyEmailRequestSchema.safeParse({ token: "short", newPassword: "Owner-selected activation passphrase" }),
       "token",
       "A valid verification token is required."
     );
-    assert.equal(verifyEmailRequestSchema.safeParse({ token: VALID_RESET_TOKEN }).success, true);
+    assert.equal(verifyEmailRequestSchema.safeParse({ token: VALID_RESET_TOKEN, newPassword: "Owner-selected activation passphrase" }).success, true);
+    assert.equal(verifyEmailRequestSchema.safeParse({ token: VALID_RESET_TOKEN }).success, false);
+    assert.equal(verifyEmailRequestSchema.safeParse({ token: VALID_RESET_TOKEN, newPassword: "weak" }).success, false);
   });
 
   it("resend-verification normalizes email addresses", () => {
@@ -197,7 +199,7 @@ interface ValidationResult {
   error?: {
     issues: Array<{
       message: string;
-      path: Array<string | number>;
+      path: PropertyKey[];
     }>;
   };
   success: boolean;

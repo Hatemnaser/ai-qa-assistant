@@ -4,14 +4,17 @@ import type {
   ProjectDocumentSource,
 } from "../../generated/prisma/enums.js";
 import { DATA_LIMITS } from "../../config/data-limits.js";
+import type {QaHistory,QaBinarySource} from "../qa-requests/qa-report.types.js";
 import type { PortableBinaryAssetSource } from "./binary-assets.js";
 
 export const ACCOUNT_EXPORT_FORMAT_VERSION = "1.0";
 export const ACCOUNT_EXPORT_BINARY_FORMAT_VERSION = "2.0";
+export const ACCOUNT_EXPORT_QA_FORMAT_VERSION = "3.0";
 
 export type AccountExportFormatVersion =
   | typeof ACCOUNT_EXPORT_FORMAT_VERSION
-  | typeof ACCOUNT_EXPORT_BINARY_FORMAT_VERSION;
+  | typeof ACCOUNT_EXPORT_BINARY_FORMAT_VERSION
+  | typeof ACCOUNT_EXPORT_QA_FORMAT_VERSION;
 
 export const ACCOUNT_EXPORT_LIMITS = Object.freeze({
   maxArchiveBytes: 10_000_000,
@@ -50,6 +53,8 @@ export interface AccountExportDocumentRecord {
 }
 
 export interface AccountExportProjectRecord {
+  qaHistory?: QaHistory;
+  qaBinarySources?: QaBinarySource[];
   id: string;
   name: string;
   description: string | null;

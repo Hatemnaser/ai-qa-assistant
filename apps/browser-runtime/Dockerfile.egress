@@ -1,0 +1,6 @@
+FROM node:24-bookworm-slim
+WORKDIR /opt/oddpath
+COPY apps/browser-runtime/src/egress-policy.mjs apps/browser-runtime/src/egress-main.mjs ./
+USER 10001:10001
+EXPOSE 3128
+ENTRYPOINT ["node", "/opt/oddpath/egress-main.mjs"]

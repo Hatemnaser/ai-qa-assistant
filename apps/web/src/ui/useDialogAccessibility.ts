@@ -14,6 +14,8 @@ const FOCUSABLE_SELECTOR = [
   "input:not(:disabled):not([type='hidden'])",
   "select:not(:disabled)",
   "textarea:not(:disabled)",
+  "iframe:not([tabindex='-1'])",
+  "details > summary:first-of-type:not([tabindex='-1'])",
   "[contenteditable='true']",
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
@@ -115,6 +117,14 @@ function isAvailableForFocus(element: HTMLElement) {
     element.matches(":disabled")
   ) {
     return false;
+  }
+
+  // Chromium may retain layout rectangles for descendants of collapsed details.
+  // Only its first summary remains a native tab stop, including nested details.
+  let closedDetails = element.closest("details:not([open])");
+  while (closedDetails) {
+    if (!closedDetails.querySelector(":scope > summary")?.contains(element)) return false;
+    closedDetails = closedDetails.parentElement?.closest("details:not([open])") || null;
   }
 
   const style = window.getComputedStyle(element);
@@ -225,6 +235,13 @@ export function useDialogAccessibility(options: DialogAccessibilityOptions) {
     }
   }
 
+  // A key pressed inside a cross-origin iframe does not bubble to this dialog.
+  // A focus guard after the content catches native Tab leaving its last field.
+  function onDialogFocusEnd() {
+    if (!toValue(options.isOpen) || !dialogRef.value) return;
+    focusElement(getFocusableElements(dialogRef.value)[0] || dialogRef.value);
+  }
+
   watch(
     () => toValue(options.isOpen),
     (isOpen, wasOpen) => {
@@ -254,5 +271,6 @@ export function useDialogAccessibility(options: DialogAccessibilityOptions) {
   return {
     dialogRef,
     onDialogKeydown,
+    onDialogFocusEnd,
   };
 }

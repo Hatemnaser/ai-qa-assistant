@@ -1,0 +1,50 @@
+# Optional overlay AFTER base + operations (and stack/full-backup when selected).
+# Does not activate production gates or provide an external host-death monitor.
+services:
+  alerts:
+    profiles: [alerts]
+    image: "${ODDPATH_OPERATIONS_IMAGE:?Provide reviewed operations image}"
+    user: "0:0"
+    entrypoint: [node, ops/alerts.mjs]
+    command: [run]
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    # Read-only private status files have different native owners. No source writes.
+    cap_add: [DAC_READ_SEARCH]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      ODDPATH_ALERT_STATE_DIRECTORY: /var/lib/oddpath-alerts
+      ODDPATH_ALERT_CONFIG_FILE: /run/secrets/alert_config
+    secrets: [alert_config, alert_smtp_password]
+    volumes:
+      - alert-state:/var/lib/oddpath-alerts
+      - maintenance-state:/observe/maintenance:ro
+      - alert-backup-observation:/observe/backup:ro
+    networks: [database, outbound]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=16m", "/var/lib/postgresql/data:rw,noexec,nosuid,size=1m"]
+    healthcheck:
+      test: [CMD, node, ops/alerts.mjs, health]
+      interval: 15s
+      timeout: 5s
+      retries: 2
+      start_period: 30s
+    mem_limit: 192m
+    cpus: 0.25
+    pids_limit: 32
+    stop_grace_period: 20s
+    logging: {driver: local, options: {max-size: "1m", max-file: "2"}}
+
+volumes:
+  alert-state:
+    external: true
+    name: "${ODDPATH_ALERT_STATE_VOLUME:?Provide NEW UID0 private notifier state volume}"
+  alert-backup-observation:
+    external: true
+    name: "${ODDPATH_ALERT_BACKUP_STATE_VOLUME:?Select the ACTUAL full or closed backup supervisor state volume}"
+secrets:
+  alert_config:
+    file: "${ODDPATH_ALERT_CONFIG_FILE:?Provide private operator-owned alert config JSON}"
+  alert_smtp_password:
+    file: "${ODDPATH_ALERT_SMTP_PASSWORD_FILE:?Provide private SMTP password}"

@@ -15,6 +15,7 @@ describe("retention repository", () => {
     let expiredAuthEmailUpdate: unknown;
     const uploadExpiresAt = new Date("2030-01-01T00:00:00.000Z");
     const transaction = {
+      async $executeRaw(){return 1;},
       async $queryRaw() {
         operations.push("lock");
         return [{ acquired: true }];
@@ -78,7 +79,9 @@ describe("retention repository", () => {
           return { count: 5 };
         },
       },
-      usageEvent: createDeleteModel("usageEvent", operations),
+      usageEvent: {...createDeleteModel('usageEvent',operations),async findMany(input:{where:{userId?:string}}){
+        if(input.where.userId)return [];operations.push('usageEvent:findCandidates');return [{id:'usageEvent-0'}];
+      }},
       passwordResetToken: createDeleteModel("passwordResetToken", operations, 3),
       emailVerificationToken: createDeleteModel("emailVerificationToken", operations, 4),
     };
@@ -109,6 +112,7 @@ describe("retention repository", () => {
       createdAt: { lte: unverifiedAccountsBefore },
       emailVerifiedAt: null,
       sessions: { none: {} },
+      usageEvents:{none:{OR:[{settlementReceipts:{some:{appliedAt:null}}},{expiresAt:{not:null},status:{in:['reserved','settlement_pending','partial','unknown']}}]}},
     });
     assert.deepEqual(guardedDeleteWhere, {
       AND: [
@@ -250,6 +254,7 @@ function createDeleteModel(name: string, operations: string[], count = 1) {
 
 function createRaceTransaction() {
   return {
+    async $executeRaw(){return 1;},
     async $queryRaw() {
       return [{ acquired: true }];
     },

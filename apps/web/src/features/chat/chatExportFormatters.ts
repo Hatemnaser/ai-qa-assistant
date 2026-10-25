@@ -1,4 +1,4 @@
-import { DEFAULT_MODE, DEFAULT_MODEL } from "./constants";
+import { DEFAULT_MODE, DEFAULT_MODEL, normalizeRecordedModel } from "./constants";
 import { getMessageAttachments } from "./chatMessages";
 import type { Chat, ChatMessage } from "./types";
 
@@ -18,7 +18,8 @@ export function formatChatAsMarkdown(chat: Chat) {
     lines.push(`## ${index + 1}. ${formatRole(message.role)}`);
     lines.push("");
     lines.push(`- Mode: ${message.mode || chat.mode || DEFAULT_MODE}`);
-    lines.push(`- Model: ${message.model || chat.model || DEFAULT_MODEL}`);
+    const model = normalizeRecordedModel(message.model);
+    if (model) lines.push(`- Model: ${model}`);
     lines.push(`- Created At: ${message.createdAt || ""}`);
 
     for (const attachment of getMessageAttachments(message)) {
@@ -152,7 +153,7 @@ function sanitizeMessageForExport(message: ChatMessage): ChatMessage {
     role: message.role,
     content: message.content || "",
     mode: message.mode || DEFAULT_MODE,
-    model: message.model || DEFAULT_MODEL,
+    model: normalizeRecordedModel(message.model),
     createdAt: message.createdAt,
     ...(message.isError ? { isError: true } : {}),
     ...(attachments.length > 0 ? { attachments } : {}),

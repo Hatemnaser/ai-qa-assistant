@@ -8,6 +8,7 @@ import { compileScript, parse } from "vue/compiler-sfc";
 
 import type { QaEvidence, QaEvidenceRequirement, QaRequestDetail, QaRun } from "../src/features/qa/types.ts";
 import * as presentation from "../src/features/qa/workspacePresentation.ts";
+import * as availability from '../src/features/qa/evidenceAvailability';
 import * as i18n from "../src/i18n/useI18n.ts";
 
 const source = await readFile(new URL("../src/features/test-sessions/TestRequestRecord.vue", import.meta.url), "utf8");
@@ -136,6 +137,7 @@ function mount(record: QaRequestDetail) {
     "../../i18n/useI18n": i18n,
     "../qa/components/QaEvidenceCard.vue": {},
     "../qa/workspacePresentation": presentation,
+    "../qa/evidenceAvailability": availability,
     "../sessions/sessionActivityPresentation": activity,
   };
   const module = { exports: {} as { default: { setup(props: unknown, context: unknown): State } } };

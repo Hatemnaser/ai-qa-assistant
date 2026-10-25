@@ -1,6 +1,6 @@
 import type {
-  ProfileManifestV1,
-  RunnerRegistrationV1,
+  ProfileManifest,
+  RunnerRegistration,
 } from "@oddpath/qa-execution-contract";
 
 export interface QaRunnerRepository {
@@ -17,8 +17,8 @@ export interface QaRunnerRepository {
   upsertRegistration(input: {
     connectionTokenId: string;
     projectId: string;
-    registration: Omit<RunnerRegistrationV1, "profiles"> & {
-      profiles: ProfileManifestV1[];
+    registration: Omit<RunnerRegistration, "profiles"> & {
+      profiles: ProfileManifest[];
     };
   }): Promise<{ id: string; lastSeenAt: Date }>;
 }

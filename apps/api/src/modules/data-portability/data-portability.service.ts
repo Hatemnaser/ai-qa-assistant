@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import {collectQaReportBinaries} from "../qa-requests/qa-report.package.js";
 
 import { AppError } from "../../lib/errors.js";
 import { assetStorage, type AssetStorage } from "../assets/assets.storage.js";
@@ -134,7 +135,8 @@ export function createDataPortabilityService({
             )
           : undefined;
 
-      return createProjectExportPackage(project, options, now(), binaryAssets);
+      const qaBinaries=project.qaHistory?await collectQaReportBinaries(userId,project.qaHistory,project.qaBinarySources || [],storage,now,Math.max(0,8*1024*1024-(binaryAssets?.totalBytes || 0))):undefined;
+      return createProjectExportPackage(project, options, now(), binaryAssets,qaBinaries);
     },
 
     async previewProjectImport(archive) {

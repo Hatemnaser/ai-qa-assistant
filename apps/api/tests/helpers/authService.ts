@@ -32,6 +32,7 @@ export function setupAuthService(options: AuthServiceTestOptions = {}) {
     passwordResetTokenTtlMinutes: options.passwordResetTokenTtlMinutes,
     registrationPolicy: options.registrationPolicy,
     repository,
+    stopBrowsersOnLogout: options.stopBrowsersOnLogout,
     security: createFakeSecurity(options.security),
   });
 
@@ -42,6 +43,7 @@ export function setupAuthService(options: AuthServiceTestOptions = {}) {
 }
 
 export interface AuthServiceTestOptions {
+  stopBrowsersOnLogout?: (userId:string)=>Promise<void>;
   authEmailResponseFloorMs?: number;
   emailDeliveryMode?: "direct" | "outbox";
   emailOutboxEncryptionSecret?: string;
@@ -147,6 +149,8 @@ function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
     },
 
     async createPasswordResetToken(input: CreatePasswordResetTokenInput) {
+      const user = repository.users.find(user => user.id === input.userId);
+      if (!user || (input.expectedPasswordHash !== undefined && user.passwordHash !== input.expectedPasswordHash)) return false;
       for (const token of repository.passwordResetTokens) {
         if (token.userId === input.userId && !token.usedAt) {
           token.usedAt = input.now;
@@ -159,9 +163,12 @@ function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
         id: `reset-token-${repository.passwordResetTokens.length + 1}`,
         usedAt: null,
       });
+      return true;
     },
 
     async createEmailVerificationToken(input: CreateEmailVerificationTokenInput) {
+      const user = repository.users.find(user => user.id === input.userId);
+      if (!user || user.emailVerifiedAt || (input.expectedPasswordHash !== undefined && user.passwordHash !== input.expectedPasswordHash)) return false;
       for (const token of repository.emailVerificationTokens) {
         if (token.userId === input.userId && !token.usedAt) {
           token.usedAt = input.now;
@@ -174,6 +181,7 @@ function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
         id: `verification-token-${repository.emailVerificationTokens.length + 1}`,
         usedAt: null,
       });
+      return true;
     },
 
     async createSession(input: CreateSessionInput) {
@@ -224,6 +232,7 @@ function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
 
       token.usedAt = input.now;
       user.passwordHash = input.newPasswordHash;
+      for (const proof of repository.emailVerificationTokens) if (proof.userId === user.id && !proof.usedAt) proof.usedAt = input.now;
       repository.sessions = repository.sessions.filter((session) => session.userId !== token.userId);
 
       return true;
@@ -238,7 +247,7 @@ function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
 
       const user = repository.users.find((item) => item.id === token.userId);
 
-      if (!user) {
+      if (!user || user.emailVerifiedAt || !input.newPasswordHash) {
         return false;
       }
 
@@ -247,6 +256,9 @@ function createFakeAuthRepository(initialUsers: AuthUserRecord[] = []) {
       if (!user.emailVerifiedAt) {
         user.emailVerifiedAt = input.now;
       }
+      user.passwordHash = input.newPasswordHash;
+      repository.sessions = repository.sessions.filter(session => session.userId !== user.id);
+      for (const reset of repository.passwordResetTokens) if (reset.userId === user.id && !reset.usedAt) reset.usedAt = input.now;
 
       for (const otherToken of repository.emailVerificationTokens) {
         if (otherToken.userId === token.userId && otherToken.id !== token.id && !otherToken.usedAt) {

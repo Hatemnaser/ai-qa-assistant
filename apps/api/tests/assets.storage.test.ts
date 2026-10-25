@@ -6,6 +6,11 @@ import { createR2AssetStorage, isAssetStorageConfigured } from "../src/modules/a
 const CHECKSUM = "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=";
 
 describe("R2 asset storage adapter", () => {
+  it("binds download expiry to the caller's signing time despite asynchronous presigner setup",async()=>{
+    const storage=createR2AssetStorage({r2AccessKeyId:'fixture-key',r2SecretAccessKey:'fixture-secret',r2BucketName:'fixture-bucket',r2Region:'auto',r2Endpoint:`https://${'a'.repeat(32)}.eu.r2.cloudflarestorage.com`});
+    const url=new URL(await storage.createDownloadUrl('qa-evidence/fixture',10,new Date('2026-10-14T12:00:00.900Z')));
+    assert.equal(url.searchParams.get('X-Amz-Date'),'20261014T120000Z');assert.equal(url.searchParams.get('X-Amz-Expires'),'10');
+  });
   it("keeps cleanup capability independent from the new-upload feature flag", () => {
     assert.equal(isAssetStorageConfigured({
       r2AccessKeyId: "key",

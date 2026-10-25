@@ -1,5 +1,6 @@
 import type { ProjectDocumentRecord } from "../project-documents/project-documents.types.js";
 import { DATA_LIMITS } from "../../config/data-limits.js";
+import type {QaHistory} from "../qa-requests/qa-report.types.js";
 import type { ValidatedExternalChatImport } from "./external-chat-import.types.js";
 import type { ValidatedPortableBinaryAsset } from "./binary-assets.js";
 import type { UploadedPortableBinaryAsset } from "./binary-asset-restore.types.js";
@@ -73,6 +74,7 @@ export interface NativeAccountImportDocument {
 }
 
 export interface NativeAccountImportProject {
+  qaHistory?: QaHistory;
   sourceId: string;
   name: string;
   description: string | null;

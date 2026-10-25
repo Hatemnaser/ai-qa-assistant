@@ -60,7 +60,13 @@ export function createAuthEmailOutboxWorker({
 
       if (!job) break;
 
-      if (!isDeliverable(job, claimedAt)) {
+      if (job.attempts > maxAttempts) {
+        const result=await repository.markFailedOrRetry({attempts:job.attempts,id:job.id,lockedAt:job.lockedAt,maxAttempts,nextAttemptAt:now(),now:now()});
+        if(result==='failed')summary.failed+=1;
+        continue;
+      }
+
+      if (!isDeliverable(job, now())) {
         const cancelled = await repository.markCancelled({
           attempts: job.attempts,
           id: job.id,
@@ -83,25 +89,27 @@ export function createAuthEmailOutboxWorker({
 
         if (job.kind === "EMAIL_VERIFICATION") {
           await emailService.sendEmailVerificationEmail({
+            deliveryId: job.id,
             expiresAt: new Date(payload.expiresAt),
             to: job.email,
             verificationUrl: payload.url,
           });
         } else {
           await emailService.sendPasswordResetEmail({
+            deliveryId: job.id,
             expiresAt: new Date(payload.expiresAt),
             resetUrl: payload.url,
             to: job.email,
           });
         }
 
-        await repository.markSent({
+        const marked=await repository.markSent({
           attempts: job.attempts,
           id: job.id,
           lockedAt: job.lockedAt,
           now: now(),
         });
-        summary.delivered += 1;
+        if(marked)summary.delivered += 1;
       } catch {
         const failureTime = now();
         const result = await repository.markFailedOrRetry({

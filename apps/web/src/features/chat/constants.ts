@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
 
 export const DEFAULT_MODE = "general";
 export const DEFAULT_MODEL = "gemini-3.1-flash-lite";
+export const AUTO_MODEL = "auto";
 export const VISUAL_REVIEW_MODEL = "gemini-2.5-flash";
 
 export const QA_MODES = [
@@ -48,6 +49,13 @@ const INLINE_ATTACHMENT_CAPABILITIES = {
 export const AI_MODELS = [
   {
     capabilities: INLINE_ATTACHMENT_CAPABILITIES,
+    label: "Auto",
+    provider: "gemini",
+    value: AUTO_MODEL,
+    recommendedFor: "Automatic model selection with compatible fallback",
+  },
+  {
+    capabilities: INLINE_ATTACHMENT_CAPABILITIES,
     label: "Gemini 2.5 Flash",
     provider: "gemini",
     value: "gemini-2.5-flash",
@@ -77,34 +85,34 @@ export function getModelConfig(model: unknown, modelOptions: readonly AiModelOpt
   return (
     modelOptions.find((option) => option.value === selectedModel) ||
     modelOptions.find((option) => option.value === DEFAULT_MODEL) ||
-    AI_MODELS[0]
+    AI_MODELS.find(option => option.value === DEFAULT_MODEL)!
   );
 }
 
-export function normalizeModel(model: unknown, modelOptions: readonly AiModelOption[] = AI_MODELS) {
-  return getModelConfig(model, modelOptions).value;
+export function normalizeModel(model: unknown, _modelOptions: readonly AiModelOption[] = AI_MODELS) {
+  // A removed explicit choice must reach the API as that choice, not a substitute.
+  return typeof model === "string" && model.trim() ? model.trim() : DEFAULT_MODEL;
+}
+
+/** Historical message metadata has no default; an empty value means unknown. */
+export function normalizeRecordedModel(model: unknown) {
+  return typeof model === "string" ? model.trim() : "";
 }
 
 export function supportsImages(model: unknown, modelOptions: readonly AiModelOption[] = AI_MODELS) {
-  return getModelConfig(model, modelOptions).capabilities.images;
+  return modelOptions.find(option => option.value === normalizeModel(model))?.capabilities.images || false;
 }
 
 export function supportsTextAttachments(model: unknown, modelOptions: readonly AiModelOption[] = AI_MODELS) {
-  return getModelConfig(model, modelOptions).capabilities.textAttachments;
+  return modelOptions.find(option => option.value === normalizeModel(model))?.capabilities.textAttachments || false;
 }
 
 export function getModelForMode(
-  mode: string,
+  _mode: string,
   requestedModel: unknown,
   modelOptions: readonly AiModelOption[] = AI_MODELS
 ) {
-  const selectedModel = normalizeModel(requestedModel, modelOptions);
-
-  if (mode === "screenshot_review") {
-    return VISUAL_REVIEW_MODEL;
-  }
-
-  return selectedModel;
+  return normalizeModel(requestedModel, modelOptions);
 }
 
 export function getModelHint(
@@ -120,6 +128,7 @@ export function getModelHint(
 }
 
 export const MODEL_RECOMMENDATION_KEYS_BY_VALUE: Record<string, TranslationKey> = {
+  auto: "model.auto.description",
   "gemini-2.5-flash": "model.gemini25Flash.recommended",
   "gemini-2.5-flash-lite": "model.gemini25FlashLite.recommended",
   "gemini-3.1-flash-lite": "model.gemini31FlashLite.recommended",

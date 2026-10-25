@@ -12,6 +12,7 @@ import { aiRouter } from "./modules/ai/ai.routes.js";
 import { assetsRouter } from "./modules/assets/assets.routes.js";
 import { authPreBodyIpRateLimit } from "./modules/auth/auth.rateLimit.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { createDurableAuthAbuseMiddleware } from "./modules/auth/auth-abuse.middleware.js";
 import { chatHistoryRouter } from "./modules/chat-history/chat-history.routes.js";
 import { enforceChatPreBodyGate } from "./modules/chat/chat.pre-body-rate-limit.middleware.js";
 import { chatRouter } from "./modules/chat/chat.routes.js";
@@ -26,6 +27,7 @@ import { projectsRouter } from "./modules/projects/projects.routes.js";
 import { settingsRouter } from "./modules/settings/settings.routes.js";
 import { usageRouter } from "./modules/usage/usage.routes.js";
 import { sessionsRouter } from "./modules/sessions/sessions.routes.js";
+import {managedProjectsRouter} from './modules/browser-runtime/managed-projects.routes.js';
 
 export interface CreateAppOptions {
   nodeEnv?: string;
@@ -65,6 +67,7 @@ export function createApp(options: CreateAppOptions = {}) {
   });
 
   app.use(cors(buildCorsOptions()));
+  app.use('/api/internal/managed-browser',managedProjectsRouter);
   app.use(
     "/api/integrations/v1",
     projectConnectionPreBodyRateLimit,
@@ -84,7 +87,9 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use(
     "/api/auth",
     authPreBodyIpRateLimit,
+    createDurableAuthAbuseMiddleware('ip'),
     express.json({ limit: "16kb" }),
+    createDurableAuthAbuseMiddleware('email'),
     authRouter
   );
   app.use(

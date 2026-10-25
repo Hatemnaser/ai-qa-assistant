@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from "vue";
 
 import { ATTACHMENT_INPUT_ACCEPT } from "../chatAttachments";
-import { AI_MODELS, COMPOSER_PLACEHOLDER_KEYS_BY_MODE, DEFAULT_MODEL, QA_MODES, QUICK_ACTIONS, VISUAL_REVIEW_MODEL } from "../constants";
+import { AI_MODELS, AUTO_MODEL, COMPOSER_PLACEHOLDER_KEYS_BY_MODE, DEFAULT_MODEL, QA_MODES, QUICK_ACTIONS, VISUAL_REVIEW_MODEL } from "../constants";
 import { pastedFiles, shouldSubmitComposerKey } from "../composerInteractions";
 import type { QuickAction } from "../constants";
 import type { AiModelOption, SelectedAttachment } from "../types";
@@ -56,10 +56,10 @@ const composerPlaceholder = computed(
 const isComposerDisabled = computed(() => Boolean(props.disabled));
 const modelOptions = computed(() => {
   const options = props.modelOptions?.length ? props.modelOptions : AI_MODELS;
-  return props.mode === "screenshot_review" && !options.some(option => option.value === VISUAL_REVIEW_MODEL)
-    ? [...options, AI_MODELS.find(option => option.value === VISUAL_REVIEW_MODEL)!]
-    : options;
+  return options;
 });
+const selectedModel = computed(() => props.model || DEFAULT_MODEL);
+const unavailableModel = computed(() => !modelOptions.value.some(option => option.value === selectedModel.value));
 const welcomeActions = QUICK_ACTIONS.filter((action) => ["test_cases", "bug_report", "screenshot_review"].includes(action.mode));
 const visualAction = QUICK_ACTIONS.find((action) => action.mode === "screenshot_review")!;
 const hasImage = computed(() => props.selectedAttachments.some((attachment) => attachment.type === "image"));
@@ -256,8 +256,9 @@ function handleComposerClick() {
         </label>
         <label class="composer-setting composer-setting--model">
           <span class="visually-hidden">{{ t('chat.topbar.model') }}</span>
-          <select class="form-select form-select-sm" :value="mode === 'screenshot_review' ? VISUAL_REVIEW_MODEL : (model || DEFAULT_MODEL)" :disabled="isComposerDisabled || mode === 'screenshot_review'" @change="emit('update:model', ($event.target as HTMLSelectElement).value)">
-            <option v-for="option in modelOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+          <select class="form-select form-select-sm" :value="selectedModel" :disabled="isComposerDisabled" @change="emit('update:model', ($event.target as HTMLSelectElement).value)">
+            <option v-if="unavailableModel" :value="selectedModel" disabled>{{ t('model.unavailableChoice', { model: selectedModel }) }}</option>
+            <option v-for="option in modelOptions" :key="option.value" :value="option.value">{{ option.value === AUTO_MODEL ? t('model.auto.label') : option.label }}</option>
           </select>
         </label>
         <button
@@ -270,6 +271,7 @@ function handleComposerClick() {
           <Icon name="arrow-up" />
         </button>
       </div>
+      <small class="composer-model-note">{{ t(selectedModel === AUTO_MODEL ? 'model.auto.description' : 'model.explicit.description') }}</small>
       <small v-if="mode === 'screenshot_review'" class="composer-model-note">{{ t('model.hintVisual', { model: VISUAL_REVIEW_MODEL }) }}</small>
       <input
         :id="attachmentInputId"

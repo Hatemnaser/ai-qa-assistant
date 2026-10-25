@@ -1,5 +1,9 @@
 import type { Prisma } from "../../generated/prisma/client.js";
 import { enqueueAssetDeletionJobs } from "../assets/assets.deletion-outbox.js";
+import { env } from '../../config/env.js';
+import { AppError } from '../../lib/errors.js';
+import { lockBrowserDeletion,revokeDeletedBrowserScope } from '../browser-auth/browser-auth.deletion.js';
+import { anonymizeDeletedUsage,lockUsageDeletion } from '../usage/usage-privacy.js';
 
 export interface UnverifiedSessionlessUserDeletionGuard {
   createdAtOnOrBefore: Date;
@@ -28,6 +32,12 @@ export interface AccountDataDeletionCoordinator {
  */
 export const accountDataDeletionCoordinator: AccountDataDeletionCoordinator = {
   async deleteInTransaction(tx, userId, guard) {
+    await lockUsageDeletion(tx,userId);
+    const hasSavedTable=await lockBrowserDeletion(tx,userId);
+    if(hasSavedTable&&guard&&!await tx.user.findFirst({where:{id:userId,createdAt:{lte:guard.createdAtOnOrBefore},emailVerifiedAt:null,sessions:{none:{}}},select:{id:true}}))return {count:0};
+    if (env.qaBrowserRuntimeEnabled && await tx.qaBrowserRuntime.findFirst({ where: { state: { not: 'STOP_CONFIRMED' }, execution: { project: { ownerId: userId } } }, select: { runtimeId: true } })) {
+      throw new AppError('Browser Stop must be confirmed before deleting account data.', 409, 'BROWSER_STOP_REQUIRED');
+    }
     const storedAssets = await tx.storedAsset.findMany({
       select: { objectKey: true, uploadExpiresAt: true },
       where: { ownerId: userId },
@@ -57,15 +67,14 @@ export const accountDataDeletionCoordinator: AccountDataDeletionCoordinator = {
       where: { ownerId: userId },
     });
 
-    // Usage rows intentionally do not survive as indirectly identifying
-    // analytics. The remaining user graph is removed through FK cascades.
+    // Remove identifying analytics while preserving finite, ownerless global
+    // quota exposure and the original consumption key for in-flight receipts.
     await tx.aiUsageLog.deleteMany({
       where: { userId },
     });
-    await tx.usageEvent.deleteMany({
-      where: { userId },
-    });
+    await anonymizeDeletedUsage(tx,userId,new Date());
 
+    if(hasSavedTable)await revokeDeletedBrowserScope(tx,userId);
     return tx.user.deleteMany({
       where:
         guard === undefined

@@ -40,6 +40,17 @@ export function normalizeGeminiError(
     );
   }
 
+  if (isMissingModelError(error, selectedModel)) {
+    return withProviderQuotaOrModelLog(
+      new AppError(
+        `Gemini model ${selectedModel} is unavailable for this operation. Choose another model or use Auto.`,
+        503,
+        "MODEL_UNAVAILABLE"
+      ),
+      context
+    );
+  }
+
   const status = getHttpStatus(error);
 
   if (status >= 400 && status <= 499) {
@@ -186,4 +197,14 @@ function isTemporaryUnavailableError(error: unknown) {
     message.includes("high demand") ||
     message.includes("temporarily unavailable")
   );
+}
+
+function isMissingModelError(error: unknown, selectedModel: string) {
+  const details = getGeminiErrorDetails(error);
+  if (getHttpStatus(error) !== 404 || (details.status && details.status.toUpperCase() !== "NOT_FOUND")) return false;
+
+  const escapedModel = selectedModel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Do not make generic 404s, missing files or invalid requests fallback-eligible.
+  return new RegExp(`(?:^|[\\s"'\x60])(?:models/)?${escapedModel}["'\x60]?\\s+(?:is\\s+)?(?:not\\s+found|not\\s+supported\\s+for\\s+generateContent)\\b`, "i")
+    .test(details.message);
 }

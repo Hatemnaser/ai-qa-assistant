@@ -3,12 +3,14 @@ import nodemailer, { type SendMailOptions } from "nodemailer";
 import { env, type AppEnv } from "../../config/env.js";
 
 export interface PasswordResetEmailMessage {
+  deliveryId?: string;
   expiresAt: Date;
   resetUrl: string;
   to: string;
 }
 
 export interface EmailVerificationEmailMessage {
+  deliveryId?: string;
   expiresAt: Date;
   to: string;
   verificationUrl: string;
@@ -70,6 +72,7 @@ export class SmtpAuthEmailService implements AuthEmailService {
 
   async sendEmailVerificationEmail(message: EmailVerificationEmailMessage) {
     await this.config.transporter.sendMail({
+      messageId: message.deliveryId ? `<${message.deliveryId}@oddpath.mail>` : undefined,
       from: this.config.from,
       subject: "Verify your Oddpath email",
       text: buildEmailVerificationText(message),
@@ -79,6 +82,7 @@ export class SmtpAuthEmailService implements AuthEmailService {
 
   async sendPasswordResetEmail(message: PasswordResetEmailMessage) {
     await this.config.transporter.sendMail({
+      messageId: message.deliveryId ? `<${message.deliveryId}@oddpath.mail>` : undefined,
       from: this.config.from,
       subject: "Reset your Oddpath password",
       text: buildPasswordResetText(message),
@@ -193,7 +197,7 @@ function buildPasswordResetText(message: PasswordResetEmailMessage) {
 function buildEmailVerificationText(message: EmailVerificationEmailMessage) {
   return [
     "Please verify your Oddpath email address.",
-    `Open this link to verify your email: ${message.verificationUrl}`,
+    `Open this link to verify your email and choose your sign-in password: ${message.verificationUrl}`,
     `This link expires at ${message.expiresAt.toISOString()}.`,
     "If you did not create an account, you can ignore this email.",
   ].join("\n\n");

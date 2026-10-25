@@ -1,5 +1,6 @@
 import { env } from "../config/env.js";
 import { prisma } from "../db/prisma.js";
+import {requireOperationalDatabase} from '../db/recovery-guard.js';
 import { logOperationalEvent } from "../lib/operational-events.js";
 import {
   assetCleanupResultRequiresAttention,
@@ -11,6 +12,7 @@ import { isAssetStorageConfigured } from "../modules/assets/assets.storage.js";
 const startedAt = Date.now();
 
 async function main() {
+  await requireOperationalDatabase();
   if (!isAssetStorageConfigured(env)) {
     logOperationalEvent("info", {
       cleanupCandidatesMayRemain: false,

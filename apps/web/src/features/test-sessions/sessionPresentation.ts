@@ -45,6 +45,7 @@ export function testSessionTranscript(session: TestSessionDetail, notice: string
       content: message.role === "system" ? `[Recorded activity]\n${message.content}` : message.content,
       mode: message.mode || "general", model: message.model || "", createdAt: message.createdAt,
       attachments: message.attachments,
+      ...(message.isError ? { isError: true } : {}),
     }))],
   };
 }

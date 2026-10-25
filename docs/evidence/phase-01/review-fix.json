@@ -1,0 +1,39 @@
+{
+  "scope": "Stage 1 R1/P2 authorization expiry during lock waits",
+  "baseCommit": "08ae650",
+  "branch": "codex/oddpath-foundation-phase-01",
+  "status": "IMPLEMENTED_PENDING_INDEPENDENT_RE_REVIEW",
+  "applicationFiles": [
+    "apps/api/src/modules/qa-targets/qa-targets.execution.ts",
+    "apps/api/src/modules/qa-requests/qa-execution.repository.ts"
+  ],
+  "deterministicRegression": { "passed": 11, "failed": 0, "unfixedCodeReproduction": "CONFIRMED" },
+  "verify": {
+    "command": "npm run verify",
+    "result": "PASS",
+    "contractTests": 33,
+    "apiTests": 1031,
+    "runnerTests": 18,
+    "webTests": 636,
+    "totalTests": 1718,
+    "failedTests": 0,
+    "architectureSourceFiles": 293,
+    "architectureTestFiles": 151
+  },
+  "databaseIntegration": {
+    "result": "PASS",
+    "passed": 71,
+    "failed": 0,
+    "newRealTargetLockCases": 5,
+    "lockWaitObservedVia": "pg_locks before advancing the injected clock",
+    "database": "oddpath_expiry_test",
+    "host": "127.0.0.1",
+    "port": 55443,
+    "temporaryContainerRemoved": true,
+    "workingDatabaseUsed": false
+  },
+  "migrations": { "existingMigrationsAppliedToDisposableDatabase": 24, "newSchemaChanges": 0 },
+  "diffCheck": "PASS",
+  "activation": { "v2Production": "OFF", "stage2Started": false },
+  "preservation": { "commits": 0, "pushes": 0, "deployments": 0, "paidProviderCalls": 0 }
+}

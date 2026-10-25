@@ -1,0 +1,486 @@
+{
+  "phase": "06C",
+  "date": "2026-10-16T12:00:42.346Z",
+  "status": "LOCAL_CHECKS_PASS_AWAITING_INDEPENDENT_REVIEW",
+  "phaseAccepted": false,
+  "phase06B": "GO: documented closeout references independent acceptance",
+  "publicRelease": "NO_GO; separate phases 7–8 and independent/operational gates",
+  "root": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01",
+  "report": "C:\\Users\\hatem\\Documents\\Codex\\2026-10-10\\new-chat\\outputs\\Oddpath_Phase_06C_Implementation_Report.md",
+  "implementation": {
+    "authAbuseStore": "Existing PostgreSQL; required in production",
+    "newMigration": "20261016000100_shared_auth_abuse",
+    "newServices": 0,
+    "newDependencies": 0,
+    "defaults": {
+      "globalMutations": 120,
+      "windowMs": 900000,
+      "mailRequestsDaily": 100,
+      "recipientRequestsDaily": 5
+    },
+    "privacy": "HMAC pseudonymous keys/count/reset time; no account FK or raw email/IP",
+    "failClosedDatabase": true,
+    "tokenExpiryAfterLocks": true,
+    "credentialFencedSession": true,
+    "mailDelivery": "bounded at-least-once, stable Message-ID, no send beyond reclaimed attempt cap",
+    "publicRegistrationDefaults": "disabled production / release acknowledgement false"
+  },
+  "tests": {
+    "red": {
+      "tests": 5,
+      "pass": 2,
+      "fail": 3,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "final": {
+      "authDb": {
+        "tests": 6,
+        "pass": 6,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "authHttp": {
+        "tests": 7,
+        "pass": 7,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "smtp": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "upgrade": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "existingPostgres": {
+        "tests": 165,
+        "pass": 165,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "identity": {
+        "tests": 8,
+        "pass": 8,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "global": {
+        "tests": 7,
+        "pass": 7,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "identityHttp": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "financialHttp": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    "fullVerify": [
+      {
+        "tests": 41,
+        "pass": 41,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      {
+        "tests": 1098,
+        "pass": 1097,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 1
+      },
+      {
+        "tests": 33,
+        "pass": 33,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      {
+        "tests": 666,
+        "pass": 666,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      {
+        "tests": 91,
+        "pass": 91,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "checks": {
+    "postgresPass": 201,
+    "postgresFail": 0,
+    "postgresSkip": 0,
+    "verifyPass": 1928,
+    "verifyFail": 0,
+    "verifySkip": 1,
+    "apiBuild": "PASS",
+    "freshMigration": "PASS",
+    "populatedUpgrade": {
+      "status": "PASS",
+      "previousTablesPreserved": 57,
+      "deletedAccountAbsent": true
+    },
+    "restore": {
+      "authDeniedFromTwoNewProcesses": true,
+      "financialExposure": 7,
+      "confirmed": 6,
+      "status": "partial",
+      "lateEvidenceFinalCredits": 9,
+      "lateEvidenceReceipts": 3,
+      "providerCalls": 0
+    },
+    "schemaDrift": "No difference detected",
+    "gitDiffCheck": "PASS"
+  },
+  "source": {
+    "baselineFiles": 1140,
+    "finalFilesExcludingLedger": 1153,
+    "finalFilesIncludingLedger": 1154,
+    "changed": [
+      "apps/api/.env.example",
+      "apps/api/prisma/schema.prisma",
+      "apps/api/src/app.ts",
+      "apps/api/src/config/env/loaders/auth.ts",
+      "apps/api/src/config/env/validation/auth.ts",
+      "apps/api/src/lib/operational-events.ts",
+      "apps/api/src/modules/auth/auth-email-outbox.worker.ts",
+      "apps/api/src/modules/auth/auth.email.ts",
+      "apps/api/src/modules/auth/auth.repository.ts",
+      "apps/api/src/modules/auth/auth.service.ts",
+      "apps/api/src/modules/auth/auth.types.ts",
+      "apps/api/src/scripts/cleanup-retention.ts",
+      "apps/api/tests/auth.repository.test.ts",
+      "apps/api/tests/env.test.ts",
+      "docs/AI_HANDOFF.md",
+      "docs/DEPLOY_AUTH_READINESS.md",
+      "docs/NEXT_STEPS.md",
+      "docs/ODDPATH_BETA_IMPLEMENTATION_PLAN.md",
+      "docs/PHASE_06B_CHECKPOINT.md",
+      "docs/PRODUCTION_READINESS.md",
+      "render.yaml"
+    ],
+    "added": [
+      "apps/api/prisma/migrations/20261016000100_shared_auth_abuse/migration.sql",
+      "apps/api/src/modules/auth/auth-abuse.middleware.ts",
+      "apps/api/src/modules/auth/auth-abuse.repository.ts",
+      "apps/api/src/modules/auth/auth-abuse.types.ts",
+      "apps/api/tests/auth-mail.postgres.integration.ts",
+      "apps/api/tests/auth-migration.postgres.integration.ts",
+      "apps/api/tests/auth-public-http.postgres.integration.ts",
+      "apps/api/tests/auth-public.postgres.integration.ts",
+      "apps/api/tests/fixtures/auth-mail-worker.mts",
+      "apps/api/tests/fixtures/auth-public-worker.mts",
+      "docs/AUTH_ABUSE_OPERATIONS.md",
+      "docs/PHASE_06B_CLOSEOUT.md",
+      "docs/PHASE_06C_CHECKPOINT.md",
+      "docs/evidence/phase-06c/validation.json"
+    ],
+    "allOtherBaselineFilesUnchanged": true,
+    "previousUsageCodeAndMigrationsUnchanged": true
+  },
+  "priorAcceptance": {
+    "file": "C:\\Users\\hatem\\Documents\\Codex\\2026-10-10\\new-chat\\outputs\\Oddpath_Phase_06B_Identity_Retention_Acceptance_Review_Evidence.json",
+    "sha256": "df39074551c3ad2ad38d47c68ede947484b9ff60b81ac62a8fa4d80ff806b3dc",
+    "artifactsChecked": 40
+  },
+  "intermediateFailures": [
+    {
+      "file": "api-check-tests.log",
+      "cause": "Two TypeScript errors in new recursive HTTP worker test type",
+      "resolution": "Explicit HttpWorker test interface; final full source/test checks pass"
+    },
+    {
+      "file": "targeted-unit.log",
+      "pass": 117,
+      "fail": 19,
+      "cause": "Sandbox EACCES for loopback HTTP",
+      "resolution": "Full verify rerun with authorized local networking, no assertion/product change"
+    }
+  ],
+  "delegation": {
+    "implementer": "Current session model",
+    "astraInvoked": false,
+    "subagents": 0,
+    "additionalModels": 0
+  },
+  "cleanup": {
+    "checkedAt": "2026-10-16T11:58:07.0946300Z",
+    "processes": [],
+    "ownedContainers": []
+  },
+  "limitations": [
+    "Independent acceptance of 06C pending",
+    "No actual SMTP sender/DNS/HTTPS/ingress staging certification",
+    "SMTP at-least-once may deliver duplicates after lost acknowledgement; bounded attempts and stable Message-ID are not exactly-once proof",
+    "Request budgets are not provider money limits; edge DDoS/capacity limits still required",
+    "HMAC data is pseudonymous; monitored cleanup scheduling and backlog recovery required",
+    "Consistent policies/salt and coordinated changes required; no mixed-policy certification",
+    "One inherited Windows journal test skip",
+    "No new account MFA/OAuth/auth-platform migration",
+    "No paid LLM call, working-database migration, commit/push/deploy/public activation or Phase07 start"
+  ],
+  "artifacts": [
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\api-check-initial.log",
+      "sha256": "6e3f03f8075dd277d1e0c2cdbf71d4657ed6a847720aa504f41782d0bc913149"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\api-check-tests.log",
+      "sha256": "d486d8defb475959027f2e4b5ec1cb08390fbed9032d8e84932d8a8f7f01f083"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth-before.mts",
+      "sha256": "d98945d8f8ee028b776b54f0d514daaa918babd2095ff6b22ecddb7841f8fabc"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth-db-closeout.log",
+      "sha256": "2a5620f29c4e35b00e752f3545a7c43ed2f658acbcfd2eebaa8de90477c2b79c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth-db-final.log",
+      "sha256": "a186461556a10b923fcbe081f39ac531a5ab631874b6868b29346d6a2b9b1b5c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth-http-closeout.log",
+      "sha256": "4a4f86796c3165e50b29acb7462de5dd74c7a338618c9b3d1a77374142e84109"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth-http-final.log",
+      "sha256": "42c102c78e63927f2c1e907abd1e5841a5032976105bb096785cae6c8ba5382c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth-http.log",
+      "sha256": "c33cf4fa70ad0b166a9e56736664ea2f0ad7a47238ea8df721569d9d0453d22f"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth-restore-fixture.json",
+      "sha256": "4e465f03f2439f9bd02073cc97a619a3623e0d327a6df9c8047ac26374e4ac93"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth-restore-seed.log",
+      "sha256": "4abdbe3a4f2beb8813ee49b8665349af0a4d0eeb3599d7ebd67f01f17ad45a29"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth-restore-verify-0.log",
+      "sha256": "a337893c8dde72c2d6c69c153614eeacc693f0c41a869c9c79c7b24e947c1fbe"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth-restore-verify-1.log",
+      "sha256": "a337893c8dde72c2d6c69c153614eeacc693f0c41a869c9c79c7b24e947c1fbe"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth-smtp.log",
+      "sha256": "dd3806ea99126d6e37ad5ba538556f1de4ea172eed33712c4a20be5ae226a5a8"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth-upgrade.log",
+      "sha256": "a350d7a47672258b9945d925c8d6297bd717ad65fd63ab3816866b467695baa2"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth.rateLimit.ts.before",
+      "sha256": "0ef0176efcfafe0b6aefbe831dea73fb79fcaa536176218fc08394cdc64761ca"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth.repository.ts.before",
+      "sha256": "d8a66bfc364c068fe2e842236c0c3fdd00a8d03a08f853b3ec1bd1c091a05a88"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth.repository.ts.before.mts",
+      "sha256": "f6db74aa6ba728391ee9dee779e3614540c899a0ce7abfdb49265452548a10c1"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth.repository.ts.patch",
+      "sha256": "99db792148e9f1b23b2bdeaf0cafcc8fac1fabea53066cc568f932f90c0fa5de"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth.service.ts.before",
+      "sha256": "7c047c054071df9c26b2a2066c51efd798489f41bf600961702bd8f3c3b29dfe"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth.service.ts.before.mts",
+      "sha256": "695c9a48b985c4a20544b57d1ff1fa1548c50f738eccdf7396438d79238584c4"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\auth.service.ts.patch",
+      "sha256": "63a94e85c157c43f882ab5facaab98b168e454bc68705e47399debc753b98e2a"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\build-api.log",
+      "sha256": "1b0ed2addd0bb61c5c04a75ae832efd026091bf34de8667c2d381615725a641b"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\checks.cjs",
+      "sha256": "faff435573c3a1ffbb8c00fe2da6fba88749b587cd746e18989e394979307936"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\closeout.cjs",
+      "sha256": "878a21441db78120a8f32f201a959721d7c7920bf1782e7e50e9624666e57974"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\db-state.json",
+      "sha256": "9260ac4e976d715f45075fc3bc15ff228047b34555294646cc0c6fecda86e465"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\diff-check-final.log",
+      "sha256": "b924dcd6848a7287dc58be1c18b5d162de07d8a0259999caf620f82520f16267"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\diff-check.log",
+      "sha256": "b924dcd6848a7287dc58be1c18b5d162de07d8a0259999caf620f82520f16267"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\global-regression.log",
+      "sha256": "a29338afe36af22f840c86f635c07fbabdf48beeec4236fb60d297fa5942209e"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\green-auth-db.log",
+      "sha256": "bd7af5f464a4f491bb1cfe6804e469b117f3f2bef10cf946903c9c39a55f270a"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\identity-http.log",
+      "sha256": "970520ce3149874bdfebee8eac5833545e5b65d9291a8382126873a2e8b54094"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\identity-regression.log",
+      "sha256": "f68d9d4104acb52a9af4dd8efd34eeebe7997767cfd974484380279abe8006f7"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\integrity-cleanup.json",
+      "sha256": "3de23e6753488ef38e5b0013894bd21bca6d9a53f9cdc7f25277626b15dfd6cd"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\migrate.log",
+      "sha256": "457634a6a6e08cdb44f0ca8746cd8e5bb10f24a35211a97e6f76b6ab2f65a8f8"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\postgres-regression.log",
+      "sha256": "f32563392556b7f156573d8bc558ae987665b1ea50296060666e0efb487e1e81"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\prepare.cjs",
+      "sha256": "a9fe108a2aafb5dc05d869ee1b19c957dcddab4ef4f09eab39593421f7725f4e"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\previous-financial-http.log",
+      "sha256": "02ec1cec163ff65887199a3f953f9551982415b8a3fb7b7b6d13e587c3a172f1"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\process-cleanup.json",
+      "sha256": "ab3078eb7d3dec536353c8c001f5d2f3a9c90b04ff4054d71ddccb5950c3e3b1"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\red-auth-races.log",
+      "sha256": "472334d68ea44cfa5387dc5631e82173329b63f615c498d826ffb6ae64d3cd5c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\report.template.md",
+      "sha256": "4a094d70e263097a564b8547358a63e3abf137e3f86bf96ddbc84ad2ef047482"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\restore-auth-worker.mts",
+      "sha256": "364ef362ef2aff341299aa3f4a126c7ee7689181166b270d7fcbac69d24c9926"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\restore-auth.cjs",
+      "sha256": "8358b2c9707368dc17188aba7f0f9c1de1a466a731f66ed0e083102ae1fe75dd"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\restore-fixture.json",
+      "sha256": "420bac75d1aae68db1a66b005d029a0c661b0cbac6bed1ab1dfa5fd1549c311f"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\restore-orchestration.log",
+      "sha256": "43c08dcb4cde958e4cbea029780f6267243d635a2cec68c5f79538ff738adeea"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\restore-recover-0.log",
+      "sha256": "b4754cb030c2bafa4e8029e2ba3abf2d2a27fc9b12d54e0ae224120a77c0348c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\restore-recover-1.log",
+      "sha256": "b4754cb030c2bafa4e8029e2ba3abf2d2a27fc9b12d54e0ae224120a77c0348c"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\restore-seed.log",
+      "sha256": "9b408e9f724fa468b6f3eb6185516450da676999e0a6632730ec5eb513d45be9"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\restore-verify.log",
+      "sha256": "9161b848ee7b37cd24204568ca836f18ab869455ea73a5772644929d80384c14"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\restore-worker.mts",
+      "sha256": "e366da5443907bc2e260c81b9734fd173a3d5e0cafe2d18009c77c643e6da90a"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\runner.cjs",
+      "sha256": "5bba807b93654dd301da04424d25bfe8a094dfe6b0031435272ff434047cd5c3"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\schema-drift.log",
+      "sha256": "1c3358ec634bc6e5bcca8d3136e2b16909ef20b9941c1687672bdb3aa9590fe1"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\source-at-db-start.json",
+      "sha256": "fd69c92169c7b43684045bf563a8f4a89fa746543611955e27c06e702a5a5681"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\source-before.json",
+      "sha256": "6d9979df760594d49e2c89cbb0598bdc5dd7c5ef3162a738d7a8b299016b0c75"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\source-final.json",
+      "sha256": "e68fbebe4d7fe3f9bb778fe68f39ae5e5111ea2101cb0c1f4bb7ff572610024e"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\targeted-unit.log",
+      "sha256": "6fc0ce3f3e492fd05f9e4e09b93921ce673c47e591894aa0be030ad50410dffa"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\upgrade.cjs",
+      "sha256": "796a0917b54ea9313027bee339b0a9b9cd77480434b3e67f01f5518785b91af0"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\verification.cjs",
+      "sha256": "d49550d7a1b3c79607b6655fe75b314e6d7ba3d5fed009d89130870a86642dfe"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\oddpath-foundation-phase-01\\work\\phase-06c-20261016\\verify.log",
+      "sha256": "3816e2fd0103d27bb3b59a0fc6aa86a8fadb87f3b36123074a524b6486872cd3"
+    },
+    {
+      "file": "C:\\Users\\hatem\\Documents\\Codex\\2026-10-10\\new-chat\\outputs\\Oddpath_Phase_06C_Implementation_Report.md",
+      "sha256": "4a094d70e263097a564b8547358a63e3abf137e3f86bf96ddbc84ad2ef047482"
+    }
+  ]
+}

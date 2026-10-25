@@ -1,3 +1,4 @@
+import { qaEvidenceAvailable } from "./evidenceAvailability";
 import type {
   QaArtifact,
   QaChecklistItem,
@@ -126,7 +127,7 @@ export function qaChecklistEvidence(artifact: QaArtifact | null, run: QaRun | nu
   return artifact.items.map((item) => {
     const evidence = (currentRun?.evidence || []).filter((entry) => evidenceOwner(entry, requirementOwners) === item.id);
     // As in the domain, only an exact requirement ID fulfills required proof.
-    const fulfilled = new Set(evidence.map((entry) => entry.requirementId));
+    const fulfilled = new Set(evidence.filter(qaEvidenceAvailable).map((entry) => entry.requirementId));
     return {
       item,
       result: currentRun?.results.find((result) => result.checklistItemId === item.id) || null,

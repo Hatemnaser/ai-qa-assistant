@@ -1,3 +1,4 @@
+import {emptyQaExport} from "./helpers/emptyQaExport.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
@@ -386,7 +387,7 @@ describe("full Account Data export", () => {
       async $transaction(
         callback: (transaction: Record<string, unknown>) => Promise<unknown>
       ) {
-        return callback(database);
+        return callback({...emptyQaExport,...database});
       },
       message: {
         async findMany(args: Record<string, unknown>) {
