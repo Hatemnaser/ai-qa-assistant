@@ -16,7 +16,7 @@
     "test:integration:db": "tsx --test --test-timeout=30000 tests/postgres.integration.ts",
     "test:integration:readiness": "tsx --test --test-concurrency=1 --test-timeout=60000 tests/readiness.postgres.integration.ts tests/readiness-consistency.postgres.integration.ts",
     "build": "npm --prefix ../../packages/qa-execution-contract run build && prisma generate --no-hints && tsc -p tsconfig.json",
-    "check": "npm --prefix ../../packages/qa-execution-contract run build && npm run check:architecture && prisma generate --no-hints && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "check": "npm --prefix ../../packages/qa-execution-contract run build && npm run check:architecture && prisma generate --no-hints && tsc -p tsconfig.json --noEmit && npm --prefix ../runner run build && tsc -p tsconfig.test.json --noEmit",
     "check:architecture": "node scripts/check-architecture-boundaries.mjs",
     "cleanup:retention": "node dist/scripts/cleanup-retention.js",
     "cleanup:retention:dev": "tsx src/scripts/cleanup-retention.ts",
