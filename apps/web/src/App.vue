@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { clearSessionResourceLayouts } from "./features/sessions/sessionResourceLayout";
 import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from "vue";
 
 import { useAuthSession } from "./features/auth/composables/useAuthSession";
@@ -231,6 +232,7 @@ function handleCreateProjectForChat(chatId: string) {
 }
 
 async function handleLogout() {
+  const departingOwner = currentUser.value?.id;
   try {
     await logoutCurrentUser(async () => {
       clearScheduledChatPersist();
@@ -243,6 +245,8 @@ async function handleLogout() {
     console.warn(error instanceof Error ? error.message : "Could not sign out.");
     return;
   }
+
+  if (departingOwner && currentUser.value?.id !== departingOwner) clearSessionResourceLayouts(departingOwner);
 
   // A newer login can supersede an in-flight logout. Never clear that newer
   // account's local state after the older request settles.
@@ -257,6 +261,7 @@ function handleAccountDeleted(userId: string) {
   clearAssetDownloadUrlCache();
   clearScheduledChatPersist();
   clearChats(getUserChatStorageScope(userId));
+  clearSessionResourceLayouts(userId);
   clearCurrentUser();
   setChatStorageOwner(null);
   accountSettings.value = null;

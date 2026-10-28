@@ -1,3 +1,5 @@
+import {randomUUID,createHash} from 'node:crypto';
+import {managedProjectToken} from '../../../apps/api/src/modules/browser-runtime/managed-project-identity.ts';
 // Synthetic data only. The harness transpiles this and the existing shared
 // quotaBrowserFixture for execution inside the CURRENT compiled API image.
 import {prisma as db} from '../../../apps/api/src/db/prisma.ts';
@@ -14,6 +16,15 @@ try {
   await db.user.create({data:{id:'stack-owner',email:'stack@example.test',passwordHash:await hashPassword(input.password),emailVerifiedAt:new Date(),acceptedTermsAt:new Date(),acceptedTermsVersion:env.currentTermsVersion}});
   await db.chat.create({data:{id:'stack-chat',userId:'stack-owner',title:'Durable synthetic stack chat'}});
   console.log(JSON.stringify({owner:'stack-owner',email:'stack@example.test'}));
+ }
+ if(input.phase==='closed-negative'){
+  const id='closed-outsider';await db.user.create({data:{id,email:'outside@example.test',passwordHash:await hashPassword(input.password),emailVerifiedAt:new Date(),acceptedTermsAt:new Date(),acceptedTermsVersion:env.currentTermsVersion}});
+  const outside=await quotaBrowserFixture(db,id,new Date()),legacy=await quotaBrowserFixture(db,'stack-owner',new Date());
+  const identity={id:'mb-'+randomUUID(),projectId:outside.project.id,ownerId:id,managedHostId:env.qaManagedHostId};
+  const token=managedProjectToken(identity);const binding=await db.projectConnectionToken.create({data:{...identity,name:'Preexisting excluded binding',tokenHash:createHash('sha256').update(token).digest('hex'),tokenPrefix:token.slice(0,20),scopes:['qa:read','execution:claim','execution:write']}});
+  await db.qaRunnerRegistration.update({where:{id:outside.runner.id},data:{connectionTokenId:binding.id}});
+  const result=(f:typeof outside)=>({projectId:f.project.id,requestId:f.request.id,body:{executionMode:'PLAYWRIGHT',expectedRequestVersion:f.start.expectedRequestVersion,profileKey:f.start.profileKey,recipeId:f.start.recipeId,recipeHash:f.start.recipeHash,runnerRegistrationId:f.runner.id}});
+  console.log(JSON.stringify({outside:result(outside),legacy:result(legacy)}));
  }
  if(input.phase==='qa'){
   const f=await quotaBrowserFixture(db,'stack-owner',new Date()),targets=createQaTargetsRepository(db);

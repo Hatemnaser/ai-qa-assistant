@@ -1,0 +1,17 @@
+# Synthetic account-limited staging. Add AFTER base + stack + closed-browser
+# + tls-directory overlays. Default remains loopback until approved activation.
+services:
+  gateway:
+    container_name: "${ODDPATH_STAGING_GATEWAY_CONTAINER:?Use the container configured in the TLS deploy hook}"
+    ports: !override
+      - "${ODDPATH_STAGING_BIND:-127.0.0.1}:${ODDPATH_STAGING_HTTP_PORT:-80}:8080"
+      - "${ODDPATH_STAGING_BIND:-127.0.0.1}:${ODDPATH_STAGING_HTTPS_PORT:-443}:8443"
+    volumes:
+      - type: bind
+        source: "${ODDPATH_ACME_WEBROOT:?Use the accepted challenge-only webroot}"
+        target: /var/www/acme
+        read_only: true
+      - type: bind
+        source: ./staging-http01.conf
+        target: /etc/nginx/conf.d/http01.conf
+        read_only: true

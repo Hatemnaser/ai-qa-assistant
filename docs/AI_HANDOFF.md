@@ -1,15 +1,161 @@
 # AI Handoff
 
-Latest (2026-10-25): risk-focused pre-merge review of the foundation branch has
-**LOCAL_MERGE_REVIEW_GO** after fixing pending WebSocket disconnect handling and
-PostgreSQL TCP startup readiness. Read the local-only report
-`work/merge-review-20261025/REVIEW.md` for Red/Green proofs, coverage, skipped tests
-and the same-reviewer repair limitation. Current local checks include 268 real
-PostgreSQL cases, 25 Docker Chrome/noVNC cases and 51 real UI cases. The final
-runtime changes were not rerun on Oracle ARM; prior combined measurements remain
-historical, not acceptance of new images. Publication remains local-only, no
-merge performed. Phase 08 NOT ACCEPTED; Public Release NO_GO. Earlier dated
-entries below preserve their original states.
+2026-10-29: the reviewed source checkpoint and remaining private WSS gate are
+recorded at the top of [NEXT_STEPS.md](NEXT_STEPS.md). Public web stays CLOSED;
+Phase08 remains NOT ACCEPTED. Earlier dated entries below are historical.
+
+2026-10-28 current state: PUBLIC WEB CLOSED; private readiness round implemented,
+pending independent acceptance. OCI TCP80/443 remain removed and gateway80/443
+remain bound to127.0.0.1. SSH22 remains available. Do not reopen web ingress or
+activate Access/Tunnel without a new owner instruction. HTTP01 renewal remains
+blocked by this deliberate closure; a compatible renewal design is still needed.
+
+Existing maintenance and FULL_SYSTEM backup profiles now run persistently on the
+synthetic Oracle staging. Periodic reconciliation/retention, verified encrypted
+backup, restart scheduling and local health passed implementation checks. One
+encrypted data/escrow pair was copied to the owner's PC and restored into fresh
+local PostgreSQL using the already protected recovery handoff; quarantine,
+restart, wrong-key rejection and nonempty-target refusal passed. This is a manual
+off-host proof, not an automatic off-host service or live recovery authorization.
+
+Resource-tab preferences now survive navigation/reload within the same browser
+tab: account/project/session scoped IDs only, bounded24 records/12 tabs, ignored
+after24h and cleared on logout/account deletion in that browser tab. No viewer
+URL/grant or QA authority is stored; owned catalogs are revalidated. Actual
+private ARM64 UI checks cover two sessions, reload, mobile/keyboard and no grant
+replay. QA controller, quotas and browser sandbox are unchanged.
+
+Review packet: C:/Users/hatem/Documents/Codex/oddpath-private-readiness-round-20261028/REPORT.md.
+The latest complete execution on the final secret bindings remains unverified:
+the existing three-allocation daily browser allowance was exhausted; do not reset
+or raise it to pass. Next: independent MR-style review of the full working tree
+and these receipts, then owner-authorized commit/push. Real mail journeys,
+automatic off-host continuity, protected-access/renewal, broader UX/legal and
+release gates remain open. No new paid service, public access, commit or push.
+Earlier dated sections are history. Phase08 NOT ACCEPTED; Public Release NO_GO.
+
+
+2026-10-28: unavailable TLS edge has bounded independent GO. The next owner-authorized
+account-limited staging now serves the actual UI/API/viewer over trusted443.
+Synthetic data only; registration/paid AI/saved login/assets/imports closed.
+Three real public UI/WSS journeys, Stop/recovery/rollback and a manual full
+encrypted checkpoint passed implementation checks. Six permanent services use
+root-owned /opt and private /etc configuration; actual secret mounts were
+explicitly rebound after ordinary Compose up retained old paths. Read the newest
+PHASE_08A_READINESS_INVENTORY.md section and the implementation receipt at
+C:/Users/hatem/Documents/Codex/oddpath-persistent-staging-20261028/REPORT.md.
+The existing browser limit is three allocations per account per UTC day, all
+used by the three journeys. A final replay after mount rebinding was correctly
+denied429; post-rebind WSS execution remains unverified until a natural allowance
+is available. No quota was reset or raised.
+Independent acceptance is pending. Archives remain on Oracle; automatic/off-host
+archive continuity and real mail are separate gates. Phase08 NOT ACCEPTED;
+Public Release NO_GO. Earlier dated entries retain their historical state.
+
+
+2026-10-28: trusted TLS edge is implemented on the existing Oracle host;
+independent acceptance is pending. App/API/viewer return503; only HTTP01 on80
+and the unavailable HTTPS gateway on443 are exposed, with the prior SSH rule.
+Let's Encrypt issuance, dry-run renewal/deploy-hook, served-certificate checks
+and actual gateway-process crash recovery passed. No application/DB/browser
+workload, real-user admission, email or paid service was activated. Read the newest
+section of PHASE_08A_READINESS_INVENTORY.md and the local
+C:/Users/hatem/Documents/Codex/oddpath-staging-tls-20261028/REPORT.md.
+The preceding DNS/private-browser slice has bounded independent GO. R2 Standard
+free usage is a candidate for the next off-host backup slice; it is not enabled.
+Phase08 NOT ACCEPTED; Public Release NO_GO. Earlier entries are dated history.
+
+2026-10-27: staging DNS and exact-name native rehearsal are implemented, pending
+independent acceptance. The owner authorized three DNS-only A records pointing
+to the existing Oracle VM: staging-oddpath.eluthira.com,
+api-staging-oddpath.eluthira.com and browser-staging-oddpath.eluthira.com. All13
+prior records are preserved. Native ARM tests cover production closed admission,
+real PostgreSQL/QA/Chrome/noVNC/WSS, Stop/restart, and the embedded Browser/Sources
+resource tabs. Report: C:/Users/hatem/Documents/Codex/oddpath-closed-staging-20261027/REPORT.md.
+The private rehearsal uses port8443 and a test certificate; the separately built
+public-origin image has not been accepted as a deployed public service. Oracle
+ingress still permits SSH/ICMP only. Public80/443, trusted certificate issuance
+and renewal, persistent closed staging and application mail journeys remain
+pending. The live-mail provider slice has bounded review GO in
+C:/Users/hatem/Documents/Codex/oddpath-live-mail-acceptance-20261027/REVIEW.md.
+Resources are session-scoped; restoring tab layout after leaving/reloading a
+conversation remains a UX gap, not an implemented Codex-equivalent guarantee.
+No paid service or additional email was enabled. Phase08 NOT ACCEPTED; Public Release NO_GO.
+
+
+2026-10-27: closed current-source activation/requarantine received bounded
+independent GO in C:/Users/hatem/Documents/Codex/oddpath-requarantine-acceptance-20261027/REVIEW.md.
+The owner-authorized live-mail setup now has implementation evidence: Eluthira's
+domain authentication and no-reply sender are verified; one authenticated
+STARTTLS message from Oracle was accepted by Brevo and reached the owner's Inbox.
+Evidence: C:/Users/hatem/Documents/Codex/oddpath-live-mail-20261027/REPORT.md.
+Independent review of this provider setup remains pending. Next is that bounded
+review, then separately authorized closed staging DNS/certificates/HTTPS/WSS and
+actual application verification/reset/outbox journeys. Existing Porkbun inbound
+mail and website records are preserved. No persistent API was deployed or mail
+worker enabled. R2/Render spending and Sentry remain deferred. Permanent off-host
+continuity, full-host-loss recovery, broader vault/assets and UX/legal/release
+gates remain open. Phase08 NOT ACCEPTED; Public Release NO_GO.
+
+
+Latest 2026-10-26: manual off-host/quarantined-restore/native reboot now has
+bounded independent GO in the retained oddpath-continuity-acceptance-20261026
+review. The next available-source recovery staging slice is implemented and
+pending independent review. It durably freezes a current PostgreSQL source and
+creates a closed, quarantined copy on the same cluster. See the newest section
+of [Phase 08A inventory](PHASE_08A_READINESS_INVENTORY.md) for commands and limits.
+No live promotion or full-host-loss continuity is supplied. Cloudflare/Brevo and
+Sentry stay deferred. Phase08 NOT ACCEPTED; Public Release NO_GO.
+
+
+Latest 2026-10-26: manual off-host encrypted backup/quarantined restore and an
+actual Oracle host-reboot rehearsal are complete as implementation evidence,
+pending targeted independent acceptance. Read the newest section in
+[Phase 08A inventory](PHASE_08A_READINESS_INVENTORY.md). Cloudflare/Brevo setup
+is deferred by the owner. Permanent off-host continuity/live recovery and
+remaining release gates stay open. Phase08 NOT ACCEPTED; Public Release NO_GO.
+
+
+Latest 2026-10-26: the account-limited production browser slice received
+independent bounded GO. See the latest section of
+[Phase 08A inventory](PHASE_08A_READINESS_INVENTORY.md) for the acceptance
+receipt and current live-services preparation. Provider account login, exact
+DNS/sender configuration, actual mail delivery and off-host recovery remain
+open. Phase08 NOT ACCEPTED; Public Release NO_GO. Sentry remains deferred.
+
+
+2026-10-26: the current-main native Oracle closed rehearsal received bounded
+acceptance; see the retained local oddpath-oracle-acceptance-20261026/REVIEW.md.
+The next account-limited production activation slice is implemented and awaits
+independent review. It keeps NODE_ENV=production, exact account admission,
+managed-only v2, closed registration/paid AI/assets/saved login and unchanged
+QA/approval/quota/confirmed-Stop contracts. The real UI/HTTPS/WSS/native PG
+journey covers completion, Stop and automatic supervisor-process crash recovery.
+Implementation evidence is local-only under
+C:/Users/hatem/Documents/Codex/oddpath-closed-activation-20261026/.
+Read the canonical closed contract in apps/browser-runtime/README.md.
+Next: independently review this slice before further activation. Live service,
+off-host continuity, unaided onboarding/mobile/accessibility/legal and release
+gates remain open. Phase08 NOT ACCEPTED; Public Release NO_GO. No public service
+or paid provider was enabled. Sentry remains deferred.
+
+
+
+Latest (2026-10-25, merged main / Oracle refresh): PR #17 merged as
+`a014cd83916a3391ac0b92868724a579f537f7e8`; GitHub main CI passed. Main is the
+only active branch. Work now continues in the primary main checkout.
+Current-main native ARM images passed 11 socket/lease cases, one real PostgreSQL
+startup case, 12 actual Chrome/noVNC lifecycle variants and the 21-check closed
+API/PG/one-browser rehearsal. The final repeated workload has 720 HTTPS requests,
+72 measured writes, 64 browser cycles and no HTTP or final sampling errors.
+Read `work/oracle-main-refresh-20261025/REPORT.md` for pinned images, failed
+attempts, metrics repair, limits and evidence. New evidence is local-only in
+the main checkout; older work/ records remain in the retained review checkout
+identified by the new baseline.json. The pre-merge report remains historical.
+Executed by gpt-6.1-sol; no additional model. Independent native/combined
+acceptance of these final images is pending. Production activation, full hosted
+QA/WSS, real services, off-host recovery, monitoring and UX/legal gates remain
+open. Phase08 NOT ACCEPTED; Public Release NO_GO.
 
 Latest checkpoint (2026-10-24, Oracle refresh): recovery fencing/read-only
 assessment has bounded independent GO in

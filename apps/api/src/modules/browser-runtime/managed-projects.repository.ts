@@ -1,3 +1,4 @@
+import {closedBrowserOwnerAllowed} from '../../config/closed-browser.js';
 import {randomUUID,createHash} from 'node:crypto';
 import {z} from 'zod';
 import {runnerRegistrationV2Schema} from '@oddpath/qa-execution-contract';
@@ -18,7 +19,7 @@ export function createManagedProjectsRepository(database=prisma,now=()=>new Date
   return {
     async catalog(after:string|undefined,manualLogin:boolean,allowProduction=false) {
       const targets=await database.qaTarget.findMany({
-        where:{...(after?{id:{gt:after}}:{}),project:{owner:{emailVerifiedAt:{not:null}}},
+        where:{...(after?{id:{gt:after}}:{}),project:{...(env.qaClosedRehearsalEnabled?{ownerId:{in:env.qaClosedRehearsalOwnerIds}}:{}),owner:{emailVerifiedAt:{not:null}}},
           revisions:{some:{verifications:{some:{verifiedAt:{not:null},validUntil:{gt:now()}}}}}},
         orderBy:{id:'asc'},take:21,select:{id:true,projectId:true},
       });
@@ -28,7 +29,7 @@ export function createManagedProjectsRepository(database=prisma,now=()=>new Date
           await lockTestProject(tx,candidate.projectId);
           await lockQaTarget(tx,candidate.id);
           const target=await tx.qaTarget.findUnique({where:{id:candidate.id},include:{project:{include:{owner:{select:{emailVerifiedAt:true}}}}}});
-          if(!target?.project.owner.emailVerifiedAt)return null;
+          if(!target?.project.owner.emailVerifiedAt||!closedBrowserOwnerAllowed(env,target.project.ownerId))return null;
           const revision=await tx.qaTargetRevision.findUnique({where:{targetId_revision:{targetId:target.id,revision:target.currentRevision}}});
           if(!revision||revision.authorityUserId!==target.project.ownerId)return null;
           const proof=await tx.qaTargetVerification.findFirst({where:{revisionId:revision.id,verifiedAt:{not:null},validUntil:{gt:now()}},orderBy:{validUntil:'desc'}});
@@ -45,7 +46,7 @@ export function createManagedProjectsRepository(database=prisma,now=()=>new Date
           // Revocation/key rotation never silently creates or resurrects a binding.
           if(binding.revokedAt||binding.ownerId!==target.project.ownerId||(binding.expiresAt&&binding.expiresAt<=now())||!currentManagedBinding(binding))return null;
           const snapshot=targetSnapshot(revision);
-          if(snapshot.environmentKind==='PRODUCTION'&&!allowProduction)return null;
+          if(snapshot.environmentKind==='PRODUCTION'&&(!allowProduction||env.qaClosedRehearsalEnabled))return null;
           const kinds: Array<'NONE'|'MANUAL'>=manualLogin&&env.qaManualLoginEnabled?['NONE','MANUAL']:['NONE'];
           const registration=runnerRegistrationV2Schema.parse({schemaVersion:2,instanceId:`managed-${env.qaManagedHostId}-${hashCanonicalJson({targetId:target.id}).slice(0,32)}`,
             displayName:'Oddpath managed browser',runnerVersion:'managed-routing-v1',executorKeys:['playwright'],protocolVersions:[2],
@@ -73,7 +74,7 @@ export function createManagedProjectsRepository(database=prisma,now=()=>new Date
       if(!job||!connection)throw missing();
       // This trusted-host adapter permits only observation/Stop/physical exit,
       // never generation, claim, acceptance, human input or result writes.
-      const mustStop=action!=='status'||!!connection.revokedAt||!!(connection.expiresAt&&connection.expiresAt<=now())||!currentManagedBinding(connection);
+      const mustStop=action!=='status'||!closedBrowserOwnerAllowed(env,connection.ownerId)||!!connection.revokedAt||!!(connection.expiresAt&&connection.expiresAt<=now())||!currentManagedBinding(connection);
       const row=mustStop?await runtime.requestStop(connection.id,job.id):await runtime.status(connection.id,job.id);
       const result=action==='exit'?await runtime.exit(connection.id,job.id,input!):row;
       return z.object({state:z.enum(['LIVE','STOP_REQUESTED','STOP_UNCONFIRMED','STOP_CONFIRMED']),runtimeId:z.string()}).parse(result);

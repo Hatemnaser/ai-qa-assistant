@@ -1,3 +1,4 @@
+import {env} from '../../config/env.js';
 import { type ProfileManifestV2 } from "@oddpath/qa-execution-contract";
 import { Prisma } from "../../generated/prisma/client.js";
 import { hashCanonicalJson } from "../../lib/canonical-json.js";
@@ -6,6 +7,7 @@ import { targetSnapshot } from "./qa-targets.binding.js";
 import { lockQaTarget } from "./qa-targets.repository.js";
 
 export async function requireApprovedTarget(tx: Prisma.TransactionClient, projectId: string, profile: ProfileManifestV2, now: () => Date, verificationId?: string) {
+  if (env.qaClosedRehearsalEnabled && profile.environmentKind === 'PRODUCTION') throw new AppError('Production targets are outside the closed browser rehearsal.',409,'QA_CLOSED_REHEARSAL_TARGET');
   await lockQaTarget(tx, profile.target.targetId);
   const target = await tx.qaTarget.findFirst({ where: { id: profile.target.targetId, projectId } });
   if (!target || target.currentRevision !== profile.target.revision) throw new AppError("The target changed or is outside this project.", 409, "QA_TARGET_APPROVAL_CHANGED");

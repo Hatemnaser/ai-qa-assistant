@@ -1,3 +1,4 @@
+import {closedBrowserOwnerAllowed} from '../../config/closed-browser.js';
 import type { z } from "zod";
 import { executionBindingV2Schema, profileManifestV2Schema, type runtimeRegistrationV2Schema, type runtimeExitV2Schema } from "@oddpath/qa-execution-contract";
 import { randomUUID } from 'node:crypto';
@@ -66,10 +67,13 @@ export function createBrowserRuntimeRepository(database: typeof prisma = prisma,
   }
   async function read(connectionId: string, executionId: string, stop = false) {
     return database.$transaction(async tx => {
-      const job = await lockedJob(tx, connectionId, executionId), currentTime = now();
+      const job = await lockedJob(tx, connectionId, executionId);
       const runtime = job.browserRuntime;
       if (!runtime) throw missing();
-      const expired = job.deadlineAt <= currentTime || !job.leaseExpiresAt || job.leaseExpiresAt <= currentTime || !['CLAIMED','RUNNING'].includes(job.status)
+      const owner = env.qaClosedRehearsalEnabled ? await tx.project.findUnique({where:{id:job.projectId},select:{ownerId:true}}) : null;
+      const currentTime = now();
+      const closedOwnerLost = env.qaClosedRehearsalEnabled && (!owner || !closedBrowserOwnerAllowed(env,owner.ownerId));
+      const expired = closedOwnerLost || job.deadlineAt <= currentTime || !job.leaseExpiresAt || job.leaseExpiresAt <= currentTime || !['CLAIMED','RUNNING'].includes(job.status)
         || (!['NONE','READY'].includes(runtime.loginPhase) && (!runtime.loginDeadlineAt || runtime.loginDeadlineAt <= currentTime));
       if (runtime.state === 'LIVE' && (stop || expired)) {
         return tx.qaBrowserRuntime.update({ where: { runtimeId: runtime.runtimeId }, data: { state: 'STOP_REQUESTED', stopRequestedAt: currentTime } });

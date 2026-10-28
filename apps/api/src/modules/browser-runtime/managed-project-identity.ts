@@ -1,3 +1,4 @@
+import {closedBrowserOwnerAllowed} from '../../config/closed-browser.js';
 import {createHash, createHmac,timingSafeEqual} from 'node:crypto';
 import {env} from '../../config/env.js';
 import {AppError} from '../../lib/errors.js';
@@ -20,11 +21,12 @@ export function currentManagedBinding(binding:Binding) {
 // locks; a generic token revoke takes only this row lock, never the reverse order.
 export async function requireManagedAdmission(tx:Prisma.TransactionClient,connectionId:string,now:()=>Date) {
   // Managed IDs are issued only by the internal provisioner; legacy owner APIs
-  // cannot choose connection IDs. Leave legacy contracts unchanged.
-  if(!connectionId.startsWith('mb-'))return;
+  // cannot choose connection IDs. Legacy contracts remain unchanged outside
+  // the explicit managed-only closed rehearsal.
+  if(!connectionId.startsWith('mb-')&&!env.qaClosedRehearsalEnabled)return;
   await tx.$queryRaw`SELECT id FROM "ProjectConnectionToken" WHERE id=${connectionId} FOR SHARE`;
   const current=await tx.projectConnectionToken.findUnique({where:{id:connectionId},include:{project:{select:{ownerId:true}},owner:{select:{emailVerifiedAt:true}}}});
-  if(!current || current.revokedAt || (current.expiresAt && current.expiresAt<=now())
+  if(!current || !closedBrowserOwnerAllowed(env,current.ownerId) || (env.qaClosedRehearsalEnabled&&current.managedHostId!==env.qaManagedHostId) || current.revokedAt || (current.expiresAt && current.expiresAt<=now())
     || current.project.ownerId!==current.ownerId || !current.owner.emailVerifiedAt || !currentManagedBinding(current))
     throw new AppError('Managed project binding is unavailable.',401,'CONNECTION_TOKEN_INVALID');
 }

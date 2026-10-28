@@ -1,0 +1,24 @@
+# Explicit account-limited rehearsal overlay; use after base + stack files.
+# Keeps production validation and existing QA/Stop/quotas; no public activation.
+x-closed-browser-environment: &closed-browser-environment
+  NODE_ENV: production
+  QA_CLOSED_REHEARSAL_ENABLED: "true"
+  QA_CLOSED_REHEARSAL_OWNER_IDS: "${ODDPATH_CLOSED_REHEARSAL_OWNER_IDS:?Provide exact synthetic account IDs}"
+  QA_EXECUTION_V2_ENABLED: "true"
+  QA_BROWSER_RUNTIME_ENABLED: "true"
+  QA_MANAGED_ROUTING_ENABLED: "true"
+  QA_MANUAL_LOGIN_ENABLED: "true"
+  QA_LEGACY_RUNNER_DISPATCH_ENABLED: "false"
+  REGISTRATION_MODE: disabled
+  AI_ENABLED: "false"
+  GUEST_AI_ENABLED: "false"
+  PROJECT_DOCUMENT_EMBEDDINGS_ENABLED: "false"
+  QA_PROCESSING_WORKER_ENABLED: "false"
+  QA_SAVED_LOGIN_ENABLED: "false"
+  PRIVATE_ASSETS_ENABLED: "false"
+  PORTABILITY_IMPORTS_ENABLED: "false"
+services:
+  api:
+    environment: *closed-browser-environment
+  api-reaper:
+    environment: *closed-browser-environment

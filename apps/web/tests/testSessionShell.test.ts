@@ -5,6 +5,7 @@ import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 import * as vue from "vue";
 import { compileScript, parse } from "vue/compiler-sfc";
 import * as lastWork from "../src/router/lastWork";
+import * as sessionLayouts from "../src/features/sessions/sessionResourceLayout";
 import * as sessionSources from "../src/features/sessions/sessionSources";
 import type { TestSessionDetail } from "../src/features/test-sessions/types";
 import { buildTestRoute, buildSessionRoute, buildProjectRoute, parseProjectRouteScope, parseAppRoute, parseTestRouteScope } from "../src/router/useAppRoute";
@@ -12,9 +13,12 @@ import { buildTestRoute, buildSessionRoute, buildProjectRoute, parseProjectRoute
 const source = await readFile(new URL("../src/App.vue", import.meta.url), "utf8");
 const compiled = transpileModule(compileScript(parse(source).descriptor, { id: "test-session-shell" }).content, { compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2022 } }).outputText;
 const scopes: vue.EffectScope[] = [];
+const originalSessionStorage = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
 afterEach(() => {
   scopes.splice(0).forEach((scope) => scope.stop());
+  if (originalSessionStorage) Object.defineProperty(globalThis, "sessionStorage", originalSessionStorage);
+  else Reflect.deleteProperty(globalThis, "sessionStorage");
   if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
   else Reflect.deleteProperty(globalThis, "window");
 });
@@ -110,6 +114,7 @@ function mount(options: { hash?: string; index?: () => Promise<unknown>; project
       updateTestSession: async (_projectId: string, id: string, input: { projectId?: string | null; expectedSessionVersion: number; expectedUpdatedAt?: string }) => { calls.push(`PATCH session:${id}`); if (!options.moveSession) throw new Error('No move fixture'); return options.moveSession(id, input); },
     },
     "./features/sessions/sessionSources": sessionSources,
+    "./features/sessions/sessionResourceLayout": sessionLayouts,
     "./features/sessions/sessionDraftRelocation": { createSessionDraftRelocator: () => ({
       checkProjectMove: async () => {}, applyProjectMove: async () => {}, dispose: noop,
     }) },
@@ -645,4 +650,20 @@ describe("account-owned list and usage read recovery", () => {
       assert.equal(app.state.usageLoading.value, false);
     });
   }
+});
+
+it("deletes the current owner's tab preferences through the real App deletion handler without erasing another owner", async () => {
+  const data = new Map<string, string>();
+  Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: {
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => { data.set(key, value); },
+    removeItem: (key: string) => { data.delete(key); },
+  } });
+  const layout = { openIds: ["sources"], pinnedIds: [], selectedId: "sources", hidden: false };
+  const owner = { ownerId: "owner-a", projectId: "p1", sessionId: "s1" }, other = { ...owner, ownerId: "owner-b" };
+  sessionLayouts.saveSessionResourceLayout(owner, layout); sessionLayouts.saveSessionResourceLayout(other, layout);
+  const app = mount(); app.state.handleAccountDeleted("owner-a"); await tick();
+  assert.equal(sessionLayouts.loadSessionResourceLayout(owner), null);
+  assert.ok(sessionLayouts.loadSessionResourceLayout(other));
+  assert.equal(app.currentUser.value, null);
 });

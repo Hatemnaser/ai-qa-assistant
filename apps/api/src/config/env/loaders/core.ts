@@ -1,5 +1,6 @@
 import {
   parseBoolean,
+  parseStrictBoolean,
   parseList,
   parseNonNegativeInteger,
   parseNumber,
@@ -32,6 +33,8 @@ export function loadCoreEnv({ nodeEnv, source }: EnvLoadContext) {
       "QA_INTEGRATION_RATE_LIMIT_WINDOW_MS"
     ),
     qaProcessingWorkerEnabled: parseBoolean(source.QA_PROCESSING_WORKER_ENABLED, true),
+    qaClosedRehearsalEnabled: parseStrictBoolean(source.QA_CLOSED_REHEARSAL_ENABLED, false, 'QA_CLOSED_REHEARSAL_ENABLED'),
+    qaClosedRehearsalOwnerIds: source.QA_CLOSED_REHEARSAL_OWNER_IDS ? source.QA_CLOSED_REHEARSAL_OWNER_IDS.split(',').map(id => id.trim()) : [],
     qaExecutionV2Enabled: parseBoolean(source.QA_EXECUTION_V2_ENABLED, false),
     qaLegacyRunnerDispatchEnabled: parseBoolean(source.QA_LEGACY_RUNNER_DISPATCH_ENABLED, true),
     qaBrowserRuntimeEnabled: parseBoolean(source.QA_BROWSER_RUNTIME_ENABLED, false),

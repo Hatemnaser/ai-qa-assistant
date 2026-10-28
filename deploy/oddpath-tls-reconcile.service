@@ -1,0 +1,16 @@
+[Unit]
+Description=Reconcile Oddpath TLS deployment after renewals or an interrupted deploy hook
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/oddpath/ops/tls-deploy.py apply --config /etc/oddpath/tls.json
+UMask=0077
+TimeoutStartSec=180
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/etc/oddpath/tls

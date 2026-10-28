@@ -1,5 +1,58 @@
 # Oddpath managed browser foundation
 
+## Closed production rehearsal (2026-10-26)
+
+The explicit account-limited production contract is implemented and awaits
+independent acceptance. Base Compose and ordinary production v2 remain closed.
+The selected overlay retains NODE_ENV=production and all normal production
+validation. It does not authorize public registration or release.
+
+Use deploy/self-hosted.closed-browser.compose.yml AFTER the existing base/stack
+files. Its private interpolation input ODDPATH_CLOSED_REHEARSAL_OWNER_IDS contains
+1–20 distinct exact synthetic account IDs, not emails or wildcard patterns.
+The corresponding API fields are QA_CLOSED_REHEARSAL_ENABLED=true and
+QA_CLOSED_REHEARSAL_OWNER_IDS. The API and independent API reaper use the same
+overlay. The files do not create accounts or prove target ownership.
+
+This mode requires managed v2 discovery, one stable managed host identity,
+separate routing/project/viewer keys, disabled legacy dispatch, secure host-only
+cookies, one exact HTTPS app/CORS origin and a distinct HTTPS viewer origin.
+Existing SMTP/database/CSRF/proxy/auth/quota checks remain mandatory.
+Registration, paid AI/guest AI, embeddings, generation workers, saved login,
+private assets and portability imports remain disabled. Target environments
+marked PRODUCTION are rejected. The current global one-browser / three-per-owner
+UTC-day quota and confirmed-Stop rules remain unchanged.
+
+Discovery and new execution admission enforce the account list on the server,
+including preexisting bindings and direct Runner attempts. Excluded accounts
+cannot receive viewer/login grants. Removal of an owner requests Stop through
+runtime/control polling; it never fabricates physical exit or clears a hold.
+Status, cancellation, physical exit and cleanup remain available for recovery.
+Drain and confirm existing allocations before changing activation, identities
+or keys; retain both reapers until termination is proved. Do not clear journals.
+
+The opt-in Linux operator harness is ops/tests/closed-browser.integration.mjs.
+It requires ODDPATH_CLOSED_REHEARSAL_INTERLOCK=SYNTHETIC_ONLY, an explicit private
+ODDPATH_CLOSED_REHEARSAL_DIRECTORY and unique ODDPATH_CLOSED_REHEARSAL_RUN_ID,
+source/fixtures plus reviewed ARM images. ODDPATH_CLOSED_API_IMAGE and
+ODDPATH_CLOSED_MIGRATION_IMAGE can select the exact reviewed images; all selected
+images are resolved to immutable local IDs. It runs inside the trusted operator
+image with Docker access, not inside the API or tenant browser. The QA helper
+and UI fixture paths are documented by the implementation evidence; retain
+private keys/env/journals locally and export only sanitized results.
+
+The native rehearsal uses real UI approval, production API, PostgreSQL,
+Chrome/Playwright/noVNC and HTTPS/WSS with one synthetic SPKI trust. It covers
+completion, UI Stop, and unexpected Node-supervisor death with automatic restart,
+durable recovery, viewer revocation and no replay. Synthetic fixtures seed an
+agent-provided reviewed recipe and target proof for example.com. They do not
+prove unaided target onboarding, real DNS verification, target credentials/MFA,
+live email/storage, saved-login activation, off-host recovery or capacity/SLA.
+TEXT evidence is the supported closed scope; screenshots/private uploads retain
+their separate activation gate. Public Phase08 acceptance is still ungranted.
+
+
+
 2026-10-18 status: stages 3B/4/5/06/07 now have their bounded local closeouts.
 Read [Phase 08A inventory](../../docs/PHASE_08A_READINESS_INVENTORY.md) before
 deployment work. The dated stage-2/3A descriptions below are history; later

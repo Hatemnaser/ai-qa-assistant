@@ -42,7 +42,12 @@ let toolRevision = 0;
 const toolsScopeKey = computed(() => `${props.currentUser?.id || 'guest'}:${projectId.value}:${session.value?.id || props.sessionId || 'new'}`);
 const sources = computed(() => buildSessionSources(session.value?.messages || [], selectedAttachments.value));
 const resourceCatalog = computed(() => buildSessionResources(toolsScopeKey.value, projectId.value, session.value, request.value));
-const resourceState = useSessionResources(toolsScopeKey, resourceCatalog);
+const resourceState = useSessionResources(toolsScopeKey, resourceCatalog, {
+  persistenceScope: () => props.currentUser && projectId.value && session.value
+    && session.value.projectId === projectId.value && (!props.sessionId || props.sessionId === session.value.id)
+    ? { ownerId: props.currentUser.id, projectId: projectId.value, sessionId: session.value.id } : null,
+  ready: () => !loading.value && !readError.value && !!session.value && session.value.projectId === projectId.value,
+});
 const currentTool = computed(() => resourceState.hidden.value ? null : resourceState.selected.value?.kind || null);
 watch(toolsScopeKey, () => { closeTransientTools(); selectedSourceId.value = null; toolOpener.value = null; }, { flush: 'sync' });
 function openTool(tool: SessionResourceKind, toggle = false) {

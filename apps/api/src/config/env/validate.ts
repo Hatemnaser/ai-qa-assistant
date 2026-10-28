@@ -1,3 +1,4 @@
+import { validateClosedBrowserRehearsal } from '../closed-browser.js';
 import type { AppEnv } from "./load.js";
 import type { EnvValidationContext } from "./types.js";
 import { validateAiEnv, validateProductionAiEnv } from "./validation/ai.js";
@@ -21,6 +22,7 @@ import { validatePrivateAssetEnv } from "./validation/storage.js";
 import { validateProductionUsageEnv } from "./validation/usage.js";
 
 export function validateRuntimeEnv(config: AppEnv, context: EnvValidationContext) {
+  validateClosedBrowserRehearsal(config);
   if (config.qaManagedRoutingEnabled) {
     const keys = [config.qaManagedRoutingKey, config.qaManagedProjectKey, config.qaBrowserViewerSigningKey];
     if (!config.qaBrowserRuntimeEnabled || !/^[a-z][a-z0-9-]{0,63}$/.test(config.qaManagedHostId)
@@ -35,7 +37,7 @@ export function validateRuntimeEnv(config: AppEnv, context: EnvValidationContext
     const viewer = new URL(config.qaBrowserViewerOrigin);
     if (viewer.protocol !== "https:" || viewer.origin !== config.qaBrowserViewerOrigin) throw new Error("QA_BROWSER_VIEWER_ORIGIN must be an exact HTTPS origin.");
   }
-  if (config.nodeEnv === "production" && config.qaExecutionV2Enabled) {
+  if (config.nodeEnv === "production" && config.qaExecutionV2Enabled && !config.qaClosedRehearsalEnabled) {
     throw new Error("QA_EXECUTION_V2_ENABLED must remain false in production until browser isolation, supervision and confirmed Stop gates pass.");
   }
   validateRuntimeBasics(config);

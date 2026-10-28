@@ -31,6 +31,25 @@ export async function assessRecovery({connect=pgClient}={}) {
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
-  try{requireCondition(process.argv.length===3&&process.argv[2]==='assess','RESTORE_ASSESS_USAGE');console.log(JSON.stringify(await assessRecovery()));process.exitCode=2;}
-  catch{console.error(JSON.stringify({status:'RECOVERY_ASSESSMENT_FAILED',releaseAuthorized:false}));process.exitCode=1;}
+ const controller=new AbortController();
+ if(process.argv[2]!=='assess'){process.once('SIGTERM',()=>controller.abort());process.once('SIGINT',()=>controller.abort());}
+ try{
+  const [command,...args]=process.argv.slice(2);let result;
+  if(command==='assess'&&!args.length){result=await assessRecovery();process.exitCode=2;}
+  else{
+   const {stageCurrentSource,inspectCurrentSource,cancelCurrentSource}=await import('./current-source.mjs');
+   const options={stateDirectory:process.env.ODDPATH_RECOVERY_STATE_DIRECTORY,signal:controller.signal};
+   if(command==='stage-current'&&args.length===6&&args[0]==='--source'&&args[2]==='--target'&&args[4]==='--owner')
+    result=await stageCurrentSource({...options,source:args[1],target:args[3],owner:args[5]});
+   else if(command==='inspect-current'&&!args.length)result=await inspectCurrentSource(options);
+   else if(command==='cancel-current'&&args.length===2&&args[0]==='--confirm-source')result=await cancelCurrentSource({...options,confirmation:args[1]});
+   else if(command==='activate-current-closed'&&args.length===6&&args[0]==='--confirm-source'&&args[2]==='--operational-name'&&args[4]==='--runtime-role'){
+    const {activateCurrentClosed}=await import('./recovery-activation.mjs');result=await activateCurrentClosed({...options,confirmation:args[1],database:args[3],runtimeRole:args[5]});
+   }else if(command==='requarantine-current-closed'&&args.length===2&&args[0]==='--confirm-database'){
+    const {requarantineCurrentClosed}=await import('./recovery-activation.mjs');result=await requarantineCurrentClosed({...options,confirmation:args[1]});
+   }else requireCondition(false,'RECOVERY_USAGE_ASSESS_STAGE_INSPECT_CANCEL_ACTIVATE_REQUARANTINE');
+  }
+  console.log(JSON.stringify(result));
+ }catch(error){if(process.argv[2]==='assess'){console.error(JSON.stringify({status:'RECOVERY_ASSESSMENT_FAILED',releaseAuthorized:false}));process.exitCode=1;}
+ else{console.error(JSON.stringify({status:'RECOVERY_FAILED',code:/^(?:RECOVERY|RESTORE|BACKUP|OPS)_[A-Z_]+$/.test(error?.code??'')?error.code:'RECOVERY_OPERATION_FAILED',releaseAuthorized:false,activationAuthorized:false}));process.exitCode=1;}}
 }

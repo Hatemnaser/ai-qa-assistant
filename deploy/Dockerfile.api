@@ -54,7 +54,7 @@ COPY --from=runtime /usr/local/bin/node /usr/local/bin/node
 COPY --from=runtime /opt/oddpath /opt/oddpath
 WORKDIR /opt/oddpath
 COPY ops/lib ops/lib
-COPY ops/maintenance.mjs ops/backup.mjs ops/full-backup.mjs ops/sqlite-export.mjs ops/alerts.mjs ops/recovery.mjs ops/
+COPY ops/maintenance.mjs ops/backup.mjs ops/full-backup.mjs ops/sqlite-export.mjs ops/alerts.mjs ops/recovery.mjs ops/current-source.mjs ops/recovery-activation.mjs ops/recovery-runtime-proof.mjs ops/
 COPY apps/api/scripts/verify-release*.mjs apps/api/scripts/
 USER postgres:postgres
 ENTRYPOINT ["node", "ops/backup.mjs"]

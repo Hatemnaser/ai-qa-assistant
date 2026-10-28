@@ -1,0 +1,12 @@
+# Add after the existing stack overlay, once TLS apply/recovery has been reviewed.
+# The gateway's two per-file secrets MUST be removed: their mounts keep old inodes.
+# Directory generations are atomically switched and nginx reloaded by tls-deploy.py.
+# No ports, origins, API settings, or account-admission gates change here.
+services:
+  gateway:
+    secrets: !reset []
+    volumes:
+      - type: bind
+        source: "${ODDPATH_TLS_DIRECTORY:?Provide the managed TLS generation directory}"
+        target: /run/secrets
+        read_only: true

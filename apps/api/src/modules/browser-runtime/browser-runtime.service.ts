@@ -1,3 +1,4 @@
+import {closedBrowserOwnerAllowed} from '../../config/closed-browser.js';
 import { createHmac, randomUUID } from "node:crypto";
 import { browserViewerGrantSchema, browserLoginGrantSchema } from "@oddpath/qa-execution-contract";
 import { env } from "../../config/env.js";
@@ -21,6 +22,8 @@ export function createBrowserRuntimeService({ repository, signingKey, viewerOrig
         terminationProof: row.state === 'STOP_CONFIRMED' ? { processExited: true, observedAt: row.exitObservedAt } : null };
     },
     async viewer(userId: string, projectId: string, executionId: string) {
+      if (!closedBrowserOwnerAllowed(env,userId)) throw new AppError('This account is outside the closed browser rehearsal.',403,'BROWSER_REHEARSAL_ACCOUNT_REQUIRED');
+
       requireEnabled();
       const row = await repository.owned(userId, projectId, executionId), currentTime = now();
       if (row.state !== 'LIVE' || !['CLAIMED','RUNNING'].includes(row.execution.status) || !row.execution.leaseExpiresAt
@@ -33,12 +36,16 @@ export function createBrowserRuntimeService({ repository, signingKey, viewerOrig
       return { url: `${viewerOrigin}/open#${payload}.${signature}`, expiresAt: new Date(grant.expiresAt).toISOString(), mode: 'VIEW' };
     },
     async login(userId: string, projectId: string, executionId: string, epoch: string, action: 'BEGIN' | 'COMPLETE') {
+      if (!closedBrowserOwnerAllowed(env,userId)) throw new AppError('This account is outside the closed browser rehearsal.',403,'BROWSER_REHEARSAL_ACCOUNT_REQUIRED');
+
       requireEnabled();
       if (!manualEnabled || !repository.loginOwned) throw new AppError('Manual login is not active.', 409, 'BROWSER_LOGIN_NOT_ACTIVE');
       await repository.loginOwned(userId, projectId, executionId, epoch, action);
       return this.status(userId, projectId, executionId);
     },
     async loginViewer(userId: string, projectId: string, executionId: string) {
+      if (!closedBrowserOwnerAllowed(env,userId)) throw new AppError('This account is outside the closed browser rehearsal.',403,'BROWSER_REHEARSAL_ACCOUNT_REQUIRED');
+
       requireEnabled();
       if (!manualEnabled || !repository.loginOwned) throw new AppError('Manual login is not active.', 409, 'BROWSER_LOGIN_NOT_ACTIVE');
       const row = await repository.owned(userId, projectId, executionId);

@@ -1,4 +1,5 @@
 import { computed, ref, watch, toValue, type MaybeRefOrGetter } from 'vue';
+import { loadSessionResourceLayout, saveSessionResourceLayout, sessionLayoutScopeKey, type SessionLayoutScope } from './sessionResourceLayout';
 import type { QaRequestDetail } from '../qa/types';
 import type { TestSessionDetail } from '../test-sessions/types';
 
@@ -26,7 +27,12 @@ export function buildSessionResources(scopeKey: string, projectId: string, sessi
   return resources;
 }
 
-export function useSessionResources(scopeKey: MaybeRefOrGetter<string>, catalog: MaybeRefOrGetter<SessionResource[]>) {
+export function useSessionResources(scopeKey: MaybeRefOrGetter<string>, catalog: MaybeRefOrGetter<SessionResource[]>, options?: {
+  persistenceScope: MaybeRefOrGetter<SessionLayoutScope | null>; ready: MaybeRefOrGetter<boolean>;
+}) {
+  let loadedKey: string | null = null;
+  const persistenceScope = computed(() => options ? toValue(options.persistenceScope) : null);
+  const ready = computed(() => options ? toValue(options.ready) : true);
   const openIds = ref<string[]>([]), selectedId = ref<string | null>(null), pinnedIds = ref<string[]>([]);
   const hidden = ref(true), expanded = ref(false), limitReached = ref(false);
   const available = computed(() => toValue(catalog).filter(item => item.scopeKey === toValue(scopeKey)));
@@ -52,9 +58,33 @@ export function useSessionResources(scopeKey: MaybeRefOrGetter<string>, catalog:
   function pin(id: string) { if (openIds.value.includes(id)) pinnedIds.value = pinnedIds.value.includes(id) ? pinnedIds.value.filter(value => value !== id) : [...pinnedIds.value, id]; }
   function hide() { hidden.value = true; expanded.value = false; }
   function show() { if (tabs.value.length) hidden.value = false; }
-  watch(() => toValue(scopeKey), reset, { flush: 'sync' });
+  watch(() => toValue(scopeKey), () => { loadedKey = null; reset(); }, { flush: 'sync' });
   watch(available, value => {
+    if (options) return;
     for (const id of [...openIds.value]) if (!value.some(item => item.id === id)) close(id);
   }, { flush: 'sync' });
+  // Hydrate only after the owned session/catalog has loaded. A temporary empty
+  // catalog or failed fetch must not overwrite the saved references.
+  watch([persistenceScope, ready, available], () => {
+    const scope = persistenceScope.value, key = sessionLayoutScopeKey(scope);
+    if (!ready.value || !scope || !key) return;
+    if (loadedKey !== key) {
+      const saved = loadSessionResourceLayout(scope);
+      if (saved) {
+        openIds.value = saved.openIds.filter(id => available.value.some(item => item.id === id));
+        pinnedIds.value = saved.pinnedIds.filter(id => openIds.value.includes(id));
+        selectedId.value = openIds.value.includes(saved.selectedId || '') ? saved.selectedId : openIds.value[0] || null;
+        hidden.value = saved.hidden || !openIds.value.length;
+        expanded.value = false; // Never reopen a modal or a browser grant on reload.
+      }
+      loadedKey = key;
+    }
+    for (const id of [...openIds.value]) if (!available.value.some(item => item.id === id)) close(id);
+  }, { flush: 'post', immediate: true });
+  watch([openIds, pinnedIds, selectedId, hidden], () => {
+    const scope = persistenceScope.value;
+    if (ready.value && scope && loadedKey === sessionLayoutScopeKey(scope))
+      saveSessionResourceLayout(scope, { openIds: openIds.value, pinnedIds: pinnedIds.value, selectedId: selectedId.value, hidden: hidden.value });
+  }, { flush: 'post' });
   return { available, tabs, selected, openIds, selectedId, pinnedIds, hidden, expanded, limitReached, open, close, pin, hide, show, reset };
 }

@@ -1,0 +1,127 @@
+import assert from 'node:assert/strict';
+import {spawn,execFileSync} from 'node:child_process';
+import {randomBytes,createHash} from 'node:crypto';
+import {mkdir,readFile,writeFile,readdir,chmod,chown} from 'node:fs/promises';
+import {join} from 'node:path';
+import https from 'node:https';
+import {setTimeout as delay} from 'node:timers/promises';
+import {closedRehearsalOrigins} from './closed-browser-origins.mjs';
+import {DockerRuntimeDriver} from '/opt/oddpath/apps/browser-runtime/src/docker-driver.mjs';
+assert.equal(process.platform,'linux');assert.equal(process.env.ODDPATH_CLOSED_REHEARSAL_INTERLOCK,'SYNTHETIC_ONLY');
+const task=process.env.ODDPATH_CLOSED_REHEARSAL_DIRECTORY,runId=process.env.ODDPATH_CLOSED_REHEARSAL_RUN_ID;
+assert(task?.startsWith('/')&&!task.split('/').includes('..'));assert(/^[a-z0-9-]{1,40}$/.test(runId||''));
+const source=join(task,'source'),out=join(task,'results'),privateDir=join(task,'private'),id='closed-browser-'+runId,controller='oddpath-'+id+'-operator',label='com.oddpath.closed-rehearsal';
+const secrets=Array.from({length:10},()=>randomBytes(32).toString('hex'));
+const [admin,migrator,runtime,csrf,salt,mail,smtp,password0,password1,revocationKey]=secrets;
+const report={schemaVersion:1,status:'RUNNING',model:'gpt-6.1-sol',scope:'CLOSED_PRODUCTION_REAL_UI_QA_WSS_STOP_RECOVERY',phase08Accepted:false,publicReleaseAuthorized:false,startedAt:new Date().toISOString(),checks:[],phases:[],commands:[],cleanup:false};
+const persist=()=>writeFile(join(out,'verification.json'),JSON.stringify(report,null,2)+'\n');
+const safe=v=>{let s=String(v);for(const secret of secrets)s=s.replaceAll(secret,'[REDACTED]');return s;};
+async function command(name,args,{input,allowFailure=false,timeout=120000}={}){
+ const child=spawn('docker',args,{stdio:['pipe','pipe','pipe']});let stdout='',stderr='';child.stdout.on('data',b=>stdout+=b);child.stderr.on('data',b=>stderr+=b);child.stdin.on('error',()=>{});child.stdin.end(input);const timer=setTimeout(()=>child.kill(),timeout);
+ const code=await new Promise((yes,no)=>{child.once('error',no);child.once('close',yes);});clearTimeout(timer);
+ const log='command-'+String(report.commands.length+1).padStart(3,'0')+'.log';await writeFile(join(out,log),safe(stdout+'\n'+stderr));report.commands.push({name,code,log});await persist();if(!allowFailure)assert.equal(code,0,name+': '+safe(stderr).slice(-2000));return{code,stdout,stderr};
+}
+async function check(name,value,details={}){report.checks.push({name,status:value?'PASS':'FAIL',...details});await persist();console.log(JSON.stringify(report.checks.at(-1)));assert(value,name);}
+async function until(name,fn,ms=90000){const end=Date.now()+ms;while(Date.now()<end){const v=await fn();if(v)return v;await delay(300);}throw Error('Timed out: '+name);}
+const envPath=join(privateDir,'compose.env'),base=['compose','--env-file',envPath,'-p',id,'-f',join(source,'deploy/self-hosted.compose.yml'),'-f',join(source,'deploy/self-hosted.stack.compose.yml'),'-f',join(source,'deploy/self-hosted.closed-browser.compose.yml')];
+const compose=(name,args,options)=>command(name,[...base,...args],options);
+const volumeNames=[id+'-pg',id+'-vault',id+'-browser-journal'],createdVolumes=[];
+let pg,api,gateway,ip,ca,agent,driver;
+const inspect=async name=>JSON.parse((await command('inspect-'+name,['inspect',name])).stdout)[0];
+const sql=async(query,database='oddpath')=>(await command('operator-sql',['exec','-i',pg,'psql','-X','-v','ON_ERROR_STOP=1','-U','postgres','-d',database,'-At'],{input:query})).stdout.trim();
+const origins=closedRehearsalOrigins(process.env),origin=origins.app; report.origins=origins;
+function request(path,{host=new URL(origins.api).hostname,method='GET',headers={},body,timeout=5000,trust=true}={}){return new Promise((yes,no)=>{const started=performance.now();const req=https.request({hostname:ip,port:8443,servername:host,ca:trust?ca:undefined,agent:trust?agent:false,path,method,headers:{host:host+':8443',...headers},timeout},res=>{let text='';res.on('data',b=>text+=b);res.on('end',()=>yes({status:res.statusCode,headers:res.headers,text,ms:performance.now()-started}));});req.once('error',no);req.once('timeout',()=>req.destroy(Error('HTTPS_TIMEOUT')));req.end(body===undefined?undefined:JSON.stringify(body));});}
+function ownerRequest(owner,path,body,method=body===undefined?'GET':'PUT'){return request(path,{method,headers:{origin,cookie:owner.cookie,'x-csrf-token':owner.csrf,'content-type':'application/json'},body});}
+async function login(email,password){const token=await request('/api/auth/csrf');assert.equal(token.status,200);const csrfToken=JSON.parse(token.text).csrfToken;secrets.push(csrfToken);let cookie=(token.headers['set-cookie']||[]).map(s=>s.split(';')[0]).join('; ');const response=await request('/api/auth/login',{method:'POST',headers:{origin,cookie,'x-csrf-token':csrfToken,'content-type':'application/json'},body:{email,password}});assert.equal(response.status,200);assert((response.headers['set-cookie']||[]).some(c=>c.includes('Secure')&&c.includes('HttpOnly')));const session=(response.headers['set-cookie']||[]).map(s=>s.split(';')[0]).join('; ');cookie+='; '+session;secrets.push(cookie,session);return{cookie,csrf:csrfToken};}
+async function fixture(phase,data={}){
+ const ts=(await import('/opt/oddpath/node_modules/typescript/lib/typescript.js')).default;
+ const compile=code=>ts.transpileModule(code,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+ const helper=compile(await readFile(join(task,'quotaBrowserFixture.ts'),'utf8')).replaceAll('../../src/','/opt/oddpath/apps/api/dist/').replaceAll(".ts'",".js'").replaceAll("'@oddpath/qa-execution-contract'","'/opt/oddpath/packages/qa-execution-contract/dist/index.js'");
+ const main=compile(await readFile(join(task,'stack-qa.ts'),'utf8')).replaceAll('../../../apps/api/src/','/opt/oddpath/apps/api/dist/').replaceAll('../../../apps/api/tests/helpers/quotaBrowserFixture.ts','/tmp/closed-qa-fixture.mjs').replaceAll(".ts'",".js'");
+ const code="const fs=await import('node:fs/promises');await fs.writeFile('/tmp/closed-qa-fixture.mjs',"+JSON.stringify(helper)+");await fs.writeFile('/tmp/closed-qa-main.mjs',"+JSON.stringify(main)+");await import('file:///tmp/closed-qa-main.mjs');";
+ const result=await command('synthetic-fixture-'+phase,['exec','-i','-e','ODDPATH_STACK_INPUT='+JSON.stringify({phase,...data}),api,'node','--input-type=module'],{input:code});return JSON.parse(result.stdout.trim());
+}
+let observer,supervisorContainer,uiSequence=0;
+async function uiState(){let value;try{value=JSON.parse(await readFile(join(task,'ui-state/state.json'),'utf8'));}catch(e){if(e.code==='ENOENT')return null;throw e;}if(value.status==='FAIL')throw Error(value.error+String.fromCharCode(10)+(value.visibleText||'').slice(0,3500));return value;}
+async function uiAction(action,data={}){const id=String(++uiSequence);await command('synthetic-ui-command-'+action,['exec',observer,'node','-e',"require('fs').writeFileSync('/tmp/closed-ui-command.json',process.argv[1])",JSON.stringify({id,action,...data})]);return id;}
+async function waitUi(name,id,status,timeout=90000){return until(name,async()=>{const value=await uiState();return value?.commandId===id&&value?.status===status?value:false;},timeout);}
+async function startObserver(image,ip,spki,password){await mkdir(join(task,'ui-state'),{mode:0o700});await chown(join(task,'ui-state'),10001,10001);observer=id+'-ui';const payload={appOrigin:origin,apiOrigin:origins.api,viewerOrigin:origins.viewer,gatewayIp:ip,spki,password};
+ await command('start-isolated-sandboxed-UI-observer',['run','-d','--name',observer,'--label',label+'='+id,'--network',id+'_control','--mount','type=bind,src='+join(task,'ui-state')+',dst=/evidence','--read-only','--user','10001:10001','--cap-drop','ALL','--security-opt','no-new-privileges','--security-opt','seccomp=/opt/oddpath/apps/browser-runtime/seccomp.json','--memory','1200m','--memory-swap','1200m','--cpus','1','--pids-limit','256','--shm-size','256m','--tmpfs','/tmp:rw,noexec,nosuid,size=128m','--tmpfs','/home/browser:rw,nosuid,size=128m,uid=10001,gid=10001','--env','ODDPATH_CLOSED_UI='+JSON.stringify(payload),'--entrypoint','node',image.chrome,'--input-type=module','-e',await readFile(join(task,'ui.mjs'),'utf8')]);
+ await until('actual UI login',async()=>{const s=await uiState();return s?.status==='READY';},60000);
+}
+
+try{
+ await command('controller-compose-version',['compose','version']);await mkdir(privateDir,{mode:0o700});await persist();
+ const image={};for(const [name,tag]of Object.entries({api:process.env.ODDPATH_CLOSED_API_IMAGE||'oddpath/closed-activation-api-runtime:20261026',migration:process.env.ODDPATH_CLOSED_MIGRATION_IMAGE||'oddpath/closed-activation-api-migrations:20261026',web:process.env.ODDPATH_CLOSED_WEB_IMAGE||'oddpath/main-refresh-r2-web:20261025',postgres:'postgres:16',supervisor:'oddpath/main-refresh-r2-supervisor:20261025',chrome:'oddpath/main-refresh-r2-chrome:20261025',egress:'oddpath/main-refresh-r2-egress:20261025'})){const info=JSON.parse((await command('pin-'+name,['image','inspect',tag])).stdout)[0];assert.equal(info.Architecture,'arm64');image[name]=info.Id;}report.images=image;
+ execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',join(privateDir,'tls-key'),'-out',join(privateDir,'tls-chain'),'-days','1','-subj','/CN='+new URL(origins.app).hostname,'-addext','subjectAltName='+Object.values(origins).map(v=>'DNS:'+new URL(v).hostname).join(',')],{stdio:'ignore'});ca=await readFile(join(privateDir,'tls-chain'));secrets.push(await readFile(join(privateDir,'tls-key'),'utf8'));for(const p of ['tls-chain','tls-key']){await chmod(join(privateDir,p),0o600);await chown(join(privateDir,p),101,101);}
+ const vaultKeys={storage:{activeVersion:'v1',keys:{v1:randomBytes(32).toString('hex')}},transfer:{activeVersion:'v1',keys:{v1:randomBytes(32).toString('hex')}},revocationKey};secrets.push(vaultKeys.storage.keys.v1,vaultKeys.transfer.keys.v1);
+ await writeFile(join(privateDir,'vault-keyring'),JSON.stringify(vaultKeys),{mode:0o600});await chown(join(privateDir,'vault-keyring'),1000,1000);await writeFile(join(privateDir,'admin'),admin,{mode:0o600});await writeFile(join(privateDir,'dummy'),'unused-closed-profile',{mode:0o600});
+ const viewer=randomBytes(32).toString('hex'),routing=randomBytes(32).toString('hex'),projectKey=randomBytes(32).toString('hex');secrets.push(viewer,routing,projectKey);
+ const controlFiles={'supervisor-config':JSON.stringify({instanceId:id,supervisorContainer:'oddpath-'+id+'-supervisor',chromeImage:image.chrome,egressImage:image.egress,publicOrigin:origins.viewer,viewerFrameOrigin:origin,allowManualLogin:true,discovery:{serverUrl:origins.api,keyFile:'/run/secrets/managed_routing_key'}}),'viewer-key':viewer,'routing-key':routing,'transfer-keyring':JSON.stringify(vaultKeys.transfer)};
+ for(const [name,value]of Object.entries(controlFiles))await writeFile(join(privateDir,name),value,{mode:0o600});
+ const apiEnv=[`DATABASE_URL=postgresql://oddpath_runtime:${runtime}@postgres:5432/oddpath?schema=public`,`APP_ORIGIN=${origin}`,`CORS_ORIGIN=${origin}`,`CSRF_SECRET=${csrf}`,`USAGE_IP_HASH_SALT=${salt}`,'EMAIL_PROVIDER=smtp','EMAIL_FROM=Oddpath <synthetic@example.test>','SMTP_HOST=127.0.0.1','SMTP_PORT=9','SMTP_USER=synthetic',`SMTP_PASS=${smtp}`,`EMAIL_OUTBOX_ENCRYPTION_SECRET=${mail}`,'CURRENT_TERMS_VERSION=capacity-synthetic-v1',`QA_BROWSER_VIEWER_SIGNING_KEY=${viewer}`,`QA_BROWSER_VIEWER_ORIGIN=${origins.viewer}`,`QA_MANAGED_ROUTING_KEY=${routing}`,`QA_MANAGED_PROJECT_KEY=${projectKey}`,`QA_MANAGED_HOST_ID=closed-host`];
+ await writeFile(join(privateDir,'api.env'),apiEnv.join('\n')+'\n',{mode:0o600});await writeFile(join(privateDir,'migration.env'),`DATABASE_URL=postgresql://oddpath_migrator:${migrator}@postgres:5432/oddpath?schema=public\n`,{mode:0o600});
+ const dummy=join(privateDir,'dummy'),values={ODDPATH_API_IMAGE:image.api,ODDPATH_MIGRATION_IMAGE:image.migration,ODDPATH_POSTGRES_IMAGE:image.postgres,ODDPATH_POSTGRES_VOLUME:volumeNames[0],ODDPATH_POSTGRES_PASSWORD_FILE:join(privateDir,'admin'),ODDPATH_API_ENV_FILE:join(privateDir,'api.env'),ODDPATH_MIGRATION_ENV_FILE:join(privateDir,'migration.env'),ODDPATH_WEB_IMAGE:image.web,ODDPATH_NGINX_IMAGE:(await readFile(join(task,'nginx-reference.txt'),'utf8')).trim(),ODDPATH_HTTPS_PORT:'0',ODDPATH_APP_HOST:new URL(origins.app).hostname,ODDPATH_API_HOST:new URL(origins.api).hostname,ODDPATH_VIEWER_HOST:new URL(origins.viewer).hostname,ODDPATH_API_ORIGIN:origins.api,ODDPATH_VIEWER_ORIGIN:origins.viewer,ODDPATH_TLS_CHAIN_FILE:join(privateDir,'tls-chain'),ODDPATH_TLS_KEY_FILE:join(privateDir,'tls-key'),ODDPATH_CLOSED_REHEARSAL_OWNER_IDS:'stack-owner',ODDPATH_CONTROL_CA_FILE:join(privateDir,'tls-chain'),ODDPATH_SUPERVISOR_IMAGE:image.supervisor,ODDPATH_SUPERVISOR_CONTAINER:'oddpath-'+id+'-supervisor',ODDPATH_SUPERVISOR_CONFIG_FILE:join(privateDir,'supervisor-config'),ODDPATH_VIEWER_KEY_FILE:join(privateDir,'viewer-key'),ODDPATH_ROUTING_KEY_FILE:join(privateDir,'routing-key'),ODDPATH_TRANSFER_KEYRING_FILE:join(privateDir,'transfer-keyring'),ODDPATH_VAULT_KEYRING_FILE:join(privateDir,'vault-keyring'),ODDPATH_VAULT_VOLUME:volumeNames[1],ODDPATH_BROWSER_JOURNAL_VOLUME:volumeNames[2]};
+ await writeFile(envPath,Object.entries(values).map(([k,v])=>k+'='+v).join('\n')+'\n',{mode:0o600});await compose('validate-current-two-file-closed-stack',['config','--quiet']);
+ for(const v of volumeNames){assert.notEqual((await command('check-new-volume',['volume','inspect',v],{allowFailure:true})).code,0);await command('create-private-owned-volume',['volume','create','--label',label+'='+id,v]);createdVolumes.push(v);}
+ await command('initialize-vault-directory',['run','--rm','--network','none','--user','0:0','-v',volumeNames[1]+':/vault','--entrypoint','node',image.supervisor,'-e',"const f=require('fs');f.chmodSync('/vault',0o700);f.chownSync('/vault',1000,1000)"]);
+ await compose('start-only-fresh-postgres',['up','-d','--no-build','postgres']);pg=(await compose('postgres-container',['ps','-q','postgres'])).stdout.trim();
+ await until('postgres bootstrap',async()=>{const i=await inspect(pg);return i.State.Health?.Status==='healthy';});
+ await sql(`CREATE ROLE oddpath_migrator LOGIN PASSWORD '${migrator}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;CREATE ROLE oddpath_runtime LOGIN PASSWORD '${runtime}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;CREATE DATABASE oddpath OWNER oddpath_migrator;REVOKE CONNECT ON DATABASE postgres,template1 FROM PUBLIC;REVOKE ALL ON DATABASE oddpath FROM PUBLIC;GRANT CONNECT ON DATABASE oddpath TO oddpath_runtime;`,'postgres');
+ await sql('REVOKE CREATE ON SCHEMA public FROM PUBLIC;ALTER SCHEMA public OWNER TO oddpath_migrator;GRANT USAGE ON SCHEMA public TO oddpath_runtime;ALTER DEFAULT PRIVILEGES FOR ROLE oddpath_migrator IN SCHEMA public GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO oddpath_runtime;ALTER DEFAULT PRIVILEGES FOR ROLE oddpath_migrator IN SCHEMA public GRANT USAGE,SELECT ON SEQUENCES TO oddpath_runtime;');
+ await compose('apply-current-reviewed-migrations',['--profile','operations','run','--rm','--no-deps','migrate'],{timeout:180000});
+ await sql('GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO oddpath_runtime;GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO oddpath_runtime;REVOKE ALL ON TABLE "_prisma_migrations" FROM oddpath_runtime;');
+ const expectedMigrations=(await readdir(join(source,'apps/api/prisma/migrations'))).filter(n=>/^\d/.test(n)).length,count=Number(await sql('SELECT count(*) FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL;'));await check('all current migrations applied on fresh native PostgreSQL',count===expectedMigrations,{count});
+ await compose('start-closed-production-api-and-tls-ingress',['up','-d','--no-build','api','gateway']);api=(await compose('api-container',['ps','-q','api'])).stdout.trim();gateway=(await compose('gateway-container',['ps','-q','gateway'])).stdout.trim();
+ await command('attach-trusted-load-client-control-network',['network','connect',id+'_control',controller]);const gi=await inspect(gateway);ip=gi.NetworkSettings.Networks[id+'_control'].IPAddress;agent=new https.Agent({ca,keepAlive:true,maxSockets:16});
+ await until('real production API readiness',async()=>{try{return(await request('/api/health/ready')).status===200;}catch{return false;}});
+ const actual=await inspect(api);await check('closed production activation retains least-privilege runtime and paid gates',actual.Config.User==='node:node'&&actual.HostConfig.ReadonlyRootfs&&actual.HostConfig.CapDrop.includes('ALL')&&actual.Config.Env.includes('NODE_ENV=production')&&actual.Config.Env.includes('QA_EXECUTION_V2_ENABLED=true')&&actual.Config.Env.includes('QA_CLOSED_REHEARSAL_ENABLED=true')&&actual.Config.Env.includes('PRIVATE_ASSETS_ENABLED=false')&&actual.Config.Env.includes('AI_ENABLED=false')&&!actual.Mounts.some(m=>m.Destination.includes('docker.sock')));
+ await check('TLS rejects untrusted issuer',await request('/api/health/ready',{trust:false}).then(()=>false,()=>true));await check('frontend built for exact HTTPS origins',(await request('/',{host:new URL(origins.app).hostname})).text.includes('<!doctype html>'));
+ await check('production closed activation has exact app/viewer CSP',String((await request('/',{host:new URL(origins.app).hostname})).headers['content-security-policy']).includes(origins.viewer));
+ await check('viewer not falsely ready before supervisor starts',(await request('/open',{host:new URL(origins.viewer).hostname})).status===503);
+ await fixture('owner',{password:password0});const negative=await fixture('closed-negative',{password:password1});
+ const first=await login('stack@example.test',password0),outside=await login('outside@example.test',password1);
+ for(const [name,owner,qa]of [['excluded-account',outside,negative.outside],['nonmanaged-runner',first,negative.legacy]]){
+  const denied=await ownerRequest(owner,`/api/projects/${qa.projectId}/qa/requests/${qa.requestId}/runs`,qa.body,'POST');
+  await check(name+' cannot reserve or queue browser work',denied.status===401,{httpStatus:denied.status});
+ }
+ await check('denied admission leaves zero reservations',Number(await sql('SELECT count(*) FROM "QaBrowserReservation";'))===0);
+ await compose('start-existing-real-supervisor-and-independent-reapers',['--profile','browser','up','-d','--no-build','browser-supervisor','browser-reaper','api-reaper']);
+ supervisorContainer=(await compose('supervisor-container',['ps','-q','browser-supervisor'])).stdout.trim();
+ driver=new DockerRuntimeDriver({instanceId:id,supervisorContainer:'oddpath-'+id+'-supervisor',chromeImage:image.chrome,egressImage:image.egress});
+ const spki=createHash('sha256').update(execFileSync('openssl',['pkey','-pubin','-outform','DER'],{input:execFileSync('openssl',['x509','-in',join(privateDir,'tls-chain'),'-pubkey','-noout'])})).digest('base64');
+ await startObserver(image,ip,spki,password0);
+ for(const mode of ['complete','stop','restart']){
+  const qa=await fixture('qa');await until('automatic managed manual profile',async()=>{const p=await fixture('prepare',qa);return !p.pending;},45000);
+  const commandId=await uiAction('open',{qa});const opened=await waitUi('real UI approval and human sign-in browser',commandId,'VIEWER_OPEN');
+  await check(mode+' approves exact recipe through UI and renders WSS framebuffer',opened.frames>0&&opened.checks.includes('immutable approval and queue from actual UI'));
+  const before=await fixture('state',qa),job=before.job;
+  await check(mode+' holds capacity during manual login',job.status==='CLAIMED'&&job.browserRuntime.state==='LIVE'&&job.browserRuntime.loginPhase==='LOGIN'&&before.reservation.state==='ACTIVE');
+  const wrong=await ownerRequest(outside,`/api/projects/${qa.projectId}/browser-runtimes/${job.id}/login/viewer`,{},'POST');await check(mode+' denies excluded owner viewer grant',[403,404].includes(wrong.status),{httpStatus:wrong.status});
+  if(mode==='restart'){
+   const previous=await inspect(supervisorContainer);const killed=await command('SIGKILL-real-owned-supervisor-process',['exec',supervisorContainer,'node','-e',"const fs=require('fs'),pids=[];for(const id of fs.readdirSync('/proc'))if(/^[0-9]+$/.test(id)){try{const args=fs.readFileSync('/proc/'+id+'/cmdline','utf8').split(String.fromCharCode(0));if(args[0]?.split('/').at(-1)==='node'&&args.some(a=>a==='apps/browser-runtime/src/supervisor-main.mjs'||a==='/opt/oddpath/apps/browser-runtime/src/supervisor-main.mjs'))pids.push(Number(id));}catch{}}if(pids.length!==1||pids[0]<=1)throw Error('Expected one owned supervisor process');process.stdout.write('FAULT_PID:'+pids[0]+'\\n',()=>process.kill(pids[0],'SIGKILL'));"],{allowFailure:true});assert.match(killed.stdout,/FAULT_PID:[0-9]+/);
+   await until('fresh supervisor process from durable journal',async()=>{const next=await inspect(supervisorContainer);if(next.State.Status!=='running'||!next.State.Running||next.State.Restarting||next.State.Pid<=0||next.State.Pid===previous.State.Pid||next.RestartCount<=previous.RestartCount)return false;report.supervisorRecovery={previousPid:previous.State.Pid,currentPid:next.State.Pid,previousRestartCount:previous.RestartCount,currentRestartCount:next.RestartCount,state:next.State.Status,restarting:next.State.Restarting};return true;},30000);
+  }else await waitUi('UI completion or Stop sent',await uiAction(mode),'ACTION_SENT');
+  const done=await until('physical exit and terminal execution',async()=>{const s=await fixture('state',qa);return s.job?.browserRuntime?.state==='STOP_CONFIRMED'&&['SUCCEEDED','FAILED','CANCELLED','STOPPED'].includes(s.job.status)?s:false;},100000);
+  if(mode==='complete')await check('one completed approved attempt persists PASS and TEXT evidence',done.job.status==='SUCCEEDED'&&done.job.attempts===1&&done.job.run.results.length===1&&done.job.run.results[0].status==='PASS'&&done.job.run.evidence.length>0);
+  else await check(mode+' never replays or reports success after Stop/crash',done.job.status!=='SUCCEEDED'&&done.job.attempts===1);
+  await until('reservation released after confirmed physical exit',async()=>{const s=await fixture('state',qa);return s.reservation?.state==='RELEASED';},15000);
+  const revoked=await waitUi('previous viewer cookie invalidated',await uiAction('check-revoked'),'REVOKED');await check(mode+' revokes existing stream and cookie',revoked.status==='REVOKED');
+  await waitUi('reload remains historical',await uiAction('reload'),'RELOADED');const after=await fixture('state',qa);await check(mode+' reload does not replay prior execution',after.job.id===job.id&&after.job.attempts===1&&after.job.browserRuntime.state==='STOP_CONFIRMED');
+ }
+ const finished=await waitUi('observer closes with no uncaught page errors',await uiAction('finish'),'PASS');await check('actual frontend has no uncaught errors',finished.errors.length===0);assert.equal(Number((await command('normal-observer-exit',['wait',observer])).stdout.trim()),0);assert.equal((await inspect(observer)).State.OOMKilled,false);
+ const counts=JSON.parse(await sql('SELECT json_build_object(\'users\',(SELECT count(*) FROM "User"),\'usage\',(SELECT count(*) FROM "UsageEvent"),\'email\',(SELECT count(*) FROM "AuthEmailJob"),\'active\',(SELECT count(*) FROM "QaBrowserReservation" WHERE state <> \'RELEASED\'),\'jobs\',(SELECT count(*) FROM "QaExecutionJob"),\'attempts\',(SELECT sum(attempts) FROM "QaExecutionJob"))::text;'));
+ await check('three explicit attempts; zero paid usage, mail or ghost reservations',counts.users===2&&counts.jobs===3&&counts.attempts===3&&counts.usage===0&&counts.email===0&&counts.active===0,{counts});
+ report.status='PASS';
+
+}catch(e){report.status='FAIL';report.error=safe(e.stack||e);process.exitCode=1;console.log(JSON.stringify({status:'FAIL',error:report.error}));try{await compose('failure-diagnostics',['--profile','browser','logs','--no-color','--tail','100'],{allowFailure:true});}catch{}}
+finally{
+ if(observer){try{const i=await inspect(observer);assert.equal(i.Config.Labels[label],id);await command('observer-log',['logs',observer],{allowFailure:true});await command('remove-owned-observer',['rm','-f',observer]);}catch(e){report.observerCleanupError=safe(e.message);report.status='FAIL';process.exitCode=1;}}
+ try{
+  if(driver){await compose('stop-existing-owned-control-before-cleanup',['--profile','browser','stop','browser-supervisor','browser-reaper','api-reaper']);for(const runtimeId of await driver.list())await driver.stop(runtimeId);}
+  if(createdVolumes.length>0){await command('detach-load-client-from-owned-control-network',['network','disconnect',id+'_control',controller],{allowFailure:true});await compose('remove-only-owned-closed-stack',['--profile','browser','down','--remove-orphans'],{allowFailure:false});}
+  for(const v of createdVolumes){const info=JSON.parse((await command('verify-owned-volume-before-removal',['volume','inspect',v])).stdout)[0];assert.equal(info.Labels[label],id);await command('remove-owned-synthetic-volume',['volume','rm',v]);}
+  report.cleanup=true;
+ }catch(e){report.cleanupError=safe(e.stack||e);report.status='FAIL';process.exitCode=1;}
+ agent?.destroy();report.finishedAt=new Date().toISOString();await persist();console.log(JSON.stringify({status:report.status,checks:report.checks.length,phases:report.phases.length,cleanup:report.cleanup}));
+}
